@@ -5,13 +5,13 @@
     <div class="row">
       <div class="col-12">
         <!-- Form Container -->
-      <div class="row no-wrap">
+      <div class="containers-wrapper">
         <!-- Temel Form -->
-        <div :style="{ width: showExtraFields ? '400px' : '100%' }" class="q-pr-md">
+        <div class="ana-form-wrapper">
             <q-form @submit.prevent="submitForm" class="q-gutter-xs" ref="formRef">
             
             <!-- Ana Container -->
-            <div class="ana-form-container">
+            <div class="ana-form-container" ref="anaContainerRef">
               <!-- Üst Başlık Satırı -->
               <div class="container-header">
                 <div class="hesap-tipi-section">
@@ -321,7 +321,7 @@
                       label="Otomatik Hesaplanan Bedel (TL)"
                       outlined
                       color="purple-6"
-                      label-color="purple-6"
+                      :label-color="$q.dark.isActive ? 'purple-3' : 'purple-6'"
                       dense
                       readonly
                       class="kurumsal-responsive hesaplanan-bedel-field"
@@ -375,18 +375,17 @@
           </q-form>
         </div>
 
-        <!-- Ek Bilgiler Paneli -->
-        <div v-if="showExtraFields" style="width: 350px;" class="q-pl-md">
-          <div class="text-subtitle1 text-grey-7 q-mb-sm">Ek Bilgiler</div>
-          <div class="q-gutter-sm">
+        <!-- Ek Bilgiler Container -->
+        <div v-if="showExtraFields" class="ek-bilgiler-container" ref="ekBilgilerContainerRef">
+          <div class="ek-bilgiler-form">
             <q-input 
               v-model="extraForm.MstrDgmTarihi" 
               label="Doğum Tarihi"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
               readonly
             >
               <template v-slot:append>
@@ -413,9 +412,9 @@
               label="2. Telefon No"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrEposta" 
@@ -423,36 +422,36 @@
               type="email"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrMeslek" 
               label="Meslek"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrYakini" 
               label="Yakını"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrYknTel" 
               label="Yakın Tel"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrAdres" 
@@ -461,9 +460,9 @@
                 rows="3"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
             <q-input 
               v-model="extraForm.MstrNot" 
@@ -472,9 +471,9 @@
               rows="2"
               dense
               outlined
-              color="grey-6"
-              label-color="grey-6"
-              class="text-caption tc-responsive"
+              color="teal-6"
+              label-color="teal-7"
+              class="text-caption full-width-input"
             />
           </div>
         </div>
@@ -487,8 +486,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
+import { useQuasar } from 'quasar'
 import axios, { AxiosError } from 'axios'
+
+const $q = useQuasar()
 
 const hesapTipleri = [
   { label: 'Bireysel', value: 'Bireysel' },
@@ -514,6 +516,8 @@ const tcInput = ref()
 const showExtraFields = ref(false)
 const datePopup = ref()
 const formRef = ref()
+const anaContainerRef = ref()
+const ekBilgilerContainerRef = ref()
 const extraForm = ref({
   MstrDgmTarihi: '',
   MstrTel2: '',
@@ -1039,6 +1043,52 @@ function showOdaYatakNotification(odaYatak: string) {
     }, 2500)
   }
 }
+
+// Yükseklik eşitleme fonksiyonu
+let adjustTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+function adjustContainerHeights() {
+  // Throttling ile performans optimizasyonu
+  if (adjustTimeoutId) {
+    clearTimeout(adjustTimeoutId)
+  }
+  
+  adjustTimeoutId = setTimeout(() => {
+    void nextTick(() => {
+      if (anaContainerRef.value && ekBilgilerContainerRef.value && showExtraFields.value) {
+        const anaHeight = anaContainerRef.value.offsetHeight
+        ekBilgilerContainerRef.value.style.height = `${anaHeight}px`
+      }
+    })
+  }, 100) // 100ms throttle
+}
+
+// Sayfa yüklendiğinde ve ek alanlar açıldığında yükseklik eşitleme
+onMounted(() => {
+  adjustContainerHeights()
+})
+
+// showExtraFields değişikliklerini izle
+watch(showExtraFields, () => {
+  adjustContainerHeights()
+})
+
+// Hesap tipi değişikliklerini izle ve yükseklik eşitleme yap
+watch(() => form.value.MstrHspTip, () => {
+  // nextTick ile DOM güncellemesi tamamlandıktan sonra yükseklik eşitle
+  void nextTick(() => {
+    adjustContainerHeights()
+  })
+})
+
+// Form değişikliklerini genel olarak izle (ana container yükseklik değişiklikleri için)
+watch(form, () => {
+  if (showExtraFields.value) {
+    void nextTick(() => {
+      adjustContainerHeights()
+    })
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -1148,12 +1198,27 @@ function showOdaYatakNotification(odaYatak: string) {
   gap: 8px;
 }
 
+/* Container Wrapper - Ana layout için */
+.containers-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  width: 100%;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.ana-form-wrapper {
+  flex: 0 0 auto;
+}
+
 /* Ana Form Container */
 .ana-form-container {
-  width: 50%;
+  width: 800px;
   max-width: 800px;
   min-width: 600px;
-  margin: 0 auto 16px auto;
+  margin: 0;
   border: 2px solid #e0e0e0;
   border-radius: 12px;
   padding: 20px;
@@ -1161,6 +1226,8 @@ function showOdaYatakNotification(odaYatak: string) {
   position: relative;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Dark mode adaptasyonu */
@@ -1174,33 +1241,69 @@ function showOdaYatakNotification(odaYatak: string) {
   border-bottom-color: #424242;
 }
 
-/* Ana Container Responsive Breakpoints */
-@media (max-width: 1200px) {
+/* Responsive Breakpoints */
+@media (max-width: 1400px) {
+  .containers-wrapper {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  
   .ana-form-container {
-    width: 60%;
+    width: 700px;
     min-width: 500px;
+  }
+  
+  .ek-bilgiler-container {
+    width: 350px;
+    min-width: 300px;
   }
 }
 
 @media (max-width: 900px) {
   .ana-form-container {
-    width: 70%;
+    width: 600px;
     min-width: 400px;
+  }
+  
+  .ek-bilgiler-container {
+    width: 300px;
+    min-width: 280px;
   }
 }
 
 @media (max-width: 768px) {
+  .containers-wrapper {
+    padding: 16px;
+  }
+  
   .ana-form-container {
-    width: 85%;
+    width: 85vw;
     min-width: 350px;
+    padding: 16px;
+  }
+  
+  .ek-bilgiler-container {
+    width: 75vw;
+    min-width: 300px;
     padding: 16px;
   }
 }
 
 @media (max-width: 480px) {
+  .containers-wrapper {
+    padding: 12px;
+  }
+  
   .ana-form-container {
-    width: 95%;
+    width: 95vw;
     min-width: 320px;
+    padding: 12px;
+  }
+  
+  .ek-bilgiler-container {
+    width: 90vw;
+    min-width: 250px;
     padding: 12px;
   }
   
@@ -1322,6 +1425,26 @@ function showOdaYatakNotification(odaYatak: string) {
 
 .hesaplanan-bedel-field .q-field__control {
   background: rgba(156, 39, 176, 0.08);
+}
+
+/* Dark mode support for hesaplanan bedel field */
+.body--dark .hesaplanan-bedel-field .q-field__label,
+.body--dark .hesaplanan-bedel-field .q-field__native,
+.body--dark .hesaplanan-bedel-field .q-field__control .q-field__label {
+  color: #ce93d8 !important;
+}
+
+.body--dark .hesaplanan-bedel-field .q-field__control {
+  background: rgba(206, 147, 216, 0.15);
+}
+
+/* Additional override for Quasar's label color system */
+.body--dark .q-field--labeled.hesaplanan-bedel-field .q-field__label {
+  color: #ce93d8 !important;
+}
+
+.body--dark .q-field--float.hesaplanan-bedel-field .q-field__label {
+  color: #ce93d8 !important;
 }
 
 /* Responsive font size */
@@ -1454,4 +1577,44 @@ function showOdaYatakNotification(odaYatak: string) {
     min-width: 60px;
   }
 }
+
+/* Ek Bilgiler Container Stilleri */
+.ek-bilgiler-container {
+  width: 400px;
+  margin: 0;
+  max-width: 400px;
+  min-width: 300px;
+  padding: 20px;
+  border: 2px solid #26a69a;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(38, 166, 154, 0.03) 0%, rgba(38, 166, 154, 0.08) 100%);
+  box-shadow: 0 4px 12px rgba(38, 166, 154, 0.15);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  flex: 0 0 auto;
+}
+
+.ek-bilgiler-container:hover {
+  box-shadow: 0 6px 20px rgba(38, 166, 154, 0.25);
+  transform: translateY(-2px);
+}
+
+.ek-bilgiler-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Dark mode support for ek bilgiler */
+.body--dark .ek-bilgiler-container {
+  border: 2px solid #4db6ac;
+  background: linear-gradient(135deg, rgba(77, 182, 172, 0.08) 0%, rgba(77, 182, 172, 0.15) 100%);
+  box-shadow: 0 4px 12px rgba(77, 182, 172, 0.25);
+}
+
+.body--dark .ek-bilgiler-container:hover {
+  box-shadow: 0 6px 20px rgba(77, 182, 172, 0.35);
+}
+
+
 </style> 
