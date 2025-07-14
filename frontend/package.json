@@ -13,7 +13,8 @@
     "kill-port": "powershell -ExecutionPolicy Bypass -File \"../kill-port-9000.ps1\"",
     "dev": "npm run kill-port && quasar dev",
     "dev:clean": "npm run kill-port && quasar dev",
-    "build": "quasar build",
+    "build": "npx quasar build",
+    "prepare": "npm install",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },
@@ -28,10 +29,9 @@
     "vue-router": "^4.0.12"
   },
   "devDependencies": {
-    "@quasar/cli": "^1.0.0",
-    "quasar": "^2.0.0",
     "@eslint/js": "^9.14.0",
     "@quasar/app-vite": "^2.1.0",
+    "@quasar/cli": "^1.0.0",
     "@types/node": "^20.5.9",
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.4.0",
@@ -40,6 +40,7 @@
     "eslint-plugin-vue": "^9.30.0",
     "globals": "^15.12.0",
     "prettier": "^3.3.3",
+    "quasar": "^2.0.0",
     "typescript": "~5.5.3",
     "vite-plugin-checker": "^0.9.0",
     "vue-tsc": "^2.0.29"
