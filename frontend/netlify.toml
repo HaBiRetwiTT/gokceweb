@@ -4,7 +4,7 @@
   publish = "dist/spa"
 
 [[plugins]]
-  package = "@netlify/build"
+  package = "@netlify/plugin-functions-install-core"
   [plugins.inputs]
     command = "npm install -g @quasar/cli && npm run build"
 
