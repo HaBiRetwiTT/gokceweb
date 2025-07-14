@@ -16,7 +16,7 @@
     "build": "quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start",
-    "postinstall": "quasar prepare"
+    "postinstall": "npx quasar prepare"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^9.14.0",
     "@quasar/app-vite": "^2.1.0",
+    "@quasar/cli": "^2.5.0",
     "@types/node": "^20.5.9",
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.4.0",
