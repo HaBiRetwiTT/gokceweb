@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model musteri {
+  MstrNo        BigInt    @id @default(autoincrement())
+  MstrKllnc     String    @map("MstrKllnc")
+  MstrHspTip    String    @map("MstrHspTip")
+  MstrTCN       String    @map("MstrTCN")
+  MstrAdi       String    @map("MstrAdi")
+  MstrDgmTarihi String?   @db.NChar(10)
+  MstrTelNo     String?   @map("MstrTelNo")
+  MstrTel2      String?   @map("MstrTel2")
+  MstrEposta    String?   @map("MstrEposta")
+  MstrMeslek    String?   @map("MstrMeslek")
+  MstrYakini    String?   @map("MstrYakini")
+  MstrYknTel    String?   @map("MstrYknTel")
+  MstrDurum     String?   @map("MstrDurum")
+  MstrFirma     String?   @map("MstrFirma")
+  MstrVD        String?   @map("MstrVD")
+  MstrVno       String?   @map("MstrVno")
+  MstrFrmTel    String?   @map("MstrFrmTel")
+  MstrFrmMdr    String?   @map("MstrFrmMdr")
+  MstrMdrTel    String?   @map("MstrMdrTel")
+  MstrAdres     String?   @map("MstrAdres")
+  MstrResim     Bytes?    @db.VarBinary(8000)
+  MstrNot       String?   @map("MstrNot")
+  mKytTarihi    String    @db.NChar(10)
+
+  @@map("tblMusteri")
+}
