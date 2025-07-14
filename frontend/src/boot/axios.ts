@@ -11,8 +11,8 @@ declare module 'vue' {
 // Configure API instance with correct backend URL
 const getApiBaseUrl = () => {
   // Production'da environment variable'dan al, development'ta localhost kullan
-  if (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.PROD && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
   return 'http://localhost:3000'; // Development default
 };
