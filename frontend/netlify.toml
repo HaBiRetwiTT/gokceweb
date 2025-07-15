@@ -1,5 +1,5 @@
 [build]
-  # base = "frontend"
+  base = "frontend"
   command = "npm install -g @quasar/cli && npm install"
   publish = "dist/spa"
 
