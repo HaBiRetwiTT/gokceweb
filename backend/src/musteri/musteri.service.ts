@@ -556,6 +556,14 @@ export class MusteriService {
     return `${day}.${month}.${year}`;
   }
 
+  /**
+   * İşlem kayıt tarihi için güncel tarihi döndürür
+   * iKytTarihi alanı her zaman işlemin yapıldığı günün tarihi olmalıdır
+   */
+  private getCurrentTransactionDate(): string {
+    return this.formatDate(new Date());
+  }
+
   private formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -784,7 +792,7 @@ export class MusteriService {
         @islemDoviz = @15, @islemKur = @16`;
       
       await this.musteriRepository.query(query, [
-        girisTarihi,                    // @0
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
         cariKod,                       // @2
         konaklamaTipi,                 // @3
@@ -825,7 +833,7 @@ export class MusteriService {
           @islemDoviz = @15, @islemKur = @16`;
         
         await this.musteriRepository.query(depozitQuery, [
-          girisTarihi,                    // @0
+          this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
           islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
           cariKod,                       // @2
           konaklamaTipi,                 // @3
@@ -1362,7 +1370,7 @@ export class MusteriService {
         @islemDoviz = @15, @islemKur = @16`;
       
       const parameters = [
-        girisTarihi,                    // @0 - İşlem kayıt tarihi (dönem yenileme giriş tarihi)
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
         cariKod,                       // @2
         konaklamaTipi,                 // @3
@@ -1670,7 +1678,7 @@ export class MusteriService {
       
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
-        formattedDate,                  // @0 - İşlem kayıt tarihi
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         'admin',                        // @1 - Kullanıcı adı
         cariKod,                       // @2 - Cari kod
         'GÜNLÜK',                      // @3 - İşlem özel 1 (konaklama tipi)
@@ -1891,7 +1899,7 @@ export class MusteriService {
         @islemDoviz = @15, @islemKur = @16`;
       
       const parameters = [
-        formattedDate,                  // @0 - İşlem kayıt tarihi
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         'admin',                        // @1 - Kullanıcı adı
         cariKod,                       // @2 - Cari kod
         'GÜNLÜK',                      // @3 - İşlem özel 1 (konaklama tipi)
@@ -2204,7 +2212,7 @@ export class MusteriService {
       
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
-        girisTarihi,                    // @0
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
         cariKod,                       // @2
         konaklamaTipi,                 // @3
@@ -2245,7 +2253,7 @@ export class MusteriService {
         }
         
         const depozitParameters = [
-          girisTarihi,                    // @0
+          this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
           islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
           cariKod,                       // @2
           konaklamaTipi,                 // @3
@@ -2480,7 +2488,7 @@ export class MusteriService {
       
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
-        girisTarihi,                    // @0 - İşlem kayıt tarihi (dönem yenileme giriş tarihi)
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
         cariKod,                       // @2
         konaklamaTipi,                 // @3
@@ -2829,7 +2837,7 @@ export class MusteriService {
       // 3. tblislem'e GİDER kaydı ekle
       const storedProcedures = this.dbConfig.getStoredProcedures();
       await this.transactionService.executeStoredProcedure(queryRunner, storedProcedures.islemEkle, [
-        cikisTarihi, // @0 - iKytTarihi
+        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         'admin', // @1 - islemKllnc
         cariKod, // @2 - islemCrKod
         islemOzel1, // @3 - islemOzel1
