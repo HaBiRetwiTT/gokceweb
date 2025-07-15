@@ -13,7 +13,7 @@
     "kill-port": "powershell -ExecutionPolicy Bypass -File \"../kill-port-9000.ps1\"",
     "dev": "npm run kill-port && quasar dev",
     "dev:clean": "npm run kill-port && quasar dev",
-    "build": "npx --yes quasar build",
+    "build": "quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },
