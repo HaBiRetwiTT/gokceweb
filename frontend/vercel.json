@@ -1,4 +1,5 @@
 {
     "buildCommand": "npx quasar build -m ssr",
-    "outputDirectory": "dist/spa"
+    "outputDirectory": "dist/ssr",
+    "framework": "quasar"
   }
