@@ -1,6 +1,6 @@
 [build]
   # base = "frontend"
-  command = "cd frontend && npm install -g @quasar/cli && npm install"
+  command = "npm install -g @quasar/cli && npm install"
   publish = "dist/spa"
 
 [build.environment]
