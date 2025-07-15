@@ -1,4 +1,4 @@
 {
-    "buildCommand": "npm run build",
+    "buildCommand": "npx --yes quasar build",
     "outputDirectory": "dist/spa"
   }
