@@ -9,16 +9,16 @@ declare module 'vue' {
 }
 
 // Configure API instance with correct backend URL
-const getApiBaseUrl = () => {
+//const getApiBaseUrl = () => {
   // Production'da environment variable'dan al, development'ta localhost kullan
-  if (import.meta.env.PROD && import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  return 'http://localhost:3000'; // Development default
-};
+//  if (import.meta.env.PROD && import.meta.env.VITE_API_URL) {
+//    return import.meta.env.VITE_API_URL;
+//  }
+//  return 'http://localhost:3000'; // Development default
+//};
 
 const api = axios.create({ 
-  baseURL: getApiBaseUrl(),
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   timeout: 10000,
 });
 
