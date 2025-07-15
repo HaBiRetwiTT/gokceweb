@@ -1,7 +1,7 @@
 [build]
-  base = "frontend"
-  command = "npm install -g @quasar/cli && npm install && npm run build"
-  publish = "frontend/dist/spa"
+  # base = "frontend"
+  command = "cd frontend && npm install -g @quasar/cli && npm install"
+  publish = "dist/spa"
 
 [build.environment]
   NODE_VERSION = "22.17.0"
