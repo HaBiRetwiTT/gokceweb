@@ -897,7 +897,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { api } from 'boot/axios'
 import DonemYenilemeModal from 'components/DonemYenilemeModal.vue'
 
 // Tip tanımları
@@ -1820,7 +1820,7 @@ async function loadMusteriListesi() {
       }
     }
     
-    const response = await axios.get(`http://localhost:3000/dashboard/${endpoint}?tip=${selectedTip.value}`)
+    const response = await api.get(`/dashboard/${endpoint}?tip=${selectedTip.value}`)
     if (response.data.success) {
       // Array'i tamamen yenile, append etme
       musteriListesi.value = [...response.data.data]
@@ -1836,7 +1836,7 @@ async function loadMusteriListesi() {
 
 async function loadStats() {
   try {
-    const response = await axios.get('http://localhost:3000/dashboard/stats')
+    const response = await api.get('/dashboard/stats')
     if (response.data.success) {
       stats.value = response.data.data
     }
@@ -1847,7 +1847,7 @@ async function loadStats() {
 
 async function loadCikisYapanlarSayisi() {
   try {
-    const response = await axios.get('http://localhost:3000/dashboard/cikis-yapanlar-sayisi')
+    const response = await api.get('/dashboard/cikis-yapanlar-sayisi')
     if (response.data.success) {
       cikisYapanlarSayisi.value = response.data.data
     }
@@ -1859,7 +1859,7 @@ async function loadCikisYapanlarSayisi() {
 async function loadCikisYapanlarListesi() {
   loading.value = true
   try {
-    const response = await axios.get(`http://localhost:3000/dashboard/cikis-yapanlar?tip=${selectedTip.value}`)
+    const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}`)
     if (response.data.success) {
       musteriListesi.value = [...response.data.data]
       console.log(`${response.data.count} çıkış yapan müşteri yüklendi`)
@@ -1873,7 +1873,7 @@ async function loadCikisYapanlarListesi() {
 
 async function loadKonaklamaTipleri() {
   try {
-    const response = await axios.get('http://localhost:3000/dashboard/konaklama-tipleri')
+    const response = await api.get('/dashboard/konaklama-tipleri')
     if (response.data.success) {
       konaklamaTipleri.value = response.data.data
     }
@@ -1885,7 +1885,7 @@ async function loadKonaklamaTipleri() {
 async function loadBorcluMusteriler() {
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:3000/dashboard/borclu-musteriler')
+    const response = await api.get('/dashboard/borclu-musteriler')
     if (response.data.success) {
       borcluMusteriListesi.value = [...response.data.data]
       console.log(`${response.data.count} borçlu müşteri yüklendi`)
@@ -1901,7 +1901,7 @@ async function loadAlacakliMusteriler() {
   console.log('🔥 loadAlacakliMusteriler fonksiyonu çağrıldı')
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:3000/dashboard/alacakli-musteriler')
+    const response = await api.get('/dashboard/alacakli-musteriler')
     console.log('🔥 Alacaklı müşteriler API yanıtı:', response.data)
     if (response.data.success) {
       alacakliMusteriListesi.value = [...response.data.data]
@@ -1920,7 +1920,7 @@ async function loadAlacakliMusteriler() {
 async function loadCariHareketler(cariKod: string) {
   cariHareketlerLoading.value = true
   try {
-    const response = await axios.get(`http://localhost:3000/dashboard/cari-hareketler?cariKod=${cariKod}`)
+    const response = await api.get(`/dashboard/cari-hareketler?cariKod=${cariKod}`)
     if (response.data.success) {
       cariHareketlerListesi.value = [...response.data.data]
       console.log(`${response.data.count} cari hareket yüklendi`)
@@ -1980,7 +1980,7 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
       } else {
         // 2. Borçlu müşteri listesinde bulunamazsa dashboard servisten hesaplat
         try {
-          const vadeResponse = await axios.get(`http://localhost:3000/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.MstrTCN)}`);
+          const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.MstrTCN)}`);
           if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
             odemeVadesi = vadeResponse.data.data.odemeVadesi;
             console.log('🔥 Dashboard servisten ödeme vadesi hesaplandı:', odemeVadesi);
@@ -2082,7 +2082,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     } else {
       // Normal müşteri tablosundan geliyorsa - cari kodu oluştur
       // MstrNo'yu TC'den bulmamız gerekiyor, backend'den alacağız
-      const response = await axios.get(`http://localhost:3000/musteri-bilgi/${musteri.MstrTCN}`);
+      const response = await api.get(`/musteri-bilgi/${musteri.MstrTCN}`);
       if (response.data.success && response.data.data) {
         const mstrNo = response.data.data.MstrNo;
         const hspTip = response.data.data.MstrHspTip || musteri.MstrHspTip;
@@ -2096,7 +2096,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     }
     
     // Backend'den bakiye bilgisini al
-    const bakiyeResponse = await axios.get(`http://localhost:3000/dashboard/musteri-bakiye/${cariKod}`);
+    const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
     if (bakiyeResponse.data.success) {
       selectedMusteriBakiye.value = bakiyeResponse.data.bakiye || 0;
     } else {
@@ -2128,7 +2128,7 @@ async function hesaplaFirmaBakiye(musteri: MusteriKonaklama) {
     }
 
     // Backend'den firma bakiyesini al
-    const response = await axios.get(`http://localhost:3000/dashboard/firma-bakiye/${encodeURIComponent(musteri.MstrFirma)}`);
+    const response = await api.get(`/dashboard/firma-bakiye/${encodeURIComponent(musteri.MstrFirma)}`);
     if (response.data.success) {
       selectedFirmaBakiye.value = response.data.bakiye || 0;
     } else {
@@ -2204,7 +2204,7 @@ async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMuster
     }
     
     // Firma bakiyesini hesapla
-    const firmaResponse = await axios.get(`http://localhost:3000/dashboard/firma-bakiye/${encodeURIComponent(alacakliMusteri.MstrFirma)}`);
+    const firmaResponse = await api.get(`/dashboard/firma-bakiye/${encodeURIComponent(alacakliMusteri.MstrFirma)}`);
     if (firmaResponse.data.success) {
       selectedFirmaBakiye.value = firmaResponse.data.bakiye || 0;
     } else {
@@ -2258,7 +2258,7 @@ async function hesaplaBorcluMusteriFirmaBakiye(borcluMusteri: BorcluMusteri) {
     }
     
     // Firma bakiyesini hesapla
-    const firmaResponse = await axios.get(`http://localhost:3000/dashboard/firma-bakiye/${encodeURIComponent(borcluMusteri.MstrFirma)}`);
+    const firmaResponse = await api.get(`/dashboard/firma-bakiye/${encodeURIComponent(borcluMusteri.MstrFirma)}`);
     if (firmaResponse.data.success) {
       selectedFirmaBakiye.value = firmaResponse.data.bakiye || 0;
     } else {
@@ -2520,7 +2520,7 @@ function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
 async function loadKonaklamaGecmisi(tcKimlik: string) {
   konaklamaGecmisiLoading.value = true;
   try {
-    const response = await axios.get(`http://localhost:3000/dashboard/musteri-konaklama-gecmisi/${tcKimlik}`);
+    const response = await api.get(`/dashboard/musteri-konaklama-gecmisi/${tcKimlik}`);
     if (response.data.success) {
       konaklamaGecmisiListesi.value = response.data.data;
       console.log(`${response.data.count} konaklama geçmişi kaydı yüklendi`);
@@ -2658,22 +2658,22 @@ async function selectBestCard() {
 
 // Her API için "return" eden versiyonunu yazın:
 async function loadBorcluMusterilerReturn() {
-  const response = await axios.get('http://localhost:3000/dashboard/borclu-musteriler');
+  const response = await api.get('/dashboard/borclu-musteriler');
   return response.data.success ? response.data.data : [];
 }
 async function loadAlacakliMusterilerReturn() {
-  const response = await axios.get('http://localhost:3000/dashboard/alacakli-musteriler');
+  const response = await api.get('/dashboard/alacakli-musteriler');
   return response.data.success ? response.data.data : [];
 }
 async function loadCikisYapanlarListesiReturn() {
-  const response = await axios.get('http://localhost:3000/dashboard/cikis-yapanlar?tip=TÜMÜ');
+  const response = await api.get('/dashboard/cikis-yapanlar?tip=TÜMÜ');
   return response.data.success ? response.data.data : [];
 }
 async function loadMusteriListesiReturn(cardType: string) {
   const endpoint = cardType === 'yeni-musteri' ? 'yeni-musteri'
     : cardType === 'yeni-giris' ? 'yeni-giris'
     : cardType;
-  const response = await axios.get(`http://localhost:3000/dashboard/${endpoint}?tip=TÜMÜ`);
+  const response = await api.get(`/dashboard/${endpoint}?tip=TÜMÜ`);
   return response.data.success ? response.data.data : [];
 }
 
@@ -2774,7 +2774,7 @@ async function loadFirmaGenelVerileri() {
 async function loadFirmaGenelKonaklamaGecmisi(firmaAdi: string) {
   konaklamaGecmisiLoading.value = true;
   try {
-    const response = await axios.get(`http://localhost:3000/dashboard/firma-konaklama-gecmisi/${encodeURIComponent(firmaAdi)}`);
+    const response = await api.get(`/dashboard/firma-konaklama-gecmisi/${encodeURIComponent(firmaAdi)}`);
     if (response.data.success) {
       konaklamaGecmisiListesi.value = response.data.data;
       console.log(`Firma ${firmaAdi} konaklama geçmişi: ${response.data.count} kayıt yüklendi`);
@@ -2790,7 +2790,7 @@ async function loadFirmaGenelKonaklamaGecmisi(firmaAdi: string) {
 async function loadFirmaGenelCariHareketler(firmaAdi: string) {
   cariHareketlerLoading.value = true;
   try {
-    const response = await axios.get(`http://localhost:3000/dashboard/firma-cari-hareketler/${encodeURIComponent(firmaAdi)}`);
+    const response = await api.get(`/dashboard/firma-cari-hareketler/${encodeURIComponent(firmaAdi)}`);
     if (response.data.success) {
       cariHareketlerListesi.value = response.data.data;
       console.log(`Firma ${firmaAdi} cari hareketler: ${response.data.count} kayıt yüklendi`);
@@ -2814,18 +2814,20 @@ async function downloadKonaklamaGecmisiPDF() {
   try {
     pdfLoading.value = true
     
-    let url = 'http://localhost:3000/konaklama-gecmisi-pdf?'
-    
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-      url += `firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`
+      params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
     } else if (selectedNormalMusteri.value?.MstrTCN) {
-      url += `tcNo=${encodeURIComponent(selectedNormalMusteri.value.MstrTCN)}`
+      params.push(`tcNo=${encodeURIComponent(selectedNormalMusteri.value.MstrTCN)}`);
     } else {
-      throw new Error('Rapor için gerekli bilgiler bulunamadı')
+      throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
+    const queryString = params.join('&');
+    const url = `${baseURL}/konaklama-gecmisi-pdf?${queryString}`;
     
     // PDF dosyasını indir
-    const response = await axios.get(url, {
+    const response = await api.get(url, {
       responseType: 'blob'
     })
     
@@ -2869,18 +2871,20 @@ async function downloadKonaklamaGecmisiExcel() {
   try {
     excelLoading.value = true
     
-    let url = 'http://localhost:3000/konaklama-gecmisi-excel?'
-    
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-      url += `firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`
+      params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
     } else if (selectedNormalMusteri.value?.MstrTCN) {
-      url += `tcNo=${encodeURIComponent(selectedNormalMusteri.value.MstrTCN)}`
+      params.push(`tcNo=${encodeURIComponent(selectedNormalMusteri.value.MstrTCN)}`);
     } else {
-      throw new Error('Rapor için gerekli bilgiler bulunamadı')
+      throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
+    const queryString = params.join('&');
+    const url = `${baseURL}/konaklama-gecmisi-excel?${queryString}`;
     
     // Excel dosyasını indir
-    const response = await axios.get(url, {
+    const response = await api.get(url, {
       responseType: 'blob'
     })
     
@@ -2925,14 +2929,17 @@ async function downloadKonaklamaGecmisiExcel() {
 async function downloadCariHareketlerPDF() {
   try {
     cariPdfLoading.value = true
-    let url = 'http://localhost:3000/cari-hareketler-pdf?'
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-      url += `firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`
+      params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
     } else if (selectedBorcluMusteri.value?.CariVTCN) {
-      url += `tcNo=${encodeURIComponent(selectedBorcluMusteri.value.CariVTCN)}`
+      params.push(`tcNo=${encodeURIComponent(selectedBorcluMusteri.value.CariVTCN)}`);
     } else {
-      throw new Error('Rapor için gerekli bilgiler bulunamadı')
+      throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
+    const queryString = params.join('&');
+    const url = `${baseURL}/cari-hareketler-pdf?${queryString}`;
     const response = await fetch(url)
     if (!response.ok) throw new Error('PDF indirilemedi')
     const blob = await response.blob()
@@ -2951,14 +2958,17 @@ async function downloadCariHareketlerPDF() {
 async function downloadCariHareketlerExcel() {
   try {
     cariExcelLoading.value = true
-    let url = 'http://localhost:3000/cari-hareketler-excel?'
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-      url += `firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`
+      params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
     } else if (selectedBorcluMusteri.value?.CariVTCN) {
-      url += `tcNo=${encodeURIComponent(selectedBorcluMusteri.value.CariVTCN)}`
+      params.push(`tcNo=${encodeURIComponent(selectedBorcluMusteri.value.CariVTCN)}`);
     } else {
-      throw new Error('Rapor için gerekli bilgiler bulunamadı')
+      throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
+    const queryString = params.join('&');
+    const url = `${baseURL}/cari-hareketler-excel?${queryString}`;
     const response = await fetch(url)
     if (!response.ok) throw new Error('Excel indirilemedi')
     const blob = await response.blob()

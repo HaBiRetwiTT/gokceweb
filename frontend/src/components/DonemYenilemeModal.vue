@@ -505,7 +505,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
-import axios, { AxiosError } from 'axios';
+import { api } from 'boot/axios';
 import { useQuasar, Notify } from 'quasar';
 import type { MusteriKonaklama } from './models';
 
@@ -697,7 +697,7 @@ async function saveDonemYenileme() {
     
     console.log('Dönem yenileme request data:', requestData);
     
-    const response = await axios.post('http://localhost:3000/donem-yenileme', requestData);
+    const response = await api.post('donem-yenileme', requestData);
     console.log('Backend response:', response.data);
 
     if (response.data.success) {
@@ -831,7 +831,7 @@ function handleCikisYap() {
           })
         };
 
-        const response = await axios.post('http://localhost:3000/cikis-yap', cikisData);
+        const response = await api.post('cikis-yap', cikisData);
 
         if (response.data.success) {
     Notify.create({
@@ -851,10 +851,10 @@ function handleCikisYap() {
           throw new Error(response.data.message || 'Bilinmeyen bir hata oluştu.');
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof AxiosError && error.response?.data?.error
-            ? error.response.data.error
-            : (error as Error).message;
+        let errorMessage = 'Bir hata oluştu';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
         $q.notify({
           color: 'negative',
           icon: 'error',
@@ -947,7 +947,7 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
       dialogdanMi
     };
     // Backend'de depozito toplamı ve diğer işlemler de yapılacak
-    const response = await axios.post('http://localhost:3000/erken-cikis-yap', requestData);
+    const response = await api.post('erken-cikis-yap', requestData);
     if (response.data.success) {
       Notify.create({
         type: 'positive',
@@ -964,10 +964,10 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
       throw new Error(response.data.message || 'Bilinmeyen bir hata oluştu.');
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof AxiosError && error.response?.data?.error
-        ? error.response.data.error
-        : (error as Error).message;
+    let errorMessage = 'Bir hata oluştu';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     $q.notify({
       color: 'negative',
       icon: 'error',
@@ -1210,7 +1210,7 @@ watch(() => props.selectedData, async (newData) => {
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
-        const vadeRes = await axios.get(`http://localhost:3000/dashboard/musteri-odeme-vadesi/${encodeURIComponent(newData.MstrTCN)}`);
+        const vadeRes = await api.get(`dashboard/musteri-odeme-vadesi/${encodeURIComponent(newData.MstrTCN)}`);
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
           formData.value.OdemeVadesi = convertDateFormat(vadeRes.data.data.odemeVadesi);
           console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
@@ -1252,7 +1252,7 @@ watch(() => props.modelValue, async (yeni) => {
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
-        const vadeRes = await axios.get(`http://localhost:3000/dashboard/musteri-odeme-vadesi/${encodeURIComponent(props.selectedData.MstrTCN)}`);
+        const vadeRes = await api.get(`dashboard/musteri-odeme-vadesi/${encodeURIComponent(props.selectedData.MstrTCN)}`);
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
           formData.value.OdemeVadesi = convertDateFormat(vadeRes.data.data.odemeVadesi);
           console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
@@ -1400,7 +1400,7 @@ watch([() => formData.value.HesaplananBedel, () => formData.value.ToplamBedel], 
 
 async function loadOdaTipleri() {
   try {
-    const response = await axios.get('http://localhost:3000/bos-oda-tipleri');
+    const response = await api.get('bos-oda-tipleri');
     if (response.data.success) {
       odaTipleri.value = response.data.data;
       
@@ -1435,7 +1435,7 @@ async function loadBosOdalar() {
   
   try {
     console.log('Boş odalar yükleniyor, oda tipi:', formData.value.KnklmOdaTip);
-    const response = await axios.get(`http://localhost:3000/bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get(`bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
     console.log('Boş odalar response:', response.data);
     if (response.data.success) {
       bosOdalar.value = response.data.data;
@@ -1534,7 +1534,7 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && formData.value.KnklmOdaTip) {
     try {
-      const response = await axios.get(`http://localhost:3000/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+      const response = await api.get(`oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data;
       }
@@ -1639,7 +1639,7 @@ async function calculateBedel() {
   try {
     // Oda tip fiyatlarını getir
     console.log('Fiyat bilgileri getiriliyor:', formData.value.KnklmOdaTip);
-    const response = await axios.get(`http://localhost:3000/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get(`oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
     console.log('Fiyat response:', response.data);
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data;
@@ -2010,7 +2010,7 @@ async function onOdaDegisikligiOnayla() {
 
     console.log('Oda değişikliği onaylama request data:', requestData);
 
-    const response = await axios.post('http://localhost:3000/oda-degisikligi-onayla', requestData);
+    const response = await api.post('oda-degisikligi-onayla', requestData);
 
     console.log('Backend response:', response.data);
 
@@ -2056,9 +2056,7 @@ async function onOdaDegisikligiOnayla() {
     
     let errorMessage = 'Oda değişikliği onaylanırken beklenmeyen bir hata oluştu';
     
-    if (axios.isAxiosError(error)) {
-      errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
       errorMessage = error.message;
     }
     
@@ -2152,12 +2150,12 @@ async function direktOdaDegisikligiYap() {
     
     // Endpoint seçimi - İlk gün ise özel endpoint, değilse normal endpoint
     const endpoint = isIlkGun 
-      ? 'http://localhost:3000/direkt-oda-degisikligi-konaklama-suresi-1'
-      : 'http://localhost:3000/direkt-oda-degisikligi';
+      ? '/direkt-oda-degisikligi-konaklama-suresi-1'
+      : '/direkt-oda-degisikligi';
     
     console.log(`Endpoint seçildi: ${isIlkGun ? 'İlk gün endpoint' : 'Normal endpoint'}`);
     
-    const response = await axios.post(endpoint, requestPayload);
+    const response = await api.post(endpoint, requestPayload);
 
     console.log('API response:', response.data);
 
@@ -2181,9 +2179,7 @@ async function direktOdaDegisikligiYap() {
     
     let errorMessage = 'Oda değişikliği sırasında beklenmeyen bir hata oluştu';
     
-    if (axios.isAxiosError(error)) {
-      errorMessage = error.response?.data?.message || error.message;
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
       errorMessage = error.message;
     }
     

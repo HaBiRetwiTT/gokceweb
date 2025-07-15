@@ -736,8 +736,9 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
-import axios, { AxiosError } from 'axios'
+import { api } from 'boot/axios'
 import { QForm } from 'quasar'
+import type { AxiosError } from 'axios';
 
 const $q = useQuasar()
 
@@ -911,7 +912,7 @@ async function hesaplaBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    const response = await axios.get(`http://localhost:3000/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
+    const response = await api.get(`/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data
       
@@ -975,7 +976,7 @@ async function hesaplaBedel() {
 // Sayfa yüklendiğinde firma listesini getir
 async function loadFirmaList() {
   try {
-    const response = await axios.get('http://localhost:3000/firma-listesi')
+    const response = await api.get('/firma-listesi')
     if (response.data.success) {
       firmaList.value = response.data.data
       // Dropdown için uygun format
@@ -993,7 +994,7 @@ async function loadFirmaList() {
 async function loadOdaTipleri() {
   try {
     console.log('Boş oda tipleri yükleniyor...')
-    const response = await axios.get('http://localhost:3000/bos-oda-tipleri')
+    const response = await api.get('/bos-oda-tipleri')
     console.log('Boş oda tipleri response:', response.data)
     if (response.data.success) {
       odaTipleriOptions.value = response.data.data
@@ -1014,7 +1015,7 @@ async function loadBosOdalar(odaTipi: string) {
       bosOdalarOptions.value = []
       return
     }
-    const response = await axios.get(`http://localhost:3000/bos-odalar/${encodeURIComponent(odaTipi)}`)
+    const response = await api.get(`/bos-odalar/${encodeURIComponent(odaTipi)}`)
     console.log('Boş odalar response:', response.data)
     if (response.data.success) {
       bosOdalarOptions.value = response.data.data
@@ -1089,7 +1090,7 @@ async function onFirmaSelected(firmaName: string) {
   }
 
   try {
-    const response = await axios.get(`http://localhost:3000/firma-detay/${encodeURIComponent(trimmedName)}`)
+    const response = await api.get(`/firma-detay/${encodeURIComponent(trimmedName)}`)
     if (response.data.success && response.data.data) {
       const details = response.data.data
       extraForm.value.MstrVD = details.MstrVD || ''
@@ -1125,7 +1126,7 @@ async function onCorporateFieldChanged() {
 
     if (hasChanges) {
       try {
-        await axios.post('http://localhost:3000/firma-guncelle', {
+        await api.post('/firma-guncelle', {
           firmaName: currentFirma,
           MstrVD: extraForm.value.MstrVD,
           MstrVno: extraForm.value.MstrVno,
@@ -1354,7 +1355,7 @@ async function submitForm() {
         MstrHspTip: form.value.MstrHspTip
       }
       
-      const response = await axios.post(`http://localhost:3000/musteri-guncelle/${form.value.MstrTCN}`, updateData)
+      const response = await api.post(`/musteri-guncelle/${form.value.MstrTCN}`, updateData)
       if (response.data.success) {
         notify.value = response.data.message || 'Müşteri bilgileri başarıyla güncellendi!'
         
@@ -1370,10 +1371,19 @@ async function submitForm() {
     } catch (error) {
       console.error('Güncelleme hatası:', error)
       
-      if (error instanceof AxiosError && error.response?.data?.message) {
-        notify.value = error.response.data.message
+      if (
+        isAxiosError(error) &&
+        error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'message' in error.response.data &&
+        typeof (error.response.data as { message: unknown }).message === 'string'
+      ) {
+        notify.value = (error.response.data as { message: string }).message;
+      } else if (error instanceof Error && typeof error.message === 'string') {
+        notify.value = error.message;
       } else {
-        notify.value = 'Güncelleme sırasında hata oluştu!'
+        notify.value = 'Güncelleme sırasında hata oluştu!';
       }
     } finally {
       loading.value = false
@@ -1448,7 +1458,7 @@ async function submitForm() {
       depozito: depozito.value
     }
     
-    const response = await axios.post('http://localhost:3000/musteri-islem', formData)
+    const response = await api.post('/musteri-islem', formData)
     if (response.data.success) {
       notify.value = response.data.message || 'Kayıt başarıyla eklendi!'
       // Form temizle
@@ -1499,26 +1509,32 @@ async function submitForm() {
     }
   } catch (error) {
     console.error('Error:', error)
-    console.error('Error response:', error instanceof AxiosError ? error.response : 'Not axios error')
-    
-    if (error instanceof AxiosError && error.response?.data?.message) {
-      const errorMessage = error.response.data.message
-      notify.value = errorMessage
-      
-      // Oda dolu hatası durumunda oda-yatak alanını temizle ve listeyi güncelle
+    if (
+      isAxiosError(error) &&
+      error.response &&
+      error.response.data &&
+      typeof error.response.data === 'object' &&
+      'message' in error.response.data &&
+      typeof (error.response.data as { message: unknown }).message === 'string'
+    ) {
+      const errorMessage = (error.response.data as { message: string }).message;
+      notify.value = errorMessage;
       if (errorMessage.includes('artık dolu') || errorMessage.includes('bulunamadı')) {
-        await clearOdaYatakAndRefresh()
+        await clearOdaYatakAndRefresh();
       }
-    } else if (error instanceof AxiosError && error.response?.data?.error) {
-      // Alternatif error field kontrolü
-      notify.value = error.response.data.error
-      
-      // Oda dolu hatası durumunda oda-yatak alanını temizle ve listeyi güncelle
-      if (error.response.data.error.includes('artık dolu') || error.response.data.error.includes('bulunamadı')) {
-        await clearOdaYatakAndRefresh()
+    } else if (
+      isAxiosError(error) &&
+      error.response &&
+      error.response.data &&
+      typeof error.response.data === 'object' &&
+      'error' in error.response.data &&
+      typeof (error.response.data as { error: unknown }).error === 'string'
+    ) {
+      notify.value = (error.response.data as { error: string }).error;
+      if ((error.response.data as { error: string }).error.includes('artık dolu') || (error.response.data as { error: string }).error.includes('bulunamadı')) {
+        await clearOdaYatakAndRefresh();
       }
-    } else if (error instanceof AxiosError && error.message) {
-      // Axios error message kontrolü
+    } else if (error instanceof Error && typeof error.message === 'string') {
       notify.value = error.message
     } else {
       notify.value = 'Kayıt sırasında hata oluştu!'
@@ -1840,7 +1856,7 @@ async function onTCNBlur() {
 
   try {
     // Müşteri durum kontrolü yap
-    const response = await axios.get(`http://localhost:3000/musteri-durum-kontrol/${tcn}`)
+    const response = await api.get(`/musteri-durum-kontrol/${tcn}`)
     
     if (response.data.success && response.data.data) {
       const durumData = response.data.data
@@ -1864,7 +1880,7 @@ async function onTCNBlur() {
       
         try {
           // Müşteri bilgilerini getir
-          const musteriResponse = await axios.get(`http://localhost:3000/musteri-bilgi/${tcn}`)
+          const musteriResponse = await api.get(`/musteri-bilgi/${tcn}`)
           if (musteriResponse.data.success && musteriResponse.data.data) {
             const musteriData = musteriResponse.data.data
             
@@ -1913,7 +1929,7 @@ async function onTCNBlur() {
           // Veri yükleme başlangıcı - watchers'ları disable et
           veriYukleniyor.value = true
           
-          const konaklamaResponse = await axios.get(`http://localhost:3000/mevcut-konaklama/${tcn}`)
+          const konaklamaResponse = await api.get(`/mevcut-konaklama/${tcn}`)
           
           if (konaklamaResponse.data.success && konaklamaResponse.data.data) {
             const konaklamaData = konaklamaResponse.data.data
@@ -1944,7 +1960,7 @@ async function onTCNBlur() {
             
             // Ek notları ve ödeme vadesini yükle
             ekNotlar.value = konaklamaData.KnklmNot || ''
-            const vadeResponse = await axios.get(`http://localhost:3000/musteri-odeme-vadesi/${tcn}`)
+            const vadeResponse = await api.get(`/musteri-odeme-vadesi/${tcn}`)
             if (vadeResponse.data.success && vadeResponse.data.odemeVadesi) {
                 form.value.OdemeVadesi = vadeResponse.data.odemeVadesi
             } else {
@@ -2018,7 +2034,7 @@ async function onTCNBlur() {
 async function checkKaraListeDurumu(tcKimlik: string) {
   try {
     console.log('🚨 Kara liste kontrolü başlatılıyor:', tcKimlik)
-    const response = await axios.get(`http://localhost:3000/dashboard/kara-liste-kontrol/${tcKimlik}`)
+    const response = await api.get(`/dashboard/kara-liste-kontrol/${tcKimlik}`)
     
     if (response.data.success && response.data.data) {
       const karaListeData = response.data.data
@@ -2049,7 +2065,7 @@ async function onaylaKaraListedenCikar() {
   karaListeProcessing.value = true
   
   try {
-    const response = await axios.put(`http://localhost:3000/dashboard/kara-listeden-cikar/${selectedKaraListeMusteri.value.MstrTCN}`)
+    const response = await api.put(`/dashboard/kara-listeden-cikar/${selectedKaraListeMusteri.value.MstrTCN}`)
     
     if (response.data.success) {
       // Başarılı mesaj göster
@@ -2068,8 +2084,8 @@ async function onaylaKaraListedenCikar() {
     }
   } catch (error) {
     console.error('Kara listeden çıkarma hatası:', error)
-    const errorMessage = error instanceof AxiosError 
-      ? error.response?.data?.message || 'Sunucu hatası' 
+    const errorMessage = error instanceof Error 
+      ? error.message || 'Sunucu hatası' 
       : 'Bilinmeyen hata'
     notify.value = `❌ Hata: ${errorMessage}`
     
@@ -2307,7 +2323,7 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && form.value.OdaTipi) {
     try {
-      const response = await axios.get(`http://localhost:3000/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
+      const response = await api.get(`/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data
       }
@@ -2576,6 +2592,10 @@ watch([
     setTimeout(() => adjustContainerHeights(), 100)
   }
 }, { flush: 'post' })
+
+function isAxiosError(error: unknown): error is AxiosError {
+  return (error as AxiosError).isAxiosError === true;
+}
 </script>
 
 <style scoped>
