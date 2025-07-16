@@ -7,7 +7,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "postinstall": "chmod +x node_modules/.bin/quasar",
+    "postinstall": "chmod +x node_modules/.bin/*",
     "lint": "eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
