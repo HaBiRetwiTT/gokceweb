@@ -13,11 +13,22 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:9000', // Development
     'https://gokceweb.vercel.app', // Production - Vercel URL'inizi buraya ekleyin
+    'https://gokcepansiyon-bzyq5q6br-habiretwitt-6937s-projects.vercel.app', // Mevcut Vercel URL'iniz
     'https://*.vercel.app', // Tüm Vercel subdomain'leri
   ];
   
   app.enableCors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // Development ortamında origin null olabilir
+      if (!origin) return callback(null, true);
+      
+      // Localhost ve Vercel domain'lerine izin ver
+      if (origin.includes('localhost') || origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
+      
+      return callback(new Error('CORS policy violation'));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
