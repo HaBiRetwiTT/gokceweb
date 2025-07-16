@@ -18,19 +18,18 @@ async function bootstrap() {
   ];
   
   app.enableCors({
-    origin: function (origin, callback) {
-      // Development ortamında origin null olabilir
-      if (!origin) return callback(null, true);
-      
-      // Localhost ve Vercel domain'lerine izin ver
-      if (origin.includes('localhost') || origin.includes('vercel.app')) {
-        return callback(null, true);
-      }
-      
-      return callback(new Error('CORS policy violation'));
-    },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: [
+      'http://localhost:9000',
+      'http://localhost:3000',
+      'https://*.vercel.app',
+      'https://vercel.app',
+      /^https:\/\/.*\.vercel\.app$/,
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   
   await app.listen(process.env.PORT ?? 3000);
