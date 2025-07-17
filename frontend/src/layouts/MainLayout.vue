@@ -187,6 +187,11 @@ async function fetchVersion() {
     if (response.ok) {
       const data = await response.json()
       currentVersion.value = data.version
+      // Eğer kullanılan sürüm son sürüm ise pendingUpdate flag'ini sil
+      if (localStorage.getItem('lastCheckedVersion') === data.version) {
+        localStorage.removeItem('pendingUpdate')
+        pendingUpdate.value = false
+      }
     }
   } catch {
     // Hata yönetimi: sessiz geç
