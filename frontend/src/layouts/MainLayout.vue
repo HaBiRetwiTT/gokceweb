@@ -99,7 +99,7 @@
       v-model="leftDrawerOpen"
       show-if-above
       bordered
-      :width="250"
+      :width="222"
     >
       <q-list>
         <q-item-label

@@ -87,6 +87,7 @@
           class="bg-red text-white compact-card clickable-card"
           :class="{ 'active-filter': currentFilter === 'borclu-musteriler' }"
           @click="loadFilteredData('borclu-musteriler')"
+          v-if="true" 
         >
           <q-card-section class="q-pa-xs">
             <div class="text-body2">Borçlu Müşteriler</div>
@@ -100,6 +101,7 @@
           class="bg-indigo text-white compact-card clickable-card"
           :class="{ 'active-filter': currentFilter === 'alacakli-musteriler' }"
           @click="loadFilteredData('alacakli-musteriler')"
+          v-if="true"
         >
           <q-card-section class="q-pa-xs">
             <div class="text-body2">Alacaklı Müşteriler</div>
@@ -131,7 +133,7 @@
         />
       </div>
       
-      <div class="col-12 col-sm-3 col-md-2" v-if="shouldShowSearchBox">
+      <div class="col-12 col-sm-2 col-md-2" v-if="shouldShowSearchBox">
         <q-input
           v-model="searchText"
           label="Arama"
@@ -780,7 +782,7 @@
             <div class="col-12">
               <q-input
                 v-model="selectedKonaklamaDetay.KnklmLfyt"
-                label="Lüks Fiyat"
+                label="Liste Fiyatı"
                 outlined
                 readonly
                 dense
@@ -1362,14 +1364,14 @@ const borcluColumns = [
   },
   {
     name: 'CariVTCN',
-    label: 'VT/TC No',
+    label: 'VDNo/TC No',
     align: 'left' as const,
     field: 'CariVTCN',
     sortable: true,
     sort: (a: string, b: string, rowA: BorcluMusteri, rowB: BorcluMusteri) => {
-      // Önce VT/TC numarasına göre sırala
+      // Önce VDNo/TC numarasına göre sırala
       if (a !== b) return (a || '').localeCompare(b || '');
-      // VT/TC numarası aynıysa kayıt tarihine göre DESC sırala
+      // VDNo/TC numarası aynıysa kayıt tarihine göre DESC sırala
       const tarihA = parseDateString(rowA.cKytTarihi);
       const tarihB = parseDateString(rowB.cKytTarihi);
       return tarihB.getTime() - tarihA.getTime(); // DESC sıralama
@@ -1526,14 +1528,14 @@ const alacakliColumns = [
   },
   {
     name: 'CariVTCN',
-    label: 'VT/TC No',
+    label: 'VDNo/TC No',
     align: 'left' as const,
     field: 'CariVTCN',
     sortable: true,
     sort: (a: string, b: string, rowA: AlacakliMusteri, rowB: AlacakliMusteri) => {
-      // Önce VT/TC numarasına göre sırala
+      // Önce VDNo/TC numarasına göre sırala
       if (a !== b) return (a || '').localeCompare(b || '');
-      // VT/TC numarası aynıysa kayıt tarihine göre DESC sırala
+      // VDNo/TC numarası aynıysa kayıt tarihine göre DESC sırala
       const tarihA = parseDateString(rowA.cKytTarihi);
       const tarihB = parseDateString(rowB.cKytTarihi);
       return tarihB.getTime() - tarihA.getTime(); // DESC sıralama
