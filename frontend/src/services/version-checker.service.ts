@@ -11,6 +11,7 @@ class VersionCheckerService {
   private checkInterval: number = 5 * 60 * 1000 // 5 dakika
   private intervalId: number | null = null
   private isChecking: boolean = false
+  private lastCheckedVersion: string = ''
 
   constructor() {
     this.currentVersion = import.meta.env.VITE_APP_VERSION || '0.0.1'
@@ -70,9 +71,18 @@ class VersionCheckerService {
 
       const versionInfo: VersionInfo = await response.json()
       
+      // Aynı sürümü tekrar kontrol etmeyi engelle
+      if (versionInfo.version === this.lastCheckedVersion) {
+        return
+      }
+      
       // Sürüm karşılaştırması yap
       if (this.isNewVersionAvailable(versionInfo.version)) {
+        this.lastCheckedVersion = versionInfo.version
         this.showUpdateNotification(versionInfo)
+      } else {
+        // Güncel sürümü de kaydet
+        this.lastCheckedVersion = versionInfo.version
       }
     } catch (error) {
       console.warn('Sürüm kontrolü sırasında hata:', error)
@@ -151,8 +161,21 @@ class VersionCheckerService {
       })
     }
 
-    // Sayfayı yenile
-    window.location.reload()
+    // Cache'i temizle
+    if ('caches' in window) {
+      void caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            return caches.delete(cacheName)
+          })
+        )
+      })
+    }
+
+    // Hard refresh yap (Ctrl+F5 benzeri)
+    setTimeout(() => {
+      window.location.reload()
+    }, 100)
   }
 
   /**
@@ -173,7 +196,19 @@ class VersionCheckerService {
       }
 
       const versionInfo: VersionInfo = await response.json()
-      return this.isNewVersionAvailable(versionInfo.version)
+      
+      // Aynı sürümü tekrar kontrol etmeyi engelle
+      if (versionInfo.version === this.lastCheckedVersion) {
+        return false
+      }
+      
+      const hasUpdate = this.isNewVersionAvailable(versionInfo.version)
+      
+      if (hasUpdate) {
+        this.lastCheckedVersion = versionInfo.version
+      }
+      
+      return hasUpdate
     } catch (error) {
       console.error('Manuel sürüm kontrolü hatası:', error)
       return false
