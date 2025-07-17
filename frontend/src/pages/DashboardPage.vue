@@ -110,6 +110,40 @@
         </div>
       </div>
 
+      <!-- Sürüm Kontrolü -->
+      <div class="version-section q-mt-xl">
+        <div class="text-center">
+          <q-card class="version-card" flat>
+            <q-card-section>
+              <div class="text-h6 text-grey-8 q-mb-md">📱 Uygulama Bilgileri</div>
+              <div class="row justify-center q-gutter-md">
+                <div class="col-auto">
+                  <q-chip 
+                    color="blue-6" 
+                    text-color="white" 
+                    icon="info"
+                    size="md"
+                  >
+                    Sürüm: {{ currentVersion }}
+                  </q-chip>
+                </div>
+                <div class="col-auto">
+                  <q-btn 
+                    color="green-6"
+                    icon="refresh"
+                    label="Güncellemeleri Kontrol Et"
+                    @click="checkForUpdates"
+                    outline
+                    size="md"
+                    :loading="isChecking"
+                  />
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+
       <!-- Tahmini Tamamlanma -->
       <div class="completion-section q-mt-xl">
         <div class="text-center">
@@ -128,9 +162,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Notify } from 'quasar'
+import { versionChecker } from '../services/version-checker.service'
 
 const router = useRouter()
+const isChecking = ref(false)
+const currentVersion = ref(versionChecker.getCurrentVersion())
 
 // Navigasyon fonksiyonları
 function goToKartliIslem() {
@@ -139,6 +178,46 @@ function goToKartliIslem() {
 
 function goToMusteriIslem() {
   void router.push('/musteri-islem')
+}
+
+// Sürüm kontrolü fonksiyonu
+async function checkForUpdates() {
+  isChecking.value = true
+  
+  try {
+    const hasUpdate = await versionChecker.manualCheck()
+    
+    if (hasUpdate) {
+      Notify.create({
+        type: 'positive',
+        message: 'Yeni sürüm mevcut!',
+        caption: 'Güncellemeleri almak için sayfayı yenileyin.',
+        icon: 'system_update',
+        position: 'top',
+        timeout: 5000
+      })
+    } else {
+      Notify.create({
+        type: 'info',
+        message: 'Güncel sürüm',
+        caption: 'Uygulamanız en son sürümde.',
+        icon: 'check_circle',
+        position: 'top',
+        timeout: 3000
+      })
+    }
+  } catch {
+    Notify.create({
+      type: 'negative',
+      message: 'Kontrol hatası',
+      caption: 'Sürüm kontrolü sırasında bir hata oluştu.',
+      icon: 'error',
+      position: 'top',
+      timeout: 3000
+    })
+  } finally {
+    isChecking.value = false
+  }
 }
 </script>
 
@@ -210,6 +289,20 @@ function goToMusteriIslem() {
   border-radius: 12px;
   padding: 1.5rem;
   backdrop-filter: blur(10px);
+}
+
+.version-section {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.version-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark mode desteği */

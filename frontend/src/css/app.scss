@@ -1,1 +1,37 @@
 // app global css in SCSS form
+
+// Sürüm güncelleme bildirimi stilleri
+.version-update-notification {
+  .q-notification__message {
+    font-weight: 600;
+  }
+  
+  .q-notification__caption {
+    font-size: 0.9em;
+    opacity: 0.9;
+  }
+  
+  .q-notification__actions {
+    .q-btn {
+      margin-left: 8px;
+      font-weight: 500;
+    }
+  }
+}
+
+// Sürüm güncelleme bildirimi animasyonu
+@keyframes version-update-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+  }
+}
+
+.version-update-notification {
+  animation: version-update-pulse 2s infinite;
+}

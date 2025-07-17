@@ -26,6 +26,18 @@
         </q-toolbar-title>
 
         <div class="row items-center q-gutter-sm">
+          <!-- YENİ: Refresh Butonu -->
+          <q-btn
+            flat
+            dense
+            round
+            icon="refresh"
+            @click="refreshPage"
+            aria-label="Yenile"
+          >
+            <q-tooltip>Yenile (F5)</q-tooltip>
+          </q-btn>
+
           <q-btn
             flat
             dense
@@ -94,6 +106,17 @@
     <q-page-container>
       <router-view />
     </q-page-container>
+    <q-banner
+      v-if="showFullScreenBanner"
+      class="bg-primary text-white"
+      inline-actions
+      style="position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;"
+    >
+      Tam ekran moduna geri dönmek için tıklayın.
+      <template v-slot:action>
+        <q-btn flat dense color="white" label="Tam Ekran" @click="() => enterFullScreen()" />
+      </template>
+    </q-banner>
   </q-layout>
 </template>
 
@@ -134,6 +157,7 @@ const isAdmin = ref(false);
 const showFallbackText = ref(false);
 const logoSrc = ref('/gokce-logo.png');
 const isFullScreen = ref(false);
+const showFullScreenBanner = ref(false);
 
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value;
@@ -193,11 +217,38 @@ function toggleFullScreen() {
   }
 }
 
+function enterFullScreen() {
+  const elem = document.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void>;
+    msRequestFullscreen?: () => Promise<void>;
+  };
+
+  if (elem.requestFullscreen) {
+    void elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) {
+    void elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) {
+    void elem.msRequestFullscreen();
+  }
+  showFullScreenBanner.value = false;
+  isFullScreen.value = true;
+}
+
 // Tam ekran değişimini dinle (F11 veya ESC ile çıkışta ikon güncellensin)
 if (typeof window !== 'undefined') {
   document.addEventListener('fullscreenchange', () => {
     isFullScreen.value = !!document.fullscreenElement;
   });
+}
+
+function refreshPage() {
+  // Eğer tam ekran ise, localStorage'a kaydet
+  if (isFullScreen.value) {
+    localStorage.setItem('restoreFullScreen', 'true');
+  } else {
+    localStorage.removeItem('restoreFullScreen');
+  }
+  window.location.reload();
 }
 
 onMounted(() => {
@@ -213,6 +264,12 @@ onMounted(() => {
     $q.dark.set(false);
   }
   // savedDarkMode null ise sistem tercihini kullan (default)
+
+  // Sayfa yenilendiyse ve tam ekran flag'i varsa, otomatik tam ekran yap
+  if (localStorage.getItem('restoreFullScreen') === 'true') {
+    localStorage.removeItem('restoreFullScreen');
+    showFullScreenBanner.value = true;
+  }
 });
 </script>
 
