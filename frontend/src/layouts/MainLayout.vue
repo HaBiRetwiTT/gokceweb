@@ -178,7 +178,25 @@ const logoSrc = ref('/gokce-logo.png');
 const isFullScreen = ref(false);
 const showFullScreenBanner = ref(false);
 const isChecking = ref(false);
-const currentVersion = ref(versionChecker.getCurrentVersion());
+const currentVersion = ref('');
+
+async function fetchVersion() {
+  try {
+    const response = await fetch('/version.json', { cache: 'no-store' })
+    if (response.ok) {
+      const data = await response.json()
+      currentVersion.value = data.version
+    }
+  } catch {
+    // Hata yönetimi: sessiz geç
+  }
+}
+
+onMounted(() => {
+  // ...
+  // Sürüm bilgisini sadece ilk yüklemede çek
+  void fetchVersion()
+});
 
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value;
@@ -316,7 +334,6 @@ onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
   isAdmin.value = localStorage.getItem('isAdmin') === 'true';
-  
   // Kaydedilmiş dark mode tercihini yükle
   const savedDarkMode = localStorage.getItem('darkMode');
   if (savedDarkMode === 'true') {
@@ -325,12 +342,13 @@ onMounted(() => {
     $q.dark.set(false);
   }
   // savedDarkMode null ise sistem tercihini kullan (default)
-
   // Sayfa yenilendiyse ve tam ekran flag'i varsa, otomatik tam ekran yap
   if (localStorage.getItem('restoreFullScreen') === 'true') {
     localStorage.removeItem('restoreFullScreen');
     showFullScreenBanner.value = true;
   }
+  // Sürüm bilgisini sadece ilk yüklemede çek
+  void fetchVersion()
 });
 </script>
 
