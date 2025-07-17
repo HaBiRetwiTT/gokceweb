@@ -104,8 +104,12 @@
       <q-list>
         <q-item-label
           header
+          class="menu-header"
         >
-          ANA MENÜ
+          <div class="menu-title-container">
+            <span class="menu-title">ANA MENÜ</span>
+            <span class="version-info">v.{{ currentVersion }}</span>
+          </div>
         </q-item-label>
 
         <EssentialLink
@@ -174,6 +178,7 @@ const logoSrc = ref('/gokce-logo.png');
 const isFullScreen = ref(false);
 const showFullScreenBanner = ref(false);
 const isChecking = ref(false);
+const currentVersion = ref(versionChecker.getCurrentVersion());
 
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value;
@@ -397,5 +402,37 @@ onMounted(() => {
   .system-title {
     font-size: 0.75rem;
   }
+}
+
+/* Sürüm bilgisi stilleri */
+.menu-header {
+  padding: 12px 16px;
+}
+
+.menu-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.menu-title {
+  font-weight: 600;
+  color: var(--q-primary);
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+.version-info {
+  font-size: 0.7rem;
+  color: rgba(0, 0, 0, 0.4);
+  font-weight: 400;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.2px;
+}
+
+/* Dark mode için sürüm bilgisi */
+.body--dark .version-info {
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>
