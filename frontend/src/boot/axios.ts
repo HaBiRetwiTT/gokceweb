@@ -22,6 +22,24 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Request interceptor - her API çağrısına kullanıcı adını ekle
+api.interceptors.request.use((config) => {
+  // localStorage'dan kullanıcı adını al
+  const username = localStorage.getItem('username');
+  
+  if (username && config.data) {
+    // POST/PUT isteklerinde body'ye kullanıcı adını ekle
+    config.data.kullaniciAdi = username;
+  } else if (username && config.params) {
+    // GET isteklerinde query parametresine kullanıcı adını ekle
+    config.params.kullaniciAdi = username;
+  }
+  
+  return config;
+}, (error) => {
+  return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+});
+
 export default defineBoot(({ app }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 

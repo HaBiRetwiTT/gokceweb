@@ -100,11 +100,13 @@
       show-if-above
       bordered
       :width="222"
+      :mini="miniMenu"
     >
       <q-list>
         <q-item-label
           header
           class="menu-header"
+          v-show="!miniMenu"
         >
           <div class="menu-title-container">
             <span class="menu-title">ANA MENÜ</span>
@@ -116,6 +118,7 @@
           v-for="link in linksList"
           :key="link.title"
           v-bind="link"
+          :mini="miniMenu"
         />
       </q-list>
     </q-drawer>
@@ -170,6 +173,7 @@ const linksList: EssentialLinkProps[] = [
 ];
 
 const leftDrawerOpen = ref(false);
+const miniMenu = ref(true);
 const username = ref('');
 const fullName = ref('');
 const isAdmin = ref(false);
@@ -206,7 +210,8 @@ onMounted(() => {
 });
 
 function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
+  // leftDrawerOpen.value = !leftDrawerOpen.value;
+  miniMenu.value = !miniMenu.value;
 }
 
 function handleLogout() {

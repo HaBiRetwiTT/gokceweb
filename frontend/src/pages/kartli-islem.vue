@@ -892,6 +892,7 @@
       :active-filter="currentFilter"
       @saved="refreshData"
       @refresh="refreshData"
+      @success="onModalSuccess"
     />
   </q-page>
 </template>
@@ -1955,6 +1956,17 @@ async function refreshData() {
     // Aktif filtre varsa sadece o kartın verilerini yenile
     void loadSelectedCardData(currentFilter.value)
   }
+}
+
+// Modal başarılı işlem sonrası güncelleme fonksiyonu
+function onModalSuccess() {
+  console.log('🎉 Modal başarılı işlem tamamlandı - Sayfa güncelleniyor...');
+  
+  // Modal kapatıldıktan sonra kısa bir gecikme ile verileri yenile
+  setTimeout(() => {
+    void refreshData();
+    console.log('✅ Sayfa başarıyla güncellendi');
+  }, 500);
 }
 
 function showDetails(row: MusteriKonaklama) {

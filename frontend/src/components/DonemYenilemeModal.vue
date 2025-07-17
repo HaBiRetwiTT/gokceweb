@@ -496,8 +496,9 @@
         <div class="q-mt-lg text-bold">ERKEN ÇIKIŞ İŞLEMİNİ ONAYLIYOR MUSUNUZ?</div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn flat label="İptal" color="grey" @click="showErkenCikisDialog = false" />
-        <q-btn flat label="EVET" color="primary" @click="onErkenCikisDialogOnayla" />
+        <q-btn flat label="İPTAL" color="grey" @click="showErkenCikisDialog = false" />
+        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="onErkenCikisIadesizCikis" />
+        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="onErkenCikisDialogOnayla" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -928,57 +929,6 @@ function erkenCikisOnayDialoguAc() {
   });
 }
 
-// Erken çıkış işlemlerini yapan fonksiyon (hem direkt hem dialogdan çağrılır)
-async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi }: { giderTutar: number, hesaplananEkNot: string, dialogdanMi: boolean }) {
-  // İşlem sırasında loading göstermek için
-  saving.value = true;
-  try {
-    // Backend'e gönderilecek veri
-    const requestData = {
-      tcNo: props.selectedData?.MstrTCN,
-      // konaklamaId: props.selectedData?.KnklmId, // yoksa gönderme
-      odaYatak: {
-        label: `Oda: ${props.selectedData?.KnklmOdaNo} - Yatak: ${props.selectedData?.KnklmYtkNo}`,
-        value: `${props.selectedData?.KnklmOdaNo}-${props.selectedData?.KnklmYtkNo}`
-      },
-      islemTarihi: new Date().toISOString(),
-      giderTutar,
-      ekNot: hesaplananEkNot,
-      dialogdanMi
-    };
-    // Backend'de depozito toplamı ve diğer işlemler de yapılacak
-    const response = await api.post('erken-cikis-yap', requestData);
-    if (response.data.success) {
-      Notify.create({
-        type: 'positive',
-        message: response.data.message || 'Erken çıkış işlemi başarıyla tamamlandı!',
-        position: 'top',
-        timeout: 3000,
-        actions: [{ icon: 'close', color: 'white', handler: () => { /* dismiss */ } }]
-      });
-      setTimeout(() => {
-        emit('refresh');
-        closeModal();
-      }, 3000);
-    } else {
-      throw new Error(response.data.message || 'Bilinmeyen bir hata oluştu.');
-    }
-  } catch (error) {
-    let errorMessage = 'Bir hata oluştu';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-    $q.notify({
-      color: 'negative',
-      icon: 'error',
-      message: `Erken çıkış işlemi başarısız: ${errorMessage}`,
-      position: 'top',
-      timeout: 4000
-    });
-  } finally {
-    saving.value = false;
-  }
-}
 
 console.log('🔧 Fonksiyonlar tanımlandı');
 
@@ -2123,8 +2073,9 @@ async function direktOdaDegisikligiYap() {
       yeniOdaNo: odaYatakParsed.yeniOdaNo,
       yeniYatakNo: odaYatakParsed.yeniYatakNo,
       yeniOdaYatak: formData.value.OdaYatak,
-      konaklamaNot: kombinedNot,
-      hesaplananBedel: hesaplananBedel
+      konaklamaNot: formData.value.KnklmNot || '', // Modal formundaki "Ek Notlar" alanı
+      toplamBedel: formData.value.ToplamBedel || 0, // Modal formundaki "Toplam Konaklama Bedeli" alanı
+      hesaplananBedel: hesaplananBedel // Ücret farkı hesaplaması için
     };
 
     console.log('Request payload for direkt-oda-degisikligi:', requestPayload);
@@ -2297,6 +2248,67 @@ function onErkenCikisDialogOnayla() {
     hesaplananEkNot: erkenCikisDialogData.value.ekNotlar,
     dialogdanMi: true
   });
+}
+
+// Yeni method ekle:
+function onErkenCikisIadesizCikis() {
+  // EVET kodunu çalıştır ama gider kaydı yapılmasın
+  void erkenCikisIslemleriYap({
+    giderTutar: Number(erkenCikisDialogData.value.giderBedel) || 0,
+    hesaplananEkNot: 'ERKEN ÇIKIŞ FARKI',
+    dialogdanMi: true,
+    giderKaydiOlmasin: true // backend'e bu parametreyi gönder
+  });
+  showErkenCikisDialog.value = false;
+}
+
+// erkenCikisIslemleriYap fonksiyonunda requestData'ya giderKaydiOlmasin parametresi ekle:
+async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi, giderKaydiOlmasin = false }: { giderTutar: number, hesaplananEkNot: string, dialogdanMi: boolean, giderKaydiOlmasin?: boolean }) {
+  saving.value = true;
+  try {
+    const requestData = {
+      tcNo: props.selectedData?.MstrTCN,
+      odaYatak: {
+        label: `Oda: ${props.selectedData?.KnklmOdaNo} - Yatak: ${props.selectedData?.KnklmYtkNo}`,
+        value: `${props.selectedData?.KnklmOdaNo}-${props.selectedData?.KnklmYtkNo}`
+      },
+      islemTarihi: new Date().toISOString(),
+      giderTutar,
+      ekNot: hesaplananEkNot,
+      dialogdanMi,
+      giderKaydiOlmasin // yeni parametre
+    };
+    const response = await api.post('erken-cikis-yap', requestData);
+    if (response.data.success) {
+      Notify.create({
+        type: 'positive',
+        message: response.data.message || 'Erken çıkış işlemi başarıyla tamamlandı!',
+        position: 'top',
+        timeout: 3000,
+        actions: [{ icon: 'close', color: 'white', handler: () => { /* dismiss */ } }]
+      });
+      setTimeout(() => {
+        emit('refresh');
+        closeModal();
+      }, 3000);
+    } else {
+      throw new Error(response.data.message || 'Bilinmeyen bir hata oluştu.');
+    }
+  } catch (error) {
+    let errorMessage = 'Bir hata oluştu';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    $q.notify({
+      color: 'negative',
+      icon: 'error',
+      message: `Erken çıkış işlemi başarısız: ${errorMessage}`,
+      position: 'top',
+      timeout: 4000
+    });
+  } finally {
+    saving.value = false;
+  }
 }
 
 </script>
