@@ -108,7 +108,7 @@
         >
           <div class="menu-title-container">
             <span class="menu-title">ANA MENÜ</span>
-            <span class="version-info">v.{{ currentVersion }}</span>
+            <span :class="versionInfoClass">v.{{ currentVersion }}</span>
           </div>
         </q-item-label>
 
@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { Notify } from 'quasar';
@@ -179,6 +179,7 @@ const isFullScreen = ref(false);
 const showFullScreenBanner = ref(false);
 const isChecking = ref(false);
 const currentVersion = ref('');
+const pendingUpdate = ref(false);
 
 async function fetchVersion() {
   try {
@@ -196,6 +197,7 @@ onMounted(() => {
   // ...
   // Sürüm bilgisini sadece ilk yüklemede çek
   void fetchVersion()
+  pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
 });
 
 function toggleLeftDrawer () {
@@ -349,6 +351,11 @@ onMounted(() => {
   }
   // Sürüm bilgisini sadece ilk yüklemede çek
   void fetchVersion()
+  pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
+});
+
+const versionInfoClass = computed(() => {
+  return pendingUpdate.value ? 'version-info version-warning' : 'version-info';
 });
 </script>
 
@@ -449,8 +456,16 @@ onMounted(() => {
   letter-spacing: 0.2px;
 }
 
+.version-warning {
+  color: #e53935 !important;
+  font-weight: 600;
+}
+
 /* Dark mode için sürüm bilgisi */
 .body--dark .version-info {
   color: rgba(255, 255, 255, 0.4);
+}
+.body--dark .version-warning {
+  color: #ff5252 !important;
 }
 </style>

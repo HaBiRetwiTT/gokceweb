@@ -135,6 +135,7 @@ class VersionCheckerService {
           label: 'Yenile',
           color: 'white',
           handler: () => {
+            localStorage.removeItem('pendingUpdate')
             this.refreshApplication()
           }
         },
@@ -142,6 +143,7 @@ class VersionCheckerService {
           label: 'Daha Sonra',
           color: 'white',
           handler: () => {
+            localStorage.setItem('pendingUpdate', 'true')
             // Bildirimi kapat
           }
         }
