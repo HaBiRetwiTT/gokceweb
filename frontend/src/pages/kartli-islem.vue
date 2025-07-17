@@ -122,7 +122,7 @@
 
     <!-- Filtreler - Kompakt -->
     <div class="row q-gutter-sm q-mb-sm items-center">
-      <div class="col-12 col-sm-3 col-md-2">
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 150px;">
         <q-select
           v-model="selectedTip"
           :options="konaklamaTipleri"
@@ -132,8 +132,8 @@
           @update:model-value="onFilterChange"
         />
       </div>
-      
-      <div class="col-12 col-sm-2 col-md-2" v-if="shouldShowSearchBox">
+
+      <div class="col-12 col-sm-3 col-md-2" v-if="shouldShowSearchBox">
         <q-input
           v-model="searchText"
           label="Arama"
