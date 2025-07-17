@@ -11,7 +11,7 @@ class VersionCheckerService {
   private checkInterval: number = 5 * 60 * 1000 // 5 dakika
   private intervalId: number | null = null
   private isChecking: boolean = false
-  private lastCheckedVersion: string = ''
+  private lastCheckedVersion: string = localStorage.getItem('lastCheckedVersion') || ''
 
   constructor() {
     this.currentVersion = import.meta.env.VITE_APP_VERSION || '0.0.1'
@@ -79,10 +79,12 @@ class VersionCheckerService {
       // Sürüm karşılaştırması yap
       if (this.isNewVersionAvailable(versionInfo.version)) {
         this.lastCheckedVersion = versionInfo.version
+        localStorage.setItem('lastCheckedVersion', versionInfo.version)
         this.showUpdateNotification(versionInfo)
       } else {
         // Güncel sürümü de kaydet
         this.lastCheckedVersion = versionInfo.version
+        localStorage.setItem('lastCheckedVersion', versionInfo.version)
       }
     } catch (error) {
       console.warn('Sürüm kontrolü sırasında hata:', error)
@@ -206,6 +208,10 @@ class VersionCheckerService {
       
       if (hasUpdate) {
         this.lastCheckedVersion = versionInfo.version
+        localStorage.setItem('lastCheckedVersion', versionInfo.version)
+      } else {
+        this.lastCheckedVersion = versionInfo.version
+        localStorage.setItem('lastCheckedVersion', versionInfo.version)
       }
       
       return hasUpdate
