@@ -69,6 +69,19 @@
           >
             Admin
           </q-chip>
+          
+          <!-- Sürüm Kontrolü Butonu -->
+          <q-btn
+            flat
+            dense
+            round
+            icon="system_update"
+            @click="checkForUpdates"
+            :loading="isChecking"
+          >
+            <q-tooltip>Güncellemeleri Kontrol Et</q-tooltip>
+          </q-btn>
+          
           <q-btn
             flat
             dense
@@ -124,7 +137,9 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { Notify } from 'quasar';
 import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
+import { versionChecker } from '../services/version-checker.service';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -158,6 +173,7 @@ const showFallbackText = ref(false);
 const logoSrc = ref('/gokce-logo.png');
 const isFullScreen = ref(false);
 const showFullScreenBanner = ref(false);
+const isChecking = ref(false);
 
 function toggleLeftDrawer () {
   leftDrawerOpen.value = !leftDrawerOpen.value;
@@ -249,6 +265,46 @@ function refreshPage() {
     localStorage.removeItem('restoreFullScreen');
   }
   window.location.reload();
+}
+
+// Sürüm kontrolü fonksiyonu
+async function checkForUpdates() {
+  isChecking.value = true
+  
+  try {
+    const hasUpdate = await versionChecker.manualCheck()
+    
+    if (hasUpdate) {
+      Notify.create({
+        type: 'positive',
+        message: 'Yeni sürüm mevcut!',
+        caption: 'Güncellemeleri almak için sayfayı yenileyin.',
+        icon: 'system_update',
+        position: 'top',
+        timeout: 5000
+      })
+    } else {
+      Notify.create({
+        type: 'info',
+        message: 'Güncel sürüm',
+        caption: 'Uygulamanız en son sürümde.',
+        icon: 'check_circle',
+        position: 'top',
+        timeout: 3000
+      })
+    }
+  } catch {
+    Notify.create({
+      type: 'negative',
+      message: 'Kontrol hatası',
+      caption: 'Sürüm kontrolü sırasında bir hata oluştu.',
+      icon: 'error',
+      position: 'top',
+      timeout: 3000
+    })
+  } finally {
+    isChecking.value = false
+  }
 }
 
 onMounted(() => {
