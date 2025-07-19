@@ -285,7 +285,7 @@
                   </div>
                 </div>
                 
-                <!-- Alt Satır: Konaklama Süresi, Konaklama Tipi ve Ö.T.G. -->
+                <!-- Alt Satır: Konaklama Süresi, Konaklama Tipi, Planlanan Çıkış ve Ö.T.G. -->
                 <div class="row no-wrap oda-konaklama-row">
                   <div class="col oda-konaklama-col">
                     <q-input
@@ -300,8 +300,8 @@
                       :max="30"
                       @update:model-value="onKonaklamaSuresiChanged"
                       required
-                      :readonly="guncellemeModuAktif"
-                      :disable="guncellemeModuAktif"
+                      :readonly="guncellemeModuAktif || !form.OdaTipi"
+                      :disable="guncellemeModuAktif || !form.OdaTipi"
                       class="kurumsal-responsive konaklama-field"
                     />
                   </div>
@@ -316,6 +316,19 @@
                       readonly
                       class="kurumsal-responsive konaklama-field konaklama-readonly"
                       :class="{ 'text-weight-medium': form.KonaklamaTipi }"
+                    />
+                  </div>
+                  <div class="col oda-konaklama-col">
+                    <q-input
+                      v-model="planlananCikisTarihi"
+                      label="Planlanan Çıkış"
+                      outlined
+                      color="green-6"
+                      label-color="green-6"
+                      dense
+                      readonly
+                      class="kurumsal-responsive konaklama-field konaklama-readonly"
+                      :class="{ 'text-weight-medium': planlananCikisTarihi }"
                     />
                   </div>
                   <!-- Ö.T.G. (Ödeme Takvim Günü) - Sadece konaklama süresi 30 iken görünür -->
@@ -890,6 +903,45 @@ const isOtgCheckboxEnabled = computed(() => {
   return form.value.HesaplananBedel !== form.value.ToplamBedel
 })
 
+// Planlanan çıkış tarihini hesapla (bugünün tarihi + konaklama süresi)
+const planlananCikisTarihi = computed(() => {
+  if (!form.value.KonaklamaSuresi || form.value.KonaklamaSuresi < 1) {
+    return ''
+  }
+  
+  const bugun = new Date()
+  let cikisTarihi: Date
+  
+  // 30 günlük konaklama için özel hesaplama
+  if (form.value.KonaklamaSuresi === 30) {
+    // Gün değeri aynı kalır, sadece ay +1 olur
+    const gun = bugun.getDate()
+    const ay = bugun.getMonth() + 1 // 0-based olduğu için +1
+    const yil = bugun.getFullYear()
+    
+    // Yeni ay hesaplama (12'yi geçerse yıl +1)
+    let yeniAy = ay + 1
+    let yeniYil = yil
+    
+    if (yeniAy > 12) {
+      yeniAy = 1
+      yeniYil = yil + 1
+    }
+    
+    cikisTarihi = new Date(yeniYil, yeniAy - 1, gun) // Ay için 0-based index kullanılır
+  } else {
+    // Normal hesaplama (1-29 gün için)
+    cikisTarihi = new Date(bugun)
+    cikisTarihi.setDate(bugun.getDate() + form.value.KonaklamaSuresi)
+  }
+  
+  const day = cikisTarihi.getDate().toString().padStart(2, '0')
+  const month = (cikisTarihi.getMonth() + 1).toString().padStart(2, '0')
+  const year = cikisTarihi.getFullYear()
+  
+  return `${day}.${month}.${year}`
+})
+
 // 🚨 KARA LİSTE UYARI SİSTEMİ
 const showKaraListeDialog = ref<boolean>(false)
 const karaListeProcessing = ref<boolean>(false)
@@ -1448,11 +1500,21 @@ async function submitForm() {
   try {
     // Kullanıcı adını localStorage'dan al ve MstrKllnc'ye ata
     const username = localStorage.getItem('username') || 'admin'
+    // DEBUG: Frontend'den gönderilen veriyi kontrol et
+    console.log('🔍 DEBUG - Frontend\'den gönderilen veri:', {
+      planlananCikisTarihi: planlananCikisTarihi.value,
+      konaklamaSuresi: form.value.KonaklamaSuresi,
+      konaklamaTipi: form.value.KonaklamaTipi,
+      hesaplananBedel: form.value.HesaplananBedel,
+      toplamBedel: form.value.ToplamBedel
+    });
+    
     const formData = {
       ...form.value,
       ...extraForm.value,
       MstrKllnc: username,
       MstrDurum: 'KALIYOR',
+      planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
       ekNotlar: ekNotlar.value,
       ekHizmetler: ekHizmetler.value,
       depozito: depozito.value
