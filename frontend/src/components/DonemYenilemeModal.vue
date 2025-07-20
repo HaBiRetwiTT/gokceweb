@@ -1020,28 +1020,56 @@ function onOdemeVadesiSelected(date: string) {
 function convertDateFormat(dateStr: string): string {
   if (!dateStr || dateStr.trim() === '') return '';
   
-  // Eğer zaten DD.MM.YYYY formatındaysa değiştirme
+  console.log('🔥 Modal convertDateFormat giriş:', dateStr);
+  
+  // MM.DD.YYYY formatını kontrol et ve DD.MM.YYYY'ye çevir
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
     const parts = dateStr.split('.');
     if (parts.length === 3) {
-      const day = parseInt(parts[0] || '0');
-      // const month = parseInt(parts[1] || '0'); // Kullanılmıyor, kaldırıldı
-      // Eğer gün 12'den büyükse, bu MM.DD.YYYY formatıdır
-      if (day > 12) {
-        return `${parts[1]}.${parts[0]}.${parts[2]}`; // MM.DD.YYYY -> DD.MM.YYYY
+      const firstPart = parseInt(parts[0] || '0');
+      const secondPart = parseInt(parts[1] || '0');
+      
+      console.log('🔥 Modal tarih parçaları:', { firstPart, secondPart, parts });
+      
+      // Eğer ikinci kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (ay 12'den büyük olamaz)
+      if (secondPart > 12) {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 Modal MM.DD.YYYY -> DD.MM.YYYY dönüşümü (ay > 12):', result);
+        return result;
       }
-      return dateStr; // Zaten DD.MM.YYYY formatında
+      // Eğer ilk kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (gün > 12)
+      else if (firstPart > 12) {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 Modal MM.DD.YYYY -> DD.MM.YYYY dönüşümü (gün > 12):', result);
+        return result;
+      }
+      // Eğer her ikisi de 12'den küçükse, varsayılan olarak MM.DD.YYYY kabul et
+      else {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 Modal varsayılan MM.DD.YYYY -> DD.MM.YYYY dönüşümü:', result);
+        return result;
+      }
     }
   }
   
-  // MM.DD.YYYY formatını DD.MM.YYYY'ye çevir
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
-    const parts = dateStr.split('.');
-    if (parts.length === 3) {
-      return `${parts[1]}.${parts[0]}.${parts[2]}`; // MM.DD.YYYY -> DD.MM.YYYY
-    }
+  // Farklı formatlar için kontrol
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // YYYY-MM-DD formatı
+    const parts = dateStr.split('-');
+    const result = `${parts[2]}.${parts[1]}.${parts[0]}`;
+    console.log('🔥 Modal YYYY-MM-DD -> DD.MM.YYYY dönüşümü:', result);
+    return result;
   }
   
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+    // MM/DD/YYYY formatı
+    const parts = dateStr.split('/');
+    const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+    console.log('🔥 Modal MM/DD/YYYY -> DD.MM.YYYY dönüşümü:', result);
+    return result;
+  }
+  
+  console.log('🔥 Modal format tanınmadı, olduğu gibi döndürülüyor:', dateStr);
   return dateStr; // Değiştirilemezse olduğu gibi döndür
 }
 
@@ -1122,7 +1150,12 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
     ToplamBedel: Number(newData.KnklmNfyt) || 0, // 🔥 Sadece initialize'da set edilir
     KnklmPlnTrh: newData.KnklmPlnTrh || '',
     KnklmNot: newData.KnklmNot || '',
-    OdemeVadesi: convertDateFormat(newData.OdemeVadesi || ''), // 🔥 Tarih formatını düzelt
+    OdemeVadesi: (() => {
+      console.log('🔥 Modal: Frontend\'den gelen ödeme vadesi (ham):', newData.OdemeVadesi);
+      const formatted = convertDateFormat(newData.OdemeVadesi || '');
+      console.log('🔥 Modal: Formatlanmış ödeme vadesi:', formatted);
+      return formatted;
+    })(), // 🔥 Tarih formatını düzelt
     eskiKnklmPlnTrh: newData.KnklmPlnTrh,
     eskiOdaYatak: mevcutOdaYatak
   };

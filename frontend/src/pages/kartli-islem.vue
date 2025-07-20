@@ -220,7 +220,7 @@
     <transition name="table-fade" mode="out-in">
       <q-table
         v-if="!showBorcluTable && !showAlacakliTable"
-        :key="`normal-${currentFilter}`"
+        :key="`normal-table`"
         :rows="displayedMusteriListesi"
         :columns="columns"
         :row-key="(row: MusteriKonaklama) => `${row.MstrTCN}-${row.KnklmOdaNo}-${row.KnklmYtkNo}`"
@@ -323,7 +323,7 @@
     <transition name="table-fade" mode="out-in">
       <q-table
         v-if="showBorcluTable"
-        :key="`borclu-${currentFilter}`"
+        :key="`borclu-table`"
         :rows="displayedBorcluMusteriListesi"
         :columns="borcluColumns"
         :row-key="(row: BorcluMusteri) => row.CariKod"
@@ -335,7 +335,8 @@
         bordered
         separator="cell"
         class="dashboard-table compact-table"
-        @row-click="onBorcluMusteriDoubleClick"
+        @row-click="onBorcluMusteriClick"
+        @row-dblclick="onBorcluMusteriDoubleClick"
         :rows-per-page-options="[5, 10, 15]"
         rows-per-page-label="Sayfa Başına Kayıt"
         table-style="width: 100%"
@@ -415,7 +416,7 @@
     <transition name="table-fade" mode="out-in">
       <q-table
         v-if="showAlacakliTable"
-        :key="`alacakli-${currentFilter}`"
+        :key="`alacakli-table`"
         :rows="displayedAlacakliMusteriListesi"
         :columns="alacakliColumns"
         :row-key="(row: AlacakliMusteri) => row.CariKod"
@@ -427,7 +428,8 @@
         bordered
         separator="cell"
         class="dashboard-table compact-table"
-        @row-click="onAlacakliMusteriDoubleClick"
+        @row-click="onAlacakliMusteriClick"
+        @row-dblclick="onAlacakliMusteriDoubleClick"
         :rows-per-page-options="[5, 10, 15]"
         rows-per-page-label="Sayfa Başına Kayıt"
         table-style="width: 100%"
@@ -499,7 +501,7 @@
       <q-table
         ref="cariHareketlerTableRef"
         v-if="(showBorcluTable || showAlacakliTable) && showCariHareketler"
-        :key="`cari-${selectedBorcluMusteri?.CariKod || 'empty'}-${Date.now()}`"
+        :key="cariHareketlerKey"
         :rows="displayedCariHareketlerListesi"
         :columns="cariHareketlerColumns"
         :row-key="(row: CariHareket) => `${row.iKytTarihi}-${row.islemTutar}`"
@@ -588,7 +590,7 @@
       <q-table
         ref="konaklamaGecmisiTableRef"
         v-if="!showBorcluTable && !showAlacakliTable && showKonaklamaGecmisi"
-        :key="`konaklama-${selectedNormalMusteri?.MstrTCN || 'empty'}-${Date.now()}`"
+        :key="konaklamaGecmisiKey"
         :rows="displayedKonaklamaGecmisiListesi"
         :columns="konaklamaGecmisiColumns"
         :row-key="(row: any) => `${row.knklmNo}`"
@@ -1118,6 +1120,15 @@ const displayedKonaklamaGecmisiListesi = computed(() => {
 // 🔥 Arama kutusu görünürlük kontrolü
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 const isSearchFocused = ref<boolean>(false)
+
+// 🔥 Alt grid animasyon kontrolü
+const cariHareketlerKey = ref<string>('cari-empty')
+const konaklamaGecmisiKey = ref<string>('konaklama-empty')
+
+// 🔥 Tek tıklama gecikme kontrolü
+const normalMusteriClickTimeout = ref<number | null>(null)
+const borcluMusteriClickTimeout = ref<number | null>(null)
+const alacakliMusteriClickTimeout = ref<number | null>(null)
 
 const shouldShowSearchBox = computed(() => {
   // Arama kutusu focus'taysa veya içinde metin varsa her zaman görünür
@@ -2002,6 +2013,12 @@ async function loadCariHareketler(cariKod: string) {
   // 🔥 Pagination'ı sıfırla
   cariHareketlerPagination.value.page = 1
   
+  // 🔥 Key'i sadece farklı müşteri seçildiğinde güncelle
+  const newKey = `cari-${cariKod}`
+  if (cariHareketlerKey.value !== newKey) {
+    cariHareketlerKey.value = newKey
+  }
+  
   try {
     const response = await api.get(`/dashboard/cari-hareketler?cariKod=${cariKod}`)
     if (response.data.success) {
@@ -2073,7 +2090,17 @@ function showDetails(row: MusteriKonaklama) {
 
 // Çift tıklama event handler
 function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
+  // 🔥 Tek tıklama timeout'unu iptal et
+  if (normalMusteriClickTimeout.value) {
+    clearTimeout(normalMusteriClickTimeout.value)
+    normalMusteriClickTimeout.value = null
+  }
+  
   console.log('Row double click:', row);
+  
+  // 🔥 Önce seçimi güncelle (grid tabloda aktif hale getir)
+  selectedNormalMusteri.value = row;
+  
   if (currentFilter.value === 'cikis-yapanlar' || currentFilter.value === 'bugun-cikan') {
     sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
     void router.push('/musteri-islem');
@@ -2099,8 +2126,10 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
         }
       }
       
-      // Modal'ı aç
-      donemYenilemeData.value = { ...row, OdemeVadesi: odemeVadesi };
+      // Modal'ı aç - ödeme vadesi formatını düzelt
+      console.log('🔥 Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
+      console.log('🔥 Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
+      donemYenilemeData.value = { ...row, OdemeVadesi: convertDateFormat(odemeVadesi) };
       showDonemYenilemeModal.value = true;
     };
     
@@ -2108,8 +2137,48 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   }
 }
 
+// Borçlu müşteri gecikmeli tek tıklama event handler
+function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
+  // 🔥 Önceki timeout'u temizle
+  if (borcluMusteriClickTimeout.value) {
+    clearTimeout(borcluMusteriClickTimeout.value)
+  }
+  
+  // 🔥 300ms gecikme ile tek tıklama işlemini başlat
+  borcluMusteriClickTimeout.value = window.setTimeout(() => {
+    console.log('Borçlu müşteri satırına tek tıklandı:', row);
+    selectedBorcluMusteri.value = row;
+    showCariHareketler.value = true;
+    void loadCariHareketler(row.CariKod);
+    
+    // 🔥 Seçilen müşteri bakiyesini hesapla
+    void hesaplaMusteriBakiye(row);
+    
+    // 🔥 Borçlu müşteri için firma bakiyesini hesapla ve selectedNormalMusteri'yi güncelle
+    void hesaplaBorcluMusteriFirmaBakiye(row);
+    
+    // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
+    if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
+      // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin cari hareketlerini göster
+      console.log('Firma filtresi aktifken borçlu müşteri seçildi:', row.CariAdi);
+      // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
+    } else {
+      // Normal durum - firma filtresini sıfırla (ama hesaplaBorcluMusteriFirmaBakiye zaten uygun şekilde ayarlıyor)
+      // firmaFiltresiAktif.value = false; // Bu satırı kaldırıyoruz çünkü hesaplaBorcluMusteriFirmaBakiye zaten hallediyor
+    }
+    
+    borcluMusteriClickTimeout.value = null
+  }, 300)
+}
+
 // Borçlu müşteri çift tıklama event handler
 function onBorcluMusteriDoubleClick(evt: Event, row: BorcluMusteri) {
+  // 🔥 Tek tıklama timeout'unu iptal et
+  if (borcluMusteriClickTimeout.value) {
+    clearTimeout(borcluMusteriClickTimeout.value)
+    borcluMusteriClickTimeout.value = null
+  }
+  
   console.log('Borçlu müşteri satırına çift tıklandı:', row);
   selectedBorcluMusteri.value = row;
   showCariHareketler.value = true;
@@ -2130,6 +2199,55 @@ function onBorcluMusteriDoubleClick(evt: Event, row: BorcluMusteri) {
     // Normal durum - firma filtresini sıfırla (ama hesaplaBorcluMusteriFirmaBakiye zaten uygun şekilde ayarlıyor)
     // firmaFiltresiAktif.value = false; // Bu satırı kaldırıyoruz çünkü hesaplaBorcluMusteriFirmaBakiye zaten hallediyor
   }
+  
+  // 🔥 Modal açma işlemi - borçlu müşteri için dönem yenileme modal'ı
+  const modalAcilisAkisi = async () => {
+    let odemeVadesi = '';
+    
+    // 1. Önce borçlu müşteri listesinden TC ile eşleştirme yap
+    const borcluMusteriVadesi = borcluMusteriListesi.value.find(b => b.CariVTCN === row.CariVTCN)?.OdemeVadesi;
+    
+    if (borcluMusteriVadesi && borcluMusteriVadesi.trim() !== '') {
+      odemeVadesi = borcluMusteriVadesi;
+    } else {
+      // 2. Borçlu müşteri listesinde bulunamazsa dashboard servisten hesaplat
+      try {
+        const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.CariVTCN || '')}`);
+        if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
+          odemeVadesi = vadeResponse.data.data.odemeVadesi;
+        }
+      } catch (error) {
+        console.error('Ödeme vadesi hesaplama hatası:', error);
+      }
+    }
+    
+    // Modal'ı aç - ödeme vadesi formatını düzelt
+    console.log('🔥 Borçlu müşteri modal açılıyor - Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
+    console.log('🔥 Borçlu müşteri modal açılıyor - Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
+    
+    // Borçlu müşteri verilerini normal müşteri formatına çevir
+    const modalData = {
+      MstrTCN: row.CariVTCN || '',
+      MstrAdi: row.CariAdi,
+      MstrTelNo: row.CariTelNo || '',
+      MstrHspTip: row.MstrHspTip || 'Bireysel',
+      MstrFirma: row.MstrFirma || '',
+      KnklmOdaTip: '',
+      KnklmOdaNo: '',
+      KnklmYtkNo: '',
+      KnklmTip: '',
+      KnklmNfyt: 0,
+      KnklmGrsTrh: '',
+      KnklmPlnTrh: '',
+      KnklmNot: '',
+      OdemeVadesi: convertDateFormat(odemeVadesi)
+    };
+    
+    donemYenilemeData.value = modalData;
+    showDonemYenilemeModal.value = true;
+  };
+  
+  void modalAcilisAkisi();
 }
 
 
@@ -2146,6 +2264,63 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return ''
   // DD.MM.YYYY formatında gelen tarihi düzenle
   return dateStr
+}
+
+// Tarih formatını MM.DD.YYYY'den DD.MM.YYYY'ye çevir
+function convertDateFormat(dateStr: string): string {
+  if (!dateStr || dateStr.trim() === '') return '';
+  
+  console.log('🔥 convertDateFormat giriş:', dateStr);
+  
+  // MM.DD.YYYY formatını kontrol et ve DD.MM.YYYY'ye çevir
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+    const parts = dateStr.split('.');
+    if (parts.length === 3) {
+      const firstPart = parseInt(parts[0] || '0');
+      const secondPart = parseInt(parts[1] || '0');
+      
+      console.log('🔥 Tarih parçaları:', { firstPart, secondPart, parts });
+      
+      // Eğer ikinci kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (ay 12'den büyük olamaz)
+      if (secondPart > 12) {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 MM.DD.YYYY -> DD.MM.YYYY dönüşümü (ay > 12):', result);
+        return result;
+      }
+      // Eğer ilk kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (gün > 12)
+      else if (firstPart > 12) {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 MM.DD.YYYY -> DD.MM.YYYY dönüşümü (gün > 12):', result);
+        return result;
+      }
+      // Eğer her ikisi de 12'den küçükse, varsayılan olarak MM.DD.YYYY kabul et
+      else {
+        const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+        console.log('🔥 Varsayılan MM.DD.YYYY -> DD.MM.YYYY dönüşümü:', result);
+        return result;
+      }
+    }
+  }
+  
+  // Farklı formatlar için kontrol
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // YYYY-MM-DD formatı
+    const parts = dateStr.split('-');
+    const result = `${parts[2]}.${parts[1]}.${parts[0]}`;
+    console.log('🔥 YYYY-MM-DD -> DD.MM.YYYY dönüşümü:', result);
+    return result;
+  }
+  
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+    // MM/DD/YYYY formatı
+    const parts = dateStr.split('/');
+    const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
+    console.log('🔥 MM/DD/YYYY -> DD.MM.YYYY dönüşümü:', result);
+    return result;
+  }
+  
+  console.log('🔥 Format tanınmadı, olduğu gibi döndürülüyor:', dateStr);
+  return dateStr; // Değiştirilemezse olduğu gibi döndür
 }
 
 function getTipColor(tip: string): string {
@@ -2252,13 +2427,55 @@ async function hesaplaFirmaBakiye(musteri: MusteriKonaklama) {
   }
 }
 
+// 🔥 ALACAKLI MÜŞTERİ GECİKMELİ TEK TIKLAMA FONKSİYONU
+function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
+  // 🔥 Önceki timeout'u temizle
+  if (alacakliMusteriClickTimeout.value) {
+    clearTimeout(alacakliMusteriClickTimeout.value)
+  }
+  
+  // 🔥 300ms gecikme ile tek tıklama işlemini başlat
+  alacakliMusteriClickTimeout.value = window.setTimeout(() => {
+    void (async () => {
+      try {
+        // Önceki seçimi temizle
+        selectedBorcluMusteri.value = null
+        
+        console.log('Alacaklı müşteri tek tıklandı:', row)
+        selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
+        
+        // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
+        selectedMusteriBakiye.value = -(row.AlacakTutari || 0)
+        
+        // Firma bakiyesini hesapla
+        await hesaplaAlacakliMusteriFirmaBakiye(row)
+        
+        // Cari hareketler tablosunu göster
+        showCariHareketler.value = true
+        void loadCariHareketler(row.CariKod)
+        console.log('Alacaklı müşteri için cari hareketler yükleniyor:', row.CariKod)
+      } catch (error) {
+        console.error('Alacaklı müşteri seçme hatası:', error)
+      }
+      
+      alacakliMusteriClickTimeout.value = null
+    })()
+  }, 300)
+}
+
 // 🔥 ALACAKLI MÜŞTERİ DOUBLE CLICK FONKSİYONU
 async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
+  // 🔥 Tek tıklama timeout'unu iptal et
+  if (alacakliMusteriClickTimeout.value) {
+    clearTimeout(alacakliMusteriClickTimeout.value)
+    alacakliMusteriClickTimeout.value = null
+  }
+  
   try {
     // Önceki seçimi temizle
     selectedBorcluMusteri.value = null
     
-    console.log('Alacaklı müşteri seçildi:', row)
+    console.log('Alacaklı müşteri çift tıklandı:', row)
     selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
     
     // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
@@ -2274,6 +2491,48 @@ async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
   } catch (error) {
     console.error('Alacaklı müşteri seçme hatası:', error)
   }
+  
+  // 🔥 Modal açma işlemi - alacaklı müşteri için dönem yenileme modal'ı
+  const modalAcilisAkisi = async () => {
+    let odemeVadesi = '';
+    
+    // Alacaklı müşteri için sadece backend'den ödeme vadesi çek
+    try {
+      const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.CariVTCN || '')}`);
+      if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
+        odemeVadesi = vadeResponse.data.data.odemeVadesi;
+      }
+    } catch (error) {
+      console.error('Ödeme vadesi hesaplama hatası:', error);
+    }
+    
+    // Modal'ı aç - ödeme vadesi formatını düzelt
+    console.log('🔥 Alacaklı müşteri modal açılıyor - Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
+    console.log('🔥 Alacaklı müşteri modal açılıyor - Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
+    
+    // Alacaklı müşteri verilerini normal müşteri formatına çevir
+    const modalData = {
+      MstrTCN: row.CariVTCN || '',
+      MstrAdi: row.CariAdi,
+      MstrTelNo: row.CariTelNo || '',
+      MstrHspTip: row.MstrHspTip || 'Bireysel',
+      MstrFirma: row.MstrFirma || '',
+      KnklmOdaTip: '',
+      KnklmOdaNo: '',
+      KnklmYtkNo: '',
+      KnklmTip: '',
+      KnklmNfyt: 0,
+      KnklmGrsTrh: '',
+      KnklmPlnTrh: '',
+      KnklmNot: '',
+      OdemeVadesi: convertDateFormat(odemeVadesi)
+    };
+    
+    donemYenilemeData.value = modalData;
+    showDonemYenilemeModal.value = true;
+  };
+  
+  void modalAcilisAkisi();
 }
 
 // 🔥 ALACAKLI MÜŞTERİ İÇİN FİRMA BAKİYE HESAPLAMA FONKSİYONU
@@ -2569,35 +2828,45 @@ function onOdaTipChange() {
 
 
 
-// Normal müşteri satırına tek tıklama - konaklama geçmişi göster
+// Normal müşteri satırına gecikmeli tek tıklama - konaklama geçmişi göster
 function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
-  selectedNormalMusteri.value = row;
-  showKonaklamaGecmisi.value = true;
-  void loadKonaklamaGecmisi(row.MstrTCN);
-  
-  // 🔥 Seçilen müşteri bakiyesini hesapla
-  void hesaplaMusteriBakiye(row);
-  
-  // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
-  if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-    // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin konaklama geçmişini göster
-    // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
-  } else {
-    // Normal durum - firma filtresini sıfırla
-    firmaFiltresiAktif.value = false;
+  // 🔥 Önceki timeout'u temizle
+  if (normalMusteriClickTimeout.value) {
+    clearTimeout(normalMusteriClickTimeout.value)
   }
   
-  // 🔥 Kurumsal müşteri ise firma bakiyesini de hesapla ve firma adını güncelle
-  if (row.MstrHspTip === 'Kurumsal') {
-    void hesaplaFirmaBakiye(row);
-    selectedFirmaAdi.value = row.MstrFirma || '';
-  } else {
-    // Bireysel müşteri seçildiğinde firma bilgilerini temizle (sadece firma filtresi aktif değilse)
-    if (!firmaFiltresiAktif.value) {
-      selectedFirmaBakiye.value = 0;
-      selectedFirmaAdi.value = '';
+  // 🔥 300ms gecikme ile tek tıklama işlemini başlat
+  normalMusteriClickTimeout.value = window.setTimeout(() => {
+    selectedNormalMusteri.value = row;
+    showKonaklamaGecmisi.value = true;
+    void loadKonaklamaGecmisi(row.MstrTCN);
+    
+    // 🔥 Seçilen müşteri bakiyesini hesapla
+    void hesaplaMusteriBakiye(row);
+    
+    // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
+    if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
+      // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin konaklama geçmişini göster
+      // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
+    } else {
+      // Normal durum - firma filtresini sıfırla
+      firmaFiltresiAktif.value = false;
     }
-  }
+    
+    // 🔥 Kurumsal müşteri ise firma bakiyesini de hesapla ve firma adını güncelle
+    if (row.MstrHspTip === 'Kurumsal') {
+      void hesaplaFirmaBakiye(row);
+      selectedFirmaAdi.value = row.MstrFirma || '';
+    } else {
+      // Bireysel müşteri seçildiğinde firma bilgilerini temizle (sadece firma filtresi aktif değilse)
+      if (!firmaFiltresiAktif.value) {
+        selectedFirmaBakiye.value = 0;
+        selectedFirmaAdi.value = '';
+      }
+    }
+    
+    normalMusteriClickTimeout.value = null
+  }, 300)
 }
 
 // Müşterinin konaklama geçmişini yükle
@@ -2609,6 +2878,12 @@ async function loadKonaklamaGecmisi(tcKimlik: string) {
   
   // 🔥 Pagination'ı sıfırla
   konaklamaGecmisiPagination.value.page = 1
+  
+  // 🔥 Key'i sadece farklı müşteri seçildiğinde güncelle
+  const newKey = `konaklama-${tcKimlik}`
+  if (konaklamaGecmisiKey.value !== newKey) {
+    konaklamaGecmisiKey.value = newKey
+  }
   
   try {
     const response = await api.get(`/dashboard/musteri-konaklama-gecmisi/${tcKimlik}`);
