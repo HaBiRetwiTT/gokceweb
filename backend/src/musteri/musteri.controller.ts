@@ -912,7 +912,7 @@ export class MusteriController {
 
       // PDF oluştur
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      doc.font('fonts/DejaVuSans.ttf');
+      doc.font('./fonts/DejaVuSans.ttf');
       
       // Response headers
       res.setHeader('Content-Type', 'application/pdf');
@@ -934,7 +934,7 @@ export class MusteriController {
       let yPosition = doc.y;
 
       // Başlık satırı
-      doc.fontSize(9).font('fonts/DejaVuSans.ttf');
+      doc.fontSize(9).font('./fonts/DejaVuSans.ttf');
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
@@ -970,7 +970,7 @@ export class MusteriController {
           const cellWidth = columnWidths[cellIndex];
           const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
           
-          doc.font('fonts/DejaVuSans.ttf').text(cell, cellX, yPosition, { 
+          doc.font('./fonts/DejaVuSans.ttf').text(cell, cellX, yPosition, { 
             width: cellWidth, 
             align: 'left'
           });
@@ -1086,7 +1086,7 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      doc.font('fonts/DejaVuSans.ttf');
+      doc.font('./fonts/DejaVuSans.ttf');
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
       doc.pipe(res);
@@ -1099,11 +1099,11 @@ export class MusteriController {
       const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
       let yPosition = doc.y;
-      doc.fontSize(9).font('fonts/DejaVuSans.ttf');
+      doc.fontSize(9).font('./fonts/DejaVuSans.ttf');
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
-      doc.fontSize(8).font('fonts/DejaVuSans.ttf');
+      doc.fontSize(8).font('./fonts/DejaVuSans.ttf');
       hareketler.forEach((row, index) => {
         const rowHeight = 20; // Varsayılan satır yüksekliği
         if (yPosition > 650) {
