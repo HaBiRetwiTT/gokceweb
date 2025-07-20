@@ -11,6 +11,7 @@ import * as PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+import jsPDF from 'jspdf';
 //import { MusteriBilgi } from '../dto/musteri-bilgi.dto';
 
 @Controller()
@@ -935,29 +936,34 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // Basit PDF test - sadece başlık
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      // jsPDF ile basit PDF test
+      const doc = new jsPDF();
+      
+      // Başlık
+      doc.setFontSize(20);
+      doc.text('GÖKÇE PANSİYON', 105, 20, { align: 'center' });
+      
+      doc.setFontSize(16);
+      doc.text(raporBaslik, 105, 35, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.text(`Rapor Tarihi: ${this.formatDate(new Date())}`, 190, 20, { align: 'right' });
+      
+      // Bilgi
+      doc.setFontSize(12);
+      doc.text(`Kayıt Sayısı: ${konaklamaGecmisi.length}`, 20, 60);
+      doc.text('PDF oluşturma testi başarılı!', 20, 75);
+      
+      // PDF'i buffer olarak al
+      const pdfBuffer = doc.output('arraybuffer');
       
       // Response headers
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="konaklama-gecmisi-${Date.now()}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.byteLength);
       
-      doc.pipe(res);
-
-      // Sadece basit içerik
-      doc.fontSize(20).text('GÖKÇE PANSİYON', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(16).text(raporBaslik, { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(10).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
-      doc.moveDown(2);
-
-      // Basit bilgi
-      doc.fontSize(12).text(`Kayıt Sayısı: ${konaklamaGecmisi.length}`);
-      doc.moveDown();
-      doc.fontSize(10).text('PDF oluşturma testi başarılı!');
-
-      doc.end();
+      // Buffer'ı gönder
+      res.send(Buffer.from(pdfBuffer));
     } catch (error) {
       console.error('PDF rapor hatası:', error);
       console.error('Error details:', {
