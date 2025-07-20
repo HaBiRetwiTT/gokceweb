@@ -3374,7 +3374,6 @@ async function downloadKonaklamaGecmisiPDF() {
   try {
     pdfLoading.value = true
     
-    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
@@ -3384,7 +3383,7 @@ async function downloadKonaklamaGecmisiPDF() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `${baseURL}/konaklama-gecmisi-pdf?${queryString}`;
+    const url = `/konaklama-gecmisi-pdf?${queryString}`;
     
     // PDF dosyasını indir
     const response = await api.get(url, {
@@ -3431,7 +3430,6 @@ async function downloadKonaklamaGecmisiExcel() {
   try {
     excelLoading.value = true
     
-    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
@@ -3441,7 +3439,7 @@ async function downloadKonaklamaGecmisiExcel() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `${baseURL}/konaklama-gecmisi-excel?${queryString}`;
+    const url = `/konaklama-gecmisi-excel?${queryString}`;
     
     // Excel dosyasını indir
     const response = await api.get(url, {
@@ -3489,7 +3487,6 @@ async function downloadKonaklamaGecmisiExcel() {
 async function downloadCariHareketlerPDF() {
   try {
     cariPdfLoading.value = true
-    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
@@ -3499,17 +3496,36 @@ async function downloadCariHareketlerPDF() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `${baseURL}/cari-hareketler-pdf?${queryString}`;
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('PDF indirilemedi')
-    const blob = await response.blob()
+    const url = `/cari-hareketler-pdf?${queryString}`;
+    
+    // Axios ile indir (authentication için)
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    // Dosyayı indir
+    const blob = new Blob([response.data], { 
+      type: 'application/pdf' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = window.URL.createObjectURL(blob)
+    link.href = downloadUrl
     link.download = `cari-hareketler-${Date.now()}.pdf`
+    document.body.appendChild(link)
     link.click()
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    alert('PDF raporu indirilemedi: ' + msg);
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('Cari hareketler PDF raporu başarıyla indirildi')
+  } catch (error) {
+    console.error('Cari hareketler PDF raporu indirme hatası:', error)
+    // Hata mesajını göster
+    const { Notify } = await import('quasar')
+    Notify.create({
+      type: 'negative',
+      message: 'PDF raporu indirilemedi',
+      position: 'top'
+    })
   } finally {
     cariPdfLoading.value = false
   }
@@ -3518,7 +3534,6 @@ async function downloadCariHareketlerPDF() {
 async function downloadCariHareketlerExcel() {
   try {
     cariExcelLoading.value = true
-    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const params = [];
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       params.push(`firmaAdi=${encodeURIComponent(selectedFirmaAdi.value)}`);
@@ -3528,17 +3543,36 @@ async function downloadCariHareketlerExcel() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `${baseURL}/cari-hareketler-excel?${queryString}`;
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Excel indirilemedi')
-    const blob = await response.blob()
+    const url = `/cari-hareketler-excel?${queryString}`;
+    
+    // Axios ile indir (authentication için)
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    // Dosyayı indir
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = window.URL.createObjectURL(blob)
+    link.href = downloadUrl
     link.download = `cari-hareketler-${Date.now()}.xlsx`
+    document.body.appendChild(link)
     link.click()
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    alert('Excel raporu indirilemedi: ' + msg);
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('Cari hareketler Excel raporu başarıyla indirildi')
+  } catch (error) {
+    console.error('Cari hareketler Excel raporu indirme hatası:', error)
+    // Hata mesajını göster
+    const { Notify } = await import('quasar')
+    Notify.create({
+      type: 'negative',
+      message: 'Excel raporu indirilemedi',
+      position: 'top'
+    })
   } finally {
     cariExcelLoading.value = false
   }
