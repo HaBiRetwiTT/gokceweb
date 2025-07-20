@@ -953,21 +953,63 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // En basit test - sadece JSON döndür
-      const testData = {
-        success: true,
-        message: 'Rapor endpoint testi',
-        raporBaslik: raporBaslik,
-        kayitSayisi: konaklamaGecmisi.length,
-        timestamp: new Date().toISOString(),
-        data: konaklamaGecmisi.slice(0, 3) // İlk 3 kayıt
-      };
+      // PDF oluştur
+      const doc = new jsPDF();
+      
+      // Font ayarları
+      doc.setFont('helvetica');
+      doc.setFontSize(16);
+      
+      // Başlık
+      doc.text(raporBaslik, 20, 20);
+      
+      // Tarih
+      doc.setFontSize(10);
+      doc.text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 20, 30);
+      doc.text(`Toplam Kayıt: ${konaklamaGecmisi.length}`, 20, 40);
+      
+      // Tablo başlıkları
+      const headers = ['Tarih', 'Oda-Yatak', 'Tip', 'Tutar', 'Giriş', 'Çıkış'];
+      const startY = 60;
+      let currentY = startY;
+      
+      doc.setFontSize(8);
+      headers.forEach((header, index) => {
+        doc.text(header, 20 + (index * 30), currentY);
+      });
+      
+      currentY += 10;
+      
+      // Veriler
+      konaklamaGecmisi.slice(0, 20).forEach((row, index) => {
+        if (currentY > 250) {
+          doc.addPage();
+          currentY = 20;
+        }
+        
+        const tarih = row.kKytTarihi ? this.formatDate(new Date(row.kKytTarihi)) : 'N/A';
+        const odaYatak = `${row.KnklmOdaNo}-${row.KnklmYtkNo}`;
+        const tip = row.KnklmTip || 'N/A';
+        const tutar = row.KnklmNfyt || 0;
+        const giris = row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A';
+        const cikis = row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A';
+        
+        doc.text(tarih, 20, currentY);
+        doc.text(odaYatak, 50, currentY);
+        doc.text(tip, 80, currentY);
+        doc.text(tutar.toString(), 110, currentY);
+        doc.text(giris, 140, currentY);
+        doc.text(cikis, 170, currentY);
+        
+        currentY += 5;
+      });
       
       // Response headers
-      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${raporBaslik.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf"`);
       
-      // JSON'u gönder
-      res.json(testData);
+      // PDF'i gönder
+      res.send(Buffer.from(doc.output('arraybuffer')));
     } catch (error) {
       console.error('PDF rapor hatası:', error);
       console.error('Error details:', {
