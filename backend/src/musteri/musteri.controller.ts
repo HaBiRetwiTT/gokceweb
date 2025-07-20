@@ -936,34 +936,66 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // jsPDF ile basit PDF test
-      const doc = new jsPDF();
-      
-      // Başlık
-      doc.setFontSize(20);
-      doc.text('GÖKÇE PANSİYON', 105, 20, { align: 'center' });
-      
-      doc.setFontSize(16);
-      doc.text(raporBaslik, 105, 35, { align: 'center' });
-      
-      doc.setFontSize(10);
-      doc.text(`Rapor Tarihi: ${this.formatDate(new Date())}`, 190, 20, { align: 'right' });
-      
-      // Bilgi
-      doc.setFontSize(12);
-      doc.text(`Kayıt Sayısı: ${konaklamaGecmisi.length}`, 20, 60);
-      doc.text('PDF oluşturma testi başarılı!', 20, 75);
-      
-      // PDF'i buffer olarak al
-      const pdfBuffer = doc.output('arraybuffer');
+      // Geçici olarak HTML tablosu döndür
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${raporBaslik}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .header { text-align: center; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>GÖKÇE PANSİYON</h1>
+            <h2>${raporBaslik}</h2>
+            <p>Rapor Tarihi: ${this.formatDate(new Date())}</p>
+            <p>Kayıt Sayısı: ${konaklamaGecmisi.length}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Kayıt Tarihi</th>
+                <th>Oda-Yatak</th>
+                <th>Konaklama Tipi</th>
+                <th>Tutar</th>
+                <th>Giriş Tarihi</th>
+                <th>Planlanan Çıkış</th>
+                <th>Çıkış Tarihi</th>
+                <th>Not</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${konaklamaGecmisi.map(row => `
+                <tr>
+                  <td>${row.kKytTarihi ? this.formatDate(new Date(row.kKytTarihi)) : 'N/A'}</td>
+                  <td>${row.KnklmOdaNo}-${row.KnklmYtkNo}</td>
+                  <td>${row.KnklmTip || 'N/A'}</td>
+                  <td>${row.KnklmNfyt?.toLocaleString('tr-TR') || 0} TL</td>
+                  <td>${row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A'}</td>
+                  <td>${row.KnklmPlnTrh ? this.formatDate(new Date(row.KnklmPlnTrh)) : 'N/A'}</td>
+                  <td>${row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A'}</td>
+                  <td>${row.KnklmNot || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
       
       // Response headers
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="konaklama-gecmisi-${Date.now()}.pdf"`);
-      res.setHeader('Content-Length', pdfBuffer.byteLength);
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="konaklama-gecmisi-${Date.now()}.html"`);
       
-      // Buffer'ı gönder
-      res.send(Buffer.from(pdfBuffer));
+      // HTML'i gönder
+      res.send(htmlContent);
     } catch (error) {
       console.error('PDF rapor hatası:', error);
       console.error('Error details:', {
