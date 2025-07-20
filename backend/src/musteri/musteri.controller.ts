@@ -997,7 +997,7 @@ export class MusteriController {
           const cellWidth = columnWidths[cellIndex];
           const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
           
-          doc.font('./fonts/DejaVuSans.ttf').text(cell, cellX, yPosition, { 
+          doc.text(cell, cellX, yPosition, { 
             width: cellWidth, 
             align: 'left'
           });
