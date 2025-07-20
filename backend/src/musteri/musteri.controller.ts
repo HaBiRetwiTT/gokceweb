@@ -937,8 +937,9 @@ export class MusteriController {
 
       // PDF oluştur
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      const fontPath = this.getFontPath();
-      doc.font(fontPath);
+      // Font kullanımını geçici olarak kaldırdık
+      // const fontPath = this.getFontPath();
+      // doc.font(fontPath);
       
       // Response headers
       res.setHeader('Content-Type', 'application/pdf');
@@ -947,11 +948,11 @@ export class MusteriController {
       doc.pipe(res);
 
       // PDF içeriği
-      doc.fontSize(20).font(fontPath).text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font(fontPath).text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font(fontPath).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
 
       // Tablo başlıkları
@@ -960,7 +961,7 @@ export class MusteriController {
       let yPosition = doc.y;
 
       // Başlık satırı
-      doc.fontSize(9).font(fontPath);
+      doc.fontSize(9);
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
@@ -1117,25 +1118,26 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      const fontPath = this.getFontPath();
-      doc.font(fontPath);
+      // Font kullanımını geçici olarak kaldırdık
+      // const fontPath = this.getFontPath();
+      // doc.font(fontPath);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
       doc.pipe(res);
-      doc.fontSize(20).font(fontPath).text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font(fontPath).text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font(fontPath).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
       const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
       let yPosition = doc.y;
-      doc.fontSize(9).font(fontPath);
+      doc.fontSize(9);
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
-              doc.fontSize(8).font(fontPath);
+              doc.fontSize(8);
       hareketler.forEach((row, index) => {
         const rowHeight = 20; // Varsayılan satır yüksekliği
         if (yPosition > 650) {
