@@ -144,14 +144,17 @@
         />
       </div>
 
-      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;" v-if="shouldShowSearchBox">
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;" v-show="shouldShowSearchBox">
         <q-input
+          ref="searchInputRef"
           v-model="searchText"
           label="Arama"
           outlined
           dense
           clearable
           @update:model-value="onSearchChange"
+          @focus="onSearchFocus"
+          @blur="onSearchBlur"
           debounce="300"
           placeholder="En az 3 karakter girin"
         >
@@ -1112,19 +1115,37 @@ const displayedKonaklamaGecmisiListesi = computed(() => {
   return konaklamaGecmisiListesi.value
 })
 
-// Arama textbox'ının görünürlüğünü kontrol et
+// 🔥 Arama kutusu görünürlük kontrolü
+const searchInputRef = ref<{ focus: () => void } | null>(null)
+const isSearchFocused = ref<boolean>(false)
+
 const shouldShowSearchBox = computed(() => {
+  // Arama kutusu focus'taysa veya içinde metin varsa her zaman görünür
+  if (isSearchFocused.value || (searchText.value && searchText.value.trim().length > 0)) {
+    return true
+  }
+  
+  // Normal durumda pagination'a bağlı görünürlük
   if (showBorcluTable.value) {
-    // Borçlu müşteri listesi için
     return displayedBorcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage
   } else if (showAlacakliTable.value) {
-    // Alacaklı müşteri listesi için
     return displayedAlacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage
   } else {
-    // Normal müşteri tablosu için
     return displayedMusteriListesi.value.length > pagination.value.rowsPerPage
   }
 })
+
+// Arama kutusu focus event handler
+function onSearchFocus() {
+  isSearchFocused.value = true
+  console.log('Arama kutusu focus oldu - görünür kalacak')
+}
+
+// Arama kutusu blur event handler
+function onSearchBlur() {
+  isSearchFocused.value = false
+  console.log('Arama kutusu blur oldu - normal görünürlük kuralları uygulanacak')
+}
 
 // Pagination izleyicisi - sıralama değişikliklerinde API çağrısı yapma
 let sortingInProgress = false
@@ -2426,6 +2447,13 @@ function performSearch(searchValue: string) {
 function onSearchChange(newValue: string | number | null) {
   const searchValue = newValue ? String(newValue) : ''
   searchText.value = searchValue
+  
+  // 🔥 Arama metni temizlendiğinde focus durumunu kontrol et
+  if (!searchValue || searchValue.trim().length === 0) {
+    // Arama metni temizlendi, focus durumuna göre görünürlük belirlenecek
+    console.log('Arama metni temizlendi - görünürlük focus durumuna göre belirlenecek')
+  }
+  
   performSearch(searchValue)
 }
 
