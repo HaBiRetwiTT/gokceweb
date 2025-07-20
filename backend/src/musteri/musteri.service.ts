@@ -2973,6 +2973,7 @@ export class MusteriService {
   // Konaklama Geçmişi Raporları için metodlar
   async getKonaklamaGecmisi(tcNo: string): Promise<any[]> {
     try {
+      const tables = this.dbConfig.getTables();
       const query = `
         SELECT 
           k.kKytTarihi,
@@ -2985,8 +2986,8 @@ export class MusteriService {
           k.KnklmCksTrh,
           k.KnklmNot,
           k.KnklmKrLst
-        FROM dbo.tblKonaklama k
-        INNER JOIN dbo.tblMusteri m ON k.KnklmMstrNo = m.MstrNo
+        FROM ${tables.konaklama} k
+        INNER JOIN ${tables.musteri} m ON k.KnklmMstrNo = m.MstrNo
         WHERE m.MstrTCN = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;
@@ -3001,6 +3002,7 @@ export class MusteriService {
 
   async getFirmaKonaklamaGecmisi(firmaAdi: string): Promise<any[]> {
     try {
+      const tables = this.dbConfig.getTables();
       const query = `
         SELECT 
           k.kKytTarihi,
@@ -3014,8 +3016,8 @@ export class MusteriService {
           k.KnklmNot,
           k.KnklmKrLst,
           m.MstrAdi
-        FROM dbo.tblKonaklama k
-        INNER JOIN dbo.tblMusteri m ON k.KnklmMstrNo = m.MstrNo
+        FROM ${tables.konaklama} k
+        INNER JOIN ${tables.musteri} m ON k.KnklmMstrNo = m.MstrNo
         WHERE m.MstrFirma = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;
