@@ -1297,16 +1297,9 @@ watch([() => form.value.HesaplananBedel, () => form.value.ToplamBedel], () => {
   // ANCAK (ÖTG) ifadesini ek notlardan kaldırma - sadece checkbox kaldırıldığında silinmeli
   if (form.value.HesaplananBedel === form.value.ToplamBedel && form.value.HesaplananBedel > 0) {
     if (form.value.OtgCheckbox) {
-      console.log('🔥 Ö.T.G. otomatik temizleniyor - Bedeller eşitlendi:', {
-        hesaplananBedel: form.value.HesaplananBedel,
-        toplamBedel: form.value.ToplamBedel
-      })
-      
       // Sadece Ö.T.G. checkbox'ını temizle
       // (ÖTG) ifadesini ek notlardan kaldırma - kullanıcı manuel olarak checkbox'ı kaldırırsa o zaman silinsin
       form.value.OtgCheckbox = false
-      
-      console.log('🔥 Ö.T.G. checkbox otomatik temizlendi - (ÖTG) ifadesi ek notlarda korundu')
     }
   }
 })
@@ -1334,9 +1327,7 @@ watch(() => isGeceKonaklamaSaati.value, (newValue) => {
 let timeUpdateTimer: NodeJS.Timeout | null = null
 
 // Sayfa yüklendiğinde timer'ı başlat
-onMounted(async () => {
-  console.log('Musteri-islem sayfası yüklendi')
-  
+onMounted(async () => {  
   // 🔥 Sayfa yüklendiğinde ek notları temizle
   ekNotlar.value = ''
   
@@ -1356,7 +1347,6 @@ onMounted(async () => {
   
   // 🔥 Test için ek notları güncelle
   setTimeout(() => {
-    console.log('🔥 Test: updateEkNotlar çağrılıyor')
     updateEkNotlar()
   }, 2000)
 })
@@ -1500,14 +1490,12 @@ async function submitForm() {
   try {
     // Kullanıcı adını localStorage'dan al ve MstrKllnc'ye ata
     const username = localStorage.getItem('username') || 'admin'
-    // DEBUG: Frontend'den gönderilen veriyi kontrol et
-    console.log('🔍 DEBUG - Frontend\'den gönderilen veri:', {
-      planlananCikisTarihi: planlananCikisTarihi.value,
-      konaklamaSuresi: form.value.KonaklamaSuresi,
-      konaklamaTipi: form.value.KonaklamaTipi,
-      hesaplananBedel: form.value.HesaplananBedel,
-      toplamBedel: form.value.ToplamBedel
-    });
+    
+    // 🔥 Depozito dahil değilse bedeli sıfırla
+    const depozitoData = {
+      ...depozito.value,
+      bedel: depozito.value.dahil ? depozito.value.bedel : 0
+    }
     
     const formData = {
       ...form.value,
@@ -1517,7 +1505,7 @@ async function submitForm() {
       planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
       ekNotlar: ekNotlar.value,
       ekHizmetler: ekHizmetler.value,
-      depozito: depozito.value
+      depozito: depozitoData
     }
     
     const response = await api.post('/musteri-islem', formData)
@@ -1687,11 +1675,8 @@ function cancelEkHizmetler() {
 
 // Ek notları otomatik güncelle
 function updateEkNotlar() {
-  console.log('🔥 updateEkNotlar çağrıldı')
-  
   // Güncelleme modunda mevcut ek notları koru
   if (guncellemeModuAktif.value) {
-    console.log('🔥 Güncelleme modunda - ek notlar güncellenmedi')
     return // Güncelleme modunda ek notları otomatik değiştirme
   }
   
@@ -1753,12 +1738,6 @@ function updateEkNotlar() {
   // Notları birleştir
   const finalNotlar = notlar.length > 0 ? ' - ' + notlar.join(' -/- ') : ''
   ekNotlar.value = finalNotlar
-  console.log('🔥 Ek notlar güncellendi:', { 
-    notlar, 
-    finalNotlar, 
-    otgPrefix: otgPrefix ? 'Korundu' : 'Yok',
-    mevcutNotlar 
-  })
 }
 
 function onDateSelected(date: string) {

@@ -133,7 +133,18 @@
         />
       </div>
 
-      <div class="col-12 col-sm-3 col-md-2" v-if="shouldShowSearchBox">
+      <div class="col-12 col-sm-3 col-md-3" style="max-width: 170px;">
+        <q-select
+          v-model="selectedOdaTip"
+          :options="odaTipleri"
+          label="Oda Tipi"
+          outlined
+          dense
+          @update:model-value="onOdaTipChange"
+        />
+      </div>
+
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;" v-if="shouldShowSearchBox">
         <q-input
           v-model="searchText"
           label="Arama"
@@ -161,16 +172,9 @@
         />
       </div>
       
-      <div class="col-auto" v-if="currentFilter">
-        <q-chip 
-          color="secondary" 
-          text-color="white" 
-          icon="filter_list"
-          :label="getFilterLabel(currentFilter)"
-          removable
-          @remove="clearCurrentFilter"
-        />
-      </div>
+
+      
+
       
       <!-- 🔥 FİRMA FİLTRESİ VE BAKİYE BİLGİLERİ KONTEYNER -->
       <div class="col-auto q-ml-auto row items-center q-gutter-md">
@@ -210,28 +214,30 @@
     </div>
 
     <!-- Ana Grid - Normal Müşteri Tablosu -->
-    <q-table
-      v-if="!showBorcluTable && !showAlacakliTable"
-      :rows="displayedMusteriListesi"
-      :columns="columns"
-      :row-key="(row: MusteriKonaklama) => `${row.MstrTCN}-${row.KnklmOdaNo}-${row.KnklmYtkNo}`"
-      :loading="loading"
-      :pagination="pagination"
-      :selected="selectedNormalMusteri ? [selectedNormalMusteri] : []"
-      selection="single"
-      dense
-      bordered
-      separator="cell"
-      class="dashboard-table compact-table"
-      @row-click="onNormalMusteriClick"
-      @row-dblclick="onRowDoubleClick"
-      :rows-per-page-options="[10, 15, 25, 50]"
-      rows-per-page-label="Sayfa Başına Kayıt"
-      table-style="width: 100%"
-      :disable-sort="false"
-      flat
-      no-data-label="Listelenecek Kayıt Bulunamadı"
-    >
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        v-if="!showBorcluTable && !showAlacakliTable"
+        :key="`normal-${currentFilter}`"
+        :rows="displayedMusteriListesi"
+        :columns="columns"
+        :row-key="(row: MusteriKonaklama) => `${row.MstrTCN}-${row.KnklmOdaNo}-${row.KnklmYtkNo}`"
+        :loading="loading"
+        :pagination="pagination"
+        :selected="selectedNormalMusteri ? [selectedNormalMusteri] : []"
+        selection="single"
+        dense
+        bordered
+        separator="cell"
+        class="dashboard-table compact-table"
+        @row-click="onNormalMusteriClick"
+        @row-dblclick="onRowDoubleClick"
+        :rows-per-page-options="[10, 15, 25, 50]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="loading ? 'Veriler Yükleniyor...' : 'Listelenecek Kayıt Bulunamadı'"
+      >
       <!-- Özel hücre şablonları -->
       <template v-slot:body-cell-MstrAdi="props">
         <q-td :props="props">
@@ -307,30 +313,33 @@
           </q-btn>
         </q-td>
       </template>
-    </q-table>
+      </q-table>
+    </transition>
 
     <!-- Borçlu Müşteriler Tablosu -->
-    <q-table
-      v-if="showBorcluTable"
-      :rows="displayedBorcluMusteriListesi"
-      :columns="borcluColumns"
-      :row-key="(row: BorcluMusteri) => row.CariKod"
-      :loading="loading"
-      :pagination="borcluPagination"
-      :selected="selectedBorcluMusteri ? [selectedBorcluMusteri] : []"
-      selection="single"
-      dense
-      bordered
-      separator="cell"
-      class="dashboard-table compact-table"
-      @row-click="onBorcluMusteriDoubleClick"
-      :rows-per-page-options="[5, 10, 15]"
-      rows-per-page-label="Sayfa Başına Kayıt"
-      table-style="width: 100%"
-      :disable-sort="false"
-      flat
-      no-data-label="Borçlu Müşteri Bulunamadı"
-    >
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        v-if="showBorcluTable"
+        :key="`borclu-${currentFilter}`"
+        :rows="displayedBorcluMusteriListesi"
+        :columns="borcluColumns"
+        :row-key="(row: BorcluMusteri) => row.CariKod"
+        :loading="loading"
+        :pagination="borcluPagination"
+        :selected="selectedBorcluMusteri ? [selectedBorcluMusteri] : []"
+        selection="single"
+        dense
+        bordered
+        separator="cell"
+        class="dashboard-table compact-table"
+        @row-click="onBorcluMusteriDoubleClick"
+        :rows-per-page-options="[5, 10, 15]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="loading ? 'Veriler Yükleniyor...' : 'Borçlu Müşteri Bulunamadı'"
+      >
       <!-- Borçlu müşteri özel hücre şablonları -->
       <template v-slot:body-cell-cKytTarihi="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
@@ -396,30 +405,33 @@
           </span>
         </q-td>
       </template>
-    </q-table>
+      </q-table>
+    </transition>
 
     <!-- Alacaklı Müşteriler Tablosu -->
-    <q-table
-      v-if="showAlacakliTable"
-      :rows="displayedAlacakliMusteriListesi"
-      :columns="alacakliColumns"
-      :row-key="(row: AlacakliMusteri) => row.CariKod"
-      :loading="loading"
-      :pagination="alacakliPagination"
-      :selected="selectedBorcluMusteri ? [selectedBorcluMusteri] : []"
-      selection="single"
-      dense
-      bordered
-      separator="cell"
-      class="dashboard-table compact-table"
-      @row-click="onAlacakliMusteriDoubleClick"
-      :rows-per-page-options="[5, 10, 15]"
-      rows-per-page-label="Sayfa Başına Kayıt"
-      table-style="width: 100%"
-      :disable-sort="false"
-      flat
-      no-data-label="Alacaklı Müşteri Bulunamadı"
-    >
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        v-if="showAlacakliTable"
+        :key="`alacakli-${currentFilter}`"
+        :rows="displayedAlacakliMusteriListesi"
+        :columns="alacakliColumns"
+        :row-key="(row: AlacakliMusteri) => row.CariKod"
+        :loading="loading"
+        :pagination="alacakliPagination"
+        :selected="selectedBorcluMusteri ? [selectedBorcluMusteri] : []"
+        selection="single"
+        dense
+        bordered
+        separator="cell"
+        class="dashboard-table compact-table"
+        @row-click="onAlacakliMusteriDoubleClick"
+        :rows-per-page-options="[5, 10, 15]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="loading ? 'Veriler Yükleniyor...' : 'Alacaklı Müşteri Bulunamadı'"
+      >
       <!-- Alacaklı müşteri özel hücre şablonları -->
       <template v-slot:body-cell-cKytTarihi="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
@@ -476,26 +488,30 @@
           </div>
         </q-td>
       </template>
-    </q-table>
+      </q-table>
+    </transition>
 
     <!-- Cari Hareketler Tablosu (Seçilen Müşteri veya Firma Filtresi için) -->
-    <q-table
-      v-if="(showBorcluTable || showAlacakliTable) && showCariHareketler"
-      :rows="displayedCariHareketlerListesi"
-      :columns="cariHareketlerColumns"
-      :row-key="(row: CariHareket) => `${row.iKytTarihi}-${row.islemTutar}`"
-      :loading="cariHareketlerLoading"
-      :pagination="cariHareketlerPagination"
-      dense
-      separator="cell"
-      class="dashboard-table compact-table q-mt-sm"
-      :rows-per-page-options="[15, 25, 50]"
-      rows-per-page-label="Sayfa Başına Kayıt"
-      table-style="width: 100%"
-      :disable-sort="false"
-      flat
-      no-data-label="Cari Hareket Bulunamadı"
-    >
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        ref="cariHareketlerTableRef"
+        v-if="(showBorcluTable || showAlacakliTable) && showCariHareketler"
+        :key="`cari-${selectedBorcluMusteri?.CariKod || 'empty'}-${Date.now()}`"
+        :rows="displayedCariHareketlerListesi"
+        :columns="cariHareketlerColumns"
+        :row-key="(row: CariHareket) => `${row.iKytTarihi}-${row.islemTutar}`"
+        :loading="cariHareketlerLoading"
+        :pagination="cariHareketlerPagination"
+        dense
+        separator="cell"
+        class="dashboard-table compact-table q-mt-sm"
+        :rows-per-page-options="[15, 25, 50]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="cariHareketlerLoading ? 'Veriler Yükleniyor...' : 'Cari Hareket Bulunamadı'"
+      >
       <template v-slot:top>
         <div class="text-h6 text-primary table-header-row">
           <span v-if="firmaFiltresiAktif && selectedFirmaAdi">{{ selectedFirmaAdi }} - Firma Cari Hareketler</span>
@@ -561,27 +577,31 @@
           </div>
         </q-td>
       </template>
-    </q-table>
+      </q-table>
+    </transition>
 
     <!-- Konaklama Geçmişi Tablosu (Seçilen Normal Müşteri veya Firma Filtresi için) -->
-    <q-table
-      v-if="!showBorcluTable && !showAlacakliTable && showKonaklamaGecmisi"
-      :rows="displayedKonaklamaGecmisiListesi"
-      :columns="konaklamaGecmisiColumns"
-      :row-key="(row: any) => `${row.knklmNo}`"
-      :loading="konaklamaGecmisiLoading"
-      :pagination="konaklamaGecmisiPagination"
-      dense
-      bordered
-      separator="cell"
-      class="dashboard-table compact-table q-mt-md"
-      :rows-per-page-options="[10, 15, 25]"
-      rows-per-page-label="Sayfa Başına Kayıt"
-      table-style="width: 100%"
-      :disable-sort="false"
-      flat
-      no-data-label="Konaklama Geçmişi Bulunamadı"
-    >
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        ref="konaklamaGecmisiTableRef"
+        v-if="!showBorcluTable && !showAlacakliTable && showKonaklamaGecmisi"
+        :key="`konaklama-${selectedNormalMusteri?.MstrTCN || 'empty'}-${Date.now()}`"
+        :rows="displayedKonaklamaGecmisiListesi"
+        :columns="konaklamaGecmisiColumns"
+        :row-key="(row: any) => `${row.knklmNo}`"
+        :loading="konaklamaGecmisiLoading"
+        :pagination="konaklamaGecmisiPagination"
+        dense
+        bordered
+        separator="cell"
+        class="dashboard-table compact-table q-mt-md"
+        :rows-per-page-options="[10, 15, 25]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="konaklamaGecmisiLoading ? 'Veriler Yükleniyor...' : 'Konaklama Geçmişi Bulunamadı'"
+      >
       <template v-slot:top>
         <div class="text-h6 text-primary table-header-row">
           <span v-if="firmaFiltresiAktif && selectedFirmaAdi">{{ selectedFirmaAdi }} - Firma Konaklama Geçmişi</span>
@@ -707,7 +727,8 @@
           </q-btn>
         </q-td>
       </template>
-    </q-table>
+      </q-table>
+    </transition>
 
     <!-- Detay Dialog -->
     <q-dialog v-model="showDetailDialog" persistent class="floating-dialog">
@@ -885,6 +906,8 @@
       </q-card>
     </q-dialog>
 
+
+
     <!-- Dönem Yenileme Modal -->
     <DonemYenilemeModal 
       v-model="showDonemYenilemeModal"
@@ -898,7 +921,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from 'boot/axios'
 import DonemYenilemeModal from 'components/DonemYenilemeModal.vue'
@@ -919,6 +942,8 @@ const showAlacakliTable = ref(false)
 const stats = ref<DashboardStats>({})
 const konaklamaTipleri = ref<string[]>(['TÜMÜ'])
 const selectedTip = ref('TÜMÜ')
+const odaTipleri = ref<string[]>(['TÜMÜ'])
+const selectedOdaTip = ref('TÜMÜ')
 const showDetailDialog = ref(false)
 const selectedRow = ref<MusteriKonaklama | null>(null)
 const currentFilter = ref<string | null>(null)
@@ -940,6 +965,12 @@ const showCariHareketler = ref(false)
 const cariHareketlerListesi = ref<CariHareket[]>([])
 const cariHareketlerLoading = ref(false)
 
+// 🔥 Cari hareketler tablosu için ref
+const cariHareketlerTableRef = ref<{ $el: HTMLElement } | null>(null)
+
+// 🔥 Konaklama geçmişi tablosu için ref
+const konaklamaGecmisiTableRef = ref<{ $el: HTMLElement } | null>(null)
+
 // Konaklama geçmişi için yeni değişkenler
 const selectedNormalMusteri = ref<MusteriKonaklama | null>(null)
 const showKonaklamaGecmisi = ref(false)
@@ -947,6 +978,8 @@ const konaklamaGecmisiListesi = ref<KonaklamaGecmisi[]>([])
 const konaklamaGecmisiLoading = ref(false)
 const showKonaklamaDetayDialog = ref(false)
 const selectedKonaklamaDetay = ref<KonaklamaGecmisi | null>(null)
+
+
 
 // 🔥 SEÇİLEN MÜŞTERİ BAKİYE BİLGİSİ
 const selectedMusteriBakiye = ref<number>(0)
@@ -996,19 +1029,7 @@ const listelenenGelir = computed(() => {
   }
 })
 
-// Arama kutusunun görünürlüğünü kontrol et
-const shouldShowSearchBox = computed(() => {
-  if (showBorcluTable.value) {
-    // Borçlu müşteri listesi için
-    return borcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage
-  } else if (showAlacakliTable.value) {
-    // Alacaklı müşteri listesi için
-    return alacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage
-  } else {
-    // Normal müşteri tablosu için
-    return musteriListesi.value.length > pagination.value.rowsPerPage
-  }
-})
+
 
 // Filtrelenmiş veriler - tablo için kullanılacak
 const displayedMusteriListesi = computed(() => {
@@ -1091,6 +1112,20 @@ const displayedKonaklamaGecmisiListesi = computed(() => {
   return konaklamaGecmisiListesi.value
 })
 
+// Arama textbox'ının görünürlüğünü kontrol et
+const shouldShowSearchBox = computed(() => {
+  if (showBorcluTable.value) {
+    // Borçlu müşteri listesi için
+    return displayedBorcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage
+  } else if (showAlacakliTable.value) {
+    // Alacaklı müşteri listesi için
+    return displayedAlacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage
+  } else {
+    // Normal müşteri tablosu için
+    return displayedMusteriListesi.value.length > pagination.value.rowsPerPage
+  }
+})
+
 // Pagination izleyicisi - sıralama değişikliklerinde API çağrısı yapma
 let sortingInProgress = false
 
@@ -1128,19 +1163,30 @@ function sortByDate(a: string, b: string): number {
 function parseDateString(dateStr: string): Date {
   if (!dateStr) return new Date(0) // Boş tarih için epoch başlangıcı
   
+  // Önce DD.MM.YYYY formatını dene
   const parts = dateStr.split('.')
-  if (parts.length !== 3) return new Date(0)
-  
-  const day = parseInt(parts[0] || '0', 10)
-  const month = parseInt(parts[1] || '0', 10) - 1 // JavaScript ay indexi 0'dan başlar
-  const year = parseInt(parts[2] || '0', 10)
-  
-  // Geçerli tarih kontrolü
-  if (isNaN(day) || isNaN(month) || isNaN(year)) {
-    return new Date(0)
+  if (parts.length === 3) {
+    const day = parseInt(parts[0] || '0', 10)
+    const month = parseInt(parts[1] || '0', 10) - 1 // JavaScript ay indexi 0'dan başlar
+    const year = parseInt(parts[2] || '0', 10)
+    
+    // Geçerli tarih kontrolü
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      return new Date(year, month, day)
+    }
   }
   
-  return new Date(year, month, day)
+  // DD.MM.YYYY formatı başarısız olursa, direkt Date constructor'ını dene
+  try {
+    const dateObj = new Date(dateStr)
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj
+    }
+  } catch (error) {
+    console.error('Tarih parse hatası:', error, 'Tarih string:', dateStr)
+  }
+  
+  return new Date(0) // Hata durumunda epoch başlangıcı
 }
 
 // Tablo konfigürasyonu
@@ -1823,7 +1869,7 @@ async function loadMusteriListesi() {
       }
     }
     
-    const response = await api.get(`/dashboard/${endpoint}?tip=${selectedTip.value}`)
+    const response = await api.get(`/dashboard/${endpoint}?tip=${selectedTip.value}&odaTip=${selectedOdaTip.value}`)
     if (response.data.success) {
       // Array'i tamamen yenile, append etme
       musteriListesi.value = [...response.data.data]
@@ -1862,7 +1908,7 @@ async function loadCikisYapanlarSayisi() {
 async function loadCikisYapanlarListesi() {
   loading.value = true
   try {
-    const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}`)
+    const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}&odaTip=${selectedOdaTip.value}`)
     if (response.data.success) {
       musteriListesi.value = [...response.data.data]
       console.log(`${response.data.count} çıkış yapan müşteri yüklendi`)
@@ -1885,6 +1931,17 @@ async function loadKonaklamaTipleri() {
   }
 }
 
+async function loadOdaTipleri() {
+  try {
+    const response = await api.get('/dashboard/oda-tipleri')
+    if (response.data.success) {
+      odaTipleri.value = response.data.data
+    }
+  } catch (error) {
+    console.error('Oda tipleri yüklenemedi:', error)
+  }
+}
+
 async function loadBorcluMusteriler() {
   loading.value = true
   try {
@@ -1901,17 +1958,11 @@ async function loadBorcluMusteriler() {
 }
 
 async function loadAlacakliMusteriler() {
-  console.log('🔥 loadAlacakliMusteriler fonksiyonu çağrıldı')
   loading.value = true
   try {
     const response = await api.get('/dashboard/alacakli-musteriler')
-    console.log('🔥 Alacaklı müşteriler API yanıtı:', response.data)
     if (response.data.success) {
       alacakliMusteriListesi.value = [...response.data.data]
-      console.log(`🔥 ${response.data.count} alacaklı müşteri yüklendi`)
-      console.log('🔥 Alacaklı müşteri listesi:', alacakliMusteriListesi.value)
-    } else {
-      console.log('🔥 API başarısız:', response.data)
     }
   } catch (error) {
     console.error('🔥 Alacaklı müşteri listesi yüklenemedi:', error)
@@ -1922,14 +1973,36 @@ async function loadAlacakliMusteriler() {
 
 async function loadCariHareketler(cariKod: string) {
   cariHareketlerLoading.value = true
+  
+  // 🔥 ÖNEMLİ: Önceki müşterinin cari hareketlerini temizle
+  cariHareketlerListesi.value = []
+  filteredCariHareketlerListesi.value = []
+  
+  // 🔥 Pagination'ı sıfırla
+  cariHareketlerPagination.value.page = 1
+  
   try {
     const response = await api.get(`/dashboard/cari-hareketler?cariKod=${cariKod}`)
     if (response.data.success) {
       cariHareketlerListesi.value = [...response.data.data]
-      console.log(`${response.data.count} cari hareket yüklendi`)
+      console.log(`${cariKod} için ${response.data.data.length} cari hareket yüklendi`)
+      
+      // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      await nextTick()
+      if (cariHareketlerTableRef.value) {
+        const tableElement = cariHareketlerTableRef.value.$el
+        if (tableElement) {
+          tableElement.scrollTop = 0
+        }
+      }
+    } else {
+      console.log(`${cariKod} için cari hareket bulunamadı`)
     }
   } catch (error) {
     console.error('Cari hareketler yüklenemedi:', error)
+    // Hata durumunda da listeleri temizle
+    cariHareketlerListesi.value = []
+    filteredCariHareketlerListesi.value = []
   } finally {
     cariHareketlerLoading.value = false
   }
@@ -1946,6 +2019,7 @@ async function refreshData() {
   await Promise.all([
     loadStats(),
     loadKonaklamaTipleri(),
+    loadOdaTipleri(),
     loadCikisYapanlarSayisi()
   ])
   
@@ -1969,6 +2043,8 @@ function onModalSuccess() {
   }, 500);
 }
 
+
+
 function showDetails(row: MusteriKonaklama) {
   selectedRow.value = row
   showDetailDialog.value = true
@@ -1990,19 +2066,15 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
       
       if (borcluMusteriVadesi && borcluMusteriVadesi.trim() !== '') {
         odemeVadesi = borcluMusteriVadesi;
-        console.log('🔥 Borçlu müşteri listesinden ödeme vadesi bulundu:', odemeVadesi);
       } else {
         // 2. Borçlu müşteri listesinde bulunamazsa dashboard servisten hesaplat
         try {
           const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.MstrTCN)}`);
           if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
             odemeVadesi = vadeResponse.data.data.odemeVadesi;
-            console.log('🔥 Dashboard servisten ödeme vadesi hesaplandı:', odemeVadesi);
-          } else {
-            console.log('🔥 Ödeme vadesi hesaplanamadı veya bulunamadı');
           }
         } catch (error) {
-          console.error('🔥 Ödeme vadesi hesaplama hatası:', error);
+          console.error('Ödeme vadesi hesaplama hatası:', error);
         }
       }
       
@@ -2097,6 +2169,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
       // Normal müşteri tablosundan geliyorsa - cari kodu oluştur
       // MstrNo'yu TC'den bulmamız gerekiyor, backend'den alacağız
       const response = await api.get(`/musteri-bilgi/${musteri.MstrTCN}`);
+      
       if (response.data.success && response.data.data) {
         const mstrNo = response.data.data.MstrNo;
         const hspTip = response.data.data.MstrHspTip || musteri.MstrHspTip;
@@ -2111,12 +2184,13 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     
     // Backend'den bakiye bilgisini al
     const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
+    
     if (bakiyeResponse.data.success) {
       selectedMusteriBakiye.value = bakiyeResponse.data.bakiye || 0;
     } else {
       selectedMusteriBakiye.value = 0;
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Müşteri bakiye hesaplama hatası:', error);
     selectedMusteriBakiye.value = 0;
   }
@@ -2141,14 +2215,17 @@ async function hesaplaFirmaBakiye(musteri: MusteriKonaklama) {
       return;
     }
 
+    const encodedFirmaAdi = encodeURIComponent(musteri.MstrFirma);
+    
     // Backend'den firma bakiyesini al
-    const response = await api.get(`/dashboard/firma-bakiye/${encodeURIComponent(musteri.MstrFirma)}`);
+    const response = await api.get(`/dashboard/firma-bakiye/${encodedFirmaAdi}`);
+    
     if (response.data.success) {
       selectedFirmaBakiye.value = response.data.bakiye || 0;
     } else {
       selectedFirmaBakiye.value = 0;
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Firma bakiye hesaplama hatası:', error);
     selectedFirmaBakiye.value = 0;
   }
@@ -2353,9 +2430,7 @@ function onSearchChange(newValue: string | number | null) {
 }
 
 function loadFilteredData(filter: string) {
-  console.log('🔥 loadFilteredData çağrıldı:', filter)
-  currentFilter.value = filter
-  
+  currentFilter.value = filter  
   // 🔥 Seçilen kartı session storage'a kaydet
   sessionStorage.setItem('kartliIslemLastCard', filter)
   
@@ -2401,7 +2476,6 @@ function loadFilteredData(filter: string) {
     void loadAlacakliMusteriler().then(() => {
       // Eğer alacaklı müşteri listesi boşsa, akıllı kart seçimi yap
       if (alacakliMusteriListesi.value.length === 0) {
-        console.log('🔥 Alacaklı müşteri listesi boş, akıllı kart seçimi yapılıyor')
         void selectBestCard()
       }
     })
@@ -2442,39 +2516,16 @@ function onFilterChange() {
   void refreshData()
 }
 
-function getFilterLabel(filterType: string): string {
-  switch (filterType) {
-    case 'cikis-yapanlar':
-      return 'Çıkış Yapan Müşteriler'
-    case 'toplam-aktif':
-      return 'Devam Eden Müşteriler'
-    case 'suresi-dolan':
-      return 'Süresi Dolan Müşteriler'
-    case 'bugun-cikan':
-      return 'Bugün Çıkan Müşteriler'
-    case 'yeni-musteri':
-      return 'Yeni Müşteri Kayıtları'
-    case 'yeni-giris':
-      return 'Yeni Giriş Kayıtları'
-    case 'bugun-giren':
-      return 'Toplam Bugün Giren Müşteriler'
-    case 'borclu-musteriler':
-      return 'Borçlu Müşteriler'
-    case 'alacakli-musteriler':
-      return 'Alacaklı Müşteriler'
-    default:
-      return 'Filtre Uygulandı'
-  }
-}
-
-function clearCurrentFilter() {
-  currentFilter.value = null
-  showBorcluTable.value = false  // Normal tabloyu göster
-  showAlacakliTable.value = false  // Alacaklı tabloyu gizle
-  showCariHareketler.value = false  // Cari hareketler tablosunu gizle
-  selectedBorcluMusteri.value = null  // Seçimi temizle
+function onOdaTipChange() {
+  sortingInProgress = false  // Oda tipi filtresi değiştiğinde yeni veri çek
   
-  // Konaklama geçmişi tablosunu da gizle
+  // Oda tipi değiştiğinde arama metnini temizle
+  searchText.value = ''
+  filteredMusteriListesi.value = []
+  filteredBorcluMusteriListesi.value = []
+  filteredCariHareketlerListesi.value = []
+  
+  // Konaklama geçmişi tablosunu gizle ve seçimi temizle
   showKonaklamaGecmisi.value = false
   selectedNormalMusteri.value = null
   
@@ -2485,21 +2536,13 @@ function clearCurrentFilter() {
   // 🔥 Firma filtresini temizle
   firmaFiltresiAktif.value = false
   selectedFirmaAdi.value = ''
-  
-  searchText.value = ''  // Arama metnini temizle
-  filteredMusteriListesi.value = []  // Filtrelenmiş verileri temizle
-  filteredBorcluMusteriListesi.value = []
-  filteredCariHareketlerListesi.value = []
-  // Filtre temizlendiğinde liste boş kalsın, API çağrısı yapma
-  musteriListesi.value = []
-  borcluMusteriListesi.value = []
-  alacakliMusteriListesi.value = []
-  cariHareketlerListesi.value = []
+  void refreshData()
 }
+
+
 
 // Normal müşteri satırına tek tıklama - konaklama geçmişi göster
 function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
-  console.log('Normal müşteri satırına tek tıklandı:', row);
   selectedNormalMusteri.value = row;
   showKonaklamaGecmisi.value = true;
   void loadKonaklamaGecmisi(row.MstrTCN);
@@ -2510,7 +2553,6 @@ function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
   // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
   if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
     // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin konaklama geçmişini göster
-    console.log('Firma filtresi aktifken müşteri seçildi:', row.MstrAdi);
     // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
   } else {
     // Normal durum - firma filtresini sıfırla
@@ -2533,14 +2575,34 @@ function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
 // Müşterinin konaklama geçmişini yükle
 async function loadKonaklamaGecmisi(tcKimlik: string) {
   konaklamaGecmisiLoading.value = true;
+  
+  // 🔥 ÖNEMLİ: Önceki müşterinin konaklama geçmişini temizle
+  konaklamaGecmisiListesi.value = []
+  
+  // 🔥 Pagination'ı sıfırla
+  konaklamaGecmisiPagination.value.page = 1
+  
   try {
     const response = await api.get(`/dashboard/musteri-konaklama-gecmisi/${tcKimlik}`);
     if (response.data.success) {
       konaklamaGecmisiListesi.value = response.data.data;
-      console.log(`${response.data.count} konaklama geçmişi kaydı yüklendi`);
+      console.log(`${tcKimlik} için ${response.data.data.length} konaklama geçmişi kaydı yüklendi`);
+      
+      // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      await nextTick()
+      if (konaklamaGecmisiTableRef.value) {
+        const tableElement = konaklamaGecmisiTableRef.value.$el
+        if (tableElement) {
+          tableElement.scrollTop = 0
+        }
+      }
+    } else {
+      console.log(`${tcKimlik} için konaklama geçmişi bulunamadı`);
     }
   } catch (error) {
     console.error('Konaklama geçmişi yüklenemedi:', error);
+    // Hata durumunda da listeyi temizle
+    konaklamaGecmisiListesi.value = []
   } finally {
     konaklamaGecmisiLoading.value = false;
   }
@@ -2611,24 +2673,18 @@ function getCurrentCardValue(): number {
 // 🔥 AKILLI KART SEÇİM FONKSİYONU (asenkron)
 async function selectBestCard() {
   // 🔥 ÖNCELİK SIRASI: Süresi dolan kartlar her zaman öncelikli!
-  console.log('🔥 Akıllı kart seçimi başlatılıyor...');
   
   // 1. Önce süresi dolan kartları kontrol et
   const suresiDolanList = await loadMusteriListesiReturn('suresi-dolan');
   const suresiDolanSayisi = suresiDolanList ? suresiDolanList.length : 0;
   
-  console.log('🔥 Süresi dolan kart sayısı:', suresiDolanSayisi);
-  
   // Süresi dolan kart sayısı > 0 ise daima bu kart seçilir
   if (suresiDolanSayisi > 0) {
-    console.log('🔥 Süresi dolan kartlar bulundu - öncelikli seçim yapılıyor');
     loadFilteredData('suresi-dolan');
     return;
   }
   
   // 2. Süresi dolan kart yoksa diğer kartları kontrol et
-  console.log('🔥 Süresi dolan kart yok - diğer kartlar kontrol ediliyor');
-  
   const cardTypes = [
     'alacakli-musteriler',
     'borclu-musteriler', 
@@ -2661,12 +2717,9 @@ async function selectBestCard() {
   }
 
   if (bestCard) {
-    console.log('🔥 En iyi kart seçildi:', bestCard, 'Kayıt sayısı:', maxCount);
     currentFilter.value = bestCard;
     sessionStorage.setItem('kartliIslemLastCard', bestCard);
     loadSelectedCardData(bestCard);
-  } else {
-    console.log('🔥 Hiçbir kart seçilemedi - tüm kartlar boş');
   }
 }
 
@@ -2687,7 +2740,7 @@ async function loadMusteriListesiReturn(cardType: string) {
   const endpoint = cardType === 'yeni-musteri' ? 'yeni-musteri'
     : cardType === 'yeni-giris' ? 'yeni-giris'
     : cardType;
-  const response = await api.get(`/dashboard/${endpoint}?tip=TÜMÜ`);
+  const response = await api.get(`/dashboard/${endpoint}?tip=TÜMÜ&odaTip=TÜMÜ`);
   return response.data.success ? response.data.data : [];
 }
 
@@ -2787,14 +2840,34 @@ async function loadFirmaGenelVerileri() {
 // 🔥 FİRMA GENELİ KONAKLAMA GEÇMİŞİ YÜKLEME FONKSİYONU
 async function loadFirmaGenelKonaklamaGecmisi(firmaAdi: string) {
   konaklamaGecmisiLoading.value = true;
+  
+  // 🔥 ÖNEMLİ: Önceki firma konaklama geçmişini temizle
+  konaklamaGecmisiListesi.value = []
+  
+  // 🔥 Pagination'ı sıfırla
+  konaklamaGecmisiPagination.value.page = 1
+  
   try {
     const response = await api.get(`/dashboard/firma-konaklama-gecmisi/${encodeURIComponent(firmaAdi)}`);
     if (response.data.success) {
       konaklamaGecmisiListesi.value = response.data.data;
-      console.log(`Firma ${firmaAdi} konaklama geçmişi: ${response.data.count} kayıt yüklendi`);
+      console.log(`Firma ${firmaAdi} konaklama geçmişi: ${response.data.data.length} kayıt yüklendi`);
+      
+      // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      await nextTick()
+      if (konaklamaGecmisiTableRef.value) {
+        const tableElement = konaklamaGecmisiTableRef.value.$el
+        if (tableElement) {
+          tableElement.scrollTop = 0
+        }
+      }
+    } else {
+      console.log(`Firma ${firmaAdi} için konaklama geçmişi bulunamadı`);
     }
   } catch (error) {
     console.error('Firma genel konaklama geçmişi yüklenemedi:', error);
+    // Hata durumunda da listeyi temizle
+    konaklamaGecmisiListesi.value = []
   } finally {
     konaklamaGecmisiLoading.value = false;
   }
@@ -2803,14 +2876,36 @@ async function loadFirmaGenelKonaklamaGecmisi(firmaAdi: string) {
 // 🔥 FİRMA GENELİ CARİ HAREKETLER YÜKLEME FONKSİYONU
 async function loadFirmaGenelCariHareketler(firmaAdi: string) {
   cariHareketlerLoading.value = true;
+  
+  // 🔥 ÖNEMLİ: Önceki firma cari hareketlerini temizle
+  cariHareketlerListesi.value = []
+  filteredCariHareketlerListesi.value = []
+  
+  // 🔥 Pagination'ı sıfırla
+  cariHareketlerPagination.value.page = 1
+  
   try {
     const response = await api.get(`/dashboard/firma-cari-hareketler/${encodeURIComponent(firmaAdi)}`);
     if (response.data.success) {
       cariHareketlerListesi.value = response.data.data;
-      console.log(`Firma ${firmaAdi} cari hareketler: ${response.data.count} kayıt yüklendi`);
+      console.log(`Firma ${firmaAdi} cari hareketler: ${response.data.data.length} kayıt yüklendi`);
+      
+      // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      await nextTick()
+      if (cariHareketlerTableRef.value) {
+        const tableElement = cariHareketlerTableRef.value.$el
+        if (tableElement) {
+          tableElement.scrollTop = 0
+        }
+      }
+    } else {
+      console.log(`Firma ${firmaAdi} için cari hareket bulunamadı`);
     }
   } catch (error) {
     console.error('Firma genel cari hareketler yüklenemedi:', error);
+    // Hata durumunda da listeleri temizle
+    cariHareketlerListesi.value = []
+    filteredCariHareketlerListesi.value = []
   } finally {
     cariHareketlerLoading.value = false;
   }
@@ -3199,6 +3294,8 @@ body.body--dark .dashboard-table .q-table__bottom-item {
   background-color: rgba(0, 0, 0, 0.7);
 }
 
+
+
 /* Input alanları için dark mode */
 .body--dark .draggable-card .q-input {
   background-color: rgba(255, 255, 255, 0.05);
@@ -3499,5 +3596,53 @@ body.body--dark .dashboard-table .q-table__bottom-item {
 }
 .body--dark .excel-btn:hover {
   box-shadow: 0 6px 16px rgba(33, 115, 70, 0.5) !important;
+}
+
+/* 🔥 TABLE FADE TRANSITION - FADE-OUT/FADE-IN ANİMASYONU */
+.table-fade-enter-active,
+.table-fade-leave-active {
+  transition: all 0.15s ease-in-out !important;
+}
+
+.table-fade-enter-from {
+  opacity: 0 !important;
+  transform: translateY(20px) scale(0.95) !important;
+}
+
+.table-fade-leave-to {
+  opacity: 0 !important;
+  transform: translateY(-20px) scale(0.95) !important;
+}
+
+.table-fade-enter-to,
+.table-fade-leave-from {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+
+/* Tablo container için smooth geçiş */
+.table-fade-enter-active .q-table__container,
+.table-fade-leave-active .q-table__container {
+  transition: all 0.15s ease-in-out !important;
+}
+
+/* Loading durumunda ek efektler */
+.table-fade-enter-active .q-loading,
+.table-fade-leave-active .q-loading {
+  transition: all 0.1s ease-in-out !important;
+}
+
+/* Dark mode desteği */
+.body--dark .table-fade-enter-from,
+.body--dark .table-fade-leave-to {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Responsive tasarım */
+@media (max-width: 768px) {
+  .table-fade-enter-from,
+  .table-fade-leave-to {
+    transform: translateY(10px) scale(0.98) !important;
+  }
 }
 </style> 

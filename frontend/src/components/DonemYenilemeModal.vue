@@ -532,7 +532,6 @@ const odemeVadesiPopup = ref();
 
 // Fonksiyonları önce tanımla
 onMounted(() => {
-  console.log('[DonemYenilemeModal] Component MOUNT edildi!');
   setEkNotlarPrefixFromKnklmNot();
 });
 
@@ -574,8 +573,6 @@ const konaklamaSuresiLabel = computed(() => {
 });
 
 async function saveDonemYenileme() {
-  console.log('🚀 Dönem Yenile butonu tıklandı!');
-  console.log('Current saving state:', saving.value);
 
   // ODA DEĞİŞİKLİĞİ özel kontrolü
   if (donemYenileButtonLabel.value === 'ODA DEĞİŞİKLİ') {
@@ -633,18 +630,15 @@ async function saveDonemYenileme() {
         
         if (ayniGun) {
           // 🔥 KONAKLAMANIN İLK GÜNÜ - Direkt işlem yap
-          console.log('Oda değişikliği konaklamanın ilk günü yapılıyor - direkt işlem');
           await direktOdaDegisikligiYap();
           return;
         } else {
           // 🔥 KONAKLAMANIN DEVAM EDEN GÜNLERİ - Detaylı hesaplama gerekli
-          console.log('Oda değişikliği konaklamanın devam eden günlerinde yapılıyor - detaylı hesaplama');
           hesaplaVeGosterOdaDegisikligiDialog();
           return;
         }
       } else {
         // Giriş tarihi yoksa varsayılan olarak detaylı hesaplama yap
-        console.log('Giriş tarihi bulunamadı - varsayılan olarak detaylı hesaplama');
         hesaplaVeGosterOdaDegisikligiDialog();
         return;
       }
@@ -668,8 +662,6 @@ async function saveDonemYenileme() {
   saving.value = true;
   
   try {
-    console.log('saveDonemYenileme başlatıldı');
-    console.log('formData:', formData.value);
     
     // OdaYatak objesini oluştur (backend'in beklediği format)
     let odaYatakStr: string;
@@ -696,10 +688,7 @@ async function saveDonemYenileme() {
       MstrKllnc: 'admin' // Varsayılan kullanıcı adı
     };
     
-    console.log('Dönem yenileme request data:', requestData);
-    
     const response = await api.post('donem-yenileme', requestData);
-    console.log('Backend response:', response.data);
 
     if (response.data.success) {
       Notify.create({
@@ -930,7 +919,7 @@ function erkenCikisOnayDialoguAc() {
 }
 
 
-console.log('🔧 Fonksiyonlar tanımlandı');
+
 
 const showModal = computed({
   get: () => props.modelValue,
@@ -1059,7 +1048,6 @@ function convertDateFormat(dateStr: string): string {
 // 🔥 Konaklama süresini KnklmPlnTrh ve KnklmGrsTrh'den hesapla
 function calculateKonaklamaSuresi(plnTrh: string, grsTrh: string): number {
   if (!plnTrh || !grsTrh) {
-    console.log('Konaklama süresi hesaplanamadı - tarih bilgisi eksik');
     return 1; // Varsayılan değer
   }
   
@@ -1764,10 +1752,6 @@ function updateEkNotlar() {
 
 // Notlardan ek hizmetleri parse et ve checkbox'ları ayarla
 function parseEkHizmetlerFromNotes(notlar: string) {
-  console.log('🎯 parseEkHizmetlerFromNotes - BAŞLANGIÇ');
-  console.log('🎯 DEBUG: Gelen notlar:', notlar);
-  console.log('🎯 DEBUG: formData.value.KonaklamaTipi:', formData.value.KonaklamaTipi);
-  
   // Ek hizmetleri sıfırla
   ekHizmetler.value = {
     kahvaltiDahil: formData.value.KonaklamaTipi === 'GÜNLÜK',
@@ -1775,30 +1759,20 @@ function parseEkHizmetlerFromNotes(notlar: string) {
     prizVerildi: false
   };
   
-  console.log('🎯 DEBUG: İlk ek hizmetler state:', JSON.stringify(ekHizmetler.value));
-  
   // Notlardan ek hizmetleri çıkar
   if (notlar.includes('Havlu Verildi')) {
     ekHizmetler.value.havluVerildi = true;
-    console.log('🎯 DEBUG: Havlu Verildi bulundu');
   }
   
   if (notlar.includes('Priz Verildi')) {
     ekHizmetler.value.prizVerildi = true;
-    console.log('🎯 DEBUG: Priz Verildi bulundu');
   }
-  
-
   
   if (notlar.includes('Kahvaltısız')) {
     ekHizmetler.value.kahvaltiDahil = false;
-    console.log('🎯 DEBUG: Kahvaltısız bulundu');
   } else if (formData.value.KonaklamaTipi === 'GÜNLÜK') {
     ekHizmetler.value.kahvaltiDahil = true;
-    console.log('🎯 DEBUG: Günlük konaklama, kahvaltı dahil');
   }
-  
-  console.log('🎯 DEBUG: Final ek hizmetler state:', JSON.stringify(ekHizmetler.value));
 }
 
 // Oda değişikliği onay dialogu için reactive değişkenler

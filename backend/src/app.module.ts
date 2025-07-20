@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -7,6 +7,7 @@ import { MusteriModule } from './musteri/musteri.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseConfigService } from './database/database-config.service';
+import { JwtMiddleware } from './auth/jwt.middleware';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -29,4 +30,10 @@ dotenv.config({
   controllers: [AppController],
   providers: [AppService, DatabaseConfigService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(JwtMiddleware)
+      .forRoutes('*'); // Tüm route'larda middleware'i kullan
+  }
+}

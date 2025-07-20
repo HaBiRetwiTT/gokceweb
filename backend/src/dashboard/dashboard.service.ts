@@ -122,6 +122,27 @@ export class DashboardService {
     }
   }
 
+  // Oda tiplerini getir
+  async getOdaTipleri(): Promise<string[]> {
+    try {
+      const views = this.dbConfig.getViews();
+      const query = `
+        SELECT DISTINCT KnklmOdaTip 
+        FROM ${views.musteriKonaklama} 
+        WHERE KnklmOdaTip IS NOT NULL 
+          AND KnklmOdaTip != ''
+          AND MstrDurum = 'KALIYOR'
+        ORDER BY KnklmOdaTip
+      `;
+      const result: any[] = await this.musteriRepository.query(query);
+      const tipler = result.map((item: any) => (item as { KnklmOdaTip: string }).KnklmOdaTip);
+      return ['TÜMÜ', ...tipler];
+    } catch (error) {
+      console.error('getOdaTipleri hatası:', error);
+      return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
+    }
+  }
+
   // Dashboard istatistikleri (SP mantığı ile uyumlu)
   async getDashboardStats(): Promise<any> {
     try {
@@ -260,7 +281,7 @@ export class DashboardService {
 
   // Toplam Aktif - konaklama yapan tüm müşterilerin listesi (süresi dolmayanlar)
   // 🔥 GÜNCELLEME: Müşterinin en büyük knklmNo kaydına göre filtreleme
-  async getToplamAktifMusteri(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
+  async getToplamAktifMusteri(knklmTipi: string = 'TÜMÜ', odaTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
@@ -299,17 +320,23 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
+      let paramIndex = 0;
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND v.KnklmTip = @0`;
+        query += ` AND v.KnklmTip = @${paramIndex}`;
         parameters.push(knklmTipi);
+        paramIndex++;
+      }
+
+      if (odaTipi && odaTipi !== 'TÜMÜ') {
+        query += ` AND v.KnklmOdaTip = @${paramIndex}`;
+        parameters.push(odaTipi);
+        paramIndex++;
       }
 
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
-      const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
-      console.log(`🔥 getToplamAktifMusteri - ${result.length} devam eden müşteri bulundu (En büyük knklmNo kriteri ile)`);
+      const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);   
       return result;
     } catch (error) {
       console.error('getToplamAktifMusteri hatası:', error);
@@ -364,9 +391,7 @@ export class DashboardService {
 
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
-      const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
-      console.log(`🔥 getSuresiDolanMusteri - ${result.length} süresi dolan müşteri bulundu (En büyük knklmNo kriteri ile)`);
+      const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);    
       return result;
     } catch (error) {
       console.error('getSuresiDolanMusteri hatası:', error);
@@ -616,7 +641,7 @@ export class DashboardService {
                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0
           ) BorcluMusteriler
         )
-        ORDER BY BorcTutari DESC, c.cKytTarihi DESC
+        ORDER BY BorcTutari DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
@@ -696,11 +721,10 @@ export class DashboardService {
           (c.CariKod LIKE 'MK%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT))
         )
         WHERE c.CariKod IN ('${alacakliKodlar}')
-        ORDER BY AlacakTutari DESC, c.cKytTarihi DESC
+        ORDER BY AlacakTutari DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log(`🔥 getAlacakliMusteriler - ${result.length} alacaklı müşteri bulundu`);
       return result;
     } catch (error) {
       console.error('getAlacakliMusteriler hatası:', error);
@@ -726,7 +750,7 @@ export class DashboardService {
           i.islemTutar
         FROM ${tables.islem} i
         WHERE i.islemCrKod = @0
-        ORDER BY i.iKytTarihi DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
+        ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [cariKod]);
@@ -905,10 +929,8 @@ export class DashboardService {
   // 🔥 MÜŞTERİ BAKİYE HESAPLAMA
   async getMusteriBakiye(cariKod: string): Promise<number> {
     try {
-      console.log('=== getMusteriBakiye çağrıldı ===');
-      console.log('Cari Kod:', cariKod);
-      
       const tables = this.dbConfig.getTables();
+      
       const query = `
         SELECT 
           SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
@@ -920,9 +942,6 @@ export class DashboardService {
       const result: { MusteriBakiye: number }[] = await this.musteriRepository.query(query, [cariKod]);
       const bakiye = Number(result[0]?.MusteriBakiye || 0);
       
-      console.log('Hesaplanan bakiye:', bakiye);
-      console.log('Bakiye formülü: (GELİR + Çıkan) - (GİDER + Giren)');
-      
       return bakiye;
     } catch (error) {
       console.error('getMusteriBakiye hatası:', error);
@@ -933,24 +952,20 @@ export class DashboardService {
   // 🔥 FİRMA BAKİYE HESAPLAMA - Aynı firmadaki tüm müşterilerin toplam bakiyesi
   async getFirmaBakiye(firmaAdi: string): Promise<number> {
     try {
-      console.log('=== getFirmaBakiye çağrıldı ===');
-      console.log('Firma Adı:', firmaAdi);
-      
       const tables = this.dbConfig.getTables();
       
       // Önce firmadaki tüm müşterilerin MstrNo'larını bul
       const musteriQuery = `
-        SELECT MstrNo, MstrHspTip
+        SELECT MstrNo, MstrHspTip, MstrAdi, MstrFirma
         FROM ${tables.musteri}
         WHERE MstrFirma = @0
           AND MstrHspTip = 'Kurumsal'
           AND LEFT(MstrAdi, 9) <> 'PERSONEL '
       `;
       
-      const musteriler: { MstrNo: number; MstrHspTip: string }[] = await this.musteriRepository.query(musteriQuery, [firmaAdi]);
+      const musteriler: { MstrNo: number; MstrHspTip: string; MstrAdi: string; MstrFirma: string }[] = await this.musteriRepository.query(musteriQuery, [firmaAdi]);
       
       if (musteriler.length === 0) {
-        console.log('Bu firmada müşteri bulunamadı');
         return 0;
       }
       
@@ -969,10 +984,6 @@ export class DashboardService {
       const result: { ToplamFirmaBakiye: number }[] = await this.musteriRepository.query(bakiyeQuery, cariKodlar);
       const firmaBakiye = Number(result[0]?.ToplamFirmaBakiye || 0);
       
-      console.log(`Firma ${firmaAdi} için ${musteriler.length} müşteri bulundu`);
-      console.log('Cari Kodlar:', cariKodlar);
-      console.log('Hesaplanan firma bakiyesi:', firmaBakiye);
-      
       return firmaBakiye;
     } catch (error) {
       console.error('getFirmaBakiye hatası:', error);
@@ -983,9 +994,6 @@ export class DashboardService {
   // 🔥 FİRMA GENELİ KONAKLAMA GEÇMİŞİ - Firmadaki tüm müşterilerin konaklama kayıtları
   async getFirmaGenelKonaklamaGecmisi(firmaAdi: string): Promise<any[]> {
     try {
-      console.log('=== getFirmaGenelKonaklamaGecmisi çağrıldı ===');
-      console.log('Firma Adı:', firmaAdi);
-      
       const tables = this.dbConfig.getTables();
       const query = `
         SELECT 
@@ -1012,11 +1020,10 @@ export class DashboardService {
         WHERE m.MstrFirma = @0
           AND m.MstrHspTip = 'Kurumsal'
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-        ORDER BY k.kKytTarihi DESC, k.knklmNo DESC
+        ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC, k.knklmNo DESC
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [firmaAdi]);
-      console.log(`Firma ${firmaAdi} konaklama geçmişi:`, result.length, 'kayıt bulundu');
       return result;
     } catch (error) {
       console.error('getFirmaGenelKonaklamaGecmisi hatası:', error);
@@ -1027,9 +1034,6 @@ export class DashboardService {
   // 🔥 FİRMA GENELİ CARİ HAREKETLER - Firmadaki tüm müşterilerin cari hareketleri
   async getFirmaGenelCariHareketler(firmaAdi: string): Promise<any[]> {
     try {
-      console.log('=== getFirmaGenelCariHareketler çağrıldı ===');
-      console.log('Firma Adı:', firmaAdi);
-      
       const tables = this.dbConfig.getTables();
       
       // Önce firmadaki tüm müşterilerin cari kodlarını bul
@@ -1044,7 +1048,6 @@ export class DashboardService {
       const musteriler: { MstrNo: number; MstrAdi: string; MstrTCN: string }[] = await this.musteriRepository.query(musteriQuery, [firmaAdi]);
       
       if (musteriler.length === 0) {
-        console.log('Bu firmada müşteri bulunamadı');
         return [];
       }
       
@@ -1069,7 +1072,7 @@ export class DashboardService {
         FROM ${tables.islem} i
         LEFT JOIN ${tables.cari} c ON i.islemCrKod = c.CariKod
         WHERE i.islemCrKod IN (${cariKodParametreleri})
-        ORDER BY i.iKytTarihi DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
+        ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;
       
       const result: any[] = await this.musteriRepository.query(cariHareketlerQuery, cariKodlar);
@@ -1128,9 +1131,11 @@ export class DashboardService {
       };
     } catch (error) {
       console.error('karaListedenCikar hatası:', error);
-      throw new Error('Kara listeden çıkarma işlemi başarısız');
+      throw new Error('Kara listeden çıkarma hatası');
     }
   }
+
+
 
   // 📊 GELİŞMİŞ DASHBOARD İSTATİSTİKLERİ
 
@@ -1369,7 +1374,7 @@ export class DashboardService {
       SELECT islemTip, islemBilgi, islemTutar, iKytTarihi
       FROM ${tables.islem}
       WHERE islemCrKod = @0
-      ORDER BY iKytTarihi ASC
+      ORDER BY CONVERT(Date, iKytTarihi, 104) ASC
     `, [cariKod]);
 
     console.log('🔍 İşlem kayıtları bulundu:', islemList.length);
@@ -1451,9 +1456,7 @@ export class DashboardService {
 
   // Public metod: TC kimlik numarasından ödeme vadesi hesapla
   async hesaplaMusteriOdemeVadesiByTC(tcKimlik: string): Promise<{ odemeVadesi: string | null; musteriAdi: string; cariKod: string } | null> {
-    try {
-      console.log('🔥 hesaplaMusteriOdemeVadesiByTC başlatıldı - TC:', tcKimlik);
-      
+    try {      
       // TC'den müşteri bilgilerini al
       const musteriData: any = await this.musteriRepository.query(`
         SELECT MstrNo, MstrHspTip, MstrAdi 
@@ -1462,20 +1465,12 @@ export class DashboardService {
       `, [tcKimlik]);
 
       if (!musteriData || musteriData.length === 0) {
-        console.log('🔥 Müşteri bulunamadı - TC:', tcKimlik);
         return null;
       }
-
       const musteri = musteriData[0];
-      const cariKod = musteri.MstrHspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;
-      
-      console.log('🔥 Müşteri bulundu:', musteri.MstrAdi, 'Cari kod:', cariKod, 'Hesap tipi:', musteri.MstrHspTip);
-      
+      const cariKod = musteri.MstrHspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;       
       // Ödeme vadesi hesapla
-      const odemeVadesi = await this.hesaplaOdemeVadesi(cariKod);
-      
-      console.log('🔥 Ödeme vadesi hesaplandı:', odemeVadesi);
-      
+      const odemeVadesi = await this.hesaplaOdemeVadesi(cariKod);      
       return {
         odemeVadesi,
         musteriAdi: musteri.MstrAdi,

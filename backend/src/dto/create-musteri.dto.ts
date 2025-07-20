@@ -21,4 +21,5 @@ export class CreateMusteriDto {
     MstrAdres?: string | null;
     MstrResim?: string | null;
     MstrNot?: string | null;
+    planlananCikisTarihi?: string | null; // Frontend'den gelen planlanan çıkış tarihi
   }

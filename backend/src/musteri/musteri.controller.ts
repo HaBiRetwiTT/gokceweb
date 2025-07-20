@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Controller, Post, Get, Body, HttpStatus, HttpException, Param, Res, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpStatus, HttpException, Param, Res, Query, Req } from '@nestjs/common';
 import { Response } from 'express';
 import { MusteriService } from './musteri.service';
 import { CreateMusteriDto } from '../dto/create-musteri.dto';
@@ -17,6 +17,14 @@ export class MusteriController {
     private readonly musteriService: MusteriService,
     private readonly transactionService: DatabaseTransactionService
   ) {}
+
+  // Tarih formatı helper fonksiyonu
+  private formatDate(date: Date): string {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  }
 
   @Post()
   async create(@Body() createMusteriDto: CreateMusteriDto) {
@@ -45,12 +53,16 @@ export class MusteriController {
   }
 
   @Post('musteri-islem')
-  async createMusteriIslem(@Body() musteriData: any) {
+  async createMusteriIslem(@Body() musteriData: any, @Req() req) {
     try {
       console.log('=== musteri-islem endpoint called (Transaction-Safe) ===');
       console.log('musteriData.MstrTCN:', musteriData.MstrTCN);
       console.log('musteriData.OdaYatak:', musteriData.OdaYatak);
-      
+    
+      const kullaniciAdi = req.user?.username || musteriData.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // 🔒 TRANSACTION İÇİNDE TÜM İŞLEMLERİ GÜVENLİ ÇALIŞTIR
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Önce oda-yatak müsaitlik kontrolü yap (race condition önlemi)
@@ -109,17 +121,10 @@ export class MusteriController {
         
         // Her durumda konaklama kaydı yap (Transaction içinde)
         console.log('Konaklama kaydı yapılıyor (Transaction-Safe)...');
-        await this.musteriService.kaydetKonaklamaWithTransaction(queryRunner, musteriData as {
-          OdaYatak: string | { label?: string; value?: string };
-          KonaklamaSuresi: number;
-          KonaklamaTipi: string;
-          HesaplananBedel: number;
-          ToplamBedel: number;
-          MstrKllnc: string;
-          OdaTipi: string;
-          OdemeTakvimGunu?: number | null;
-          ekNotlar?: string;
-          ekHizmetler?: { kahvaltiDahil: boolean; havluVerildi: boolean; prizVerildi: boolean };
+        await this.musteriService.kaydetKonaklamaWithTransaction(queryRunner, { 
+          ...musteriData, 
+          MstrKllnc: kullaniciAdi,
+          planlananCikisTarihi: musteriData.planlananCikisTarihi // Frontend'den gelen planlanan çıkış tarihi
         }, musteriNo);
         
         // İşlem kaydı yap (Transaction içinde)
@@ -128,21 +133,11 @@ export class MusteriController {
           ...musteriData,
           musteriDurumu: musteriDurumu,
           OdemeVadesi: musteriData.OdemeVadesi || null, // 🔥 Ödeme vadesi bilgisi eklendi
+          planlananCikisTarihi: musteriData.planlananCikisTarihi, // Frontend'den gelen planlanan çıkış tarihi
           depozito: musteriData.depozito || null
         };
         
-        await this.musteriService.kaydetIslemWithTransaction(queryRunner, islemDataWithExtras as {
-          OdaYatak: string | { label?: string; value?: string };
-          KonaklamaSuresi: number;
-          KonaklamaTipi: string;
-          MstrHspTip: string;
-          MstrKllnc: string;
-          MstrAdi: string;
-          ToplamBedel: number;
-          musteriDurumu?: string;
-          OdemeVadesi?: string;
-          depozito?: any;
-        }, musteriNo);
+        await this.musteriService.kaydetIslemWithTransaction(queryRunner, islemDataWithExtras, musteriNo);
         
         return {
           success: true,
@@ -430,9 +425,10 @@ export class MusteriController {
   }
 
   @Post('musteri-guncelle/:tcn')
-  async updateMusteri(@Param('tcn') tcn: string, @Body() updateData: any) {
+  async updateMusteri(@Param('tcn') tcn: string, @Body() updateData: any, @Req() req) {
     try {
-      const result = await this.musteriService.updateMusteriBilgileri(tcn, updateData);
+      const kullaniciAdi = req.user?.username || updateData.kullaniciAdi;
+      const result = await this.musteriService.updateMusteriBilgileri(tcn, updateData, kullaniciAdi);
       return {
         success: true,
         message: result.message
@@ -471,7 +467,7 @@ export class MusteriController {
   }
 
   @Post('donem-yenileme')
-  async donemYenileme(@Body() donemData: any) {
+  async donemYenileme(@Body() donemData: any, @Req() req) {
     try {
       console.log('=== donem-yenileme endpoint called (Transaction-Safe) ===');
       console.log('donemData.MstrTCN:', donemData.MstrTCN);
@@ -479,6 +475,10 @@ export class MusteriController {
       console.log('donemData.OdaYatak:', donemData.OdaYatak);
       console.log('donemData.KonaklamaSuresi:', donemData.KonaklamaSuresi);
       
+      const kullaniciAdi = req.user?.username || donemData.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // 🔒 TRANSACTION İÇİNDE TÜM İŞLEMLERİ GÜVENLİ ÇALIŞTIR
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
@@ -503,35 +503,25 @@ export class MusteriController {
           KonaklamaTipi: donemData.KonaklamaTipi,
           HesaplananBedel: donemData.HesaplananBedel,
           ToplamBedel: donemData.ToplamBedel,
-          MstrKllnc: donemData.MstrKllnc,
-          ekHizmetler: donemData.ekHizmetler
+          MstrKllnc: kullaniciAdi,
         };
         await this.musteriService.kaydetDonemYenilemeKonaklamaWithTransaction(
           queryRunner,
-          yeniKonaklamaData as {
-            OdaYatak: string | { label?: string; value?: string };
-            KonaklamaSuresi: number;
-            KonaklamaTipi: string;
-            HesaplananBedel: number;
-            ToplamBedel: number;
-            MstrKllnc: string;
-            KnklmOdaTip: string;
-            eskiKnklmPlnTrh: string;
-            ekHizmetler?: { kahvaltiDahil: boolean; havluVerildi: boolean; prizVerildi: boolean };
-                    }, 
-          Number(musteriNo)
+          yeniKonaklamaData,
+          musteriNo
         );
         
         // 🔥 Eğer eski oda-yatak bilgisi varsa, eski oda-yatak kaydını BOŞ yap
         if (donemData.eskiOdaYatak) {
-          await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak);
+          await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
         }
         
         // 4. Yeni dönem işlem kaydı yap (Transaction içinde)
         console.log('Yeni dönem işlem kaydı yapılıyor (Transaction-Safe)...');
         const yeniIslemData = {
           ...donemData,
-          eskiKnklmPlnTrh: donemData.eskiKnklmPlnTrh
+          eskiKnklmPlnTrh: donemData.eskiKnklmPlnTrh,
+          MstrKllnc: kullaniciAdi,
         };
         await this.musteriService.kaydetDonemYenilemeIslemWithTransaction(
           queryRunner, 
@@ -545,7 +535,7 @@ export class MusteriController {
             ToplamBedel: number;
             eskiKnklmPlnTrh: string;
           }, 
-          Number(musteriNo)
+          musteriNo
         );
         
         return {
@@ -582,11 +572,14 @@ export class MusteriController {
   }
 
   @Post('cikis-yap')
-  async cikisYap(@Body() cikisYapDto: CikisYapDto) {
+  async cikisYap(@Body() cikisYapDto: CikisYapDto, @Req() req) {
     try {
+      // Kullanıcı adını req'den al
+      const kullaniciAdi = req.user?.username || cikisYapDto.kullaniciAdi || 'admin';
+      
       // 🔒 TRANSACTION İÇİNDE TÜM İŞLEMLERİ GÜVENLİ ÇALIŞTIR
       await this.transactionService.executeInTransaction(async (queryRunner) => {
-        await this.musteriService.musteriCikisYapWithTransaction(queryRunner, cikisYapDto);
+        await this.musteriService.musteriCikisYapWithTransaction(queryRunner, cikisYapDto, kullaniciAdi);
       });
       
       return { success: true, message: 'Müşteri çıkış işlemi başarıyla tamamlandı (Transaction güvenliği ile).' };
@@ -601,12 +594,17 @@ export class MusteriController {
   }
 
   @Post('erken-cikis-yap')
-  async erkenCikisYap(@Body() body: any) {
+  async erkenCikisYap(@Body() body: any, @Req() req) {
     try {
       console.log('=== /erken-cikis-yap endpoint çağrıldı ===');
       console.log('Gelen veri:', body);
+      // Kullanıcı adı merkezi olarak alınır (JWT varsa req.user.username, yoksa body.kullaniciAdi)
+      const kullaniciAdi = req.user?.username || body.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // Tüm erken çıkış işlemleri ve MstrDurum güncellemesi service fonksiyonunda yapılacak
-      await this.musteriService.erkenCikisYap(body);
+      await this.musteriService.erkenCikisYap({ ...body, kullaniciAdi });
       return { success: true, message: 'Erken çıkış işlemi başarıyla tamamlandı.' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu';
@@ -618,11 +616,14 @@ export class MusteriController {
   }
 
   @Post('direkt-oda-degisikligi')
-  async direktOdaDegisikligi(@Body() odaDegisikligiData: any) {
+  async direktOdaDegisikligi(@Body() odaDegisikligiData: any, @Req() req) {
     try {
       console.log('=== direktOdaDegisikligi başlatıldı ===');
       console.log('Gelen veri:', odaDegisikligiData);
-
+      const kullaniciAdi = req.user?.username || odaDegisikligiData.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // Transaction içinde tüm işlemleri güvenli çalıştır
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Müşteri bilgilerini al
@@ -640,7 +641,8 @@ export class MusteriController {
           String(odaDegisikligiData.yeniOdaNo),
           String(odaDegisikligiData.yeniYatakNo),
           String(odaDegisikligiData.konaklamaNot || ''),
-          Number(odaDegisikligiData.hesaplananBedel)
+          Number(odaDegisikligiData.hesaplananBedel),
+          kullaniciAdi
         );
 
         // 3. tblOdaYatak durumları güncelle (transaction içinde)
@@ -665,7 +667,9 @@ export class MusteriController {
               islemTutar,
               islemBilgi: odaDegisikligiData.konaklamaNot,
               yeniOdaYatak: { value: String(odaDegisikligiData.yeniOdaYatak), label: String(odaDegisikligiData.yeniOdaYatak) },
-              MstrAdi: musteriData.MstrAdi
+              MstrAdi: musteriData.MstrAdi,
+              MstrKllnc: kullaniciAdi,
+              konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK'
             }
           );
         }
@@ -686,11 +690,17 @@ export class MusteriController {
   }
 
   @Post('direkt-oda-degisikligi-konaklama-suresi-1')
-  async direktOdaDegisikligiKonaklamaSuresi1(@Body() odaDegisikligiData: any) {
+  async direktOdaDegisikligiKonaklamaSuresi1(@Body() odaDegisikligiData: any, @Req() req) {
     try {
       console.log('=== direktOdaDegisikligiKonaklamaSuresi1 başlatıldı ===');
       console.log('Gelen veri:', odaDegisikligiData);
-
+      console.log('Toplam Bedel:', odaDegisikligiData.toplamBedel);
+      console.log('Konaklama Not:', odaDegisikligiData.konaklamaNot);
+      console.log('Hesaplanan Bedel:', odaDegisikligiData.hesaplananBedel);
+      const kullaniciAdi = req.user?.username || odaDegisikligiData.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // Transaction içinde tüm işlemleri güvenli çalıştır
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Müşteri bilgilerini al
@@ -701,9 +711,14 @@ export class MusteriController {
         const musteriNo = musteriData.MstrNo;
 
         // 2. tblKonaklama güncelle (transaction içinde) - knklmNot'tan "Dönem Yenileme: " kısmını çıkar
+        console.log('Orijinal konaklamaNot:', odaDegisikligiData.konaklamaNot);
+        console.log('Orijinal konaklamaNot tipi:', typeof odaDegisikligiData.konaklamaNot);
+        
         const konaklamaNot = typeof odaDegisikligiData.konaklamaNot === 'string'
           ? (odaDegisikligiData.konaklamaNot as string).replace('Dönem Yenileme: ', '')
           : '';
+        
+        console.log('İşlenmiş konaklamaNot:', konaklamaNot);
         
         await this.musteriService.updateKonaklamaOdaDegisikligiWithTransaction(
           queryRunner,
@@ -712,7 +727,8 @@ export class MusteriController {
           String(odaDegisikligiData.yeniOdaNo),
           String(odaDegisikligiData.yeniYatakNo),
           String(konaklamaNot),
-          Number(odaDegisikligiData.hesaplananBedel)
+          Number(odaDegisikligiData.toplamBedel),
+          kullaniciAdi
         );
 
         // 3. tblOdaYatak durumları güncelle (transaction içinde)
@@ -737,12 +753,14 @@ export class MusteriController {
               islemTutar,
               islemBilgi: String(odaDegisikligiData.ekNotlar || konaklamaNot),
               yeniOdaYatak: { value: String(odaDegisikligiData.yeniOdaYatak), label: String(odaDegisikligiData.yeniOdaYatak) },
-              MstrAdi: String(musteriData.MstrAdi)
+              MstrAdi: String(musteriData.MstrAdi),
+              MstrKllnc: kullaniciAdi,
+              konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK'
             }
           );
         }
 
-        return { success: true, message: 'Oda değişikliği başarıyla tamamlandı' };
+        return { success: true, message: 'Oda değişikliği (1 gün) başarıyla tamamlandı' };
       });
 
       return result;
@@ -758,11 +776,14 @@ export class MusteriController {
   }
 
   @Post('oda-degisikligi-onayla')
-  async odaDegisikligiOnayla(@Body() odaDegisikligiData: any) {
+  async odaDegisikligiOnayla(@Body() odaDegisikligiData: any, @Req() req) {
     try {
       console.log('=== oda-degisikligi-onayla endpoint başlatıldı ===');
       console.log('Gelen veri:', odaDegisikligiData);
-
+      const kullaniciAdi = req.user?.username || odaDegisikligiData.kullaniciAdi;
+      if (!kullaniciAdi) {
+        throw new Error('Kullanıcı adı bulunamadı!');
+      }
       // 🔒 TRANSACTION İÇİNDE TÜM İŞLEMLERİ GÜVENLİ ÇALIŞTIR
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Müşteri bilgilerini al
@@ -776,7 +797,7 @@ export class MusteriController {
         await this.musteriService.sonlandirMevcutKonaklamaWithTransaction(
           queryRunner,
           String(odaDegisikligiData.tcNo),
-          'admin' // Kullanıcı adı
+          kullaniciAdi // Kullanıcı adı
         );
 
         // 3. Yeni konaklama kaydı oluştur
@@ -786,7 +807,7 @@ export class MusteriController {
           KonaklamaTipi: String(odaDegisikligiData.konaklamaTipi),
           HesaplananBedel: Number(odaDegisikligiData.hesaplananBedel),
           ToplamBedel: Number(odaDegisikligiData.toplamBedel),
-          MstrKllnc: 'admin',
+          MstrKllnc: kullaniciAdi,
           KnklmOdaTip: String(odaDegisikligiData.yeniOdaTip),
           KnklmNot: String(odaDegisikligiData.ekNotlar || ''),
           eskiKnklmPlnTrh: String(odaDegisikligiData.eskiPlnTrh) // Giriş tarihi olarak kullanılacak
@@ -817,7 +838,10 @@ export class MusteriController {
               islemTutar: Number(odaDegisikligiData.giderBedel),
               islemBilgi: `Oda Değişikliği - Eski Oda: ${odaDegisikligiData.eskiOdaNo}-${odaDegisikligiData.eskiYatakNo}`,
               yeniOdaYatak: { value: `${odaDegisikligiData.eskiOdaNo}-${odaDegisikligiData.eskiYatakNo}`, label: `${odaDegisikligiData.eskiOdaNo}-${odaDegisikligiData.eskiYatakNo}` },
-              MstrAdi: String(musteriData.MstrAdi)
+              MstrAdi: String(musteriData.MstrAdi),
+              MstrKllnc: kullaniciAdi,
+              konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK',
+              OdemeVadesi: odaDegisikligiData.OdemeVadesi || musteriData.OdemeVadesi || null
             }
           );
         }
@@ -831,7 +855,10 @@ export class MusteriController {
               islemTutar: Number(odaDegisikligiData.gelirBedel),
               islemBilgi: `Oda Değişikliği - Yeni Oda: ${odaDegisikligiData.yeniOdaNo}-${odaDegisikligiData.yeniYatakNo}`,
               yeniOdaYatak: { value: `${odaDegisikligiData.yeniOdaNo}-${odaDegisikligiData.yeniYatakNo}`, label: `${odaDegisikligiData.yeniOdaNo}-${odaDegisikligiData.yeniYatakNo}` },
-              MstrAdi: String(musteriData.MstrAdi)
+              MstrAdi: String(musteriData.MstrAdi),
+              MstrKllnc: kullaniciAdi,
+              konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK',
+              OdemeVadesi: odaDegisikligiData.OdemeVadesi || musteriData.OdemeVadesi || null
             }
           );
         }
@@ -898,7 +925,7 @@ export class MusteriController {
       doc.moveDown();
       doc.fontSize(16).font('fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, { align: 'right' });
+      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
 
       // Tablo başlıkları
@@ -925,7 +952,7 @@ export class MusteriController {
         const safeDate = (val) => {
           if (!val) return 'N/A';
           const d = new Date(val);
-          return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('tr-TR');
+          return isNaN(d.getTime()) ? 'N/A' : this.formatDate(d);
         };
         const rowData = [
           safeDate(row.kKytTarihi),
@@ -989,13 +1016,13 @@ export class MusteriController {
 
       // Excel verilerini hazırla
       const excelData = konaklamaGecmisi.map(row => ({
-        'Kayıt Tarihi': new Date(row.kKytTarihi).toLocaleDateString('tr-TR'),
+        'Kayıt Tarihi': this.formatDate(new Date(row.kKytTarihi)),
         'Oda-Yatak': `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
         'Konaklama Tipi': row.KnklmTip || 'N/A',
         'Tutar (TL)': row.KnklmNfyt || 0,
-        'Giriş Tarihi': row.KnklmGrsTrh ? new Date(row.KnklmGrsTrh).toLocaleDateString('tr-TR') : 'N/A',
-        'Planlanan Çıkış': row.KnklmPlnTrh ? new Date(row.KnklmPlnTrh).toLocaleDateString('tr-TR') : 'N/A',
-        'Çıkış Tarihi': row.KnklmCksTrh ? new Date(row.KnklmCksTrh).toLocaleDateString('tr-TR') : 'N/A',
+        'Giriş Tarihi': row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A',
+        'Planlanan Çıkış': row.KnklmPlnTrh ? this.formatDate(new Date(row.KnklmPlnTrh)) : 'N/A',
+        'Çıkış Tarihi': row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A',
         'Not': row.KnklmNot || ''
       }));
 
@@ -1067,7 +1094,7 @@ export class MusteriController {
       doc.moveDown();
       doc.fontSize(16).font('fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, { align: 'right' });
+      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
       const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
@@ -1084,7 +1111,7 @@ export class MusteriController {
           yPosition = 50;
         }
         const rowData = [
-          row.iKytTarihi ? new Date(row.iKytTarihi).toLocaleDateString('tr-TR') : '',
+          row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
           row.islemTip || '',
           row.islemBilgi || '',
           `${row.islemTutar?.toLocaleString('tr-TR') || 0} TL`,
@@ -1133,7 +1160,7 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
       const excelData = hareketler.map(row => ({
-        'Tarih': row.iKytTarihi ? new Date(row.iKytTarihi).toLocaleDateString('tr-TR') : '',
+        'Tarih': row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
         'İşlem Tipi': row.islemTip || '',
         'Açıklama': row.islemBilgi || '',
         'Tutar (TL)': row.islemTutar || 0,

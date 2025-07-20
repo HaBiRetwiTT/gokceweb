@@ -21,4 +21,8 @@ export class CikisYapDto {
   @IsOptional()
   @IsString()
   knklmNot?: string; // Kara liste açıklama
+
+  @IsOptional()
+  @IsString()
+  kullaniciAdi?: string; // Kullanıcı adı
 } 

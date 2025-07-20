@@ -64,6 +64,24 @@ export class DashboardController {
     }
   }
 
+  // Oda tiplerini getir
+  @Get('oda-tipleri')
+  async getOdaTipleri() {
+    try {
+      const data = await this.dashboardService.getOdaTipleri();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Oda tipleri alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Dashboard istatistikleri
   @Get('stats')
   async getDashboardStats() {
@@ -102,14 +120,15 @@ export class DashboardController {
 
   // Toplam Aktif Müşteri Listesi
   @Get('toplam-aktif')
-  async getToplamAktifMusteri(@Query('tip') tip: string = 'TÜMÜ') {
+  async getToplamAktifMusteri(@Query('tip') tip: string = 'TÜMÜ', @Query('odaTip') odaTip: string = 'TÜMÜ') {
     try {
-      const data = await this.dashboardService.getToplamAktifMusteri(tip);
+      const data = await this.dashboardService.getToplamAktifMusteri(tip, odaTip);
       return {
         success: true,
         data: data,
         count: data.length,
-        tip: tip
+        tip: tip,
+        odaTip: odaTip
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
@@ -420,6 +439,8 @@ export class DashboardController {
       }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+
 
   // 🚨 KARA LİSTE KONTROLÜ
   @Get('kara-liste-kontrol/:tcKimlik')

@@ -34,20 +34,6 @@ export class AuthService {
       const normalizedUsername = username.toLowerCase().trim();
       const normalizedPassword = password.toLowerCase().trim();
 
-      // Admin kullanıcısı kontrolü
-      if (normalizedUsername === 'admin' && normalizedPassword === 'admin123') {
-        return {
-          success: true,
-          message: 'Admin girişi başarılı',
-          user: {
-            id: 0,
-            username: 'admin',
-            fullName: 'Sistem Yöneticisi',
-            isAdmin: true,
-          },
-        };
-      }
-
       // Personel tablosundan kullanıcı kontrolü
       const personel = await this.personelRepository
         .createQueryBuilder('personel')
@@ -86,11 +72,6 @@ export class AuthService {
     try {
       const normalizedUsername = username.toLowerCase().trim();
       const normalizedPassword = password.toLowerCase().trim();
-
-      // Admin kontrolü
-      if (normalizedUsername === 'admin' && normalizedPassword === 'admin123') {
-        return true;
-      }
 
       // Personel kontrolü
       const personel = await this.personelRepository
