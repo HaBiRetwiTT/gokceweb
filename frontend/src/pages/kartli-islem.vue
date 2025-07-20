@@ -3415,12 +3415,7 @@ async function downloadKonaklamaGecmisiPDF() {
   } catch (error) {
     console.error('PDF raporu indirme hatası:', error)
     // Hata mesajını göster
-    const { Notify } = await import('quasar')
-    Notify.create({
-      type: 'negative',
-      message: 'PDF raporu indirilemedi',
-      position: 'top'
-    })
+    alert('PDF raporu indirilemedi: ' + (error as Error).message)
   } finally {
     pdfLoading.value = false
   }
@@ -3473,12 +3468,7 @@ async function downloadKonaklamaGecmisiExcel() {
   } catch (error) {
     console.error('Excel raporu indirme hatası:', error)
     // Hata mesajını göster
-    const { Notify } = await import('quasar')
-    Notify.create({
-      type: 'negative',
-      message: 'Excel raporu indirilemedi',
-      position: 'top'
-    })
+    alert('Excel raporu indirilemedi: ' + (error as Error).message)
   } finally {
     excelLoading.value = false
   }
@@ -3520,12 +3510,7 @@ async function downloadCariHareketlerPDF() {
   } catch (error) {
     console.error('Cari hareketler PDF raporu indirme hatası:', error)
     // Hata mesajını göster
-    const { Notify } = await import('quasar')
-    Notify.create({
-      type: 'negative',
-      message: 'PDF raporu indirilemedi',
-      position: 'top'
-    })
+    alert('PDF raporu indirilemedi: ' + (error as Error).message)
   } finally {
     cariPdfLoading.value = false
   }
@@ -3567,12 +3552,7 @@ async function downloadCariHareketlerExcel() {
   } catch (error) {
     console.error('Cari hareketler Excel raporu indirme hatası:', error)
     // Hata mesajını göster
-    const { Notify } = await import('quasar')
-    Notify.create({
-      type: 'negative',
-      message: 'Excel raporu indirilemedi',
-      position: 'top'
-    })
+    alert('Excel raporu indirilemedi: ' + (error as Error).message)
   } finally {
     cariExcelLoading.value = false
   }
