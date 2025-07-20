@@ -912,6 +912,23 @@ export class MusteriController {
     return { message: 'Test endpoint çalışıyor!' };
   }
 
+  // Basit test endpoint'i
+  @Get('test-simple')
+  async testSimple() {
+    try {
+      return {
+        success: true,
+        message: 'Basit test endpoint çalışıyor!',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Test endpoint hatası: ' + error.message
+      };
+    }
+  }
+
   // Konaklama Geçmişi PDF Raporu
   @Get('konaklama-gecmisi-pdf')
   async getKonaklamaGecmisiPDF(
