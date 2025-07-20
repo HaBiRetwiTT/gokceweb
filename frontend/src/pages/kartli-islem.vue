@@ -1038,6 +1038,14 @@ const konaklamaGecmisiPagination = ref({
   rowsPerPage: 10
 })
 
+// Borçlu müşteriler pagination
+const borcluMusteriPagination = ref({
+  sortBy: 'BorcTutari',
+  descending: true,
+  page: 1,
+  rowsPerPage: 100
+})
+
 // Listelenen müşterilerin tutar toplamını hesapla
 const listelenenGelir = computed(() => {
   if (showBorcluTable.value) {
@@ -2049,13 +2057,21 @@ async function loadDinamikOdaTipleri() {
   }
 }
 
-async function loadBorcluMusteriler() {
+async function loadBorcluMusteriler(page: number = 1, limit: number = 100) {
   loading.value = true
   try {
-    const response = await api.get('/dashboard/borclu-musteriler')
+    console.log(`🔥 loadBorcluMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
+    const response = await api.get(`/dashboard/borclu-musteriler?page=${page}&limit=${limit}`)
     if (response.data.success) {
       borcluMusteriListesi.value = [...response.data.data]
-      console.log(`${response.data.count} borçlu müşteri yüklendi`)
+      console.log(`🔥 ${response.data.count} borçlu müşteri yüklendi (sayfa ${response.data.page}/${response.data.totalPages}, toplam: ${response.data.total})`)
+      
+      // Pagination bilgilerini güncelle
+      borcluPagination.value = {
+        ...borcluPagination.value,
+        page: response.data.page,
+        rowsPerPage: response.data.limit
+      };
     }
   } catch (error) {
     console.error('Borçlu müşteri listesi yüklenemedi:', error)
