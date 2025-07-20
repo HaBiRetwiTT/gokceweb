@@ -125,22 +125,40 @@
       <div class="col-12 col-sm-3 col-md-2" style="max-width: 150px;">
         <q-select
           v-model="selectedTip"
-          :options="konaklamaTipleri"
+          :options="filteredKonaklamaTipleri"
           label="Konaklama Tipi"
           outlined
           dense
-          @update:model-value="onFilterChange"
+          @update:model-value="onKonaklamaTipiChange"
         />
       </div>
 
-      <div class="col-12 col-sm-3 col-md-3" style="max-width: 170px;">
+      <!-- 🔥 FİLTRE TEMİZLE BUTONU -->
+      <div class="col-auto flex items-center">
+        <q-btn
+          flat
+          round
+          dense
+          color="orange-6"
+          icon="filter_alt_off"
+          size="sm"
+          @click="clearFilters"
+          :disable="selectedTip === 'TÜMÜ' && selectedOdaTip === 'TÜMÜ'"
+        >
+          <q-tooltip class="bg-orange text-white text-body2" :delay="300">
+            Filtre Temizle
+          </q-tooltip>
+        </q-btn>
+      </div>
+
+      <div class="col-12 col-sm-3 col-md-3" style="max-width: 185px;">
         <q-select
           v-model="selectedOdaTip"
-          :options="odaTipleri"
+          :options="filteredOdaTipleri"
           label="Oda Tipi"
           outlined
           dense
-          @update:model-value="onOdaTipChange"
+          @update:model-value="onOdaTipiChange"
         />
       </div>
 
@@ -1184,6 +1202,8 @@ watch(
   }
 )
 
+// Watch fonksiyonları kaldırıldı - event handler'lar kullanılıyor
+
 // Tarih alanları için sıralama fonksiyonu
 function sortByDate(a: string, b: string): number {
   const dateA = parseDateString(a)
@@ -1940,7 +1960,7 @@ async function loadCikisYapanlarSayisi() {
 async function loadCikisYapanlarListesi() {
   loading.value = true
   try {
-    const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}&odaTip=${selectedOdaTip.value}`)
+    const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}&odaTip=${encodeURIComponent(selectedOdaTip.value)}`)
     if (response.data.success) {
       musteriListesi.value = [...response.data.data]
       console.log(`${response.data.count} çıkış yapan müşteri yüklendi`)
@@ -1956,7 +1976,10 @@ async function loadKonaklamaTipleri() {
   try {
     const response = await api.get('/dashboard/konaklama-tipleri')
     if (response.data.success) {
+      tumKonaklamaTipleri.value = response.data.data
       konaklamaTipleri.value = response.data.data
+      // İlk yüklemede filtrelenmiş listeleri de güncelle
+      filteredKonaklamaTipleri.value = response.data.data
     }
   } catch (error) {
     console.error('Konaklama tipleri yüklenemedi:', error)
@@ -1967,10 +1990,62 @@ async function loadOdaTipleri() {
   try {
     const response = await api.get('/dashboard/oda-tipleri')
     if (response.data.success) {
+      tumOdaTipleri.value = response.data.data
       odaTipleri.value = response.data.data
+      // İlk yüklemede filtrelenmiş listeleri de güncelle
+      filteredOdaTipleri.value = response.data.data
     }
   } catch (error) {
     console.error('Oda tipleri yüklenemedi:', error)
+  }
+}
+
+// 🔥 DİNAMİK LİSTE YÜKLEME FONKSİYONLARI
+async function loadDinamikKonaklamaTipleri() {
+  try {
+    // Eğer currentFilter yoksa varsayılan olarak toplam-aktif kullan
+    const kartTip = currentFilter.value || 'toplam-aktif'
+    console.log('🔥 Dinamik konaklama tipleri yükleniyor... Kart tipi:', kartTip)
+    
+    const response = await api.get(`/dashboard/dinamik-konaklama-tipleri?kartTip=${encodeURIComponent(kartTip)}`)
+    if (response.data.success) {
+      dinamikKonaklamaTipleri.value = response.data.data
+      // Dinamik listeyi filtrelenmiş listeye ata
+      filteredKonaklamaTipleri.value = response.data.data
+      console.log('✅ Dinamik konaklama tipleri yüklendi:', response.data.data)
+    } else {
+      console.error('❌ Dinamik konaklama tipleri API hatası:', response.data)
+      // Hata durumunda statik listeyi kullan
+      filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
+    }
+  } catch (error) {
+    console.error('❌ Dinamik konaklama tipleri yüklenemedi:', error)
+    // Hata durumunda statik listeyi kullan
+    filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
+  }
+}
+
+async function loadDinamikOdaTipleri() {
+  try {
+    // Eğer currentFilter yoksa varsayılan olarak toplam-aktif kullan
+    const kartTip = currentFilter.value || 'toplam-aktif'
+    console.log('🔥 Dinamik oda tipleri yükleniyor... Kart tipi:', kartTip)
+    
+    const response = await api.get(`/dashboard/dinamik-oda-tipleri?kartTip=${encodeURIComponent(kartTip)}`)
+    if (response.data.success) {
+      dinamikOdaTipleri.value = response.data.data
+      // Dinamik listeyi filtrelenmiş listeye ata
+      filteredOdaTipleri.value = response.data.data
+      console.log('✅ Dinamik oda tipleri yüklendi:', response.data.data)
+    } else {
+      console.error('❌ Dinamik oda tipleri API hatası:', response.data)
+      // Hata durumunda statik listeyi kullan
+      filteredOdaTipleri.value = [...tumOdaTipleri.value]
+    }
+  } catch (error) {
+    console.error('❌ Dinamik oda tipleri yüklenemedi:', error)
+    // Hata durumunda statik listeyi kullan
+    filteredOdaTipleri.value = [...tumOdaTipleri.value]
   }
 }
 
@@ -2060,6 +2135,12 @@ async function refreshData() {
     loadOdaTipleri(),
     loadCikisYapanlarSayisi()
   ])
+  
+  // 🔥 DİNAMİK LİSTELERİ YÜKLE (eğer aktif filtre varsa)
+  if (currentFilter.value) {
+    await loadDinamikKonaklamaTipleri()
+    await loadDinamikOdaTipleri()
+  }
   
   // Eğer aktif filtre yoksa veya seçili kartın değeri 0 ise, akıllı kart seçimi yap
   if (!currentFilter.value || getCurrentCardValue() === 0) {
@@ -2716,12 +2797,16 @@ function onSearchChange(newValue: string | number | null) {
   performSearch(searchValue)
 }
 
-function loadFilteredData(filter: string) {
+async function loadFilteredData(filter: string) {
   currentFilter.value = filter  
   // 🔥 Seçilen kartı session storage'a kaydet
   sessionStorage.setItem('kartliIslemLastCard', filter)
   
   sortingInProgress = false  // Filtre değiştiğinde yeni veri çek
+  
+  // 🔥 DİNAMİK LİSTELERİ YÜKLE
+  await loadDinamikKonaklamaTipleri()
+  await loadDinamikOdaTipleri()
   
   // Yeni kart seçildiğinde arama metnini temizle ve filtreyi kaldır
   searchText.value = ''
@@ -2779,51 +2864,100 @@ function loadFilteredData(filter: string) {
   }
 }
 
-function onFilterChange() {
-  sortingInProgress = false  // Tip filtresi değiştiğinde yeni veri çek
+// 🔥 FİLTRE TEMİZLEME FONKSİYONU
+function clearFilters() {
+  console.log('🔥 Filtreler temizleniyor...')
   
-  // Konaklama tipi değiştiğinde arama metnini temizle
-  searchText.value = ''
-  filteredMusteriListesi.value = []
-  filteredBorcluMusteriListesi.value = []
-  filteredCariHareketlerListesi.value = []
+  // Her iki combobox'ı da TÜMÜ yap
+  selectedTip.value = 'TÜMÜ'
+  selectedOdaTip.value = 'TÜMÜ'
   
-  // Konaklama geçmişi tablosunu gizle ve seçimi temizle
-  showKonaklamaGecmisi.value = false
-  selectedNormalMusteri.value = null
+  // Dinamik listeleri yeniden yükle
+  void loadDinamikKonaklamaTipleri()
+  void loadDinamikOdaTipleri()
   
-  // 🔥 Müşteri bakiyesini sıfırla
-  selectedMusteriBakiye.value = 0
-  selectedFirmaBakiye.value = 0
+  // Seçili kartın verilerini yenile
+  if (currentFilter.value) {
+    void loadSelectedCardData(currentFilter.value)
+  }
   
-  // 🔥 Firma filtresini temizle
-  firmaFiltresiAktif.value = false
-  selectedFirmaAdi.value = ''
+  console.log('✅ Filtreler temizlendi')
+}
+
+// 🔥 KOORDİNELİ ÇALIŞMA EVENT HANDLER'LARI
+async function onKonaklamaTipiChange(newValue: string) {
+  console.log('🔥 Konaklama tipi değişti:', newValue)
   
+  // Eğer oda tipi zaten TÜMÜ dışında bir seçim yapılmışsa, oda tipi listesini değiştirme
+  if (selectedOdaTip.value !== 'TÜMÜ' && selectedOdaTip.value !== undefined) {
+    console.log('Oda tipi zaten seçili olduğu için oda tipi listesi değiştirilmiyor:', selectedOdaTip.value)
+    void refreshData()
+    return
+  }
+  
+  if (newValue === 'TÜMÜ') {
+    // TÜMÜ seçildiğinde tüm oda tiplerini göster
+    filteredOdaTipleri.value = [...tumOdaTipleri.value]
+    console.log('Konaklama tipi TÜMÜ - Tüm oda tipleri gösteriliyor')
+      } else {
+      // Belirli bir konaklama tipi seçildiğinde, o konaklama tipine uygun oda tiplerini getir
+      try {
+        const response = await api.get(`/dashboard/oda-tipleri-by-konaklama?konaklamaTip=${encodeURIComponent(newValue)}&kartTip=${currentFilter.value}`)
+        if (response.data.success) {
+          filteredOdaTipleri.value = response.data.data
+          console.log('Konaklama tipi filtrelendi - Oda tipleri:', response.data.data)
+        } else {
+          filteredOdaTipleri.value = [...tumOdaTipleri.value]
+        }
+      } catch (error) {
+        console.error('Oda tipleri alınırken hata:', error)
+        filteredOdaTipleri.value = [...tumOdaTipleri.value]
+      }
+    }
+  
+  // Verileri yenile
   void refreshData()
 }
 
-function onOdaTipChange() {
-  sortingInProgress = false  // Oda tipi filtresi değiştiğinde yeni veri çek
+async function onOdaTipiChange(newValue: string) {
+  console.log('🔥🔥🔥 ODA TİPİ DEĞİŞTİ - FONKSİYON ÇALIŞIYOR:', newValue)
   
-  // Oda tipi değiştiğinde arama metnini temizle
-  searchText.value = ''
-  filteredMusteriListesi.value = []
-  filteredBorcluMusteriListesi.value = []
-  filteredCariHareketlerListesi.value = []
+  // Eğer konaklama tipi zaten TÜMÜ dışında bir seçim yapılmışsa, konaklama tipi listesini değiştirme
+  if (selectedTip.value !== 'TÜMÜ' && selectedTip.value !== undefined) {
+    console.log('Konaklama tipi zaten seçili olduğu için konaklama tipi listesi değiştirilmiyor:', selectedTip.value)
+    // Sadece seçili kartın verilerini yenile (refreshData çağırma, dinamik listeleri sıfırlar)
+    if (currentFilter.value) {
+      void loadSelectedCardData(currentFilter.value)
+    }
+    return
+  }
   
-  // Konaklama geçmişi tablosunu gizle ve seçimi temizle
-  showKonaklamaGecmisi.value = false
-  selectedNormalMusteri.value = null
+  if (newValue === 'TÜMÜ') {
+    // TÜMÜ seçildiğinde tüm konaklama tiplerini göster
+    filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
+    console.log('Oda tipi TÜMÜ - Tüm konaklama tipleri gösteriliyor')
+      } else {
+      // Belirli bir oda tipi seçildiğinde, o oda tipine uygun konaklama tiplerini getir
+      console.log('🔥 API çağrısı yapılıyor...')
+      try {
+        const response = await api.get(`/dashboard/konaklama-tipleri-by-oda?odaTip=${encodeURIComponent(newValue)}&kartTip=${currentFilter.value}`)
+        console.log('🔥 API response:', response.data)
+        if (response.data.success) {
+          filteredKonaklamaTipleri.value = response.data.data
+          console.log('Oda tipi filtrelendi - Konaklama tipleri:', response.data.data)
+        } else {
+          filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
+        }
+      } catch (error) {
+        console.error('Konaklama tipleri alınırken hata:', error)
+        filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
+      }
+    }
   
-  // 🔥 Müşteri bakiyesini sıfırla
-  selectedMusteriBakiye.value = 0
-  selectedFirmaBakiye.value = 0
-  
-  // 🔥 Firma filtresini temizle
-  firmaFiltresiAktif.value = false
-  selectedFirmaAdi.value = ''
-  void refreshData()
+  // Sadece seçili kartın verilerini yenile (refreshData çağırma, dinamik listeleri sıfırlar)
+  if (currentFilter.value) {
+    void loadSelectedCardData(currentFilter.value)
+  }
 }
 
 
@@ -2983,7 +3117,7 @@ async function selectBestCard() {
   
   // Süresi dolan kart sayısı > 0 ise daima bu kart seçilir
   if (suresiDolanSayisi > 0) {
-    loadFilteredData('suresi-dolan');
+    void loadFilteredData('suresi-dolan');
     return;
   }
   
@@ -3022,7 +3156,7 @@ async function selectBestCard() {
   if (bestCard) {
     currentFilter.value = bestCard;
     sessionStorage.setItem('kartliIslemLastCard', bestCard);
-    loadSelectedCardData(bestCard);
+    void loadSelectedCardData(bestCard);
   }
 }
 
@@ -3048,8 +3182,12 @@ async function loadMusteriListesiReturn(cardType: string) {
 }
 
 // 🔥 SEÇİLEN KARTIN VERİLERİNİ YÜKLEME FONKSİYONU
-function loadSelectedCardData(cardType: string) {
+async function loadSelectedCardData(cardType: string) {
   console.log(`Seçilen kart verileri yükleniyor: ${cardType}`)
+  
+  // 🔥 DİNAMİK LİSTELERİ YÜKLE
+  await loadDinamikKonaklamaTipleri()
+  await loadDinamikOdaTipleri()
   
   if (cardType === 'borclu-musteriler') {
     // Borçlu müşteriler tablosunu göster
@@ -3395,6 +3533,21 @@ async function downloadCariHareketlerExcel() {
     cariExcelLoading.value = false
   }
 }
+
+// 🔥 KOORDİNELİ ÇALIŞMA İÇİN YENİ DEĞİŞKENLER
+const tumKonaklamaTipleri = ref<string[]>(['TÜMÜ'])
+const tumOdaTipleri = ref<string[]>(['TÜMÜ'])
+const filteredKonaklamaTipleri = ref<string[]>(['TÜMÜ'])
+const filteredOdaTipleri = ref<string[]>(['TÜMÜ'])
+
+// 🔥 DİNAMİK LİSTE İÇİN YENİ DEĞİŞKENLER
+const dinamikKonaklamaTipleri = ref<string[]>(['TÜMÜ'])
+const dinamikOdaTipleri = ref<string[]>(['TÜMÜ'])
+
+// 🔥 KOORDİNELİ ÇALIŞMA FONKSİYONLARI
+// Bu fonksiyon artık kullanılmıyor - watch fonksiyonları kullanılıyor
+
+// Bu fonksiyonlar artık kullanılmıyor - watch fonksiyonları içinde direkt API çağrıları yapılıyor
 </script>
 
 <style scoped>
