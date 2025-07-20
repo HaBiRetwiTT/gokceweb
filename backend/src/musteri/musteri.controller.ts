@@ -935,11 +935,8 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // PDF oluştur
+      // Basit PDF test - sadece başlık
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      // Font kullanımını geçici olarak kaldırdık
-      // const fontPath = this.getFontPath();
-      // doc.font(fontPath);
       
       // Response headers
       res.setHeader('Content-Type', 'application/pdf');
@@ -947,7 +944,7 @@ export class MusteriController {
       
       doc.pipe(res);
 
-      // PDF içeriği
+      // Sadece basit içerik
       doc.fontSize(20).text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
       doc.fontSize(16).text(raporBaslik, { align: 'center' });
@@ -955,57 +952,10 @@ export class MusteriController {
       doc.fontSize(10).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
 
-      // Tablo başlıkları
-      const headers = ['Kayıt Tarihi', 'Oda-Yatak', 'Konaklama Tipi', 'Tutar', 'Giriş Tarihi', 'Planlanan Çıkış', 'Çıkış Tarihi', 'Not'];
-      const columnWidths = [60, 60, 60, 60, 60, 60, 60, 200];
-      let yPosition = doc.y;
-
-      // Başlık satırı
-      doc.fontSize(9);
-      headers.forEach((header, index) => {
-        doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
-      });
-
-      // Veri satırları
-      konaklamaGecmisi.forEach((row, index) => {
-        const rowHeight = 20; // Varsayılan satır yüksekliği
-        
-        // Sayfa kontrolü (wrap text için daha erken sayfa değişimi)
-        if (yPosition > 650) {
-          doc.addPage();
-          yPosition = 50;
-        }
-
-        const safeDate = (val) => {
-          if (!val) return 'N/A';
-          const d = new Date(val);
-          return isNaN(d.getTime()) ? 'N/A' : this.formatDate(d);
-        };
-        const rowData = [
-          safeDate(row.kKytTarihi),
-          `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-          row.KnklmTip || 'N/A',
-          `${row.KnklmNfyt?.toLocaleString('tr-TR') || 0} TL`,
-          safeDate(row.KnklmGrsTrh),
-          safeDate(row.KnklmPlnTrh),
-          safeDate(row.KnklmCksTrh),
-          row.KnklmNot || ''
-        ];
-
-        // Hücreleri çiz - wrap text ile
-        rowData.forEach((cell, cellIndex) => {
-          const cellWidth = columnWidths[cellIndex];
-          const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
-          
-          doc.text(cell, cellX, yPosition, { 
-            width: cellWidth, 
-            align: 'left'
-          });
-        });
-
-        // Sabit satır yüksekliği (wrap text için biraz daha fazla)
-        yPosition += 25; // 25px satır yüksekliği
-      });
+      // Basit bilgi
+      doc.fontSize(12).text(`Kayıt Sayısı: ${konaklamaGecmisi.length}`);
+      doc.moveDown();
+      doc.fontSize(10).text('PDF oluşturma testi başarılı!');
 
       doc.end();
     } catch (error) {
