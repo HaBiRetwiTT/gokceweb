@@ -921,11 +921,11 @@ export class MusteriController {
       doc.pipe(res);
 
       // PDF içeriği
-      doc.fontSize(20).font('fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).font('./fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font('fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).font('./fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).font('./fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
 
       // Tablo başlıkları
@@ -1090,11 +1090,11 @@ export class MusteriController {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
       doc.pipe(res);
-      doc.fontSize(20).font('fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).font('./fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font('fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).font('./fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).font('./fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
       const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
