@@ -1038,13 +1038,7 @@ const konaklamaGecmisiPagination = ref({
   rowsPerPage: 10
 })
 
-// Borçlu müşteriler pagination
-const borcluMusteriPagination = ref({
-  sortBy: 'BorcTutari',
-  descending: true,
-  page: 1,
-  rowsPerPage: 100
-})
+
 
 // Listelenen müşterilerin tutar toplamını hesapla
 const listelenenGelir = computed(() => {
