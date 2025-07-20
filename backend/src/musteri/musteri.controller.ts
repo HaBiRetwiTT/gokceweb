@@ -953,66 +953,21 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // Geçici olarak HTML tablosu döndür
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${raporBaslik}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .header { text-align: center; margin-bottom: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>GÖKÇE PANSİYON</h1>
-            <h2>${raporBaslik}</h2>
-            <p>Rapor Tarihi: ${this.formatDate(new Date())}</p>
-            <p>Kayıt Sayısı: ${konaklamaGecmisi.length}</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Kayıt Tarihi</th>
-                <th>Oda-Yatak</th>
-                <th>Konaklama Tipi</th>
-                <th>Tutar</th>
-                <th>Giriş Tarihi</th>
-                <th>Planlanan Çıkış</th>
-                <th>Çıkış Tarihi</th>
-                <th>Not</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${konaklamaGecmisi.map(row => `
-                <tr>
-                  <td>${row.kKytTarihi ? this.formatDate(new Date(row.kKytTarihi)) : 'N/A'}</td>
-                  <td>${row.KnklmOdaNo}-${row.KnklmYtkNo}</td>
-                  <td>${row.KnklmTip || 'N/A'}</td>
-                  <td>${row.KnklmNfyt?.toLocaleString('tr-TR') || 0} TL</td>
-                  <td>${row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A'}</td>
-                  <td>${row.KnklmPlnTrh ? this.formatDate(new Date(row.KnklmPlnTrh)) : 'N/A'}</td>
-                  <td>${row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A'}</td>
-                  <td>${row.KnklmNot || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-        </html>
-      `;
+      // En basit test - sadece JSON döndür
+      const testData = {
+        success: true,
+        message: 'Rapor endpoint testi',
+        raporBaslik: raporBaslik,
+        kayitSayisi: konaklamaGecmisi.length,
+        timestamp: new Date().toISOString(),
+        data: konaklamaGecmisi.slice(0, 3) // İlk 3 kayıt
+      };
       
       // Response headers
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Content-Disposition', `attachment; filename="konaklama-gecmisi-${Date.now()}.html"`);
+      res.setHeader('Content-Type', 'application/json');
       
-      // HTML'i gönder
-      res.send(htmlContent);
+      // JSON'u gönder
+      res.json(testData);
     } catch (error) {
       console.error('PDF rapor hatası:', error);
       console.error('Error details:', {
