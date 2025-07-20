@@ -9,6 +9,8 @@ import { CikisYapDto } from '../dto/cikis-yap.dto';
 import { DatabaseTransactionService } from '../database/database-transaction.service';
 import * as PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as path from 'path';
 //import { MusteriBilgi } from '../dto/musteri-bilgi.dto';
 
 @Controller()
@@ -24,6 +26,29 @@ export class MusteriController {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}.${month}.${year}`;
+  }
+
+  // Font dosyası kontrol fonksiyonu
+  private getFontPath(): string {
+    const possiblePaths = [
+      './fonts/DejaVuSans.ttf',
+      './backend/fonts/DejaVuSans.ttf',
+      path.join(__dirname, '../fonts/DejaVuSans.ttf'),
+      path.join(__dirname, '../../fonts/DejaVuSans.ttf'),
+      path.join(process.cwd(), 'fonts/DejaVuSans.ttf'),
+      path.join(process.cwd(), 'backend/fonts/DejaVuSans.ttf')
+    ];
+
+    for (const fontPath of possiblePaths) {
+      console.log(`Checking font path: ${fontPath}`);
+      if (fs.existsSync(fontPath)) {
+        console.log(`Font found at: ${fontPath}`);
+        return fontPath;
+      }
+    }
+
+    console.error('Font file not found in any of the expected paths');
+    throw new Error('Font dosyası bulunamadı');
   }
 
   @Post()
@@ -912,7 +937,8 @@ export class MusteriController {
 
       // PDF oluştur
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      doc.font('./fonts/DejaVuSans.ttf');
+      const fontPath = this.getFontPath();
+      doc.font(fontPath);
       
       // Response headers
       res.setHeader('Content-Type', 'application/pdf');
@@ -921,11 +947,11 @@ export class MusteriController {
       doc.pipe(res);
 
       // PDF içeriği
-      doc.fontSize(20).font('./fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).font(fontPath).text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font('./fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).font(fontPath).text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('./fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).font(fontPath).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
 
       // Tablo başlıkları
@@ -934,7 +960,7 @@ export class MusteriController {
       let yPosition = doc.y;
 
       // Başlık satırı
-      doc.fontSize(9).font('./fonts/DejaVuSans.ttf');
+      doc.fontSize(9).font(fontPath);
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
@@ -983,9 +1009,14 @@ export class MusteriController {
       doc.end();
     } catch (error) {
       console.error('PDF rapor hatası:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       res.status(500).json({ 
         success: false, 
-        message: 'PDF raporu oluşturulamadı' 
+        message: `PDF raporu oluşturulamadı: ${error.message}` 
       });
     }
   }
@@ -1086,24 +1117,25 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      doc.font('./fonts/DejaVuSans.ttf');
+      const fontPath = this.getFontPath();
+      doc.font(fontPath);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
       doc.pipe(res);
-      doc.fontSize(20).font('./fonts/DejaVuSans.ttf').text('GÖKÇE PANSİYON', { align: 'center' });
+      doc.fontSize(20).font(fontPath).text('GÖKÇE PANSİYON', { align: 'center' });
       doc.moveDown();
-      doc.fontSize(16).font('./fonts/DejaVuSans.ttf').text(raporBaslik, { align: 'center' });
+      doc.fontSize(16).font(fontPath).text(raporBaslik, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(10).font('./fonts/DejaVuSans.ttf').text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
+      doc.fontSize(10).font(fontPath).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
       const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
       let yPosition = doc.y;
-      doc.fontSize(9).font('./fonts/DejaVuSans.ttf');
+      doc.fontSize(9).font(fontPath);
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
-      doc.fontSize(8).font('./fonts/DejaVuSans.ttf');
+              doc.fontSize(8).font(fontPath);
       hareketler.forEach((row, index) => {
         const rowHeight = 20; // Varsayılan satır yüksekliği
         if (yPosition > 650) {
