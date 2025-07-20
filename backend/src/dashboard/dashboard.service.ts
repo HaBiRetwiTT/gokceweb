@@ -143,6 +143,200 @@ export class DashboardService {
     }
   }
 
+  // 🔥 KOORDİNELİ ÇALIŞMA: Seçili konaklama tipine göre uygun oda tiplerini getir
+  async getOdaTipleriByKonaklama(konaklamaTip: string, kartTip: string = 'toplam-aktif'): Promise<string[]> {
+    try {
+      console.log('🔥 getOdaTipleriByKonaklama çağrıldı - konaklamaTip:', konaklamaTip, 'kartTip:', kartTip);
+      
+      // Seçili karta göre müşteri listesini al
+      let musteriListesi: MusteriKonaklamaData[] = [];
+      
+      switch (kartTip) {
+        case 'toplam-aktif':
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+          break;
+        case 'suresi-dolan':
+          musteriListesi = await this.getSuresiDolanMusteri('TÜMÜ');
+          break;
+        case 'bugun-cikan':
+          musteriListesi = await this.getBugunCikanMusteri('TÜMÜ');
+          break;
+        case 'yeni-musteri':
+          musteriListesi = await this.getYeniMusteri('TÜMÜ');
+          break;
+        case 'yeni-giris':
+          musteriListesi = await this.getYeniGiris('TÜMÜ');
+          break;
+        case 'cikis-yapanlar':
+          musteriListesi = await this.getCikisYapanlarListesi('TÜMÜ');
+          break;
+        default:
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+      }
+      
+      console.log('🔥 getOdaTipleriByKonaklama musteriListesi length:', musteriListesi.length);
+      
+      // Müşteri listesinden konaklama tipine göre filtreleme yap
+      let filteredList = musteriListesi;
+      if (konaklamaTip && konaklamaTip !== 'TÜMÜ') {
+        filteredList = musteriListesi.filter(m => m.KnklmTip === konaklamaTip);
+        console.log('🔥 getOdaTipleriByKonaklama filtered by konaklamaTip:', konaklamaTip, 'filtered length:', filteredList.length);
+      }
+      
+      // Filtrelenmiş listeden distinct oda tiplerini çıkar
+      const odaTipleri = [...new Set(filteredList.map(m => m.KnklmOdaTip))].filter(tip => tip && tip.trim() !== '');
+      console.log('🔥 getOdaTipleriByKonaklama odaTipleri:', odaTipleri);
+      
+      const finalResult = ['TÜMÜ', ...odaTipleri.sort()];
+      console.log('🔥 getOdaTipleriByKonaklama final result:', finalResult);
+      
+      return finalResult;
+    } catch (error) {
+      console.error('getOdaTipleriByKonaklama hatası:', error);
+      return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
+    }
+  }
+
+  // 🔥 KOORDİNELİ ÇALIŞMA: Seçili oda tipine göre uygun konaklama tiplerini getir
+  async getKonaklamaTipleriByOda(odaTip: string, kartTip: string = 'toplam-aktif'): Promise<string[]> {
+    try {
+      // 🔥 URL DECODING: Sadece gerçekten URL encoding'den gelen + karakterlerini boşluk yap
+      // Eğer odaTip'te + karakteri varsa ve bu gerçek bir oda tipi ise, URL encoding yapma
+      const decodedOdaTip = odaTip;
+      console.log('🔥 getKonaklamaTipleriByOda çağrıldı - odaTip:', odaTip, 'decodedOdaTip:', decodedOdaTip, 'kartTip:', kartTip);
+      
+      // Seçili karta göre müşteri listesini al
+      let musteriListesi: MusteriKonaklamaData[] = [];
+      
+      switch (kartTip) {
+        case 'toplam-aktif':
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+          break;
+        case 'suresi-dolan':
+          musteriListesi = await this.getSuresiDolanMusteri('TÜMÜ');
+          break;
+        case 'bugun-cikan':
+          musteriListesi = await this.getBugunCikanMusteri('TÜMÜ');
+          break;
+        case 'yeni-musteri':
+          musteriListesi = await this.getYeniMusteri('TÜMÜ');
+          break;
+        case 'yeni-giris':
+          musteriListesi = await this.getYeniGiris('TÜMÜ');
+          break;
+        case 'cikis-yapanlar':
+          musteriListesi = await this.getCikisYapanlarListesi('TÜMÜ');
+          break;
+        default:
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+      }
+      
+      console.log('🔥 getKonaklamaTipleriByOda musteriListesi length:', musteriListesi.length);
+      
+      // Müşteri listesinden oda tipine göre filtreleme yap (decoded oda tipini kullan)
+      let filteredList = musteriListesi;
+      if (decodedOdaTip && decodedOdaTip !== 'TÜMÜ') {
+        // 🔥 DEBUG: Veritabanındaki oda tiplerini kontrol et
+        const uniqueOdaTipleri = [...new Set(musteriListesi.map(m => m.KnklmOdaTip))];
+        console.log('🔥 getKonaklamaTipleriByOda - Veritabanındaki oda tipleri:', uniqueOdaTipleri);
+        console.log('🔥 getKonaklamaTipleriByOda - Aranan oda tipi:', decodedOdaTip);
+        
+        filteredList = musteriListesi.filter(m => m.KnklmOdaTip === decodedOdaTip);
+        console.log('🔥 getKonaklamaTipleriByOda filtered by odaTip:', decodedOdaTip, 'filtered length:', filteredList.length);
+      }
+      
+      // Filtrelenmiş listeden distinct konaklama tiplerini çıkar
+      const konaklamaTipleri = [...new Set(filteredList.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
+      console.log('🔥 getKonaklamaTipleriByOda konaklamaTipleri:', konaklamaTipleri);
+      
+      const finalResult = ['TÜMÜ', ...konaklamaTipleri.sort()];
+      console.log('🔥 getKonaklamaTipleriByOda final result:', finalResult);
+      
+      return finalResult;
+    } catch (error) {
+      console.error('getKonaklamaTipleriByOda hatası:', error);
+      return ['TÜMÜ', 'GÜNLÜK', 'HAFTALIK', 'AYLIK'];
+    }
+  }
+
+  // 🔥 DİNAMİK LİSTE: Seçili kartın müşteri listesinden konaklama tiplerini getir
+  async getDinamikKonaklamaTipleri(kartTip: string): Promise<string[]> {
+    try {
+      let musteriListesi: MusteriKonaklamaData[] = [];
+      
+      // Seçili karta göre müşteri listesini al
+      switch (kartTip) {
+        case 'toplam-aktif':
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+          break;
+        case 'suresi-dolan':
+          musteriListesi = await this.getSuresiDolanMusteri('TÜMÜ');
+          break;
+        case 'bugun-cikan':
+          musteriListesi = await this.getBugunCikanMusteri('TÜMÜ');
+          break;
+        case 'yeni-musteri':
+          musteriListesi = await this.getYeniMusteri('TÜMÜ');
+          break;
+        case 'yeni-giris':
+          musteriListesi = await this.getYeniGiris('TÜMÜ');
+          break;
+        case 'cikis-yapanlar':
+          musteriListesi = await this.getCikisYapanlarListesi('TÜMÜ');
+          break;
+        default:
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+      }
+      
+      // Müşteri listesinden distinct konaklama tiplerini çıkar
+      const konaklamaTipleri = [...new Set(musteriListesi.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
+      
+      return ['TÜMÜ', ...konaklamaTipleri.sort()];
+    } catch (error) {
+      console.error('getDinamikKonaklamaTipleri hatası:', error);
+      return ['TÜMÜ', 'GÜNLÜK', 'HAFTALIK', 'AYLIK'];
+    }
+  }
+
+  // 🔥 DİNAMİK LİSTE: Seçili kartın müşteri listesinden oda tiplerini getir
+  async getDinamikOdaTipleri(kartTip: string): Promise<string[]> {
+    try {
+      let musteriListesi: MusteriKonaklamaData[] = [];
+      
+      // Seçili karta göre müşteri listesini al
+      switch (kartTip) {
+        case 'toplam-aktif':
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+          break;
+        case 'suresi-dolan':
+          musteriListesi = await this.getSuresiDolanMusteri('TÜMÜ');
+          break;
+        case 'bugun-cikan':
+          musteriListesi = await this.getBugunCikanMusteri('TÜMÜ');
+          break;
+        case 'yeni-musteri':
+          musteriListesi = await this.getYeniMusteri('TÜMÜ');
+          break;
+        case 'yeni-giris':
+          musteriListesi = await this.getYeniGiris('TÜMÜ');
+          break;
+        case 'cikis-yapanlar':
+          musteriListesi = await this.getCikisYapanlarListesi('TÜMÜ');
+          break;
+        default:
+          musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
+      }
+      
+      // Müşteri listesinden distinct oda tiplerini çıkar
+      const odaTipleri = [...new Set(musteriListesi.map(m => m.KnklmOdaTip))].filter(tip => tip && tip.trim() !== '');
+      
+      return ['TÜMÜ', ...odaTipleri.sort()];
+    } catch (error) {
+      console.error('getDinamikOdaTipleri hatası:', error);
+      return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
+    }
+  }
+
   // Dashboard istatistikleri (SP mantığı ile uyumlu)
   async getDashboardStats(): Promise<any> {
     try {
@@ -601,9 +795,38 @@ export class DashboardService {
   }
 
   // Borçlu Müşteriler - tblCari bilgileri ve hesaplanan borç tutarları
-  async getBorcluMusteriler(): Promise<any[]> {
+  async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
+      console.log(`🔥 getBorcluMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
+      
       const tables = this.dbConfig.getTables();
+      const offset = (page - 1) * limit;
+      
+      // Önce toplam sayıyı al
+      const countQuery = `
+        SELECT COUNT(*) as TotalCount
+        FROM ${tables.cari} c
+        WHERE c.CariKod IN (
+          SELECT DISTINCT islemCrKod
+          FROM (
+            SELECT 
+              islemCrKod,
+              SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
+              SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+            FROM ${tables.islem}
+            GROUP BY islemCrKod
+            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0
+          ) BorcluMusteriler
+        )
+      `;
+      
+      const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
+      const total = countResult[0]?.TotalCount || 0;
+      
+      console.log(`🔥 getBorcluMusteriler toplam kayıt: ${total}`);
+      
+      // Ana sorgu - pagination ile
       const query = `
         SELECT 
           c.cKytTarihi,
@@ -642,13 +865,18 @@ export class DashboardService {
           ) BorcluMusteriler
         )
         ORDER BY BorcTutari DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
+        OFFSET ${offset} ROWS
+        FETCH NEXT ${limit} ROWS ONLY
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      // Her müşteri için ödeme vadesi hesapla
+      console.log(`🔥 getBorcluMusteriler sayfa ${page} için ${result.length} kayıt bulundu`);
+      
+      // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
         musteri.odemeVadesi = await this.hesaplaOdemeVadesi(musteri.CariKod);
       }
+      
       // Ödeme vadesine göre küçükten büyüğe sırala, null/boş olanlar en sonda
       result.sort((a, b) => {
         if (!a.odemeVadesi && !b.odemeVadesi) return 0;
@@ -661,7 +889,13 @@ export class DashboardService {
         const tB = new Date(yB, aB - 1, gB).getTime();
         return tA - tB;
       });
-      return result;
+      
+      return {
+        data: result,
+        total,
+        page,
+        limit
+      };
     } catch (error) {
       console.error('getBorcluMusteriler hatası:', error);
       throw new Error('Borçlu müşteri listesi alınamadı');
@@ -782,6 +1016,9 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+          AND k2.kKytTarihi IS NOT NULL
+          AND k2.kKytTarihi != ''
+          AND CONVERT(Date, k2.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
       `;
       
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
@@ -835,9 +1072,36 @@ export class DashboardService {
   }
 
   // Çıkış yapanlar listesi - Her müşteri için en son konaklama kaydının detayları
-  async getCikisYapanlarListesi(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
+  async getCikisYapanlarListesi(knklmTipi: string = 'TÜMÜ', odaTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
       const tables = this.dbConfig.getTables();
+      
+      // 🔥 URL DECODING: URL encoding'den gelen + karakterlerini boşluk yap
+      const decodedOdaTipi = decodeURIComponent(odaTipi);
+      console.log('🔥 getCikisYapanlarListesi - odaTipi:', odaTipi, 'decodedOdaTipi:', decodedOdaTipi);
+      
+      // 🔥 DEBUG: Canlı veritabanındaki oda tipi değerlerini kontrol et
+      if (odaTipi !== 'TÜMÜ') {
+        const odaTipiKontrolQuery = `
+          SELECT DISTINCT KnklmOdaTip, COUNT(*) as KayitSayisi
+          FROM ${tables.konaklama} k2
+          INNER JOIN ${tables.musteri} m ON k2.knklmMstrNo = m.MstrNo
+          WHERE k2.knklmCksTrh IS NOT NULL 
+            AND k2.knklmCksTrh != ''
+            AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
+            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+            AND CONVERT(Date, k2.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
+          GROUP BY KnklmOdaTip
+          ORDER BY KnklmOdaTip
+        `;
+        
+        try {
+          const odaTipiKontrol = await this.musteriRepository.query(odaTipiKontrolQuery);
+          console.log('🔥 DEBUG - Veritabanındaki oda tipleri:', odaTipiKontrol);
+        } catch (error) {
+          console.log('🔥 DEBUG - Oda tipi kontrol hatası:', error);
+        }
+      }
       let query = `
         SELECT 
           m.MstrTCN,
@@ -868,13 +1132,19 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+          AND CONVERT(Date, k2.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
       `;
 
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND k2.KnklmTip = @0`;
+        query += ` AND k2.KnklmTip = @${parameters.length}`;
         parameters.push(knklmTipi);
+      }
+
+      if (decodedOdaTipi && decodedOdaTipi !== 'TÜMÜ') {
+        query += ` AND k2.KnklmOdaTip = @${parameters.length}`;
+        parameters.push(decodedOdaTipi);
       }
 
       query += ` ORDER BY CONVERT(Date, k2.knklmCksTrh, 104) DESC, k2.KnklmTip DESC`;

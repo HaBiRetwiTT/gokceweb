@@ -9,6 +9,12 @@ async function bootstrap() {
   // Add global validation pipe
   app.useGlobalPipes(new ValidationPipe());
   
+  // Set timeout for large datasets
+  app.use((req, res, next) => {
+    res.setTimeout(120000); // 2 dakika timeout
+    next();
+  });
+  
   // Enable CORS for frontend communication
   const allowedOrigins = [
     'http://localhost:9000', // Development

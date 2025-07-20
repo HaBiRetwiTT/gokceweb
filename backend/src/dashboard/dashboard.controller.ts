@@ -82,6 +82,78 @@ export class DashboardController {
     }
   }
 
+  // 🔥 KOORDİNELİ ÇALIŞMA: Seçili konaklama tipine göre uygun oda tiplerini getir
+  @Get('oda-tipleri-by-konaklama')
+  async getOdaTipleriByKonaklama(@Query('konaklamaTip') konaklamaTip: string, @Query('kartTip') kartTip: string = 'toplam-aktif') {
+    try {
+      const data = await this.dashboardService.getOdaTipleriByKonaklama(konaklamaTip, kartTip);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Oda tipleri alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 KOORDİNELİ ÇALIŞMA: Seçili oda tipine göre uygun konaklama tiplerini getir
+  @Get('konaklama-tipleri-by-oda')
+  async getKonaklamaTipleriByOda(@Query('odaTip') odaTip: string, @Query('kartTip') kartTip: string = 'toplam-aktif') {
+    try {
+      const data = await this.dashboardService.getKonaklamaTipleriByOda(odaTip, kartTip);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Konaklama tipleri alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 DİNAMİK LİSTE: Seçili kartın müşteri listesinden konaklama tiplerini getir
+  @Get('dinamik-konaklama-tipleri')
+  async getDinamikKonaklamaTipleri(@Query('kartTip') kartTip: string = 'toplam-aktif') {
+    try {
+      const data = await this.dashboardService.getDinamikKonaklamaTipleri(kartTip);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Dinamik konaklama tipleri alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 DİNAMİK LİSTE: Seçili kartın müşteri listesinden oda tiplerini getir
+  @Get('dinamik-oda-tipleri')
+  async getDinamikOdaTipleri(@Query('kartTip') kartTip: string = 'toplam-aktif') {
+    try {
+      const data = await this.dashboardService.getDinamikOdaTipleri(kartTip);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Dinamik oda tipleri alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Dashboard istatistikleri
   @Get('stats')
   async getDashboardStats() {
@@ -241,13 +313,22 @@ export class DashboardController {
 
   // Borçlu Müşteri Listesi - tblCari bilgileri ve hesaplanan borç tutarları
   @Get('borclu-musteriler')
-  async getBorcluMusteriler() {
+  async getBorcluMusteriler(@Query('page') page: string = '1', @Query('limit') limit: string = '100') {
     try {
-      const data = await this.dashboardService.getBorcluMusteriler();
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 100;
+      
+      console.log(`🔥 getBorcluMusteriler endpoint çağrıldı - page: ${pageNum}, limit: ${limitNum}`);
+      
+      const result = await this.dashboardService.getBorcluMusteriler(pageNum, limitNum);
       return {
         success: true,
-        data: data,
-        count: data.length
+        data: result.data,
+        count: result.data.length,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit)
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
@@ -323,14 +404,15 @@ export class DashboardController {
 
   // Çıkış Yapanlar Listesi
   @Get('cikis-yapanlar')
-  async getCikisYapanlarListesi(@Query('tip') tip: string = 'TÜMÜ') {
+  async getCikisYapanlarListesi(@Query('tip') tip: string = 'TÜMÜ', @Query('odaTip') odaTip: string = 'TÜMÜ') {
     try {
-      const data = await this.dashboardService.getCikisYapanlarListesi(tip);
+      const data = await this.dashboardService.getCikisYapanlarListesi(tip, odaTip);
       return {
         success: true,
         data: data,
         count: data.length,
-        tip: tip
+        tip: tip,
+        odaTip: odaTip
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
