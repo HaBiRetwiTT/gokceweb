@@ -19,6 +19,25 @@ export interface DashboardStats {
   ToplamGelir?: number;
 }
 
+export interface CustomerRow {
+  TC: string;
+  musteriAdi: string;
+  firma: string;
+  telefon: string;
+  odaTipi: string;
+  odaYatak: string;
+  konaklamaTipi: string;
+  // ... ihtiyaca göre diğer alanlar
+}
+
+export interface EssentialLinkProps {
+  title: string;
+  caption: string;
+  icon: string;
+  link?: string;
+  action?: string;
+}
+
 export interface MusteriKonaklama {
   MstrTCN: string;
   MstrHspTip: string;

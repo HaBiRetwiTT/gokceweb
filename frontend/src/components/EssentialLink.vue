@@ -4,7 +4,7 @@
     :tag="isExternalLink ? 'a' : 'div'"
     :target="isExternalLink ? '_blank' : undefined"
     :href="isExternalLink ? link : undefined"
-    @click="!isExternalLink && handleInternalLink()"
+    @click="handleClick"
     :class="{ 'active-menu-item': isActive }"
   >
     <q-item-section
@@ -12,9 +12,10 @@
       avatar
     >
       <q-icon :name="icon" />
+      <q-tooltip v-if="mini" style="min-width: 250px; text-align: center; font-size: 1em; color:cyan;">{{ title }}</q-tooltip>
     </q-item-section>
 
-    <q-item-section>
+    <q-item-section v-if="!mini">
       <q-item-label>{{ title }}</q-item-label>
       <q-item-label caption>{{ caption }}</q-item-label>
     </q-item-section>
@@ -30,12 +31,15 @@ export interface EssentialLinkProps {
   caption?: string;
   link?: string;
   icon?: string;
+  action?: string | undefined;
+  mini?: boolean;
 };
 
 const props = withDefaults(defineProps<EssentialLinkProps>(), {
   caption: '',
   link: '#',
   icon: '',
+  mini: false,
 });
 
 const router = useRouter();
@@ -51,9 +55,19 @@ const isActive = computed(() => {
   return route.path === props.link;
 });
 
+const emit = defineEmits(['action']);
+
 function handleInternalLink() {
   if (props.link && props.link !== '#') {
     void router.push(props.link);
+  }
+}
+
+function handleClick() {
+  if (props.action) {
+    emit('action', props.action);
+  } else if (!isExternalLink.value) {
+    handleInternalLink();
   }
 }
 </script>
@@ -123,5 +137,11 @@ function handleInternalLink() {
 
 .q-item .q-item-label {
   transition: color 0.3s ease;
+}
+
+.wide-tooltip {
+  min-width: 180px;
+  text-align: center;
+  font-size: 1.15em; /* veya 16px, 18px gibi */
 }
 </style>

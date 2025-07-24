@@ -307,12 +307,12 @@
                   <div class="row bedel-islemler-row items-center justify-evenly q-mt-sm">
                     <div class="bedel-islemler-item">
                       <q-btn 
-                        @click="openEkHizmetlerDialog" 
-                        label="Ek Hizmetler" 
+                        @click="openEkBilgilerDialog" 
+                        label="Ek Bilgiler" 
                         color="orange" 
                         outline
                         icon="room_service"
-                        class="proportional-btn ek-hizmetler-btn"
+                        class="proportional-btn ek-bilgiler-btn"
                         size="md"
                       />
                     </div>
@@ -396,30 +396,30 @@
         </div>
       </q-card-section>
 
-      <!-- Ek Hizmetler Dialog -->
+      <!-- Ek Bilgiler Dialog -->
       <q-dialog 
-        v-model="showEkHizmetlerDialog" 
+        v-model="showEkBilgilerDialog" 
         no-esc-dismiss
         no-backdrop-dismiss
         class="floating-dialog"
       >
-        <q-card class="ek-hizmetler-dialog draggable-card" style="width: 300px; max-width: 300px;">
+        <q-card class="ek-bilgiler-dialog draggable-card" style="width: 300px; max-width: 300px;">
           <q-card-section class="q-pt-sm">
-            <div class="ek-hizmetler-container">
+            <div class="ek-bilgiler-container">
               <div class="column q-gutter-sm">
                 <q-checkbox 
-                  v-model="ekHizmetler.kahvaltiDahil" 
+                  v-model="ekBilgiler.kahvaltiDahil" 
                   label="Kahvaltı Dahil" 
                   color="primary"
                   :disable="formData.KonaklamaTipi !== 'GÜNLÜK'"
                 />
                 <q-checkbox 
-                  v-model="ekHizmetler.havluVerildi" 
+                  v-model="ekBilgiler.havluVerildi" 
                   label="Havlu Verildi" 
                   color="primary"
                 />
                 <q-checkbox 
-                  v-model="ekHizmetler.prizVerildi" 
+                  v-model="ekBilgiler.prizVerildi" 
                   label="Priz Verildi" 
                   color="primary"
                 />
@@ -428,8 +428,8 @@
           </q-card-section>
 
           <q-card-actions align="right">
-            <q-btn flat label="İptal" color="grey" @click="cancelEkHizmetler" />
-            <q-btn flat label="Tamam" color="primary" @click="saveEkHizmetler" />
+            <q-btn flat label="İptal" color="grey" @click="cancelEkBilgiler" />
+            <q-btn flat label="Tamam" color="primary" @click="saveEkBilgiler" />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -684,7 +684,7 @@ async function saveDonemYenileme() {
       ...formData.value,
       OdaYatak: odaYatakObj,
       eskiKnklmPlnTrh: formData.value.eskiKnklmPlnTrh,
-      ekHizmetler: ekHizmetler.value,
+      ekBilgiler: ekBilgiler.value,
       MstrKllnc: 'admin' // Varsayılan kullanıcı adı
     };
     
@@ -731,7 +731,7 @@ function closeModal() {
   // 🔥 İPTAL BUTONUNDA TÜM FORM ALANLARINI SIFIRLA
   karaListe.value = false;
   karaListeDetay.value = '';
-  ekHizmetler.value = {
+  ekBilgiler.value = {
     kahvaltiDahil: true,
     havluVerildi: false,
     prizVerildi: false
@@ -933,16 +933,16 @@ const odaTipFiyatlari = ref<{
   OdLfytAyl?: number;
 } | null>(null);
 
-// Ek Hizmetler Dialog
-const showEkHizmetlerDialog = ref(false);
-const ekHizmetler = ref({
+// Ek Bilgiler Dialog
+const showEkBilgilerDialog = ref(false);
+const ekBilgiler = ref({
   kahvaltiDahil: true,
   havluVerildi: false,
   prizVerildi: false
 });
 
-// Ek hizmetlerin orijinal durumunu saklamak için
-const originalEkHizmetler = ref({
+// Ek Bilgilerin orijinal durumunu saklamak için
+const originalEkBilgiler = ref({
   kahvaltiDahil: true,
   havluVerildi: false,
   prizVerildi: false
@@ -1010,7 +1010,34 @@ const formData = ref({
 
 // Ödeme vadesi seçildiğinde popup'ı kapat
 function onOdemeVadesiSelected(date: string) {
+  // Seçilen tarihi güvenli şekilde Date objesine çevir
+  const parts = date.split('.');
+  let gun = Number(parts[0]);
+  let ay = Number(parts[1]);
+  let yil = Number(parts[2]);
+  const bugun = new Date();
+  bugun.setHours(0,0,0,0);
+
+  // Eğer tarih eksikse bugünün tarihi kullan
+  if (!gun || !ay || !yil) {
+    gun = bugun.getDate();
+    ay = bugun.getMonth() + 1;
+    yil = bugun.getFullYear();
+  }
+  const secilen = new Date(yil, ay - 1, gun);
+
+  if (secilen < bugun) {
+    Notify.create({
+      type: 'warning',
+      message: 'Geçmiş bir tarih seçilemez! Ödeme vadesi bugünün tarihi olarak ayarlandı.'
+    });
+    const d = bugun.getDate().toString().padStart(2, '0');
+    const m = (bugun.getMonth() + 1).toString().padStart(2, '0');
+    const y = bugun.getFullYear();
+    formData.value.OdemeVadesi = `${d}.${m}.${y}`;
+  } else {
   formData.value.OdemeVadesi = date;
+  }
   if (odemeVadesiPopup.value) {
     odemeVadesiPopup.value.hide();
   }
@@ -1171,7 +1198,7 @@ watch(() => props.selectedData, async (newData) => {
     await onKonaklamaSuresiChanged();
     await onOdaYatakChange();
     ekNotlar.value = newData.KnklmNot || '';
-    parseEkHizmetlerFromNotes(ekNotlar.value);
+    parseEkBilgilerFromNotes(ekNotlar.value);
     
     // 🔥 Ödeme vadesi öncelik sırası: 1. Frontend'den geçirilen değer, 2. Backend'den çekilen değer
     if (newData.OdemeVadesi && newData.OdemeVadesi.trim() !== '') {
@@ -1213,7 +1240,7 @@ watch(() => props.modelValue, async (yeni) => {
     await onKonaklamaSuresiChanged();
     await onOdaYatakChange();
     ekNotlar.value = props.selectedData.KnklmNot || '';
-    parseEkHizmetlerFromNotes(ekNotlar.value);
+    parseEkBilgilerFromNotes(ekNotlar.value);
     
     // 🔥 Ödeme vadesi öncelik sırası: 1. Frontend'den geçirilen değer, 2. Backend'den çekilen değer
     if (props.selectedData.OdemeVadesi && props.selectedData.OdemeVadesi.trim() !== '') {
@@ -1338,24 +1365,24 @@ watch(() => formData.value.OdaYatak, (newOdaYatak, oldOdaYatak) => {
 watch(() => formData.value.KonaklamaTipi, (newTip) => {
   if (newTip === 'GÜNLÜK') {
     // Günlük konaklamalarda kahvaltı otomatik seçili
-    ekHizmetler.value.kahvaltiDahil = true;
+    ekBilgiler.value.kahvaltiDahil = true;
   } else {
     // Haftalık ve aylık konaklamalarda kahvaltı seçilemez
-    ekHizmetler.value.kahvaltiDahil = false;
+    ekBilgiler.value.kahvaltiDahil = false;
   }
 });
 
 
 
-// Watch for ekHizmetler changes to update notes (Ek hizmetler değişikliklerini izle)
-watch(() => ekHizmetler.value, () => {
+// Watch for ekBilgiler changes to update notes (Ek Bilgiler değişikliklerini izle)
+watch(() => ekBilgiler.value, () => {
   // Veri yükleme sırasında watcher'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - EkHizmetler watcher atlandı')
+    console.log('Veri yükleniyor - EkBilgiler watcher atlandı')
     return
   }
   
-  // Ek hizmetler değiştiğinde notları güncelle
+  // Ek Bilgiler değiştiğinde notları güncelle
   updateEkNotlar();
 }, { deep: true });
 
@@ -1691,31 +1718,31 @@ function calculatePlannedDate() {
   formData.value.KnklmPlnTrh = `${day}.${month}.${year}`;
 }
 
-// Ek Hizmetler fonksiyonları
-function openEkHizmetlerDialog() {
+// Ek Bilgiler fonksiyonları
+function openEkBilgilerDialog() {
   // Dialog açılmadan önce mevcut durumu kaydet
-  originalEkHizmetler.value = {
-    kahvaltiDahil: ekHizmetler.value.kahvaltiDahil,
-    havluVerildi: ekHizmetler.value.havluVerildi,
-    prizVerildi: ekHizmetler.value.prizVerildi
+  originalEkBilgiler.value = {
+    kahvaltiDahil: ekBilgiler.value.kahvaltiDahil,
+    havluVerildi: ekBilgiler.value.havluVerildi,
+    prizVerildi: ekBilgiler.value.prizVerildi
   };
-  showEkHizmetlerDialog.value = true;
+  showEkBilgilerDialog.value = true;
 }
 
-function cancelEkHizmetler() {
+function cancelEkBilgiler() {
   // İptal edildiğinde orijinal duruma geri dön
-  ekHizmetler.value = {
-    kahvaltiDahil: originalEkHizmetler.value.kahvaltiDahil,
-    havluVerildi: originalEkHizmetler.value.havluVerildi,
-    prizVerildi: originalEkHizmetler.value.prizVerildi
+  ekBilgiler.value = {
+    kahvaltiDahil: originalEkBilgiler.value.kahvaltiDahil,
+    havluVerildi: originalEkBilgiler.value.havluVerildi,
+    prizVerildi: originalEkBilgiler.value.prizVerildi
   };
-  showEkHizmetlerDialog.value = false;
+  showEkBilgilerDialog.value = false;
 }
 
-function saveEkHizmetler() {
+function saveEkBilgiler() {
   // Değişiklikleri kabul et ve dialog'u kapat
-  showEkHizmetlerDialog.value = false;
-  console.log('Ek hizmetler kaydedildi:', ekHizmetler.value);
+  showEkBilgilerDialog.value = false;
+  console.log('Ek Bilgiler kaydedildi:', ekBilgiler.value);
 }
 
 // Ek notları otomatik güncelle - musteri-islem.vue ile aynı mantık
@@ -1760,16 +1787,16 @@ function updateEkNotlar() {
   }
   
   // 3. Kahvaltı durumu
-  if (formData.value.KonaklamaTipi === 'GÜNLÜK' && !ekHizmetler.value.kahvaltiDahil) {
+  if (formData.value.KonaklamaTipi === 'GÜNLÜK' && !ekBilgiler.value.kahvaltiDahil) {
     notlar.push('Kahvaltısız');
   }
   
-  // 4. Ek hizmetler
-  if (ekHizmetler.value.havluVerildi) {
+  // 4. Ek Bilgiler
+  if (ekBilgiler.value.havluVerildi) {
     notlar.push('Havlu Verildi');
   }
   
-  if (ekHizmetler.value.prizVerildi) {
+  if (ekBilgiler.value.prizVerildi) {
     notlar.push('Priz Verildi');
   }
   
@@ -1783,28 +1810,28 @@ function updateEkNotlar() {
 }
 
 
-// Notlardan ek hizmetleri parse et ve checkbox'ları ayarla
-function parseEkHizmetlerFromNotes(notlar: string) {
-  // Ek hizmetleri sıfırla
-  ekHizmetler.value = {
+// Notlardan Ek Bilgileri parse et ve checkbox'ları ayarla
+function parseEkBilgilerFromNotes(notlar: string) {
+  // Ek Bilgileri sıfırla
+  ekBilgiler.value = {
     kahvaltiDahil: formData.value.KonaklamaTipi === 'GÜNLÜK',
     havluVerildi: false,
     prizVerildi: false
   };
   
-  // Notlardan ek hizmetleri çıkar
+  // Notlardan Ek Bilgileri çıkar
   if (notlar.includes('Havlu Verildi')) {
-    ekHizmetler.value.havluVerildi = true;
+    ekBilgiler.value.havluVerildi = true;
   }
   
   if (notlar.includes('Priz Verildi')) {
-    ekHizmetler.value.prizVerildi = true;
+    ekBilgiler.value.prizVerildi = true;
   }
   
   if (notlar.includes('Kahvaltısız')) {
-    ekHizmetler.value.kahvaltiDahil = false;
+    ekBilgiler.value.kahvaltiDahil = false;
   } else if (formData.value.KonaklamaTipi === 'GÜNLÜK') {
-    ekHizmetler.value.kahvaltiDahil = true;
+    ekBilgiler.value.kahvaltiDahil = true;
   }
 }
 
@@ -2646,13 +2673,13 @@ body.body--dark .hesaplanan-bedel-field {
   font-weight: 500;
 }
 
-/* Ek Hizmetler Dialog Styles - musteri-islem.vue ile aynı */
-.ek-hizmetler-dialog {
+/* Ek Bilgiler Dialog Styles - musteri-islem.vue ile aynı */
+.ek-bilgiler-dialog {
   border-radius: 16px !important;
   overflow: hidden;
 }
 
-.ek-hizmetler-container {
+.ek-bilgiler-container {
   background: linear-gradient(135deg, rgba(33, 150, 243, 0.08) 0%, rgba(25, 118, 210, 0.05) 100%);
   border: 1px solid rgba(33, 150, 243, 0.2);
   border-radius: 12px;
@@ -2660,8 +2687,8 @@ body.body--dark .hesaplanan-bedel-field {
   margin: 8px 0;
 }
 
-/* Dark mode support for ek hizmetler dialog */
-.body--dark .ek-hizmetler-container {
+/* Dark mode support for Ek Bilgiler dialog */
+.body--dark .ek-bilgiler-container {
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.12) 0%, rgba(33, 150, 243, 0.08) 100%);
   border-color: rgba(100, 181, 246, 0.3);
 }
@@ -2682,24 +2709,24 @@ body:not(.body--dark) .q-checkbox__label {
 }
 
 /* Dark mode için dialog card stilleri */
-body.body--dark .ek-hizmetler-dialog {
+body.body--dark .ek-bilgiler-dialog {
   background-color: #1e1e1e !important;
   color: rgba(255, 255, 255, 0.87) !important;
 }
 
 /* Light mode için dialog card stilleri */
-body:not(.body--dark) .ek-hizmetler-dialog {
+body:not(.body--dark) .ek-bilgiler-dialog {
   background-color: #ffffff !important;
   color: rgba(0, 0, 0, 0.87) !important;
 }
 
 /* Dark mode için dialog title */
-body.body--dark .ek-hizmetler-dialog .text-h7 {
+body.body--dark .ek-bilgiler-dialog .text-h7 {
   color: rgba(255, 255, 255, 0.87) !important;
 }
 
 /* Light mode için dialog title */
-body:not(.body--dark) .ek-hizmetler-dialog .text-h7 {
+body:not(.body--dark) .ek-bilgiler-dialog .text-h7 {
   color: rgba(0, 0, 0, 0.87) !important;
 }
 
@@ -2709,12 +2736,12 @@ body.body--dark .q-btn--outline {
 }
 
 /* Dark mode için dialog butonları */
-body.body--dark .ek-hizmetler-dialog .q-btn {
+body.body--dark .ek-bilgiler-dialog .q-btn {
   color: rgba(255, 255, 255, 0.87);
 }
 
 /* Light mode için dialog butonları */
-body:not(.body--dark) .ek-hizmetler-dialog .q-btn {
+body:not(.body--dark) .ek-bilgiler-dialog .q-btn {
   color: rgba(0, 0, 0, 0.87);
 }
 
@@ -2880,7 +2907,7 @@ body.body--dark .floating-dialog :deep(.q-dialog__backdrop) {
   transform: scale(1.1);
 }
 
-/* Ek Hizmetler dialog header için özel stil */
+/* Ek Bilgiler dialog header için özel stil */
 .bg-orange.q-card__section--head {
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
 }
@@ -2897,8 +2924,8 @@ body.body--dark .bg-orange.q-card__section--head:hover {
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
 }
 
-/* Ek Hizmetler dialog'u için özel positioning */
-.ek-hizmetler-dialog.draggable-card {
+/* Ek Bilgiler dialog'u için özel positioning */
+.ek-bilgiler-dialog.draggable-card {
   width: 300px !important;
   max-width: 300px !important;
   position: relative !important;
@@ -3007,7 +3034,7 @@ body.body--dark .bg-orange.q-card__section--head:hover {
     font-size: 0.8rem !important;
   }
   
-  .ek-hizmetler-btn {
+  .ek-bilgiler-btn {
     min-width: 140px !important;
     width: 140px !important;
   }
@@ -3061,7 +3088,7 @@ body.body--dark .bg-orange.q-card__section--head:hover {
     font-size: 0.75rem !important;
   }
   
-  .ek-hizmetler-btn {
+  .ek-bilgiler-btn {
     min-width: 110px !important;
     width: 110px !important;
   }
@@ -3082,8 +3109,8 @@ body.body--dark .bg-orange.q-card__section--head:hover {
   }
 }
 
-/* Ek Hizmetler ve Dönem Yenile butonları için özel genişlik */
-.ek-hizmetler-btn {
+/* Ek Bilgiler ve Dönem Yenile butonları için özel genişlik */
+.ek-bilgiler-btn {
   min-width: 165px !important;
   width: 165px !important;
 }
@@ -3105,7 +3132,7 @@ body.body--dark .bg-orange.q-card__section--head:hover {
 
 /* Responsive adjustments for special buttons */
 @media (max-width: 768px) {
-  .ek-hizmetler-btn {
+  .ek-bilgiler-btn {
     min-width: 120px !important;
     width: 120px !important;
   }
@@ -3117,7 +3144,7 @@ body.body--dark .bg-orange.q-card__section--head:hover {
 }
 
 @media (max-width: 480px) {
-  .ek-hizmetler-btn {
+  .ek-bilgiler-btn {
     min-width: 100px !important;
     width: 100px !important;
   }
@@ -3131,7 +3158,7 @@ body.body--dark .bg-orange.q-card__section--head:hover {
 /* Label-based selector alternative (daha uyumlu) */
 .bedel-islemler-row .q-btn:nth-child(1) .proportional-btn,
 .bedel-islemler-row .bedel-islemler-col:nth-child(1) .proportional-btn {
-  min-width: 140px !important; /* Ek Hizmetler */
+  min-width: 140px !important; /* Ek Bilgiler */
 }
 
 .bedel-islemler-row .q-btn:nth-child(2) .proportional-btn,
@@ -3139,13 +3166,13 @@ body.body--dark .bg-orange.q-card__section--head:hover {
   min-width: 160px !important; /* Dönem Yenile */
 }
 
-.ek-hizmetler-btn {
+.ek-bilgiler-btn {
   background-color: #ff9800 !important;
   color: #ffffff !important;
   border-color: #ff9800 !important;
 }
 
-.ek-hizmetler-btn:hover {
+.ek-bilgiler-btn:hover {
   background-color: #f57c00 !important;
   border-color: #f57c00 !important;
 }

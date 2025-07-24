@@ -436,8 +436,8 @@
                 <div class="row no-wrap bedel-islemler-row">
                   <div class="col-auto bedel-islemler-col">
               <q-btn 
-                @click="showEkHizmetlerDialog = true" 
-                label="Ek Hizmetler" 
+                @click="showEkBilgilerDialog = true" 
+                label="Ek Bilgiler" 
                 color="orange" 
                 outline
                 icon="room_service"
@@ -599,13 +599,13 @@
       </div>
     </div>
 
-    <!-- Ek Hizmetler Dialog -->
+    <!-- Ek Bilgiler Dialog -->
     <q-dialog 
-      v-model="showEkHizmetlerDialog" 
+      v-model="showEkBilgilerDialog" 
       no-esc-dismiss
       no-backdrop-dismiss
     >
-      <q-card class="ek-hizmetler-dialog" style="width: 350px; max-width: 350px;">
+      <q-card class="ek-bilgiler-dialog" style="width: 350px; max-width: 350px;">
         <!-- Depozito Bedeli Container (En Üstte) -->
         <q-card-section class="q-pb-xs">
           <div class="depozito-container">
@@ -637,29 +637,29 @@
         <q-separator />
 
         <q-card-section class="q-pt-sm">
-          <div class="ek-hizmetler-container">
+          <div class="ek-bilgiler-container">
             <div class="column q-gutter-sm">
               <q-checkbox 
-                v-model="ekHizmetler.kahvaltiDahil" 
+                v-model="ekBilgiler.kahvaltiDahil" 
                 label="Kahvaltı Dahil" 
                 color="primary"
                 :disable="form.KonaklamaTipi !== 'GÜNLÜK'"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
-                v-model="ekHizmetler.havluVerildi" 
+                v-model="ekBilgiler.havluVerildi" 
                 label="Havlu Verildi" 
                 color="primary"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
-                v-model="ekHizmetler.prizVerildi" 
+                v-model="ekBilgiler.prizVerildi" 
                 label="Priz Verildi" 
                 color="primary"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
-                v-model="ekHizmetler.geceKonaklama" 
+                v-model="ekBilgiler.geceKonaklama" 
                 label="Geç Saat Konaklama" 
                 color="primary"
                 :disable="form.KonaklamaSuresi > 1 || !isGeceKonaklamaSaati"
@@ -679,8 +679,8 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="İptal" color="grey" @click="cancelEkHizmetler" />
-          <q-btn flat label="Tamam" color="primary" @click="saveEkHizmetler" />
+          <q-btn flat label="İptal" color="grey" @click="cancelEkBilgiler" />
+          <q-btn flat label="Tamam" color="primary" @click="saveEkBilgiler" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -752,6 +752,7 @@ import { useQuasar } from 'quasar'
 import { api } from 'boot/axios'
 import { QForm } from 'quasar'
 import type { AxiosError } from 'axios';
+import { Notify } from 'quasar';
 
 const $q = useQuasar()
 
@@ -821,9 +822,9 @@ const formRef = ref()
 const anaContainerRef = ref()
 const ekBilgilerContainerRef = ref()
 
-// Ek Hizmetler Dialog
-const showEkHizmetlerDialog = ref(false)
-const ekHizmetler = ref({
+// Ek Bilgiler Dialog
+const showEkBilgilerDialog = ref(false)
+const ekBilgiler = ref({
   kahvaltiDahil: true, // Günlük konaklama default olduğu için true
   havluVerildi: false,
   prizVerildi: false,
@@ -1268,10 +1269,10 @@ watch(() => form.value.OdaTipi, (newOdaTipi) => {
 watch(() => form.value.KonaklamaTipi, (newTip) => {
   if (newTip === 'GÜNLÜK') {
     // Günlük konaklamalarda kahvaltı otomatik seçili
-    ekHizmetler.value.kahvaltiDahil = true
+    ekBilgiler.value.kahvaltiDahil = true
   } else {
     // Haftalık ve aylık konaklamalarda kahvaltı seçilemez
-    ekHizmetler.value.kahvaltiDahil = false
+    ekBilgiler.value.kahvaltiDahil = false
   }
   updateEkNotlar()
 })
@@ -1280,7 +1281,7 @@ watch(() => form.value.KonaklamaTipi, (newTip) => {
 watch(() => form.value.KonaklamaSuresi, (newSure) => {
   if (newSure > 1 || !isGeceKonaklamaSaati.value) {
     // Konaklama süresi 1'den büyükse veya saat 00:00-04:00 aralığında değilse Geç Saat Konaklama seçilemez
-    ekHizmetler.value.geceKonaklama = false
+    ekBilgiler.value.geceKonaklama = false
   }
   updateEkNotlar()
 })
@@ -1304,8 +1305,8 @@ watch([() => form.value.HesaplananBedel, () => form.value.ToplamBedel], () => {
   }
 })
 
-// Ek hizmetler değişikliklerini izle
-watch(() => ekHizmetler.value, () => {
+// Ek Bilgiler değişikliklerini izle
+watch(() => ekBilgiler.value, () => {
   updateEkNotlar()
 }, { deep: true })
 
@@ -1316,9 +1317,9 @@ watch(() => depozito.value, () => {
 
 // Saat değişikliklerini izle (her dakika kontrol et ve Geç Saat Konaklama seçimini temizle)
 watch(() => isGeceKonaklamaSaati.value, (newValue) => {
-  if (!newValue && ekHizmetler.value.geceKonaklama) {
+  if (!newValue && ekBilgiler.value.geceKonaklama) {
     // Saat aralığı dışına çıkıldığında Geç Saat Konaklama seçimini temizle
-    ekHizmetler.value.geceKonaklama = false
+    ekBilgiler.value.geceKonaklama = false
     updateEkNotlar()
   }
 })
@@ -1504,7 +1505,7 @@ async function submitForm() {
       MstrDurum: 'KALIYOR',
       planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
       ekNotlar: ekNotlar.value,
-      ekHizmetler: ekHizmetler.value,
+      ekBilgiler: ekBilgiler.value,
       depozito: depozitoData
     }
     
@@ -1529,8 +1530,8 @@ async function submitForm() {
         MstrAdres: '',
         MstrNot: ''
       }
-      // Ek hizmetleri temizle
-      ekHizmetler.value = {
+      // Ek Bilgileri temizle
+      ekBilgiler.value = {
         kahvaltiDahil: true, // Günlük konaklama default olduğu için true
         havluVerildi: false,
         prizVerildi: false,
@@ -1612,8 +1613,8 @@ function clearForm() {
     MstrAdres: '',
     MstrNot: ''
   }
-  // Ek hizmetleri temizle
-  ekHizmetler.value = {
+  // Ek Bilgileri temizle
+  ekBilgiler.value = {
     kahvaltiDahil: true, // Günlük konaklama default olduğu için true
     havluVerildi: false,
     prizVerildi: false,
@@ -1642,25 +1643,25 @@ function toggleExtraFields() {
   showExtraFields.value = !showExtraFields.value
 }
 
-function saveEkHizmetler() {
-  // Ek hizmetleri kaydet ve dialog'u kapat
-  showEkHizmetlerDialog.value = false
+function saveEkBilgiler() {
+  // Ek Bilgileri kaydet ve dialog'u kapat
+  showEkBilgilerDialog.value = false
   
-  // Seçilen hizmetleri göster
-  const secilenHizmetler = []
-  if (depozito.value.dahil) secilenHizmetler.push(`Depozito: ${depozito.value.bedel}₺`)
-  if (ekHizmetler.value.kahvaltiDahil) secilenHizmetler.push('Kahvaltı Dahil')
-  if (ekHizmetler.value.havluVerildi) secilenHizmetler.push('Havlu Verildi')
-  if (ekHizmetler.value.prizVerildi) secilenHizmetler.push('Priz Verildi')
-  if (ekHizmetler.value.geceKonaklama) secilenHizmetler.push('Geç Saat Konaklama')
+  // Seçilen bilgileri göster
+  const secilenBilgiler = []
+  if (depozito.value.dahil) secilenBilgiler.push(`Depozito: ${depozito.value.bedel}₺`)
+  if (ekBilgiler.value.kahvaltiDahil) secilenBilgiler.push('Kahvaltı Dahil')
+  if (ekBilgiler.value.havluVerildi) secilenBilgiler.push('Havlu Verildi')
+  if (ekBilgiler.value.prizVerildi) secilenBilgiler.push('Priz Verildi')
+  if (ekBilgiler.value.geceKonaklama) secilenBilgiler.push('Geç Saat Konaklama')
   
   // Ek notları güncelle
   updateEkNotlar()
 }
 
-function cancelEkHizmetler() {
+function cancelEkBilgiler() {
   // Seçenekleri mevcut konaklama tipine ve saat koşullarına göre sıfırla ve dialog'u kapat
-  ekHizmetler.value = {
+  ekBilgiler.value = {
     kahvaltiDahil: form.value.KonaklamaTipi === 'GÜNLÜK',
     havluVerildi: false,
     prizVerildi: false,
@@ -1670,7 +1671,7 @@ function cancelEkHizmetler() {
   // Depozito durumunu varsayılan değerlere döndür
   depozito.value.dahil = true
   
-  showEkHizmetlerDialog.value = false
+  showEkBilgilerDialog.value = false
 }
 
 // Ek notları otomatik güncelle
@@ -1718,20 +1719,20 @@ function updateEkNotlar() {
   }
   
   // 3. Kahvaltı durumu
-  if (form.value.KonaklamaTipi === 'GÜNLÜK' && !ekHizmetler.value.kahvaltiDahil) {
+  if (form.value.KonaklamaTipi === 'GÜNLÜK' && !ekBilgiler.value.kahvaltiDahil) {
     notlar.push('Kahvaltısız')
   }
   
-  // 4. Ek hizmetler
-  if (ekHizmetler.value.havluVerildi) {
+  // 4. Ek Bilgiler
+  if (ekBilgiler.value.havluVerildi) {
     notlar.push('Havlu Verildi')
   }
   
-  if (ekHizmetler.value.prizVerildi) {
+  if (ekBilgiler.value.prizVerildi) {
     notlar.push('Priz Verildi')
   }
   
-  if (ekHizmetler.value.geceKonaklama) {
+  if (ekBilgiler.value.geceKonaklama) {
     notlar.push('Geç Saat Konaklama')
   }
   
@@ -1750,7 +1751,34 @@ function onDateSelected(date: string) {
 
 // 🔥 Ödeme vadesi seçimi
 function onOdemeVadesiSelected(date: string) {
+  // Seçilen tarihi güvenli şekilde Date objesine çevir
+  const parts = date.split('.')
+  let gun = Number(parts[0])
+  let ay = Number(parts[1])
+  let yil = Number(parts[2])
+  const bugun = new Date()
+  bugun.setHours(0,0,0,0)
+
+  // Eğer tarih eksikse bugünün tarihi kullan
+  if (!gun || !ay || !yil) {
+    gun = bugun.getDate()
+    ay = bugun.getMonth() + 1
+    yil = bugun.getFullYear()
+  }
+  const secilen = new Date(yil, ay - 1, gun)
+
+  if (secilen < bugun) {
+    Notify.create({
+      type: 'warning',
+      message: 'Geçmiş bir tarih seçilemez! Ödeme vadesi bugünün tarihi olarak ayarlandı.'
+    })
+    const d = bugun.getDate().toString().padStart(2, '0')
+    const m = (bugun.getMonth() + 1).toString().padStart(2, '0')
+    const y = bugun.getFullYear()
+    form.value.OdemeVadesi = `${d}.${m}.${y}`
+  } else {
   form.value.OdemeVadesi = date
+  }
   // Popup'ı otomatik kapat
   if (odemeVadesiPopup.value) {
     odemeVadesiPopup.value.hide()
@@ -1854,8 +1882,8 @@ async function onTCNBlur() {
         MstrNot: ''
       }
       
-      // Ek hizmetleri temizle
-      ekHizmetler.value = {
+      // Ek Bilgileri temizle
+      ekBilgiler.value = {
         kahvaltiDahil: true,
         havluVerildi: false,
         prizVerildi: false,
@@ -2177,8 +2205,8 @@ function iptalKaraListeIslemi() {
     MstrNot: ''
   }
   
-  // Ek hizmetleri temizle
-  ekHizmetler.value = {
+  // Ek Bilgileri temizle
+  ekBilgiler.value = {
     kahvaltiDahil: true, // Default değeri koru
     havluVerildi: false,
     prizVerildi: false,
@@ -3206,8 +3234,8 @@ function isAxiosError(error: unknown): error is AxiosError {
   padding: 8px 12px !important;
 }
 
-/* Ek Hizmetler Dialog Styles */
-.ek-hizmetler-dialog {
+/* Ek Bilgiler Dialog Styles */
+.ek-bilgiler-dialog {
   border-radius: 16px !important;
   overflow: hidden;
 }
@@ -3236,7 +3264,7 @@ function isAxiosError(error: unknown): error is AxiosError {
   background: rgba(30, 30, 30, 0.9);
 }
 
-.ek-hizmetler-container {
+.ek-bilgiler-container {
   background: linear-gradient(135deg, rgba(33, 150, 243, 0.08) 0%, rgba(25, 118, 210, 0.05) 100%);
   border: 1px solid rgba(33, 150, 243, 0.2);
   border-radius: 12px;
@@ -3244,8 +3272,8 @@ function isAxiosError(error: unknown): error is AxiosError {
   margin: 8px 0;
 }
 
-/* Dark mode support for ek hizmetler dialog */
-.body--dark .ek-hizmetler-container {
+/* Dark mode support for Ek Bilgiler dialog */
+.body--dark .ek-bilgiler-container {
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.12) 0%, rgba(33, 150, 243, 0.08) 100%);
   border-color: rgba(100, 181, 246, 0.3);
 }

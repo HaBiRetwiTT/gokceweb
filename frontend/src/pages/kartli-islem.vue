@@ -940,14 +940,25 @@
       @refresh="refreshData"
       @success="onModalSuccess"
     />
+
+    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="selectedNormalMusteri?.MstrAdi || ''" />
+    <EkHizmetlerForm v-model:show="showEkHizmetlerModal" />
+
+    <!-- DEBUG LOGS -->
+    <!-- <q-banner v-if="showBorcluTable" dense class="bg-grey-2 text-grey-8 q-mb-xs">
+      borcluMusteriListesi.length: {{ borcluMusteriListesi.length }} | borcluPagination.rowsPerPage: {{ borcluPagination.rowsPerPage }} | shouldShowSearchBox: {{ shouldShowSearchBox }}
+    </q-banner> -->
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { ref, onMounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from 'boot/axios'
 import DonemYenilemeModal from 'components/DonemYenilemeModal.vue'
+import { selectedCustomer } from 'src/stores/selected-customer';
+import OdemeIslemForm from 'components/OdemeIslemForm.vue';
+//import EkHizmetlerForm from 'components/EkHizmetlerForm.vue';
 
 // Tip tanımları
 import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, CariHareket, KonaklamaGecmisi } from 'components/models';
@@ -1054,8 +1065,7 @@ const listelenenGelir = computed(() => {
   }
 })
 
-
-
+const showOdemeIslemModal = ref(false);
 // Filtrelenmiş veriler - tablo için kullanılacak
 const displayedMusteriListesi = computed(() => {
   let baseList = musteriListesi.value;
@@ -1127,10 +1137,7 @@ const displayedAlacakliMusteriListesi = computed(() => {
 })
 
 const displayedCariHareketlerListesi = computed(() => {
-  if (!searchText.value || searchText.value.length < 3) {
-    return cariHareketlerListesi.value
-  }
-  return filteredCariHareketlerListesi.value
+  return cariHareketlerListesi.value;
 })
 
 const displayedKonaklamaGecmisiListesi = computed(() => {
@@ -1151,20 +1158,18 @@ const borcluMusteriClickTimeout = ref<number | null>(null)
 const alacakliMusteriClickTimeout = ref<number | null>(null)
 
 const shouldShowSearchBox = computed(() => {
-  // Arama kutusu focus'taysa veya içinde metin varsa her zaman görünür
+  // DEBUG logları kaldırıldı
   if (isSearchFocused.value || (searchText.value && searchText.value.trim().length > 0)) {
-    return true
+    return true;
   }
-  
-  // Normal durumda pagination'a bağlı görünürlük
   if (showBorcluTable.value) {
-    return displayedBorcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage
-  } else if (showAlacakliTable.value) {
-    return displayedAlacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage
-  } else {
-    return displayedMusteriListesi.value.length > pagination.value.rowsPerPage
+    return borcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage;
   }
-})
+  if (showAlacakliTable.value) {
+    return alacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage;
+  }
+  return musteriListesi.value.length > pagination.value.rowsPerPage;
+});
 
 // Arama kutusu focus event handler
 function onSearchFocus() {
@@ -1694,7 +1699,7 @@ const borcluPagination = ref({
   sortBy: 'odemeVadesi', // 1. kademe: ödeme vadesi
   descending: false,     // Küçükten büyüğe
   page: 1,
-  rowsPerPage: 5
+  rowsPerPage: 5 // Default 10
 })
 
 // Alacaklı müşteriler için
@@ -2054,18 +2059,11 @@ async function loadDinamikOdaTipleri() {
 async function loadBorcluMusteriler(page: number = 1, limit: number = 100) {
   loading.value = true
   try {
-    console.log(`🔥 loadBorcluMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
     const response = await api.get(`/dashboard/borclu-musteriler?page=${page}&limit=${limit}`)
     if (response.data.success) {
       borcluMusteriListesi.value = [...response.data.data]
-      console.log(`🔥 ${response.data.count} borçlu müşteri yüklendi (sayfa ${response.data.page}/${response.data.totalPages}, toplam: ${response.data.total})`)
-      
       // Pagination bilgilerini güncelle
-      borcluPagination.value = {
-        ...borcluPagination.value,
-        page: response.data.page,
-        rowsPerPage: response.data.limit
-      };
+      borcluPagination.value.page = response.data.page;
     }
   } catch (error) {
     console.error('Borçlu müşteri listesi yüklenemedi:', error)
@@ -2074,12 +2072,14 @@ async function loadBorcluMusteriler(page: number = 1, limit: number = 100) {
   }
 }
 
-async function loadAlacakliMusteriler() {
+async function loadAlacakliMusteriler(page: number = 1, limit: number = 100) {
   loading.value = true
   try {
-    const response = await api.get('/dashboard/alacakli-musteriler')
+    const response = await api.get(`/dashboard/alacakli-musteriler?page=${page}&limit=${limit}`)
     if (response.data.success) {
       alacakliMusteriListesi.value = [...response.data.data]
+      // Pagination bilgilerini güncelle
+      alacakliPagination.value.page = response.data.page;
     }
   } catch (error) {
     console.error('🔥 Alacaklı müşteri listesi yüklenemedi:', error)
@@ -2098,19 +2098,22 @@ async function loadCariHareketler(cariKod: string) {
   // 🔥 Pagination'ı sıfırla
   cariHareketlerPagination.value.page = 1
   
-  // 🔥 Key'i sadece farklı müşteri seçildiğinde güncelle
-  const newKey = `cari-${cariKod}`
+  // CariKod'u temizle ve büyük harfe çevir
+  const cleanCariKod = (cariKod || '').trim().toUpperCase()
+  
+  // Key'i sadece farklı müşteri seçildiğinde güncelle
+  const newKey = `cari-${cleanCariKod}`
   if (cariHareketlerKey.value !== newKey) {
     cariHareketlerKey.value = newKey
   }
   
   try {
-    const response = await api.get(`/dashboard/cari-hareketler?cariKod=${cariKod}`)
+    const response = await api.get(`/dashboard/cari-hareketler?cariKod=${encodeURIComponent(cleanCariKod)}`)
     if (response.data.success) {
       cariHareketlerListesi.value = [...response.data.data]
-      console.log(`${cariKod} için ${response.data.data.length} cari hareket yüklendi`)
+      console.log(`${cleanCariKod} için ${response.data.data.length} cari hareket yüklendi`)
       
-      // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      // Tablo yüklendikten sonra scroll pozisyonunu sıfırla
       await nextTick()
       if (cariHareketlerTableRef.value) {
         const tableElement = cariHareketlerTableRef.value.$el
@@ -2119,7 +2122,7 @@ async function loadCariHareketler(cariKod: string) {
         }
       }
     } else {
-      console.log(`${cariKod} için cari hareket bulunamadı`)
+      console.log(`${cleanCariKod} için cari hareket bulunamadı`)
     }
   } catch (error) {
     console.error('Cari hareketler yüklenemedi:', error)
@@ -2135,6 +2138,9 @@ async function refreshData() {
   // Konaklama geçmişi tablosunu gizle (modal işlemlerinden sonra güncel olmayabilir)
   showKonaklamaGecmisi.value = false
   selectedNormalMusteri.value = null
+  window.kartliIslemSelectedNormalMusteri = null
+  selectedCustomer.value = null
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
   
   sortingInProgress = false  // Manuel yenileme için API çağrısına izin ver
   
@@ -2159,6 +2165,9 @@ async function refreshData() {
     // Aktif filtre varsa sadece o kartın verilerini yenile
     void loadSelectedCardData(currentFilter.value)
   }
+  selectedNormalMusteri.value = null;
+  window.kartliIslemSelectedNormalMusteri = null;
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
 }
 
 // Modal başarılı işlem sonrası güncelleme fonksiyonu
@@ -2191,6 +2200,19 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   
   // 🔥 Önce seçimi güncelle (grid tabloda aktif hale getir)
   selectedNormalMusteri.value = row;
+  window.kartliIslemSelectedNormalMusteri = {
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip
+  };
+  selectedCustomer.value = {
+    id: row.MstrTCN,
+    name: row.MstrAdi,
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip
+  };
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
   
   if (currentFilter.value === 'cikis-yapanlar' || currentFilter.value === 'bugun-cikan') {
     sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
@@ -2237,27 +2259,25 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
   
   // 🔥 300ms gecikme ile tek tıklama işlemini başlat
   borcluMusteriClickTimeout.value = window.setTimeout(() => {
-    console.log('Borçlu müşteri satırına tek tıklandı:', row);
-    selectedBorcluMusteri.value = row;
+    // Arama sonrası tıklamada, orijinal listeden gerçek nesneyi bul
+    const realRow = borcluMusteriListesi.value.find(b => b.CariKod === row.CariKod) || row;
+    console.log('Borçlu müşteri satırına tek tıklandı:', realRow);
+    selectedBorcluMusteri.value = realRow;
     showCariHareketler.value = true;
-    void loadCariHareketler(row.CariKod);
-    
+    void loadCariHareketler(realRow.CariKod);
     // 🔥 Seçilen müşteri bakiyesini hesapla
-    void hesaplaMusteriBakiye(row);
-    
+    void hesaplaMusteriBakiye(realRow);
     // 🔥 Borçlu müşteri için firma bakiyesini hesapla ve selectedNormalMusteri'yi güncelle
-    void hesaplaBorcluMusteriFirmaBakiye(row);
-    
+    void hesaplaBorcluMusteriFirmaBakiye(realRow);
     // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin cari hareketlerini göster
-      console.log('Firma filtresi aktifken borçlu müşteri seçildi:', row.CariAdi);
+      console.log('Firma filtresi aktifken borçlu müşteri seçildi:', realRow.CariAdi);
       // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
     } else {
       // Normal durum - firma filtresini sıfırla (ama hesaplaBorcluMusteriFirmaBakiye zaten uygun şekilde ayarlıyor)
       // firmaFiltresiAktif.value = false; // Bu satırı kaldırıyoruz çünkü hesaplaBorcluMusteriFirmaBakiye zaten hallediyor
     }
-    
     borcluMusteriClickTimeout.value = null
   }, 300)
 }
@@ -2849,6 +2869,8 @@ async function loadFilteredData(filter: string) {
         void selectBestCard()
       }
     })
+    borcluPagination.value.page = 1
+    borcluPagination.value.rowsPerPage = 5
   } else if (filter === 'alacakli-musteriler') {
     // Alacaklı müşteriler tablosunu göster
     showBorcluTable.value = false
@@ -2872,6 +2894,10 @@ async function loadFilteredData(filter: string) {
     showAlacakliTable.value = false
     void refreshData()
   }
+  selectedNormalMusteri.value = null;
+  window.kartliIslemSelectedNormalMusteri = null;
+  selectedCustomer.value = null;
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
 }
 
 // 🔥 FİLTRE TEMİZLEME FONKSİYONU
@@ -2892,9 +2918,13 @@ function clearFilters() {
   }
   
   console.log('✅ Filtreler temizlendi')
+  selectedNormalMusteri.value = null
+  window.kartliIslemSelectedNormalMusteri = null
+  selectedCustomer.value = null;
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
 }
 
-// 🔥 KOORDİNELİ ÇALIŞMA EVENT HANDLER'LARI
+//  KOORDİNELİ ÇALIŞMA EVENT HANDLER'LARI
 async function onKonaklamaTipiChange(newValue: string) {
   console.log('🔥 Konaklama tipi değişti:', newValue)
   
@@ -2973,7 +3003,21 @@ async function onOdaTipiChange(newValue: string) {
 
 
 // Normal müşteri satırına gecikmeli tek tıklama - konaklama geçmişi göster
-function onNormalMusteriClick(event: Event, row: MusteriKonaklama) {
+function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {
+  selectedNormalMusteri.value = row;
+  window.kartliIslemSelectedNormalMusteri = {
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip
+  };
+  selectedCustomer.value = {
+    id: row.MstrTCN,
+    name: row.MstrAdi,
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip
+  };
+  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
   // 🔥 Önceki timeout'u temizle
   if (normalMusteriClickTimeout.value) {
     clearTimeout(normalMusteriClickTimeout.value)
@@ -3295,7 +3339,7 @@ async function loadFirmaGenelKonaklamaGecmisi(firmaAdi: string) {
   // 🔥 ÖNEMLİ: Önceki firma konaklama geçmişini temizle
   konaklamaGecmisiListesi.value = []
   
-  // 🔥 Pagination'ı sıfırla
+  // �� Pagination'ı sıfırla
   konaklamaGecmisiPagination.value.page = 1
   
   try {
@@ -3571,7 +3615,26 @@ const dinamikOdaTipleri = ref<string[]>(['TÜMÜ'])
 // 🔥 KOORDİNELİ ÇALIŞMA FONKSİYONLARI
 // Bu fonksiyon artık kullanılmıyor - watch fonksiyonları kullanılıyor
 
-// Bu fonksiyonlar artık kullanılmıyor - watch fonksiyonları içinde direkt API çağrıları yapılıyor
+watch(currentFilter, (val) => {
+  window.kartliIslemCurrentFilter = val ?? '';
+});
+watch(selectedNormalMusteri, (val) => {
+  window.kartliIslemSelectedNormalMusteri = val ?? null;
+});
+
+const showEkHizmetlerModal = ref(false);
+
+onMounted(() => {
+  const ekHizmetHandler = () => { showEkHizmetlerModal.value = true; };
+  const odemeHandler = () => { showOdemeIslemModal.value = true; };
+  window.addEventListener('showEkHizmetlerModal', ekHizmetHandler);
+  window.addEventListener('showOdemeIslemModal', odemeHandler);
+  onBeforeUnmount(() => {
+    window.removeEventListener('showEkHizmetlerModal', ekHizmetHandler);
+    window.removeEventListener('showOdemeIslemModal', odemeHandler);
+  });
+});
+
 </script>
 
 <style scoped>

@@ -119,6 +119,7 @@
           :key="link.title"
           v-bind="link"
           :mini="miniMenu"
+          @action="handleMenuAction"
         />
       </q-list>
     </q-drawer>
@@ -137,16 +138,111 @@
         <q-btn flat dense color="white" label="Tam Ekran" @click="() => enterFullScreen()" />
       </template>
     </q-banner>
+    <!-- Ek Hizmetler Modal -->
+    <q-dialog v-model="showEkHizmetlerModal">
+      <div
+        ref="ekHizmetlerModalRef"
+        :style="ekHizmetlerModalStyle"
+        class="draggable-ek-hizmetler-modal"
+      >
+        <q-card style="min-width:520px;max-width:95vw;">
+          <q-card-section>
+            <div
+              class="text-h6 draggable-ek-hizmetler-header"
+              @mousedown="onEkHizmetlerDragStart"
+              @touchstart="onEkHizmetlerDragStart"
+              @mouseenter="ekHizmetlerHeaderHover = true"
+              @mouseleave="ekHizmetlerHeaderHover = false"
+              :style="ekHizmetlerHeaderHover ? 'cursor: move;' : ''"
+            >
+              Ek Hizmetler
+            </div>
+            <div v-if="selectedEkHizmetlerMusteriAdi" class="ekhizmetler-musteri-adi">
+              Müşteri Adı: {{ selectedEkHizmetlerMusteriAdi }}
+            </div>
+            <q-table
+              :rows="ekHizmetlerRows"
+              :columns="ekHizmetlerColumns"
+              row-key="rowKey"
+              hide-bottom
+              flat
+              dense
+              bordered
+              square
+              style="min-width: 500px;"
+              :pagination="{ rowsPerPage: 0 }"
+              :rows-per-page-options="[0]"
+            >
+              <template v-slot:body-cell-hizmetAdi="props">
+                <q-td>
+                  <q-checkbox
+                    v-model="props.row.selected"
+                    :label="props.row.PrmAdi"
+                    @update:model-value="onCheckboxChange(props.row)"
+                  />
+                </q-td>
+              </template>
+              <template v-slot:body-cell-birimFiyat="props">
+                <q-td>
+                  {{ props.row.Prm04.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-miktar="props">
+                <q-td class="q-pa-none text-center">
+                  <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                    <q-input
+                      v-model.number="props.row.miktar"
+                      type="number"
+                      :min="1"
+                      :max="99"
+                      dense
+                      :disable="!props.row.selected"
+                      style="width:60px; text-align:center;"
+                      input-class="text-center"
+                      @update:model-value="onMiktarChange(props.row)"
+                    />
+                  </div>
+                </q-td>
+              </template>
+              <template v-slot:body-cell-toplamTutar="props">
+                <q-td>
+                  <span v-if="props.row.selected">
+                    {{ (props.row.Prm04 * props.row.miktar).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) }}
+                  </span>
+                </q-td>
+              </template>
+              <template v-slot:bottom-row>
+                <q-tr class="genel-toplam-row">
+                  <q-td colspan="3" class="text-right text-bold">GENEL TOPLAM</q-td>
+                  <q-td class="text-bold genel-toplam-cell">
+                    {{ genelToplamDisplay }}
+                  </q-td>
+                </q-tr>
+              </template>
+            </q-table>
+            <div v-if="seciliHizmetAdedi > 0" class="q-mt-md text-caption text-center text-warning ekhizmetler-bilgi-wrap">
+              Yukarıda seçili olan {{ seciliHizmetAdedi }} adet hizmet karşılığı toplam {{ genelToplamDisplay }} tutarında GELİR kaydı Müşteri hesabına BORÇ kaydedilecek. ONAYLIYOR MUSUNUZ?
+            </div>
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Vazgeç" color="primary" v-close-popup />
+            <q-btn flat label="Kaydet" color="primary" @click="onKaydet" />
+          </q-card-actions>
+        </q-card>
+      </div>
+    </q-dialog>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
-import { Notify } from 'quasar';
+import { useQuasar, Notify } from 'quasar';
 import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
 import { versionChecker } from '../services/version-checker.service';
+import { fetchEkHizmetler, saveEkHizmetler } from 'src/services/ek-hizmetler.service';
+import { api } from 'boot/axios';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -169,6 +265,18 @@ const linksList: EssentialLinkProps[] = [
     caption: 'Konaklama - Cari',
     icon: 'dashboard',
     link: '/kartli-islem'
+  },
+  {
+    title: 'Ek Hizmetler',
+    caption: 'Çamaşır - Ütü vb.',
+    icon: 'room_service',
+    action: 'showEkHizmetlerModal'
+  },
+  {
+    title: 'Müşteri Tahsilat',
+    caption: 'Ödeme - Depozito',
+    icon: 'payments',
+    action: 'showOdemeIslemModal'
   }
 ];
 
@@ -184,6 +292,127 @@ const showFullScreenBanner = ref(false);
 const isChecking = ref(false);
 const currentVersion = ref('');
 const pendingUpdate = ref(false);
+const showEkHizmetlerModal = ref(false);
+
+interface KartliIslemMusteri {
+  MstrNo?: number;
+  MstrAdi?: string;
+  KonaklamaTipi?: string;
+  KnklmTip?: string;
+  OdaYatak?: string;
+  OdaNo?: string;
+  YatakNo?: string;
+  KnklmOdaNo?: string;
+  KnklmYtkNo?: string;
+  MstrHspTip?: string;
+  MstrTCN?: string;
+}
+
+// Ek Hizmetler Modalı için
+interface EkHizmet {
+  Prm01: string;
+  PrmAdi: string;
+  Prm04: number;
+  selected: boolean;
+  miktar: number;
+}
+
+const ekHizmetlerRows = ref<EkHizmet[]>([]);
+const ekHizmetlerColumns = [
+  { name: 'hizmetAdi', label: 'Hizmet Adı', field: 'PrmAdi', align: 'left' as const },
+  { name: 'birimFiyat', label: 'Birim Fiyat', field: 'Prm04', align: 'right' as const },
+  { name: 'miktar', label: 'Miktar', field: 'miktar', align: 'center' as const },
+  { name: 'toplamTutar', label: 'Toplam Tutar', field: 'toplamTutar', align: 'right' as const }
+];
+
+const genelToplam = computed<number>(() => {
+  return ekHizmetlerRows.value
+    .filter(row => row.selected)
+    .reduce((sum, row) => sum + (row.Prm04 * row.miktar), 0);
+});
+
+const versionInfoClass = computed(() => {
+  return pendingUpdate.value ? 'version-info version-warning' : 'version-info';
+});
+
+const genelToplamDisplay = computed(() =>
+  genelToplam.value.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
+);
+
+const seciliHizmetAdedi = computed(() => ekHizmetlerRows.value.filter(row => row.selected).length);
+
+const selectedEkHizmetlerMusteriAdi = computed(() => {
+  // ekHizmetlerMusteriRefresh.value'ya bağımlı!
+  void ekHizmetlerMusteriRefresh.value;
+  const musteri = window.kartliIslemSelectedNormalMusteri ? { ...(window.kartliIslemSelectedNormalMusteri as { MstrAdi?: string }) } : undefined;
+  return musteri && typeof musteri === 'object' && musteri.MstrAdi ? musteri.MstrAdi : '';
+});
+
+const ekHizmetlerMusteriRefresh = ref(0);
+
+const ekHizmetlerModalRef = ref<HTMLElement|null>(null);
+const ekHizmetlerHeaderHover = ref(false);
+const ekHizmetlerModalPos = reactive({ x: 0, y: 0 });
+const ekHizmetlerModalDragging = ref(false);
+const ekHizmetlerModalOffset = reactive({ x: 0, y: 0 });
+
+const ekHizmetlerModalStyle = computed(() => {
+  return ekHizmetlerModalDragging.value || ekHizmetlerModalPos.x !== 0 || ekHizmetlerModalPos.y !== 0
+    ? `position: fixed; left: ${ekHizmetlerModalPos.x}px; top: ${ekHizmetlerModalPos.y}px; z-index: 9999;` : '';
+});
+
+function onEkHizmetlerDragStart(e: MouseEvent | TouchEvent) {
+  ekHizmetlerModalDragging.value = true;
+  let clientX = 0, clientY = 0;
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX;
+    clientY = e.clientY;
+    document.addEventListener('mousemove', onEkHizmetlerDragMove);
+    document.addEventListener('mouseup', onEkHizmetlerDragEnd);
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    document.addEventListener('touchmove', onEkHizmetlerDragMove);
+    document.addEventListener('touchend', onEkHizmetlerDragEnd);
+  }
+  const rect = ekHizmetlerModalRef.value ? ekHizmetlerModalRef.value.getBoundingClientRect() : undefined;
+  ekHizmetlerModalOffset.x = clientX - (rect?.left ?? 0);
+  ekHizmetlerModalOffset.y = clientY - (rect?.top ?? 0);
+}
+
+function onEkHizmetlerDragMove(e: MouseEvent | TouchEvent) {
+  if (!ekHizmetlerModalDragging.value) return;
+  let clientX = 0, clientY = 0;
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+  }
+  ekHizmetlerModalPos.x = clientX - ekHizmetlerModalOffset.x;
+  ekHizmetlerModalPos.y = clientY - ekHizmetlerModalOffset.y;
+}
+
+function onEkHizmetlerDragEnd() {
+  ekHizmetlerModalDragging.value = false;
+  document.removeEventListener('mousemove', onEkHizmetlerDragMove);
+  document.removeEventListener('mouseup', onEkHizmetlerDragEnd);
+  document.removeEventListener('touchmove', onEkHizmetlerDragMove);
+  document.removeEventListener('touchend', onEkHizmetlerDragEnd);
+}
+
+watch(showEkHizmetlerModal, (val) => {
+  if (val) {
+    // Modal açıldığında ortala
+    ekHizmetlerModalPos.x = window.innerWidth / 2 - 300;
+    ekHizmetlerModalPos.y = window.innerHeight / 2 - 200;
+  }
+});
 
 async function fetchVersion() {
   try {
@@ -207,6 +436,21 @@ onMounted(() => {
   // Sürüm bilgisini sadece ilk yüklemede çek
   void fetchVersion()
   pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
+});
+
+async function loadEkHizmetler() {
+  const data = await fetchEkHizmetler();
+  ekHizmetlerRows.value = data.map((item: Omit<EkHizmet, 'selected' | 'miktar' | 'rowKey'>, idx: number) => ({
+    ...item,
+    rowKey: `${item.Prm01}_${idx}`, // Benzersiz anahtar
+    selected: false,
+    miktar: 1
+  }));
+  // window.ekHizmetlerRows = ekHizmetlerRows; // debug için eklenmişti, kaldırıldı
+}
+
+watch(showEkHizmetlerModal, (val) => {
+  if (val) void loadEkHizmetler();
 });
 
 function toggleLeftDrawer () {
@@ -342,6 +586,135 @@ async function checkForUpdates() {
   }
 }
 
+// window global tipini genişlet
+
+declare global {
+  interface Window {
+    kartliIslemCurrentFilter?: string;
+    kartliIslemSelectedNormalMusteri: KartliIslemMusteri | null;
+  }
+}
+
+function handleMenuAction(action: string) {
+  if (action === 'showEkHizmetlerModal') {
+    if (router.currentRoute.value.path === '/kartli-islem') {
+      // Kartlı işlem sayfasında, currentFilter ve seçili müşteri kontrolü
+      const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
+      const currentFilter = window.kartliIslemCurrentFilter;
+      if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter)) {
+        Notify.create({
+          type: 'warning',
+          message: 'Ek Hizmetler formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- kartlarından biri seçili iken kullanılır.'
+        });
+        return;
+      }
+      if (!selectedNormalMusteri || typeof selectedNormalMusteri !== 'object' || Array.isArray(selectedNormalMusteri) || Object.keys(selectedNormalMusteri).length === 0) {
+        Notify.create({
+          type: 'warning',
+          message: 'Ek Hizmetler formunu açmak için önce bir müşteri seçmelisiniz.'
+        });
+        return;
+      }
+      showEkHizmetlerModal.value = true;
+    } else {
+      Notify.create({
+        type: 'warning',
+        message: 'Ek Hizmetler formu sadece -Kartlı Hızlı İşlemler- sayfasında kullanılır.'
+      });
+    }
+  }
+  if (action === 'showOdemeIslemModal') {
+    // Kartlı işlemler sayfasında mıyız?
+    if (router.currentRoute.value.path !== '/kartli-islem') {
+      Notify.create({
+        type: 'warning',
+        message: 'Müşteri Tahsilat formu sadece -Kartlı Hızlı İşlemler- sayfasında açılabilir'
+      });
+      return;
+    }
+    // Müşteri seçili mi?
+    const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
+    if (!selectedNormalMusteri || typeof selectedNormalMusteri !== 'object' || Array.isArray(selectedNormalMusteri) || Object.keys(selectedNormalMusteri).length === 0) {
+      Notify.create({
+        type: 'warning',
+        message: 'Müşteri Tahsilat formunu açmak için önce bir Müşteri seçmelisiniz.'
+      });
+      return;
+    }
+    // Her iki koşul da sağlanıyorsa modalı açacak event gönder
+    window.dispatchEvent(new Event('showOdemeIslemModal'));
+    return;
+  }
+}
+
+function onCheckboxChange(row: EkHizmet) {
+  if (!row.selected) row.miktar = 1;
+}
+function onMiktarChange(row: EkHizmet) {
+  if (row.miktar < 1) row.miktar = 1;
+  if (row.miktar > 99) row.miktar = 99;
+}
+async function onKaydet() {
+  const seciliHizmetler = ekHizmetlerRows.value.filter(r => r.selected);
+  if (seciliHizmetler.length === 0) {
+    Notify.create({ type: 'warning', message: 'En az bir hizmet seçmelisiniz.' });
+    return;
+  }
+  // Seçili müşteri ve kart bilgileri window'dan alınacak
+  const musteriRaw = window.kartliIslemSelectedNormalMusteri as KartliIslemMusteri;
+  const musteri = {
+    MstrNo: musteriRaw.MstrNo,
+    MstrAdi: musteriRaw.MstrAdi,
+    MstrTCN: musteriRaw.MstrTCN,
+    KonaklamaTipi: musteriRaw.KonaklamaTipi || musteriRaw.KnklmTip,
+    OdaYatak: musteriRaw.KnklmOdaNo + '-' + musteriRaw.KnklmYtkNo,
+    MstrHspTip: musteriRaw.MstrHspTip
+  };
+  // Eğer MstrNo yoksa, backend'den TCN ile bul
+  if (!musteri.MstrNo && musteri.MstrTCN) {
+    try {
+      const response = await api.get(`/musteri-bilgi/${musteri.MstrTCN}`);
+      if (response.data.success && response.data.data && response.data.data.MstrNo) {
+        musteri.MstrNo = response.data.data.MstrNo;
+      } else {
+        Notify.create({ type: 'warning', message: 'Müşteri numarası bulunamadı.' });
+        return;
+      }
+    } catch (err) {
+      Notify.create({ type: 'warning', message: 'Müşteri numarası alınamadı. ' + (err instanceof Error ? err.message : '') });
+      return;
+    }
+  }
+  if (!musteri || !musteri.MstrNo || !musteri.MstrAdi || !musteri.KonaklamaTipi || !musteri.OdaYatak || !musteri.MstrHspTip) {
+    Notify.create({ type: 'warning', message: 'Müşteri veya kart bilgileri eksik.' });
+    return;
+  }
+  try {
+    const payload = {
+      musteriNo: musteri.MstrNo,
+      MstrAdi: musteri.MstrAdi,
+      MstrKllnc: localStorage.getItem('username') || 'admin',
+      MstrHspTip: musteri.MstrHspTip,
+      MstrKnklmTip: musteri.KonaklamaTipi,
+      MstrOdaYatak: musteri.OdaYatak,
+      ekHizmetler: seciliHizmetler.map(h => ({
+        label: h.PrmAdi,
+        miktar: h.miktar,
+        toplamTutar: h.Prm04 * h.miktar
+      }))
+    };
+    const result = await saveEkHizmetler(payload);
+    if (result.success) {
+      Notify.create({ type: 'positive', message: result.message || 'Ek hizmetler başarıyla kaydedildi.' });
+      showEkHizmetlerModal.value = false;
+    } else {
+      Notify.create({ type: 'negative', message: result.message || 'Ek hizmetler kaydedilemedi.' });
+    }
+  } catch (err) {
+    Notify.create({ type: 'negative', message: 'Sunucu hatası: ' + (err instanceof Error ? err.message : String(err)) });
+  }
+}
+
 onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
@@ -362,11 +735,14 @@ onMounted(() => {
   // Sürüm bilgisini sadece ilk yüklemede çek
   void fetchVersion()
   pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
+  
+  window.addEventListener('ekHizmetlerMusteriChanged', () => {
+    ekHizmetlerMusteriRefresh.value++;
+  });
+  
+  // showOdemeIslemModal ile ilgili event listener ve state tanımı kaldırıldı.
 });
 
-const versionInfoClass = computed(() => {
-  return pendingUpdate.value ? 'version-info version-warning' : 'version-info';
-});
 </script>
 
 <style scoped>
@@ -477,5 +853,62 @@ const versionInfoClass = computed(() => {
 }
 .body--dark .version-warning {
   color: #ff5252 !important;
+}
+.q-table th, .q-table td {
+  border: 1px solid #444 !important;
+}
+.q-table thead th {
+  background: #222;
+  color: #fff;
+  font-weight: bold;
+}
+.q-table tbody tr {
+  background: #181818;
+}
+.q-table .q-td {
+  vertical-align: middle !important;
+}
+.ekhizmetler-bilgi-wrap {
+  white-space: pre-line;
+  word-break: break-word;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.draggable-ek-hizmetler-modal {
+  z-index: 9999;
+  user-select: none;
+}
+.draggable-ek-hizmetler-header {
+  cursor: grab;
+  user-select: none;
+  transition: background 0.2s;
+}
+.draggable-ek-hizmetler-header:hover {
+  cursor: move;
+}
+.ekhizmetler-musteri-adi {
+  font-size: 0.95rem;
+  color: #888;
+  margin-bottom: 8px;
+  margin-top: 2px;
+  text-align: left;
+  font-style: italic;
+}
+.genel-toplam-row {
+  background: #f5f5f5 !important; /* Açık gri arka plan */
+}
+.genel-toplam-row .q-td,
+.genel-toplam-cell {
+  color: #010000 !important;         /* Koyu yazı rengi */
+  font-weight: bold;
+}
+body.body--light .genel-toplam-row {
+  background: #f5f5f5 !important;
+  color: #222 !important;
+}
+body.body--dark .genel-toplam-row {
+  background: #aaaaaa !important;
+  color: #fff !important;
 }
 </style>
