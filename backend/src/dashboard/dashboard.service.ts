@@ -815,10 +815,10 @@ export class DashboardService {
               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
             FROM ${tables.islem}
             GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0
+            HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0)
           ) BorcluMusteriler
-        ) and left(c.CariKod,1) = 'M'
+        )
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
