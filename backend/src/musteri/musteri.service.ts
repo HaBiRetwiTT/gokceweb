@@ -673,7 +673,7 @@ export class MusteriService {
     OdemeTakvimGunu?: number | null; // 🔥 Ö.T.G. alanı eklendi
     planlananCikisTarihi?: string; // Frontend'den gelen planlanan çıkış tarihi
     ekNotlar?: string;
-    ekHizmetler?: {
+    ekBilgiler?: {
       kahvaltiDahil?: boolean;
       havluVerildi?: boolean;
       prizVerildi?: boolean;
@@ -684,7 +684,7 @@ export class MusteriService {
       console.log('=== kaydetKonaklama called ===');
       console.log('konaklamaData:', konaklamaData);
       console.log('konaklamaData.OdaYatak:', konaklamaData.OdaYatak);
-      console.log('konaklamaData.ekHizmetler:', konaklamaData.ekHizmetler);
+      console.log('konaklamaData.ekBilgiler:', konaklamaData.ekBilgiler);
       
       const now = new Date();
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
@@ -699,7 +699,7 @@ export class MusteriService {
       if (konaklamaData.planlananCikisTarihi) {
         console.log('📅 Frontend\'den gelen planlanan çıkış tarihi kullanılıyor (Transaction):', konaklamaData.planlananCikisTarihi);
         planlananCikis = konaklamaData.planlananCikisTarihi;
-      } else if (konaklamaData.ekHizmetler?.geceKonaklama) {
+      } else if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
         planlananCikis = girisTarihi; // Aynı gün çıkış
       } else {
@@ -710,7 +710,7 @@ export class MusteriService {
       console.log('📅 Tarih hesaplamaları:', {
         girisTarihi,
         konaklamaSuresi: konaklamaData.KonaklamaSuresi,
-        geceKonaklama: konaklamaData.ekHizmetler?.geceKonaklama || false,
+        geceKonaklama: konaklamaData.ekBilgiler?.geceKonaklama || false,
         planlananCikis
       });
       
@@ -1240,7 +1240,7 @@ export class MusteriService {
     OdemeTakvimGunu?: number | null; // 🔥 Ö.T.G. alanı eklendi
     ekNotlar?: string;
     KnklmNot?: string; // Ek notlar alanı eklendi
-    ekHizmetler?: {
+    ekBilgiler?: {
       kahvaltiDahil?: boolean;
       havluVerildi?: boolean;
       prizVerildi?: boolean;
@@ -1250,7 +1250,7 @@ export class MusteriService {
     try {
       console.log('=== kaydetDonemYenilemeKonaklama called ===');
       console.log('konaklamaData:', konaklamaData);
-      console.log('konaklamaData.ekHizmetler:', konaklamaData.ekHizmetler);
+      console.log('konaklamaData.ekBilgiler:', konaklamaData.ekBilgiler);
       console.log('musteriNo:', musteriNo);
       
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
@@ -1262,7 +1262,7 @@ export class MusteriService {
       let planlananCikis: string;
       
       // Geç Saat Konaklama seçilmişse, planlanan çıkış tarihi giriş tarihi olur
-      if (konaklamaData.ekHizmetler?.geceKonaklama) {
+      if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Dönem yenilemede Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
         planlananCikis = girisTarihi; // Aynı gün çıkış
       } else {
@@ -1277,7 +1277,7 @@ export class MusteriService {
         eskiPlnTrh: konaklamaData.eskiKnklmPlnTrh,
         yeniGirisTarihi: girisTarihi,
         konaklamaSuresi: konaklamaData.KonaklamaSuresi,
-        geceKonaklama: konaklamaData.ekHizmetler?.geceKonaklama || false,
+        geceKonaklama: konaklamaData.ekBilgiler?.geceKonaklama || false,
         yeniPlanlananCikis: planlananCikis
       });
       
@@ -1737,6 +1737,7 @@ export class MusteriService {
       yeniOdaYatak: { value: string; label: string };
       MstrAdi: string; // Müşteri adı
       MstrKllnc?: string; // Kullanıcı adı (opsiyonel, dinamik)
+      MstrHspTip: string;
       konaklamaTipi: string; // Konaklama tipi
       OdemeVadesi?: string; // 🔥 Ödeme vadesi bilgisi eklendi
     }
@@ -1751,7 +1752,7 @@ export class MusteriService {
       const formattedDate = this.formatDate(currentDate);
       
       // Cari kod oluştur
-      const cariKod = `MB${islemData.musteriNo}`; // Bireysel müşteri kodu
+      const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${islemData.musteriNo}` : `MB${islemData.musteriNo}`;
       
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
@@ -1961,6 +1962,7 @@ export class MusteriService {
     yeniOdaYatak: { value: string; label: string };
     MstrAdi: string; // Müşteri adı
     MstrKllnc?: string; // Kullanıcı adı (opsiyonel)
+    MstrHspTip: string;
     konaklamaTipi?: string; // Konaklama tipi (opsiyonel)
     OdemeVadesi?: string; // 🔥 Ödeme vadesi bilgisi eklendi
   }): Promise<void> {
@@ -1974,7 +1976,7 @@ export class MusteriService {
       const formattedDate = this.formatDate(currentDate);
       
       // Cari kod oluştur
-      const cariKod = `MB${islemData.musteriNo}`; // Bireysel müşteri kodu
+      const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${islemData.musteriNo}` : `MB${islemData.musteriNo}`;
       
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
@@ -2165,7 +2167,7 @@ export class MusteriService {
       OdemeTakvimGunu?: number | null; // 🔥 Ö.T.G. alanı eklendi
       planlananCikisTarihi?: string; // Frontend'den gelen planlanan çıkış tarihi
       ekNotlar?: string;
-      ekHizmetler?: {
+      ekBilgiler?: {
         kahvaltiDahil?: boolean;
         havluVerildi?: boolean;
         prizVerildi?: boolean;
@@ -2190,7 +2192,7 @@ export class MusteriService {
       if (konaklamaData.planlananCikisTarihi) {
         console.log('📅 kaydetKonaklamaWithTransaction\'da frontend\'den gelen planlanan çıkış tarihi kullanılıyor:', konaklamaData.planlananCikisTarihi);
         planlananCikis = konaklamaData.planlananCikisTarihi;
-      } else if (konaklamaData.ekHizmetler?.geceKonaklama) {
+      } else if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
         planlananCikis = girisTarihi; // Aynı gün çıkış
       } else {
@@ -2455,7 +2457,7 @@ export class MusteriService {
       OdemeTakvimGunu?: number | null; // 🔥 Ö.T.G. alanı eklendi
       ekNotlar?: string;
       KnklmNot?: string; // Ek notlar alanı eklendi
-      ekHizmetler?: {
+      ekBilgiler?: {
         kahvaltiDahil?: boolean;
         havluVerildi?: boolean;
         prizVerildi?: boolean;
@@ -2476,7 +2478,7 @@ export class MusteriService {
       let planlananCikis: string;
       
       // Geç Saat Konaklama seçilmişse, planlanan çıkış tarihi giriş tarihi olur
-      if (konaklamaData.ekHizmetler?.geceKonaklama) {
+      if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Dönem yenilemede Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
         planlananCikis = girisTarihi; // Aynı gün çıkış
       } else {
@@ -2822,7 +2824,7 @@ export class MusteriService {
       eskiKnklmPlnTrh: string; // Planlanan çıkış tarihi olarak kullanılacak
       OdemeTakvimGunu?: number | null;
       ekNotlar?: string;
-      ekHizmetler?: {
+      ekBilgiler?: {
         kahvaltiDahil?: boolean;
         havluVerildi?: boolean;
         prizVerildi?: boolean;
@@ -3064,5 +3066,70 @@ export class MusteriService {
       ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
     `;
     return await this.musteriRepository.query(query, cariKodlar);
+  }
+
+  /**
+   * Ek Hizmetler için toplu işlem kaydı (Transaction-Safe)
+   * @param queryRunner Transaction context
+   * @param ekHizmetler Array<{ label: string; miktar: number; toplamTutar: number; }>
+   * @param musteriData { musteriNo, MstrAdi, MstrKllnc, MstrHspTip, ... }
+   * @returns { success: boolean; message: string }
+   */
+  async kaydetEkHizmetlerWithTransaction(
+    queryRunner: QueryRunner,
+    ekHizmetler: Array<{ label: string; miktar: number; toplamTutar: number }>,
+    musteriData: {
+      musteriNo: number;
+      MstrAdi: string;
+      MstrKllnc: string;
+      MstrHspTip: string;
+      MstrKnklmTip: string;
+      MstrOdaYatak: string;
+    }
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const storedProcedures = this.dbConfig.getStoredProcedures();
+      const cariKod = musteriData.MstrHspTip === 'Kurumsal' ? `MK${musteriData.musteriNo}` : `MB${musteriData.musteriNo}`;
+      // Konaklama tipini parse et
+      //const konaklamaTipi = this.parseKonaklamaTipi( musteriData.MstrKnklmTip);
+      
+      // Blok ve kat bilgisi
+      const { odaNo, yatakNo } = this.parseOdaYatak(musteriData.MstrOdaYatak);
+      const ilkDigit = parseInt(odaNo.charAt(0));
+      const blok = ilkDigit < 6 ? 'A' : 'B';
+      const kat = ilkDigit.toString();
+
+      for (const hizmet of ekHizmetler) {
+        const query = `EXEC ${storedProcedures.islemEkle} 
+          @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
+          @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
+          @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
+          @islemDoviz = @15, @islemKur = @16`;
+        const params = [
+          this.getCurrentTransactionDate(), // @0
+          musteriData.MstrKllnc || 'admin', // @1
+          cariKod, // @2
+          musteriData.MstrKnklmTip, // @3 - islemOzel1
+          `${blok}-BLOK - ${kat}. KAT`, // @4 - islemOzel2
+          `${odaNo} - ${yatakNo}`, // @5 - islemOzel3
+          '', // @6 - islemOzel4
+          'Cari İşlem', // @7 - islemArac
+          'GELİR', // @8 - islemTip
+          hizmet.label, // @9 - islemGrup (combobox label)
+          musteriData.MstrAdi, // @10 - islemAltG (müşteri adı)
+          `${hizmet.label} (${hizmet.miktar})`, // @11 - islemBilgi
+          hizmet.miktar, // @12 - islemMiktar
+          'ADET', // @13 - islemBirim
+          hizmet.toplamTutar, // @14 - islemTutar
+          'TL', // @15 - islemDoviz
+          1.00 // @16 - islemKur
+        ];
+        await this.transactionService.executeStoredProcedure(queryRunner, storedProcedures.islemEkle, params);
+      }
+      return { success: true, message: 'Ek hizmetler başarıyla kaydedildi.' };
+    } catch (error) {
+      console.error('Ek hizmetler kaydı sırasında hata:', error);
+      throw new Error('Ek hizmetler kaydedilemedi. Tüm işlemler geri alındı.');
+    }
   }
 } 

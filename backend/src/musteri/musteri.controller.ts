@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import jsPDF from 'jspdf';
+import { QueryRunner } from 'typeorm';
 //import { MusteriBilgi } from '../dto/musteri-bilgi.dto';
 
 @Controller()
@@ -695,6 +696,7 @@ export class MusteriController {
               yeniOdaYatak: { value: String(odaDegisikligiData.yeniOdaYatak), label: String(odaDegisikligiData.yeniOdaYatak) },
               MstrAdi: musteriData.MstrAdi,
               MstrKllnc: kullaniciAdi,
+              MstrHspTip: musteriData.MstrHspTip,
               konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK'
             }
           );
@@ -781,6 +783,7 @@ export class MusteriController {
               yeniOdaYatak: { value: String(odaDegisikligiData.yeniOdaYatak), label: String(odaDegisikligiData.yeniOdaYatak) },
               MstrAdi: String(musteriData.MstrAdi),
               MstrKllnc: kullaniciAdi,
+              MstrHspTip: musteriData.MstrHspTip,
               konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK'
             }
           );
@@ -866,6 +869,7 @@ export class MusteriController {
               yeniOdaYatak: { value: `${odaDegisikligiData.eskiOdaNo}-${odaDegisikligiData.eskiYatakNo}`, label: `${odaDegisikligiData.eskiOdaNo}-${odaDegisikligiData.eskiYatakNo}` },
               MstrAdi: String(musteriData.MstrAdi),
               MstrKllnc: kullaniciAdi,
+              MstrHspTip: musteriData.MstrHspTip,
               konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK',
               OdemeVadesi: odaDegisikligiData.OdemeVadesi || musteriData.OdemeVadesi || null
             }
@@ -883,6 +887,7 @@ export class MusteriController {
               yeniOdaYatak: { value: `${odaDegisikligiData.yeniOdaNo}-${odaDegisikligiData.yeniYatakNo}`, label: `${odaDegisikligiData.yeniOdaNo}-${odaDegisikligiData.yeniYatakNo}` },
               MstrAdi: String(musteriData.MstrAdi),
               MstrKllnc: kullaniciAdi,
+              MstrHspTip: musteriData.MstrHspTip,
               konaklamaTipi: odaDegisikligiData.konaklamaTipi || 'GÜNLÜK',
               OdemeVadesi: odaDegisikligiData.OdemeVadesi || musteriData.OdemeVadesi || null
             }
@@ -905,6 +910,30 @@ export class MusteriController {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         error: `Oda değişikliği onaylama işlemi başarısız (Transaction güvenliği ile): ${errorMessage}`,
       }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post('ek-hizmetler')
+  async ekHizmetlerEkle(@Body() body: any) {
+    try {
+      const result = await this.transactionService.executeInTransaction(async (queryRunner: QueryRunner) => {
+        // Gerekli alanları body'den al
+        const { musteriNo, MstrAdi, MstrKllnc, MstrHspTip, MstrKnklmTip, MstrOdaYatak, ekHizmetler } = body;
+        if (!musteriNo || !MstrAdi || !MstrKllnc || !MstrHspTip || !MstrKnklmTip || !MstrOdaYatak || !Array.isArray(ekHizmetler) || ekHizmetler.length === 0) {
+          throw new Error('Eksik veya hatalı parametreler');
+        }
+        return await this.musteriService.kaydetEkHizmetlerWithTransaction(queryRunner, ekHizmetler, {
+          musteriNo,
+          MstrAdi,
+          MstrKllnc,
+          MstrHspTip,
+          MstrKnklmTip,
+          MstrOdaYatak
+        });
+      });
+      return { success: true, message: result.message };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
   @Get('test-endpoint')

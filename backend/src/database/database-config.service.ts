@@ -94,6 +94,7 @@ export class DatabaseConfigService {
       odaTipLfyt: this.getTableName('tblOdaTipLfyt'),
       konaklama: this.getTableName('tblKonaklama'),
       islem: this.getTableName('tblislem'),
+      parametreler: this.getTableName('tblParametreler'),
     };
   }
 
