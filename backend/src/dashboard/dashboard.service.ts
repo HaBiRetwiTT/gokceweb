@@ -806,7 +806,7 @@ export class DashboardService {
       const countQuery = `
         SELECT COUNT(*) as TotalCount
         FROM ${tables.cari} c
-        WHERE left(c.CariKod,1)='M' AND c.CariKod IN (
+        WHERE c.CariKod IN (
           SELECT DISTINCT islemCrKod
           FROM (
             SELECT 
@@ -818,7 +818,7 @@ export class DashboardService {
             HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0
           ) BorcluMusteriler
-        )
+        ) and left(c.CariKod,1) = 'M'
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
