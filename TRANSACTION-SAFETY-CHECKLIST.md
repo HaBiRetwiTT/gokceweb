@@ -41,7 +41,7 @@ SONUÇ: Müşteri ayrılmış ama oda hala DOLU görünüyor!
 ```
 
 ### **📊 İş Etkisi:**
-- **💰 Gelir Kaybı**: Ödeme alınan hizmetlerin kaydı eksik
+- **💰 Gelir Kaybı**: Ödeme alınan bilgilerin kaydı eksik
 - **🏠 Oda Çakışmaları**: Aynı oda birden fazla müşteriye verilir
 - **💳 Finansal Tutarsızlıklar**: Para akışı ile konaklama kayıtları uyumsuz
 - **📈 Raporlama Hataları**: Yanlış doluluk oranları ve gelir raporları
