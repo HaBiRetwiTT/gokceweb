@@ -806,7 +806,7 @@ export class DashboardService {
       const countQuery = `
         SELECT COUNT(*) as TotalCount
         FROM ${tables.cari} c
-        WHERE c.CariKod IN (
+        WHERE left(c.CariKod,1)='M' AND c.CariKod IN (
           SELECT DISTINCT islemCrKod
           FROM (
             SELECT 
@@ -851,7 +851,7 @@ export class DashboardService {
           (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
           (c.CariKod LIKE 'MK%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT))
         )
-        WHERE c.CariKod IN (
+        WHERE left(c.CariKod,1)='M' AND c.CariKod IN (
           SELECT DISTINCT islemCrKod
           FROM (
             SELECT 
@@ -954,7 +954,7 @@ export class DashboardService {
           (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
           (c.CariKod LIKE 'MK%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT))
         )
-        WHERE c.CariKod IN ('${alacakliKodlar}')
+        WHERE left(c.CariKod,1)='M' AND c.CariKod IN ('${alacakliKodlar}')
         ORDER BY AlacakTutari DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
       `;
       
