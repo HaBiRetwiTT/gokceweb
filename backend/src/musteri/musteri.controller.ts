@@ -1149,9 +1149,6 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      // Font kullanımını geçici olarak kaldırdık
-      // const fontPath = this.getFontPath();
-      // doc.font(fontPath);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
       doc.pipe(res);
@@ -1168,35 +1165,33 @@ export class MusteriController {
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
-              doc.fontSize(8);
-      hareketler.forEach((row, index) => {
-        const rowHeight = 20; // Varsayılan satır yüksekliği
-        if (yPosition > 650) {
-          doc.addPage();
-          yPosition = 50;
-        }
-        const rowData = [
-          row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
-          row.islemTip || '',
-          row.islemBilgi || '',
-          `${row.islemTutar?.toLocaleString('tr-TR') || 0} TL`,
-          row.islemBirim || ''
-        ];
-
-        // Hücreleri çiz - wrap text ile
-        rowData.forEach((cell, cellIndex) => {
-          const cellWidth = columnWidths[cellIndex];
-          const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
-          
-          doc.text(cell, cellX, yPosition, { 
-            width: cellWidth, 
-            align: 'left'
+      doc.fontSize(8);
+      if (hareketler.length === 0) {
+        yPosition += 25;
+        doc.text('Kayıt bulunamadı', 50, yPosition, { width: 400 });
+      } else {
+        hareketler.forEach((row, index) => {
+          const rowHeight = 20;
+          if (yPosition > 650) {
+            doc.addPage();
+            yPosition = 50;
+          }
+          // Alan adlarını birebir eşleştir
+          const rowData = [
+            row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
+            row.islemTip || '',
+            row.islemBilgi || '',
+            `${row.islemTutar?.toLocaleString('tr-TR') || 0} TL`,
+            row.islemBirim || ''
+          ];
+          rowData.forEach((cell, cellIndex) => {
+            const cellWidth = columnWidths[cellIndex];
+            const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
+            doc.text(cell, cellX, yPosition, { width: cellWidth, align: 'left' });
           });
+          yPosition += 25;
         });
-
-        // Sabit satır yüksekliği (wrap text için biraz daha fazla)
-        yPosition += 25; // 25px satır yüksekliği
-      });
+      }
       doc.end();
     } catch (error) {
       console.error('Cari hareketler PDF rapor hatası:', error);
@@ -1224,13 +1219,16 @@ export class MusteriController {
       } else {
         throw new Error('TC No veya Firma Adı gerekli');
       }
-      const excelData = hareketler.map(row => ({
-        'Tarih': row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
-        'İşlem Tipi': row.islemTip || '',
-        'Açıklama': row.islemBilgi || '',
-        'Tutar (TL)': row.islemTutar || 0,
-        'Birim': row.islemBirim || ''
-      }));
+      // Alan adlarını birebir eşleştir
+      const excelData = hareketler.length === 0
+        ? [{ 'Tarih': '', 'İşlem Tipi': '', 'Açıklama': 'Kayıt bulunamadı', 'Tutar (TL)': '', 'Birim': '' }]
+        : hareketler.map(row => ({
+            'Tarih': row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
+            'İşlem Tipi': row.islemTip || '',
+            'Açıklama': row.islemBilgi || '',
+            'Tutar (TL)': row.islemTutar || 0,
+            'Birim': row.islemBirim || ''
+          }));
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       worksheet['!cols'] = [ { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 8 } ];

@@ -3037,15 +3037,21 @@ export class MusteriService {
     const tables = this.dbConfig.getTables();
     // Önce müşteri bilgisi al
     const musteri = await this.getMusteriBilgiByTCN(tcNo);
-    if (!musteri || !musteri.MstrNo || !musteri.MstrHspTip) return [];
+    if (!musteri || !musteri.MstrNo || !musteri.MstrHspTip) {
+      console.log(`[CariHareketler] tcNo ile müşteri bulunamadı:`, tcNo);
+      return [];
+    }
     const cariKod = musteri.MstrHspTip === 'Bireysel' ? `MB${musteri.MstrNo}` : `MK${musteri.MstrNo}`;
+    console.log(`[CariHareketler] tcNo: ${tcNo}, cariKod: ${cariKod}`);
     const query = `
       SELECT iKytTarihi, islemTip, islemBilgi, islemTutar, islemBirim
       FROM ${tables.islem}
       WHERE islemCrKod = @0
       ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
     `;
-    return await this.musteriRepository.query(query, [cariKod]);
+    const hareketler = await this.musteriRepository.query(query, [cariKod]);
+    console.log(`[CariHareketler] ${tcNo} için bulunan hareket sayısı:`, hareketler.length);
+    return hareketler;
   }
 
   // Seçili firma için cari hareketler
@@ -3055,8 +3061,12 @@ export class MusteriService {
     const musteriler = await this.musteriRepository.query(
       `SELECT MstrNo, MstrHspTip FROM ${tables.musteri} WHERE MstrFirma = @0`, [firmaAdi]
     );
-    if (!musteriler.length) return [];
+    if (!musteriler.length) {
+      console.log(`[FirmaCariHareketler] Firma müşterisi bulunamadı:`, firmaAdi);
+      return [];
+    }
     const cariKodlar = musteriler.map((m: any) => m.MstrHspTip === 'Bireysel' ? `MB${m.MstrNo}` : `MK${m.MstrNo}`);
+    console.log(`[FirmaCariHareketler] firmaAdi: ${firmaAdi}, cariKodlar:`, cariKodlar);
     if (!cariKodlar.length) return [];
     const inClause = cariKodlar.map(() => '?').join(',');
     const query = `
@@ -3065,7 +3075,9 @@ export class MusteriService {
       WHERE islemCrKod IN (${inClause})
       ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
     `;
-    return await this.musteriRepository.query(query, cariKodlar);
+    const hareketler = await this.musteriRepository.query(query, cariKodlar);
+    console.log(`[FirmaCariHareketler] ${firmaAdi} için bulunan hareket sayısı:`, hareketler.length);
+    return hareketler;
   }
 
   /**
