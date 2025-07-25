@@ -1133,12 +1133,16 @@ export class MusteriController {
   async getCariHareketlerPDF(
     @Query('tcNo') tcNo: string,
     @Query('firmaAdi') firmaAdi: string,
+    @Query('cariKod') cariKod: string,
     @Res() res: Response
   ) {
     try {
       let hareketler: any[] = [];
       let raporBaslik = '';
-      if (firmaAdi) {
+      if (cariKod) {
+        hareketler = await this.musteriService.getCariHareketlerByCariKod(cariKod);
+        raporBaslik = `${cariKod} - Cari Hareketler`;
+      } else if (firmaAdi) {
         hareketler = await this.musteriService.getFirmaCariHareketler(firmaAdi);
         raporBaslik = `${firmaAdi} - Firma Cari Hareketler`;
       } else if (tcNo) {
@@ -1146,7 +1150,7 @@ export class MusteriController {
         hareketler = await this.musteriService.getCariHareketler(tcNo);
         raporBaslik = `${musteriBilgi?.MstrAdi || tcNo} - Cari Hareketler`;
       } else {
-        throw new Error('TC No veya Firma Adı gerekli');
+        throw new Error('TC No, Firma Adı veya Cari Kod gerekli');
       }
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       res.setHeader('Content-Type', 'application/pdf');
@@ -1204,12 +1208,16 @@ export class MusteriController {
   async getCariHareketlerExcel(
     @Query('tcNo') tcNo: string,
     @Query('firmaAdi') firmaAdi: string,
+    @Query('cariKod') cariKod: string,
     @Res() res: Response
   ) {
     try {
       let hareketler: any[] = [];
       let raporBaslik = '';
-      if (firmaAdi) {
+      if (cariKod) {
+        hareketler = await this.musteriService.getCariHareketlerByCariKod(cariKod);
+        raporBaslik = `${cariKod} - Cari Hareketler`;
+      } else if (firmaAdi) {
         hareketler = await this.musteriService.getFirmaCariHareketler(firmaAdi);
         raporBaslik = `${firmaAdi} - Firma Cari Hareketler`;
       } else if (tcNo) {
@@ -1217,7 +1225,7 @@ export class MusteriController {
         hareketler = await this.musteriService.getCariHareketler(tcNo);
         raporBaslik = `${musteriBilgi?.MstrAdi || tcNo} - Cari Hareketler`;
       } else {
-        throw new Error('TC No veya Firma Adı gerekli');
+        throw new Error('TC No, Firma Adı veya Cari Kod gerekli');
       }
       // Alan adlarını birebir eşleştir
       const excelData = hareketler.length === 0

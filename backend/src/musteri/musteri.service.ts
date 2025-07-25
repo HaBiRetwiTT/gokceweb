@@ -3144,4 +3144,16 @@ export class MusteriService {
       throw new Error('Ek hizmetler kaydedilemedi. Tüm işlemler geri alındı.');
     }
   }
+
+  // Doğrudan cariKod ile hareketleri getir
+  async getCariHareketlerByCariKod(cariKod: string): Promise<any[]> {
+    const tables = this.dbConfig.getTables();
+    const query = `
+      SELECT iKytTarihi, islemTip, islemBilgi, islemTutar, islemBirim
+      FROM ${tables.islem}
+      WHERE islemCrKod = @0
+      ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
+    `;
+    return await this.musteriRepository.query(query, [cariKod]);
+  }
 } 
