@@ -1,0 +1,213 @@
+{
+  "name": "trmlFis",
+  "description": "Termal Fiş Template - 78x165mm",
+  "dimensions": {
+    "width": 78,
+    "height": 165,
+    "unit": "mm"
+  },
+  "printSettings": {
+    "thermal": true,
+    "paperType": "receipt",
+    "orientation": "portrait"
+  },
+  "layout": {
+    "header": {
+      "height": 25,
+      "elements": [
+        {
+          "type": "text",
+          "id": "companyName",
+          "content": "GÖKÇE PANSİYON",
+          "x": 39,
+          "y": 8,
+          "fontSize": 12,
+          "fontWeight": "bold",
+          "textAlign": "center"
+        },
+        {
+          "type": "text",
+          "id": "receiptTitle",
+          "content": "ÖDEME FİŞİ",
+          "x": 39,
+          "y": 18,
+          "fontSize": 10,
+          "textAlign": "center"
+        }
+      ]
+    },
+    "content": {
+      "startY": 30,
+      "elements": [
+        {
+          "type": "line",
+          "id": "headerLine",
+          "x1": 5,
+          "y1": 28,
+          "x2": 73,
+          "y2": 28,
+          "style": "dashed"
+        },
+        {
+          "type": "text",
+          "id": "dateLabel",
+          "content": "Tarih:",
+          "x": 5,
+          "y": 35,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "dateValue",
+          "content": "{{tarih}}",
+          "x": 25,
+          "y": 35,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "timeLabel",
+          "content": "Saat:",
+          "x": 45,
+          "y": 35,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "timeValue",
+          "content": "{{saat}}",
+          "x": 60,
+          "y": 35,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "customerLabel",
+          "content": "Müşteri:",
+          "x": 5,
+          "y": 45,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "customerValue",
+          "content": "{{musteriAdi}}",
+          "x": 5,
+          "y": 52,
+          "fontSize": 9,
+          "fontWeight": "bold",
+          "maxWidth": 68
+        },
+        {
+          "type": "text",
+          "id": "roomLabel",
+          "content": "Oda/Yatak:",
+          "x": 5,
+          "y": 62,
+          "fontSize": 8
+        },
+        {
+          "type": "text",
+          "id": "roomValue",
+          "content": "{{odaYatak}}",
+          "x": 40,
+          "y": 62,
+          "fontSize": 8
+        },
+        {
+          "type": "line",
+          "id": "contentLine",
+          "x1": 5,
+          "y1": 68,
+          "x2": 73,
+          "y2": 68,
+          "style": "solid"
+        },
+        {
+          "type": "text",
+          "id": "paymentDetailsLabel",
+          "content": "ÖDEME DETAYLARI",
+          "x": 39,
+          "y": 75,
+          "fontSize": 9,
+          "fontWeight": "bold",
+          "textAlign": "center"
+        },
+        {
+          "type": "dynamic-payment-list",
+          "id": "paymentList",
+          "startY": 82,
+          "itemHeight": 12,
+          "elements": [
+            {
+              "type": "text",
+              "id": "paymentType",
+              "content": "{{odemeTipi}}:",
+              "x": 5,
+              "fontSize": 8
+            },
+            {
+              "type": "text",
+              "id": "paymentAmount",
+              "content": "{{tutar}} TL",
+              "x": 60,
+              "fontSize": 8,
+              "textAlign": "right"
+            }
+          ]
+        }
+      ]
+    },
+    "footer": {
+      "startY": 140,
+      "elements": [
+        {
+          "type": "line",
+          "id": "footerLine",
+          "x1": 5,
+          "y1": 138,
+          "x2": 73,
+          "y2": 138,
+          "style": "solid"
+        },
+        {
+          "type": "text",
+          "id": "totalLabel",
+          "content": "TOPLAM:",
+          "x": 5,
+          "y": 145,
+          "fontSize": 10,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "text",
+          "id": "totalAmount",
+          "content": "{{toplamTutar}} TL",
+          "x": 73,
+          "y": 145,
+          "fontSize": 10,
+          "fontWeight": "bold",
+          "textAlign": "right"
+        },
+        {
+          "type": "text",
+          "id": "thankYou",
+          "content": "Teşekkür ederiz.",
+          "x": 39,
+          "y": 155,
+          "fontSize": 8,
+          "textAlign": "center"
+        },
+        {
+          "type": "text",
+          "id": "operator",
+          "content": "İşlemi yapan: {{kullanici}}",
+          "x": 39,
+          "y": 162,
+          "fontSize": 7,
+          "textAlign": "center"
+        }
+      ]
+    }
+  }
+} 
