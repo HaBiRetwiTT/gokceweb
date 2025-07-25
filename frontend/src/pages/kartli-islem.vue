@@ -3531,7 +3531,7 @@ async function downloadCariHareketlerPDF() {
     }
     const queryString = params.join('&');
     const url = `/cari-hareketler-pdf?${queryString}`;
-    
+    console.log('PDF için gönderilen cariKod:', selectedBorcluMusteri.value?.CariKod);
     // Axios ile indir (authentication için)
     const response = await api.get(url, {
       responseType: 'blob'
