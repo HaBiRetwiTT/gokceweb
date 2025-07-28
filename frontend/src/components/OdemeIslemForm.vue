@@ -1,3 +1,5 @@
+
+
 <template>
   <q-dialog v-model="show" persistent transition-show="fade" transition-hide="fade">
     <q-card style="min-width: 700px; max-width: 98vw;">
@@ -126,7 +128,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, defineProps, defineEmits } from 'vue';
-import { api } from 'boot/axios';
+import { api } from '../boot/axios';
 import { Notify } from 'quasar';
 
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
@@ -222,10 +224,22 @@ for (let i = 0; i < 5; i++) {
       if (!odemeItem) return;
       if (yeni && !eski) {
         odemeItem.fis = true;
+        console.log(`✅ Ödeme ${i + 1} için fiş kes otomatik aktifleştirildi`);
       }
       if (!yeni) {
         odemeItem.fis = false;
+        console.log(`❌ Ödeme ${i + 1} için fiş kes deaktifleştirildi`);
       }
+    }
+  );
+  
+  // Fiş kes checkbox'ının değişimini izle
+  watch(
+    () => odeme.value[i]?.fis,
+    (yeni, eski) => {
+      const odemeItem = odeme.value[i];
+      if (!odemeItem) return;
+      console.log(`🔄 Ödeme ${i + 1} fiş kes değişti: ${eski} -> ${yeni}`);
     }
   );
 }
@@ -259,13 +273,276 @@ const isKaydetDisabled = computed(() => {
   return !(odemeValid || depozitoValid);
 });
 
+// Eski fiş yazdırma fonksiyonu - artık kullanılmıyor, çoklu fiş yazdırma için printMultipleFis kullanılıyor
+
+// Çoklu fiş yazdırma fonksiyonu - tek pencerede tüm fişleri yazdırır
+async function printMultipleFis(fisliOdemeler: Array<{ tutar: string | number; tip: string; odemeTipiGrup: string; index: number; komisyon?: boolean; orijinalTutar?: string | number; }>, islemNoList: number[], musteri: { MstrAdi?: string; OdaYatak?: string; KnklmOdaNo?: string; KnklmYtkNo?: string; }, islemKllnc: string, maxIslemno: number) {
+  console.log('🖨️ Çoklu fiş yazdırma başlıyor...');
+  
+  // Tüm fişlerin HTML'ini hazırla
+  let allFisHTML = '';
+  
+  // Başlangıç bakiyesi
+  const baslangicBakiye = (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye || 0;
+  let guncelBakiye = baslangicBakiye;
+  
+  console.log(`💰 Başlangıç bakiyesi: ${baslangicBakiye}`);
+  
+  for (let i = 0; i < fisliOdemeler.length; i++) {
+    const od = fisliOdemeler[i];
+    console.log(`📄 Fiş ${i + 1}/${fisliOdemeler.length} hazırlanıyor:`, od);
+    
+    // Radio group seçimlerini al
+    const odemeTipiLabel = odemeTipleri.find(tip => tip.value === od.tip)?.label || 'Nakit Kasa(TL)';
+    const odemeTipiGrupLabel = odemeTipiGrupOptions.find(grup => grup.value === od.odemeTipiGrup)?.label || 'Konaklama';
+    
+    // Kalan borç hesabı - komisyon checkbox'ına göre
+    const odemeTutari = Number(od.tutar);
+    let komisyonTutari = 0;
+
+    // Eğer komisyon checkbox TRUE ise, komisyon tutarını hesapla
+    if (od.komisyon && od.orijinalTutar) {
+      komisyonTutari = odemeTutari - Number(od.orijinalTutar);
+      console.log(`💰 Komisyon hesaplama: ${odemeTutari} - ${od.orijinalTutar} = ${komisyonTutari}`);
+    }
+
+    // Kalan borç hesaplama - komisyon durumuna göre
+    const kalanBorc = guncelBakiye - odemeTutari + komisyonTutari;
+    
+    console.log(`💳 Fiş ${i + 1} hesaplama: ${guncelBakiye} - ${odemeTutari} + ${komisyonTutari} = ${kalanBorc}`);
+    
+    // Bir sonraki fiş için bakiyeyi güncelle
+    guncelBakiye = kalanBorc;
+    
+    // Fiş numarasını hesapla - (max islemno) + 1 + index
+    const fisNo = maxIslemno + i;
+    console.log(`🔢 Fiş ${i + 1} için fiş no:`, fisNo, `(maxIslemno: ${maxIslemno} + 1 + index: ${i})`);
+    
+    // Fiş için gerekli verileri hazırla
+    const fisProps = {
+      musteriAdi: musteri.MstrAdi || 'Bilinmeyen Müşteri',
+      odaBilgisi: musteri.OdaYatak || (musteri.KnklmOdaNo && musteri.KnklmYtkNo ? `${musteri.KnklmOdaNo} - ${musteri.KnklmYtkNo}` : ''),
+      aciklama: odemeTipiGrupLabel,
+      tutar: od.tutar,
+      kalanBorc: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(kalanBorc),
+      sonOdemeTarihi: new Date().toLocaleDateString('tr-TR'),
+      tarih: new Date().toLocaleDateString('tr-TR'),
+      islemYapan: islemKllnc,
+      fisNo: fisNo.toString(),
+      odemeSekli: odemeTipiLabel
+    };
+    
+    // Fiş HTML'ini oluştur - Görseldeki şablona uygun
+    const fisHTML = `
+      <div class="fis-container">
+        
+        <!-- Üst Bilgi Satırı -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2mm; font-size: 1.8mm;">
+          <span>TARİH: ${fisProps.tarih}</span>
+          <span>İŞLEMİ YAPAN: ${fisProps.islemYapan}</span>
+          <span>FİŞ NO: ${fisProps.fisNo}</span>
+        </div>
+        
+        <!-- Logo ve Firma Adı -->
+        <div style="display: flex; align-items: center; margin-bottom: 3mm;">
+          <div style="width: 12mm; height: 12mm; display: flex; align-items: center; justify-content: center; margin-right: 2mm;">
+            <img src="/gokce-logo.png" style="width: 10mm; height: 10mm; object-fit: contain;" />
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: bold; font-size: 3.5mm; text-align: center; margin-bottom: 0.5mm;">GÖKÇE PANSİYON®</div>
+            <div style="font-size: 1.8mm; text-align: center; font-style: italic;">İstanbul'daki Eviniz</div>
+          </div>
+        </div>
+        
+        <!-- Tahsilat Makbuzu Başlığı -->
+        <div style="border: 2px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 3mm; text-align: center;">
+          <div style="font-weight: bold; font-size: 3.2mm; text-transform: uppercase;">TAHSİLAT MAKBUZU</div>
+        </div>
+        
+        <!-- Müşteri Bilgileri -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">SAYIN</span>
+          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.musteriAdi}</div>
+        </div>
+        
+        <!-- Oda Bilgileri -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">ODA</span>
+          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.odaBilgisi}</div>
+        </div>
+        
+        <!-- Ek Hizmet -->
+        <div style="margin-bottom: 2mm;">
+          <div style="border: 2px solid #000; padding: 1.5mm; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.aciklama}</div>
+        </div>
+        
+        <!-- Tutar -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">TUTAR</span>
+          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; text-align: right; font-weight: bold; font-size: 3mm; display: flex; align-items: center; justify-content: flex-end; background: white;">₺${fisProps.tutar}</div>
+        </div>
+        
+        <!-- Ödeme Şekli -->
+        <div style="text-align: center; font-size: 2mm; margin-bottom: 2mm; font-weight: bold;">${fisProps.odemeSekli} TAHSİL EDİLMİŞTİR.</div>
+        
+        <!-- Kalan Borç ve Son Ödeme Tarihi -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: bold; font-size: 2mm; display: inline-block; width: 8mm;">KALAN BORÇ</span>
+          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.2mm; display: flex; align-items: center; background: white;">${fisProps.kalanBorc}</div>
+          <span style="font-weight: bold; font-size: 2mm; display: inline-block; width: 8mm; margin-left: 1mm;">SON ÖDEME</span>
+          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.2mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.sonOdemeTarihi}</div>
+        </div>
+        
+        <!-- Bilgilendirme Kutusu -->
+        <div style="border: 2px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 2mm;">
+          <div style="font-weight: bold; font-size: 2.2mm; text-align: center; margin-bottom: 1.5mm;">BİLGİLENDİRME</div>
+          <div style="font-size: 1.6mm; line-height: 1.3;">
+            <div>WIFI ŞİFRESİ: GOKCE2010gokce</div>
+            <div>GÜNLÜK KALIMLARDA ODA ÇIKIŞ SAATİ ÖĞLEN 12:00</div>
+            <div>LÜTFEN FİŞİ VE PARANIZI KONTROL EDEREK ALINIZ</div>
+            <div>BU BELGENİN MALİ BİR DEĞERİ YOKTUR</div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 2mm;">
+            <div style="font-weight: bold; font-size: 1.8mm;">DAHA İYİ HİZMET VEREBİLMEMİZ İÇİN</div>
+            <div style="font-weight: bold; font-size: 1.8mm;">İSTEK, ÖNERİ VE ŞİKAYETLERİNİZİ</div>
+            <div style="font-weight: bold; font-size: 1.8mm;">LÜTFEN BİZE İLETİNİZ...</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-top: 2mm; font-size: 1.4mm;">
+            <div>
+              <div>TEL: 0 (212) 296 66 60</div>
+              <div>GSM: 0 (545) 296 66 60</div>
+            </div>
+            <div style="text-align: right;">
+              <div>MAIL: bilgi@gokcepansiyon.com</div>
+              <div>WEB: www.gokcepansiyon.com</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Alt Çizgi -->
+        <div style="background: #000; color: white; text-align: center; padding: 1mm; font-size: 1.6mm; font-weight: bold;">
+          ${fisProps.fisNo}
+        </div>
+      </div>
+    `;
+    
+    allFisHTML += fisHTML;
+  }
+  
+  // Tek pencerede tüm fişleri yazdır
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Müşteri Tahsilat Fişleri - ${fisliOdemeler.length} Adet</title>
+              <style>
+                @page {
+                  size: 78mm 165mm;
+                  margin: 0;
+                  padding: 0;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white;
+                  font-family: Arial, sans-serif;
+                }
+                .fis-container {
+                  width: 78mm;
+                  height: 165mm;
+                  margin: 0;
+                  padding: 1.5mm;
+                  background: white;
+                  box-sizing: border-box;
+                  font-family: Arial, sans-serif;
+                  font-size: 2.2mm;
+                  line-height: 1.2;
+                  color: black;
+                  page-break-after: always;
+                }
+                .fis-container:last-child {
+                  page-break-after: avoid;
+                }
+                @media print {
+                  .fis-container {
+                    width: 78mm !important;
+                    height: 165mm !important;
+                    transform: none !important;
+                    scale: 1 !important;
+                    page-break-after: always !important;
+                  }
+                  .fis-container:last-child {
+                    page-break-after: avoid !important;
+                  }
+                  * {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              ${allFisHTML}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            console.log(`✅ ${fisliOdemeler.length} adet fiş yazdırma başlatıldı`);
+            
+            setTimeout(() => {
+              printWindow.close();
+              console.log('🔒 Fiş yazdırma penceresi kapatıldı');
+              resolve();
+            }, 3000);
+          }, 500);
+        };
+      } else {
+        reject(new Error('Yeni pencere açılamadı'));
+      }
+    } catch (error) {
+      console.error('❌ Çoklu fiş yazdırma hatası:', error);
+      Notify.create({ type: 'negative', message: 'Fiş yazdırma hatası: ' + String(error) });
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
 async function onKaydet() {
   const musteri = window.kartliIslemSelectedNormalMusteri;
   if (!musteri || typeof musteri !== 'object') {
     Notify.create({ type: 'warning', message: 'Seçili müşteri bulunamadı.' });
     return;
   }
+  
+  console.log('🔍 Seçili müşteri bilgileri:', musteri);
+  console.log('🔍 Musteri objesi tüm özellikleri:', Object.keys(musteri));
+  console.log('🔍 Musteri objesi JSON:', JSON.stringify(musteri, null, 2));
+  
+  // Borçlu/Alacaklı müşteriler için Cari Kod kontrolü
   const MstrTCN = musteri.MstrTCN || '';
+  let musteriNo = musteri.MstrNo;
+  
+  // Eğer MstrTCN boş ve CariKod varsa, CariKod'dan müşteri numarasını çıkar
+  const musteriAny = musteri as unknown as { CariKod?: string };
+  if (!MstrTCN && musteriAny.CariKod) {
+    const cariKodMatch = musteriAny.CariKod.match(/^[A-Z]{2}(\d+)$/);
+    if (cariKodMatch) {
+      musteriNo = parseInt(cariKodMatch[1]);
+      console.log('🔢 Cari koddan çıkarılan müşteri no:', musteriNo);
+    }
+  }
+  
+  console.log('🔍 Kullanılacak MstrTCN:', MstrTCN);
+  console.log('🔍 Kullanılacak musteriNo:', musteriNo);
 
   const islemKllnc = localStorage.getItem('username') || 'admin';
   const islemKayitlari = [];
@@ -275,7 +552,7 @@ async function onKaydet() {
     const od = odeme.value[i];
     if (od && od.tutar && od.tip && od.odemeTipiGrup) {
       islemKayitlari.push({
-        musteriNo: musteri.MstrNo,
+        musteriNo: musteriNo,
         MstrTCN,
         MstrAdi: musteri.MstrAdi,
         islemKllnc,
@@ -293,7 +570,7 @@ async function onKaydet() {
         const komisyonTutari = Number(od.tutar) - Number(od.orijinalTutar);
         if (komisyonTutari > 0) {
           islemKayitlari.push({
-            musteriNo: musteri.MstrNo,
+            musteriNo: musteriNo,
             MstrTCN,
             MstrAdi: musteri.MstrAdi,
             islemKllnc,
@@ -314,7 +591,7 @@ async function onKaydet() {
   // Depozito işlemleri için
   if (depozito.value.alinan && depozito.value.tip) {
     islemKayitlari.push({
-      musteriNo: musteri.MstrNo,
+      musteriNo: musteriNo,
       MstrTCN,
       MstrAdi: musteri.MstrAdi,
       islemKllnc,
@@ -330,7 +607,7 @@ async function onKaydet() {
   }
   if (depozito.value.iade && depozito.value.tip) {
     islemKayitlari.push({
-      musteriNo: musteri.MstrNo,
+      musteriNo: musteriNo,
       MstrTCN,
       MstrAdi: musteri.MstrAdi,
       islemKllnc,
@@ -355,6 +632,71 @@ async function onKaydet() {
     const response = await api.post('/odeme-islem', { islemler: islemKayitlari });
     if (response.data.success) {
       Notify.create({ type: 'positive', message: response.data.message || 'Tahsilat işlemleri başarıyla kaydedildi.' });
+      
+      // Fiş yazdırma işlemini form resetlenmeden önce yap
+      console.log('🎯 API başarılı, fiş yazdırma kontrolü yapılıyor...');
+      
+      // Fiş yazdırılacak ödemeleri bul
+      const fisliOdemeler = odeme.value
+        .map((od, i) => ({ ...od, index: i }))
+        .filter(od => od.tutar && od.fis);
+      
+      console.log('🔍 Fiş yazdırma kontrolü:', {
+        toplamOdeme: odeme.value.length,
+        fisliOdemeler: fisliOdemeler.length,
+        odemeDetaylari: odeme.value.map((od, i) => ({
+          index: i,
+          tutar: od.tutar,
+          fis: od.fis,
+          tip: od.tip,
+          odemeTipiGrup: od.odemeTipiGrup,
+          komisyon: od.komisyon
+        }))
+      });
+      
+      // Her ödeme için detaylı kontrol
+      odeme.value.forEach((od, i) => {
+        console.log(`📋 Ödeme ${i + 1}:`, {
+          tutar: od.tutar,
+          fis: od.fis,
+          tip: od.tip,
+          odemeTipiGrup: od.odemeTipiGrup,
+          komisyon: od.komisyon,
+          tutarVar: !!od.tutar,
+          fisVar: !!od.fis,
+          tipVar: !!od.tip,
+          grupVar: !!od.odemeTipiGrup
+        });
+      });
+      
+            if (fisliOdemeler.length > 0) {
+        console.log('🎫 Fiş yazdırma başlıyor...');
+        
+        // Backend'den dönen islemno listesini al
+        const islemNoList = response.data.islemNoList || [];
+        console.log('📊 Backend islemno listesi:', islemNoList);
+        
+              // Maksimum islemno değerini backend'den al
+      let maxIslemno = 0;
+      try {
+        const maxIslemnoResponse = await api.get('/odeme-islem/max-islemno');
+        maxIslemno = maxIslemnoResponse.data.maxIslemno || 0;
+        console.log('🔢 Backend\'den alınan maksimum islemno:', maxIslemno);
+      } catch (error) {
+        console.error('❌ Maksimum islemno alınamadı:', error);
+        // Hata durumunda varsayılan değer kullan
+        maxIslemno = 0;
+      }
+      
+      // Tüm fişleri tek seferde yazdırmak için toplu yazdırma fonksiyonu
+      await printMultipleFis(fisliOdemeler, islemNoList, musteri, islemKllnc, maxIslemno);
+        
+        console.log('🎉 Tüm fiş yazdırma işlemleri tamamlandı');
+      } else {
+        console.log('❌ Fiş yazdırılacak ödeme bulunamadı');
+      }
+      
+      // Form resetleme işlemini en sona al
       resetForm();
       show.value = false;
     } else {
@@ -363,6 +705,8 @@ async function onKaydet() {
   } catch (err) {
     Notify.create({ type: 'negative', message: 'Sunucu hatası: ' + (err instanceof Error ? err.message : String(err)) });
   }
+
+  // Fiş yazdırma işlemi artık API başarılı olduktan sonra yapılıyor
 }
 
 function onClose() {

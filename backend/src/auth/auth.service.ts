@@ -37,8 +37,12 @@ export class AuthService {
       // Personel tablosundan kullanıcı kontrolü
       const personel = await this.personelRepository
         .createQueryBuilder('personel')
-        .where('LOWER(personel.PrsnUsrNm) = LOWER(:username)', { username: normalizedUsername })
-        .andWhere('LOWER(personel.PrsnPassw) = LOWER(:password)', { password: normalizedPassword })
+        .where('LOWER(personel.PrsnUsrNm) = LOWER(:username)', {
+          username: normalizedUsername,
+        })
+        .andWhere('LOWER(personel.PrsnPassw) = LOWER(:password)', {
+          password: normalizedPassword,
+        })
         .andWhere('personel.PrsnDurum = :durum', { durum: 'ÇALIŞIYOR' })
         .getOne();
 
@@ -76,8 +80,12 @@ export class AuthService {
       // Personel kontrolü
       const personel = await this.personelRepository
         .createQueryBuilder('personel')
-        .where('LOWER(personel.PrsnUsrNm) = LOWER(:username)', { username: normalizedUsername })
-        .andWhere('LOWER(personel.PrsnPassw) = LOWER(:password)', { password: normalizedPassword })
+        .where('LOWER(personel.PrsnUsrNm) = LOWER(:username)', {
+          username: normalizedUsername,
+        })
+        .andWhere('LOWER(personel.PrsnPassw) = LOWER(:password)', {
+          password: normalizedPassword,
+        })
         .andWhere('personel.PrsnDurum = :durum', { durum: 'ÇALIŞIYOR' })
         .getOne();
 
@@ -87,4 +95,4 @@ export class AuthService {
       return false;
     }
   }
-} 
+}

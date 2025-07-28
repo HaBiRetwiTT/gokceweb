@@ -11,29 +11,34 @@ export class ParametreAlternativeService {
   ) {}
 
   // TypeORM entity kullanarak - schema otomatik olarak doğru belirlenir
-  async getEkHizmetlerWithEntity(): Promise<{ Prm01: string; PrmAdi: string; Prm04: number }[]> {
+  async getEkHizmetlerWithEntity(): Promise<
+    { Prm01: string; PrmAdi: string; Prm04: number }[]
+  > {
     console.log('🔥 ENTITY METHOD - Using TypeORM entity with auto-schema');
-    
+
     try {
       const result = await this.parametreRepository.find({
         select: ['Prm01', 'PrmAdi', 'Prm04'],
         where: {
-          Prm01: ['1', '2', '3', '4', '5', '6'] as any // IN operation için 
+          Prm01: ['1', '2', '3', '4', '5', '6'] as any, // IN operation için
         },
         order: {
-          Prm01: 'ASC'
-        }
+          Prm01: 'ASC',
+        },
       });
-      
+
       console.log('🔥 ENTITY METHOD - Result:', result);
       return result;
     } catch (error) {
       console.error('🔥 ENTITY METHOD - ERROR:', error);
-      
+
       // Fallback: QB kullanarak
-      return await this.parametreRepository.createQueryBuilder('p')
+      return await this.parametreRepository
+        .createQueryBuilder('p')
         .select(['p.Prm01', 'p.PrmAdi', 'p.Prm04'])
-        .where('p.Prm01 IN (:...values)', { values: ['1', '2', '3', '4', '5', '6'] })
+        .where('p.Prm01 IN (:...values)', {
+          values: ['1', '2', '3', '4', '5', '6'],
+        })
         .orderBy('p.Prm01', 'ASC')
         .getMany();
     }
@@ -41,13 +46,13 @@ export class ParametreAlternativeService {
 
   async getKomisyonOraniWithEntity(): Promise<number | null> {
     console.log('🔥 ENTITY KOMISYON - Using TypeORM entity with auto-schema');
-    
+
     try {
       const result = await this.parametreRepository.findOne({
         select: ['Prm04'],
-        where: { Prm01: '8' }
+        where: { Prm01: '8' },
       });
-      
+
       console.log('🔥 ENTITY KOMISYON - Result:', result);
       return result?.Prm04 ?? null;
     } catch (error) {
@@ -55,4 +60,4 @@ export class ParametreAlternativeService {
       throw error;
     }
   }
-} 
+}

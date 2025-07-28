@@ -1,4 +1,10 @@
-import { Controller, Post, Body, HttpStatus, HttpException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpStatus,
+  HttpException,
+} from '@nestjs/common';
 import { AuthService, LoginDto } from './auth.service';
 
 @Controller('auth')
@@ -9,7 +15,7 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto) {
     try {
       const result = await this.authService.login(loginDto);
-      
+
       if (result.success) {
         return {
           success: true,
@@ -17,21 +23,27 @@ export class AuthController {
           user: result.user,
         };
       } else {
-        throw new HttpException({
-          success: false,
-          message: result.message,
-        }, HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          {
+            success: false,
+            message: result.message,
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
       }
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
       }
-      
+
       console.error('Login controller hatası:', error);
-      throw new HttpException({
-        success: false,
-        message: 'Giriş işlemi sırasında bir hata oluştu',
-      }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Giriş işlemi sırasında bir hata oluştu',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-} 
+}

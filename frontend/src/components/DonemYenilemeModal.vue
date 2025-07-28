@@ -506,7 +506,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
-import { api } from 'boot/axios';
+import { api } from '../boot/axios';
 import { useQuasar, Notify } from 'quasar';
 import type { MusteriKonaklama } from './models';
 

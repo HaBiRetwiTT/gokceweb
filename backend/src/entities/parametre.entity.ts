@@ -14,6 +14,12 @@ export class Parametre {
   @Column({ name: 'PrmAdi', type: 'nvarchar', length: 50 })
   PrmAdi: string;
 
-  @Column({ name: 'Prm04', type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    name: 'Prm04',
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+  })
   Prm04: number;
-} 
+}

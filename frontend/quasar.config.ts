@@ -43,8 +43,11 @@ export default defineConfig((/* ctx */) => {
 
       typescript: {
         strict: true,
-        vueShim: true
-        // extendTsConfig (tsConfig) {}
+        vueShim: true,
+        // extendTsConfig (tsConfig) {
+        //   tsConfig.skipLibCheck = true;
+        //   tsConfig.noEmit = true;
+        // }
       },
 
       vueRouterMode: 'hash', // available values: 'hash', 'history'
@@ -76,7 +79,21 @@ export default defineConfig((/* ctx */) => {
             useFlatConfig: true
           }
         }, { server: false }]
-      ]
+      ],
+      
+      extendViteConf (viteConf) {
+        viteConf.resolve = viteConf.resolve || {};
+        viteConf.resolve.alias = {
+          ...viteConf.resolve.alias,
+          'src': '/src',
+          'components': '/src/components',
+          'pages': '/src/pages',
+          'layouts': '/src/layouts',
+          'boot': '/src/boot',
+          'stores': '/src/stores',
+          'services': '/src/services'
+        };
+      }
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver

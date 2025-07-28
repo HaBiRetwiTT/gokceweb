@@ -749,7 +749,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
-import { api } from 'boot/axios'
+import { api } from '../boot/axios'
 import { QForm } from 'quasar'
 import type { AxiosError } from 'axios';
 import { Notify } from 'quasar';
@@ -972,7 +972,7 @@ async function hesaplaBedel() {
       // Depozito tutarını güncelle (OdDpzt alanından)
       const depozitoBedeli = Number(odaTipFiyatlari.value?.OdDpzt) || 0
       depozito.value.bedel = depozitoBedeli
-      console.log(`Depozito tutarı güncellendi: ${depozitoBedeli} TL`)
+      // console.log(`Depozito tutarı güncellendi: ${depozitoBedeli} TL`)
       
       let hesaplananFiyat = 0
       const sure = form.value.KonaklamaSuresi
@@ -1010,9 +1010,9 @@ async function hesaplaBedel() {
       // Aylık fiyat kontrolü - hesaplanan fiyat aylık fiyatı geçerse aylık fiyat uygula
       if (hesaplananFiyat > aylikFiyat) {
         hesaplananFiyat = aylikFiyat
-        console.log(`Bedel hesaplaması: ${tip} hesaplandı ${hesaplananFiyat} TL, ama aylık fiyat uygulandı: ${aylikFiyat} TL`)
+        // console.log(`Bedel hesaplaması: ${tip} hesaplandı ${hesaplananFiyat} TL, ama aylık fiyat uygulandı: ${aylikFiyat} TL`)
       } else {
-        console.log(`Bedel hesaplaması: ${tip} = ${hesaplananFiyat} TL`)
+        // console.log(`Bedel hesaplaması: ${tip} = ${hesaplananFiyat} TL`)
       }
       // 🔽 Onlar basamağına aşağı yuvarla
       hesaplananFiyat = Math.floor(hesaplananFiyat / 10) * 10
@@ -1046,6 +1046,7 @@ async function loadFirmaList() {
 // Oda tiplerini getir (sadece boş odaların bulunduğu tipler)
 async function loadOdaTipleri() {
   try {
+    // console.log('Boş oda tipleri yükleniyor...')
     console.log('Boş oda tipleri yükleniyor...')
     const response = await api.get('/bos-oda-tipleri')
     console.log('Boş oda tipleri response:', response.data)

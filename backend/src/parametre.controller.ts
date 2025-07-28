@@ -17,11 +17,16 @@ export class ParametreController {
       return { success: true, data, method: 'raw-query' };
     } catch (rawError) {
       console.log('🔥 Raw query failed, trying entity method...');
-      
+
       // Raw query başarısızsa, entity method kullan
       try {
         const data = await this.parametreAltService.getEkHizmetlerWithEntity();
-        return { success: true, data, method: 'entity-method', rawError: rawError.message };
+        return {
+          success: true,
+          data,
+          method: 'entity-method',
+          rawError: rawError.message,
+        };
       } catch (entityError) {
         console.error('🔥 Both methods failed:', { rawError, entityError });
         throw entityError;
@@ -37,15 +42,24 @@ export class ParametreController {
       return { success: true, oran, method: 'raw-query' };
     } catch (rawError) {
       console.log('🔥 Raw query failed for komisyon, trying entity method...');
-      
+
       // Raw query başarısızsa, entity method kullan
       try {
-        const oran = await this.parametreAltService.getKomisyonOraniWithEntity();
-        return { success: true, oran, method: 'entity-method', rawError: rawError.message };
+        const oran =
+          await this.parametreAltService.getKomisyonOraniWithEntity();
+        return {
+          success: true,
+          oran,
+          method: 'entity-method',
+          rawError: rawError.message,
+        };
       } catch (entityError) {
-        console.error('🔥 Both methods failed for komisyon:', { rawError, entityError });
+        console.error('🔥 Both methods failed for komisyon:', {
+          rawError,
+          entityError,
+        });
         throw entityError;
       }
     }
   }
-} 
+}

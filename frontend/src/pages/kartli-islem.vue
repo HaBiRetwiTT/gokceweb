@@ -954,14 +954,14 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { api } from 'boot/axios'
-import DonemYenilemeModal from 'components/DonemYenilemeModal.vue'
-import { selectedCustomer } from 'src/stores/selected-customer';
-import OdemeIslemForm from 'components/OdemeIslemForm.vue';
-//import EkHizmetlerForm from 'components/EkHizmetlerForm.vue';
+import { api } from '../boot/axios'
+import DonemYenilemeModal from '../components/DonemYenilemeModal.vue'
+import { selectedCustomer } from '../stores/selected-customer';
+import OdemeIslemForm from '../components/OdemeIslemForm.vue';
+//import EkHizmetlerForm from '../components/EkHizmetlerForm.vue';
 
 // Tip tanımları
-import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, CariHareket, KonaklamaGecmisi } from 'components/models';
+import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, CariHareket, KonaklamaGecmisi } from '../components/models';
 
 // Router instance
 const router = useRouter()
@@ -2486,6 +2486,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     
     if (!cariKod) {
       selectedMusteriBakiye.value = 0;
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
       return;
     }
     
@@ -2494,12 +2495,16 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     
     if (bakiyeResponse.data.success) {
       selectedMusteriBakiye.value = bakiyeResponse.data.bakiye || 0;
+      // Global erişim için window objesine ata
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = bakiyeResponse.data.bakiye || 0;
     } else {
       selectedMusteriBakiye.value = 0;
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     }
   } catch (error: unknown) {
     console.error('Müşteri bakiye hesaplama hatası:', error);
     selectedMusteriBakiye.value = 0;
+    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
   }
 }
 
@@ -2556,7 +2561,10 @@ function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
         selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
         
         // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
-        selectedMusteriBakiye.value = -(row.AlacakTutari || 0)
+        const alacakTutari = -(row.AlacakTutari || 0);
+        selectedMusteriBakiye.value = alacakTutari;
+        // Global erişim için window objesine ata
+        (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = alacakTutari;
         
         // Firma bakiyesini hesapla
         await hesaplaAlacakliMusteriFirmaBakiye(row)
@@ -2590,7 +2598,10 @@ async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
     selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
     
     // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
-    selectedMusteriBakiye.value = -(row.AlacakTutari || 0)
+    const alacakTutari2 = -(row.AlacakTutari || 0);
+    selectedMusteriBakiye.value = alacakTutari2;
+    // Global erişim için window objesine ata
+    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = alacakTutari2;
     
     // Firma bakiyesini hesapla
     await hesaplaAlacakliMusteriFirmaBakiye(row)
@@ -2650,7 +2661,7 @@ async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
 async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMusteri) {
   try {
     // 🔥 selectedNormalMusteri'yi güncelle (UI'da firma bakiye setinin görünmesi için)
-    selectedNormalMusteri.value = {
+    const alacakliMusteriData = {
       MstrTCN: '', // Alacaklı müşteri tablosunda TC bilgisi yok
       MstrHspTip: alacakliMusteri.MstrHspTip || 'Bireysel',
       MstrFirma: alacakliMusteri.MstrFirma || '',
@@ -2663,8 +2674,14 @@ async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMuster
       KnklmNfyt: 0,
       KnklmGrsTrh: '',
       KnklmPlnTrh: '',
-      KnklmNot: ''
+      KnklmNot: '',
+      CariKod: alacakliMusteri.CariKod // Alacaklı müşteri için CariKod bilgisini ekle
     };
+    
+    selectedNormalMusteri.value = alacakliMusteriData;
+    
+    // 🔥 window.kartliIslemSelectedNormalMusteri'yi de güncelle (Müşteri Tahsilat formu için)
+    window.kartliIslemSelectedNormalMusteri = alacakliMusteriData;
     
     // Kurumsal müşteri değilse firma bakiyesi sıfır
     if (!alacakliMusteri.MstrFirma || alacakliMusteri.MstrHspTip !== 'Kurumsal') {
@@ -2704,7 +2721,7 @@ async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMuster
 async function hesaplaBorcluMusteriFirmaBakiye(borcluMusteri: BorcluMusteri) {
   try {
     // 🔥 selectedNormalMusteri'yi güncelle (UI'da firma bakiye setinin görünmesi için)
-    selectedNormalMusteri.value = {
+    const borcluMusteriData = {
       MstrTCN: '', // Borçlu müşteri tablosunda TC bilgisi yok
       MstrHspTip: borcluMusteri.MstrHspTip || 'Bireysel',
       MstrFirma: borcluMusteri.MstrFirma || '',
@@ -2717,8 +2734,14 @@ async function hesaplaBorcluMusteriFirmaBakiye(borcluMusteri: BorcluMusteri) {
       KnklmNfyt: 0,
       KnklmGrsTrh: '',
       KnklmPlnTrh: '',
-      KnklmNot: ''
+      KnklmNot: '',
+      CariKod: borcluMusteri.CariKod // Borçlu müşteri için CariKod bilgisini ekle
     };
+    
+    selectedNormalMusteri.value = borcluMusteriData;
+    
+    // 🔥 window.kartliIslemSelectedNormalMusteri'yi de güncelle (Müşteri Tahsilat formu için)
+    window.kartliIslemSelectedNormalMusteri = borcluMusteriData;
     
     // Kurumsal müşteri değilse firma bakiyesi sıfır
     if (!borcluMusteri.MstrFirma || borcluMusteri.MstrHspTip !== 'Kurumsal') {
@@ -2849,8 +2872,10 @@ async function loadFilteredData(filter: string) {
   selectedNormalMusteri.value = null
   
   // 🔥 Müşteri bakiyesini sıfırla
-  selectedMusteriBakiye.value = 0
-  selectedFirmaBakiye.value = 0
+  selectedMusteriBakiye.value = 0;
+  selectedFirmaBakiye.value = 0;
+  // Global erişim için window objesini de sıfırla
+  (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
   
   // 🔥 Firma filtresini temizle
   firmaFiltresiAktif.value = false
@@ -3294,6 +3319,7 @@ function onFirmaFiltresiChange(newValue: boolean) {
       selectedNormalMusteri.value = null;
       selectedBorcluMusteri.value = null;
       selectedMusteriBakiye.value = 0;
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     });
   } else {
     // Filtre kapandığında tümünü temizle
@@ -3303,6 +3329,7 @@ function onFirmaFiltresiChange(newValue: boolean) {
     showCariHareketler.value = false;
     selectedMusteriBakiye.value = 0;
     selectedFirmaBakiye.value = 0;
+    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     selectedFirmaAdi.value = '';
   }
 }

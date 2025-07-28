@@ -12,7 +12,9 @@ export class ParametreService {
     private readonly dbConfig: DatabaseConfigService,
   ) {}
 
-  async getEkHizmetler(): Promise<{ Prm01: string; PrmAdi: string; Prm04: number }[]> {
+  async getEkHizmetler(): Promise<
+    { Prm01: string; PrmAdi: string; Prm04: number }[]
+  > {
     const tables = this.dbConfig.getTables();
     const query = `
         SELECT Prm01, PrmAdi, Prm04
@@ -23,7 +25,7 @@ export class ParametreService {
     console.log('🔥 PRODUCTION DEBUG - Environment:', process.env.NODE_ENV);
     console.log('🔥 PRODUCTION DEBUG - Table schema:', tables.parametreler);
     console.log('🔥 PRODUCTION DEBUG - Query:', query);
-    
+
     try {
       const result = await this.parametreRepository.query(query);
       console.log('🔥 PRODUCTION DEBUG - Result:', result);
@@ -43,7 +45,7 @@ export class ParametreService {
     `;
     console.log('🔥 KOMISYON DEBUG - Table schema:', tables.parametreler);
     console.log('🔥 KOMISYON DEBUG - Query:', query);
-    
+
     try {
       const result = await this.parametreRepository.query(query);
       console.log('🔥 KOMISYON DEBUG - Result:', result);
@@ -53,4 +55,4 @@ export class ParametreService {
       throw error;
     }
   }
-} 
+}

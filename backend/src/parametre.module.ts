@@ -9,7 +9,11 @@ import { DatabaseConfigService } from './database/database-config.service';
 @Module({
   imports: [TypeOrmModule.forFeature([Parametre])],
   controllers: [ParametreController],
-  providers: [ParametreService, ParametreAlternativeService, DatabaseConfigService],
+  providers: [
+    ParametreService,
+    ParametreAlternativeService,
+    DatabaseConfigService,
+  ],
   exports: [ParametreService, ParametreAlternativeService],
 })
-export class ParametreModule {} 
+export class ParametreModule {}

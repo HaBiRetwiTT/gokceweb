@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get } from '@nestjs/common';
 import { OdemeIslemService } from './odeme-islem.service';
 import { CreateOdemeIslemDto } from './dto/create-odeme-islem.dto';
 
@@ -9,5 +9,10 @@ export class OdemeIslemController {
   @Post()
   async create(@Body() dto: CreateOdemeIslemDto) {
     return this.odemeIslemService.kaydetIslemler(dto);
+  }
+
+  @Get('max-islemno')
+  async getMaxIslemno() {
+    return this.odemeIslemService.getMaxIslemno();
   }
 }

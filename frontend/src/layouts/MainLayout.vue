@@ -239,10 +239,10 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, Notify } from 'quasar';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
+import EssentialLink, { type EssentialLinkProps } from '../components/EssentialLink.vue';
 import { versionChecker } from '../services/version-checker.service';
-import { fetchEkHizmetler, saveEkHizmetler } from 'src/services/ek-hizmetler.service';
-import { api } from 'boot/axios';
+import { fetchEkHizmetler, saveEkHizmetler } from '../services/ek-hizmetler.service';
+import { api } from '../boot/axios';
 
 const router = useRouter();
 const $q = useQuasar();

@@ -74,7 +74,7 @@ export class DatabaseTransactionService {
       const result = await queryRunner.query(query, parameters);
       
       console.log('✅ Query başarılı');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+       
       return result;
       
     } catch (error) {
@@ -108,7 +108,7 @@ export class DatabaseTransactionService {
       const result = await queryRunner.query(query, parameters);
       
       console.log('✅ Stored Procedure başarılı');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+       
       return result;
       
     } catch (error) {

@@ -3,17 +3,17 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
-    component: () => import('pages/LoginPage.vue'),
+    component: () => import('../pages/LoginPage.vue'),
   },
   {
     path: '/',
-    component: () => import('layouts/MainLayout.vue'),
+    component: () => import('../layouts/MainLayout.vue'),
     children: [
-      { path: '', component: () => import('pages/DashboardPage.vue') },
-      { path: '/dashboard', component: () => import('pages/DashboardPage.vue') },
-      { path: '/musteri-islem', component: () => import('pages/musteri-islem.vue') },
-      { path: '/kartli-islem', component: () => import('pages/kartli-islem.vue') }
-      //{ path: '/odeme-islem', component: () => import('pages/odeme-islem.vue') },
+      { path: '', component: () => import('../pages/DashboardPage.vue') },
+      { path: '/dashboard', component: () => import('../pages/DashboardPage.vue') },
+      { path: '/musteri-islem', component: () => import('../pages/musteri-islem.vue') },
+      { path: '/kartli-islem', component: () => import('../pages/kartli-islem.vue') }
+      //{ path: '/odeme-islem', component: () => import('../pages/odeme-islem.vue') },
     ],
     meta: { requiresAuth: true }
   },
@@ -21,7 +21,7 @@ const routes: RouteRecordRaw[] = [
   // but you can also remove it
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue'),
+    component: () => import('../pages/ErrorNotFound.vue'),
   },
 ];
 

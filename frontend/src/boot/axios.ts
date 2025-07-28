@@ -1,4 +1,4 @@
-import { defineBoot } from '#q-app/wrappers';
+import { boot } from 'quasar/wrappers';
 import axios, { type AxiosInstance } from 'axios';
 
 declare module 'vue' {
@@ -40,7 +40,7 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error instanceof Error ? error : new Error(String(error)));
 });
 
-export default defineBoot(({ app }) => {
+export default boot(({ app }) => {
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
   app.config.globalProperties.$axios = axios;
