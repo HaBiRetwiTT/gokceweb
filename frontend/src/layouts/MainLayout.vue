@@ -624,7 +624,6 @@ function handleMenuAction(action: string) {
     }
   }
   if (action === 'showOdemeIslemModal') {
-    // Kartlı işlemler sayfasında mıyız?
     if (router.currentRoute.value.path !== '/kartli-islem') {
       Notify.create({
         type: 'warning',
@@ -632,8 +631,15 @@ function handleMenuAction(action: string) {
       });
       return;
     }
-    // Müşteri seçili mi?
     const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
+    const currentFilter = window.kartliIslemCurrentFilter;
+    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan'].includes(currentFilter)) {
+      Notify.create({
+        type: 'warning',
+        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- kartlarından biri seçili iken kullanılabilir.'
+      });
+      return;
+    }
     if (!selectedNormalMusteri || typeof selectedNormalMusteri !== 'object' || Array.isArray(selectedNormalMusteri) || Object.keys(selectedNormalMusteri).length === 0) {
       Notify.create({
         type: 'warning',
@@ -641,7 +647,6 @@ function handleMenuAction(action: string) {
       });
       return;
     }
-    // Her iki koşul da sağlanıyorsa modalı açacak event gönder
     window.dispatchEvent(new Event('showOdemeIslemModal'));
     return;
   }

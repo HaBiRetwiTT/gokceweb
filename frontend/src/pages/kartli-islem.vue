@@ -130,6 +130,7 @@
           outlined
           dense
           @update:model-value="onKonaklamaTipiChange"
+          :disable="showBorcluTable || showAlacakliTable"
         />
       </div>
 
@@ -159,6 +160,7 @@
           outlined
           dense
           @update:model-value="onOdaTipiChange"
+          :disable="showBorcluTable || showAlacakliTable"
         />
       </div>
 
@@ -3311,7 +3313,7 @@ onMounted(() => {
 // 🔥 FİRMA FİLTRESİ DEĞİŞİKLİK FONKSİYONU
 function onFirmaFiltresiChange(newValue: boolean) {
   console.log('Firma filtresi değişti:', newValue, 'Firma adı:', selectedFirmaAdi.value);
-  
+
   if (newValue && selectedFirmaAdi.value) {
     // Önce firma geneli verilerini yükle
     void loadFirmaGenelVerileri().then(() => {
@@ -3660,6 +3662,13 @@ onMounted(() => {
     window.removeEventListener('showEkHizmetlerModal', ekHizmetHandler);
     window.removeEventListener('showOdemeIslemModal', odemeHandler);
   });
+});
+
+watch([showBorcluTable, showAlacakliTable], ([newBorclu, newAlacakli]) => {
+  if (newBorclu || newAlacakli) {
+    selectedTip.value = 'TÜMÜ';
+    selectedOdaTip.value = 'TÜMÜ';
+  }
 });
 
 </script>
