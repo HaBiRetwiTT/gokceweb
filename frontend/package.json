@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.47",
+  "version": "1.0.48",
   "description": "GÖKÇE Pansiyon Yönetim Sistemi",
   "productName": "GÖKÇE Pansiyon",
   "author": "HaBiRetwiTT <habiretwitt@gmail.com>",
@@ -12,11 +12,11 @@
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
     "kill-port": "powershell -ExecutionPolicy Bypass -File \"../kill-port-9000.ps1\"",
-    "dev": "npm run kill-port && node ./node_modules/@quasar/cli/bin/quasar.js dev",
-    "dev:clean": "npm run kill-port && node ./node_modules/@quasar/cli/bin/quasar.js dev",
+    "dev": "npm run kill-port && quasar dev",
+    "dev:clean": "npm run kill-port && quasar dev",
     "prebuild": "node scripts/update-version.js",
-    "build": "node ./node_modules/@quasar/cli/bin/quasar.js build",
-    "build:vercel": "node ./node_modules/@quasar/cli/bin/quasar.js build",
+    "build": "quasar build",
+    "build:vercel": "quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },

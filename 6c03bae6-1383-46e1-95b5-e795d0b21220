@@ -1,0 +1,8 @@
+cd backend && npm run build
+cd .. && git add .
+cd frontend && npm version patch
+npm run build
+cd .. && git add .
+git commit -m "Vercel Deployment - Fiş Şablonu ve Build Düzeltmeleri v1.0.48"
+git push origin master
+echo "✅ Deployment tamamlandı! Vercel'de build loglarını kontrol edin." 
