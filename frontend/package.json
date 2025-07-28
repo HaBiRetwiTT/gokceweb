@@ -15,7 +15,7 @@
     "dev": "npm run kill-port && quasar dev",
     "dev:clean": "npm run kill-port && quasar dev",
     "prebuild": "node scripts/update-version.js",
-    "build": "./node_modules/.bin/quasar build",
+    "build": "echo '--- Current Directory ---' && ls -la && echo '--- node_modules/.bin ---' && ls -la node_modules/.bin && ./node_modules/.bin/quasar build",
     "build:vercel": "quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
