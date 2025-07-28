@@ -1,8 +1,7 @@
 {
-  "buildCommand": "pwd && ls -la && cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist/spa",
-  "installCommand": "pwd && ls -la && cd frontend && npm install",
-  "framework": null,
+  "github": {
+    "silent": true
+  },
   "rewrites": [
     {
       "source": "/(.*)",
