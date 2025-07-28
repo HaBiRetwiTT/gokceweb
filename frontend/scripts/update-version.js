@@ -33,7 +33,8 @@ function updateVersionFile() {
     console.log(`✅ Sürüm dosyası güncellendi: ${version}`)
   } catch (error) {
     console.error('❌ Sürüm dosyası güncellenirken hata:', error)
-    process.exit(1)
+    // Vercel build'de hata olsa bile devam et, sadece uyarı ver
+    console.warn('⚠️ Sürüm dosyası güncellenemedi, build devam ediyor...')
   }
 }
 

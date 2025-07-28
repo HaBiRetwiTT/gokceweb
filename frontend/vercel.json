@@ -1,3 +1,17 @@
 {
-    "outputDirectory": "dist/spa"
-  }
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist/spa",
+  "installCommand": "npm install",
+  "framework": null,
+  "functions": {
+    "dist/spa/**/*.html": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
