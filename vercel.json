@@ -1,9 +1,8 @@
 {
-  "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist/spa",
-  "installCommand": "npm install",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist/spa",
+  "installCommand": "cd frontend && npm install",
   "framework": null,
-  "rootDirectory": "frontend",
   "rewrites": [
     {
       "source": "/(.*)",
