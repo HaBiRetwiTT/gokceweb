@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "description": "GÖKÇE Pansiyon Yönetim Sistemi",
   "productName": "GÖKÇE Pansiyon",
   "author": "HaBiRetwiTT <habiretwitt@gmail.com>",
@@ -12,17 +12,16 @@
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
     "kill-port": "powershell -ExecutionPolicy Bypass -File \"../kill-port-9000.ps1\"",
-    "dev": "npm run kill-port && quasar dev",
-    "dev:clean": "npm run kill-port && quasar dev",
+    "dev": "npm run kill-port && npx quasar dev",
+    "dev:clean": "npm run kill-port && npx quasar dev",
     "prebuild": "node scripts/update-version.js",
-    "build": "quasar build",
-    "build:vercel": "quasar build",
+    "build": "npx quasar build",
+    "build:vercel": "npx quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },
   "dependencies": {
     "@eslint/js": "^9.14.0",
-    "@quasar/cli": "^2.5.0",
     "@quasar/extras": "^1.16.4",
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.4.0",
@@ -41,6 +40,7 @@
     "vue-tsc": "^2.0.29"
   },
   "devDependencies": {
+    "@quasar/cli": "^2.5.0",
     "@quasar/app-vite": "^2.3.0",
     "@types/chrome": "^0.1.1",
     "@types/node": "^20.5.9",
