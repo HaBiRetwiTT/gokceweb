@@ -406,23 +406,23 @@ export class DashboardService {
            FROM (
              SELECT 
                islemCrKod,
-               SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+               SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
              FROM ${tables.islem}
              GROUP BY islemCrKod
-             HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0)
+             HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) > 0)
            ) BorcluMusteriler) as BorcluMusteriSayisi,
           (SELECT COUNT(DISTINCT islemCrKod)
            FROM (
              SELECT 
                islemCrKod,
-               SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+               SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
              FROM ${tables.islem}
              GROUP BY islemCrKod
-             HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) < 0)
+             HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) < 0)
            ) AlacakliMusteriler) as AlacakliMusteriSayisi,
           SUM(v.KnklmNfyt) as ToplamGelir,
           AVG(v.KnklmNfyt) as OrtalamaGelir
@@ -811,12 +811,12 @@ export class DashboardService {
           FROM (
             SELECT 
               islemCrKod,
-              SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-              SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+              SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+              SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
             FROM ${tables.islem}
             GROUP BY islemCrKod
-            HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0)
+            HAVING left(islemCrKod,1) = 'M' and (SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) > 0)
           ) BorcluMusteriler
         )
       `;
@@ -841,10 +841,12 @@ export class DashboardService {
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
           (
             SELECT 
-              SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') THEN i.islemTutar ELSE 0 END) -
-              SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') THEN i.islemTutar ELSE 0 END)
+              SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
+              SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END)
             FROM ${tables.islem} i 
-            WHERE i.islemCrKod = c.CariKod
+            GROUP BY i.islemCrKod
+            HAVING i.islemCrKod = c.CariKod and (SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) > 0)
           ) as BorcTutari
         FROM ${tables.cari} c
         LEFT JOIN ${tables.musteri} m ON (
@@ -856,12 +858,12 @@ export class DashboardService {
           FROM (
             SELECT 
               islemCrKod,
-              SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-              SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+              SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+              SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
             FROM ${tables.islem}
             GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) > 0
+            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) > 0
           ) BorcluMusteriler
         )
         ORDER BY BorcTutari DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
@@ -911,12 +913,12 @@ export class DashboardService {
       const alacakliQuery = `
         SELECT 
           islemCrKod,
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM ${tables.islem}
         GROUP BY islemCrKod
-        HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) < 0
+        HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+               SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) < 0
       `;
       
       const alacakliMusteriler: { islemCrKod: string }[] = await this.musteriRepository.query(alacakliQuery);
@@ -944,10 +946,12 @@ export class DashboardService {
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
           ABS((
             SELECT 
-              SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') THEN i.islemTutar ELSE 0 END) -
-              SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') THEN i.islemTutar ELSE 0 END)
+              SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
+              SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END)
             FROM ${tables.islem} i 
-            WHERE i.islemCrKod = c.CariKod
+            GROUP BY i.islemCrKod
+            HAVING i.islemCrKod = c.CariKod and (SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
+                   SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) < 0)
           )) as AlacakTutari
         FROM ${tables.cari} c
         LEFT JOIN ${tables.musteri} m ON (
@@ -1203,8 +1207,8 @@ export class DashboardService {
       
       const query = `
         SELECT 
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM ${tables.islem}
         WHERE islemCrKod = @0
           AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
@@ -1246,8 +1250,8 @@ export class DashboardService {
       
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
         FROM ${tables.islem}
         WHERE islemCrKod IN (${cariKodParametreleri})
           AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
