@@ -1207,6 +1207,7 @@ export class DashboardService {
           SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM ${tables.islem}
         WHERE islemCrKod = @0
+          AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
       
       const result: { MusteriBakiye: number }[] = await this.musteriRepository.query(query, [cariKod]);
@@ -1249,6 +1250,7 @@ export class DashboardService {
           SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
         FROM ${tables.islem}
         WHERE islemCrKod IN (${cariKodParametreleri})
+          AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
       
       const result: { ToplamFirmaBakiye: number }[] = await this.musteriRepository.query(bakiyeQuery, cariKodlar);

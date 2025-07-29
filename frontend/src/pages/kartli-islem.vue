@@ -943,7 +943,7 @@
       @success="onModalSuccess"
     />
 
-    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="selectedNormalMusteri?.MstrAdi || ''" />
+    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="selectedNormalMusteri?.MstrAdi || ''" @bakiyeGuncelle="bakiyeGuncelleHandler" />
     <EkHizmetlerForm v-model:show="showEkHizmetlerModal" />
 
     <!-- DEBUG LOGS -->
@@ -3308,6 +3308,16 @@ onMounted(() => {
     await refreshData();
     await selectBestCard();
   })();
+
+  // Tahsilat sonrası bakiye güncelleme event listener
+  window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
+    const customEvent = e as CustomEvent;
+    const musteri = customEvent.detail || selectedNormalMusteri.value;
+    console.log('EVENT YAKALANDI', musteri);
+    if (musteri) {
+      void hesaplaMusteriBakiye(musteri);
+    }
+  });
 })
 
 // 🔥 FİRMA FİLTRESİ DEĞİŞİKLİK FONKSİYONU
@@ -3670,6 +3680,12 @@ watch([showBorcluTable, showAlacakliTable], ([newBorclu, newAlacakli]) => {
     selectedOdaTip.value = 'TÜMÜ';
   }
 });
+
+function bakiyeGuncelleHandler() {
+  if (selectedNormalMusteri.value) {
+    void hesaplaMusteriBakiye(selectedNormalMusteri.value);
+  }
+}
 
 </script>
 

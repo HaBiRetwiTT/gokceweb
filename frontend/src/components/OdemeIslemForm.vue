@@ -132,7 +132,7 @@ import { api } from '../boot/axios';
 import { Notify } from 'quasar';
 
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
-const emit = defineEmits(['update:show']);
+const emit = defineEmits(['update:show', 'bakiyeGuncelle']);
 const show = ref(props.show);
 watch(() => props.show, v => show.value = v);
 watch(show, v => emit('update:show', v));
@@ -698,6 +698,8 @@ async function onKaydet() {
       
       // Form resetleme işlemini en sona al
       resetForm();
+      console.log('BAKİYE GÜNCELLE EMIT', musteri);
+      emit('bakiyeGuncelle', musteri);
       show.value = false;
     } else {
       Notify.create({ type: 'negative', message: response.data.message || 'Tahsilat işlemleri kaydedilemedi.' });
