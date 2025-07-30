@@ -602,7 +602,7 @@ watch(() => route.path, (newPath, oldPath) => {
   flex: 1;
   min-width: 200px;
   max-width: 300px;
-  max-height: 700px; /* 40 satır için yeterli yükseklik */
+  max-height: 900px; /* 40 satır için yeterli yükseklik */
 }
 
 .tooltip-item {
