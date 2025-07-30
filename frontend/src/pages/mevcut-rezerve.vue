@@ -120,9 +120,6 @@
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
-                        <div style="font-size: 0.5rem; color: #ccc;">
-                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun
-                        </div>
                       </div>
                       <div class="tooltip-columns">
                         <div 
