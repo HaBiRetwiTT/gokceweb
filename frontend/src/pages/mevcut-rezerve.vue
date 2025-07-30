@@ -108,40 +108,21 @@
                     self="center left"
                     :offset="[10, 0]"
                     class="bg-dark text-white shadow-2"
-                    style="font-size: 0.65rem; max-width: 600px;"
+                    style="font-size: 0.65rem; max-width: none; width: auto;"
                   >
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
                       </div>
                       <div class="tooltip-columns">
-                        <!-- İlk 40 satır - Sol Sütun -->
-                        <div class="tooltip-column">
+                        <div 
+                          v-for="columnIndex in Math.ceil(doluluk.konaklamaDetaylari.length / 40)"
+                          :key="columnIndex"
+                          class="tooltip-column"
+                        >
                           <div 
-                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice(0, 40)" 
-                            :key="index"
-                            class="tooltip-item q-mb-xs"
-                          >
-                            <div class="oda-bilgi">
-                              {{ detay.odaNo }}-{{ detay.yatakNo }}:
-                            </div>
-                            <div class="musteri-adi">
-                              {{ detay.musteriAdi }} 
-                              <span 
-                                :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
-                                class="konaklama-tipi"
-                              >
-                                ({{ detay.konaklamaTipi }})
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <!-- 40'dan sonraki satırlar - Sağ Sütun -->
-                        <div v-if="doluluk.konaklamaDetaylari.length > 40" class="tooltip-column">
-                          <div 
-                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice(40)" 
-                            :key="index + 40"
+                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 40, columnIndex * 40)" 
+                            :key="(columnIndex - 1) * 40 + index"
                             class="tooltip-item q-mb-xs"
                           >
                             <div class="oda-bilgi">
@@ -598,6 +579,8 @@ watch(() => route.path, (newPath, oldPath) => {
 .konaklama-tooltip {
   padding: 0.5rem;
   line-height: 1.4;
+  max-height: none;
+  min-height: auto;
 }
 
 .tooltip-header {
@@ -611,11 +594,15 @@ watch(() => route.path, (newPath, oldPath) => {
 .tooltip-columns {
   display: flex;
   gap: 1rem;
+  flex-wrap: nowrap;
+  align-items: flex-start;
 }
 
 .tooltip-column {
   flex: 1;
   min-width: 200px;
+  max-width: 300px;
+  max-height: 700px; /* 40 satır için yeterli yükseklik */
 }
 
 .tooltip-item {
