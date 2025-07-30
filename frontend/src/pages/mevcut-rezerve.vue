@@ -109,10 +109,15 @@
                     :offset="[10, 0]"
                     class="bg-dark text-white shadow-2 custom-large-tooltip"
                     style="font-size: 0.65rem;"
+                    :max-height="null"
+                    :max-width="null"
                   >
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
+                        <div style="font-size: 0.5rem; color: #ccc;">
+                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun
+                        </div>
                       </div>
                       <div class="tooltip-columns">
                         <div 
@@ -686,6 +691,24 @@ watch(() => route.path, (newPath, oldPath) => {
 /* Viewport constraint override */
 .q-tooltip--style-default {
   max-height: none !important;
+}
+
+/* Force override viewport constraints */
+.q-tooltip__content {
+  max-height: 100vh !important;
+  overflow-y: visible !important;
+}
+
+.q-tooltip .q-tooltip__content > div {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Override any inherited height restrictions */
+* .q-tooltip,
+* .q-tooltip__content {
+  max-height: none !important;
+  height: auto !important;
 }
 
 
