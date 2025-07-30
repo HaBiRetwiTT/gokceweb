@@ -515,6 +515,7 @@ watch(() => route.path, (newPath, oldPath) => {
   padding: 1.35rem;
   width: 135px;
   border-right: 1px solid #e0e0e0; /* Tarih sütunu ile arasında border */
+  border-bottom: 1px solid rgba(224, 224, 224, 0.3); /* Satırlar arası hafif border */
 }
 
 .oda-tipi-content {
@@ -543,6 +544,7 @@ watch(() => route.path, (newPath, oldPath) => {
   width: 36px; /* Çok dar hücreler */
   height: 40px; /* Daha düşük */
   border: none; /* Border kaldırıldı */
+  border-bottom: 1px solid rgba(224, 224, 224, 0.3); /* Satırlar arası hafif border */
   box-shadow: 0 0 0 1px rgba(224, 224, 224, 0.5); /* Border yerine shadow */
   padding: 0;
   position: relative;
@@ -825,6 +827,11 @@ watch(() => route.path, (newPath, oldPath) => {
 /* Dark mode için doluluk cell shadow */
 .body--dark .doluluk-cell {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); /* Dark mode için açık shadow */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Dark mode için açık border */
+}
+
+.body--dark .oda-tipi-cell {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Dark mode için açık border */
 }
 
 
