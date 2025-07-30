@@ -84,6 +84,8 @@
                   'dolu': doluluk.dolu,
                   'bos': !doluluk.dolu
                 }"
+                :style="getHucreStyle(doluluk)"
+                :data-gradient-color="doluluk.dolu ? calculateGradientColor(doluluk.bosYatakSayisi, doluluk.konaklamaDetaylari.length) : ''"
               >
                 <div class="doluluk-indicator">
                   <!-- Ana İçerik - Sadece dolu hücrelerde göster -->
@@ -274,6 +276,53 @@ function getTotalKonaklama(odaTipi: TakvimData['odaTipleri'][0]): number {
   }, 0)
 }
 
+// Boş yatak oranına göre gradient renk hesapla (red -> green) - Daha belirgin skala
+function calculateGradientColor(bosYatak: number, doluYatak: number): string {
+  const toplamKapasite = bosYatak + doluYatak
+  
+  if (toplamKapasite === 0) {
+    return '#ff4444' // Red (boş kapasite)
+  }
+  
+  const bosOrani = bosYatak / toplamKapasite
+  
+  // Red (255, 68, 68) -> Yellow (255, 235, 59) -> Green (76, 175, 80)
+  // Daha belirgin renk geçişi için 3 aşamalı sistem
+  
+  if (bosOrani <= 0.5) {
+    // %0-50: Red -> Yellow
+    const localRatio = bosOrani * 2 // 0-1 arası normalize et
+    const r = 255
+    const g = Math.round(68 + (235 - 68) * localRatio)
+    const b = Math.round(68 + (59 - 68) * localRatio)
+    return `rgb(${r}, ${g}, ${b})`
+  } else {
+    // %50-100: Yellow -> Green
+    const localRatio = (bosOrani - 0.5) * 2 // 0-1 arası normalize et
+    const r = Math.round(255 + (76 - 255) * localRatio)
+    const g = Math.round(235 + (175 - 235) * localRatio)
+    const b = Math.round(59 + (80 - 59) * localRatio)
+    return `rgb(${r}, ${g}, ${b})`
+  }
+}
+
+// Hücre için gradient background style hesapla
+function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][0]): Record<string, string> {
+  if (!doluluk.dolu) {
+    return {} // Boş hücreler için stil yok
+  }
+  
+  const doluSayisi = doluluk.konaklamaDetaylari.length
+  const bosSayisi = doluluk.bosYatakSayisi
+  const gradientColor = calculateGradientColor(bosSayisi, doluSayisi)
+  
+  return {
+    backgroundColor: gradientColor,
+    background: `${gradientColor} !important`,
+    backgroundImage: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor}dd 100%) !important`
+  }
+}
+
 // Component mount olduğunda veri yükle
 onMounted(() => {
   void loadTakvimData()
@@ -456,13 +505,11 @@ watch(() => route.path, (newPath, oldPath) => {
   position: relative;
 }
 
-.doluluk-cell.dolu {
-  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-}
-
 .doluluk-cell.bos {
   background: #f5f5f5;
 }
+
+/* Gradient inline style için hazırlık */
 
 
 
