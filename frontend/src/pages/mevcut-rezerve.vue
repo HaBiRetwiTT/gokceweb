@@ -382,6 +382,15 @@ watch(() => route.path, (newPath, oldPath) => {
 .mevcut-rezerve-page {
   min-height: 100vh;
   background: #f8f9fa;
+  overflow: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.mevcut-rezerve-page::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }
 
 .page-header {
@@ -756,6 +765,64 @@ watch(() => route.path, (newPath, oldPath) => {
 .custom-large-tooltip * {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+}
+
+/* Ultimate scrollbar elimination - target all possible elements */
+*,
+html,
+body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+/* Target specific Quasar elements */
+.q-tooltip,
+.q-tooltip *,
+.q-menu,
+.q-menu *,
+.q-popup,
+.q-popup *,
+div[role="tooltip"],
+div[role="tooltip"] *,
+.q-tooltip__content,
+.q-tooltip__content *,
+[class*="tooltip"],
+[class*="tooltip"] * {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  height: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Hide all possible scrollbars */
+.q-tooltip::-webkit-scrollbar,
+.q-tooltip *::-webkit-scrollbar,
+.q-menu::-webkit-scrollbar,
+.q-menu *::-webkit-scrollbar,
+.q-popup::-webkit-scrollbar,
+.q-popup *::-webkit-scrollbar,
+div[role="tooltip"]::-webkit-scrollbar,
+div[role="tooltip"] *::-webkit-scrollbar,
+.q-tooltip__content::-webkit-scrollbar,
+.q-tooltip__content *::-webkit-scrollbar,
+[class*="tooltip"]::-webkit-scrollbar,
+[class*="tooltip"] *::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
 }
 
 
