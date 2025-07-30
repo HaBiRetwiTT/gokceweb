@@ -128,8 +128,8 @@
                           class="tooltip-column"
                         >
                           <div 
-                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 30, columnIndex * 30)" 
-                            :key="(columnIndex - 1) * 30 + index"
+                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 28, columnIndex * 28)" 
+                            :key="(columnIndex - 1) * 28 + index"
                             class="tooltip-item q-mb-xs"
                             :class="{ 'aylik-konaklama-satir': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' }"
                           >
