@@ -92,7 +92,15 @@ export class KonaklamaTakvimService {
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND v.KnklmPlnTrh IS NOT NULL
           AND v.KnklmPlnTrh <> ''
-        ORDER BY v.KnklmOdaTip, CONVERT(Date, v.KnklmPlnTrh, 104) DESC
+        ORDER BY v.KnklmOdaTip,
+                 CASE v.KnklmTip 
+                   WHEN 'GÜNLÜK' THEN 1
+                   WHEN 'HAFTALIK' THEN 2  
+                   WHEN 'AYLIK' THEN 3
+                   ELSE 4
+                 END,
+                 v.KnklmOdaNo ASC, 
+                 v.KnklmYtkNo ASC
       `;
       
       const result = await this.musteriRepository.query(query);
@@ -218,12 +226,25 @@ export class KonaklamaTakvimService {
           }
         });
         
-        // Oda no - yatak no'ya göre sırala
+        // Konaklama tipine göre, sonra oda-yatak no'ya göre sırala
         konaklamaDetaylari.sort((a, b) => {
+          // 1. Konaklama tipine göre sırala
+          const tipA = a.konaklamaTipi || '';
+          const tipB = b.konaklamaTipi || '';
+          
+          const tipPriorityA = tipA === 'GÜNLÜK' ? 1 : tipA === 'HAFTALIK' ? 2 : tipA === 'AYLIK' ? 3 : 4;
+          const tipPriorityB = tipB === 'GÜNLÜK' ? 1 : tipB === 'HAFTALIK' ? 2 : tipB === 'AYLIK' ? 3 : 4;
+          
+          if (tipPriorityA !== tipPriorityB) {
+            return tipPriorityA - tipPriorityB;
+          }
+          
+          // 2. Oda numarasına göre sırala
           const odaA = parseInt(a.odaNo) || 0;
           const odaB = parseInt(b.odaNo) || 0;
           
           if (odaA === odaB) {
+            // 3. Yatak numarasına göre sırala
             const yatakA = parseInt(a.yatakNo) || 0;
             const yatakB = parseInt(b.yatakNo) || 0;
             return yatakA - yatakB;

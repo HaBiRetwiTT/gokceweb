@@ -133,17 +133,20 @@
                             class="tooltip-item q-mb-xs"
                             :class="{ 'aylik-konaklama-satir': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' }"
                           >
-                            <div class="oda-bilgi">
-                              {{ detay.odaNo }}-{{ detay.yatakNo }}:
-                            </div>
-                            <div class="musteri-adi">
-                              {{ detay.musteriAdi }} 
-                              <span 
-                                :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
-                                class="konaklama-tipi"
-                              >
-                                ({{ detay.konaklamaTipi }})
-                              </span>
+                            <div class="tooltip-row">
+                              <div class="oda-yatak-col">
+                                {{ detay.odaNo }}-{{ detay.yatakNo }}
+                              </div>
+                              <div class="tip-col">
+                                <span 
+                                  :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
+                                >
+                                  {{ detay.konaklamaTipi }}
+                                </span>
+                              </div>
+                              <div class="musteri-col">
+                                {{ detay.musteriAdi }}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -358,7 +361,7 @@ function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][
 
 // Debug: Sütun sayısını konsola yazdır
 function getColumnCount(detaylar: KonaklamaDetay[]) {
-  const count = Math.ceil(detaylar.length / 30)
+  const count = Math.ceil(detaylar.length / 28)
   console.log(`📊 ${detaylar.length} kayıt için ${count} sütun hesaplandı`)
   return count
 }
@@ -644,25 +647,42 @@ watch(() => route.path, (newPath, oldPath) => {
 }
 
 .tooltip-item {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.tooltip-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.65rem;
+  line-height: 1.2;
 }
 
-.oda-bilgi {
+.oda-yatak-col {
   font-weight: 600;
   color: #81c784;
-  min-width: 60px;
+  min-width: 50px;
+  flex-shrink: 0;
 }
 
-.musteri-adi {
+.tip-col {
   color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 400;
+  min-width: 70px;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.musteri-col {
+  color: #ffffff;
+  flex: 1;
   word-break: break-word;
+  font-weight: 500;
 }
 
-.konaklama-tipi {
-  color: #ffffff;
-}
+
 
 .aylik-konaklama {
   color: #4caf50 !important; /* Yeşil renk */
