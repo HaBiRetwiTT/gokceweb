@@ -12,7 +12,8 @@ const routes: RouteRecordRaw[] = [
       { path: '', component: () => import('../pages/DashboardPage.vue') },
       { path: '/dashboard', component: () => import('../pages/DashboardPage.vue') },
       { path: '/musteri-islem', component: () => import('../pages/musteri-islem.vue') },
-      { path: '/kartli-islem', component: () => import('../pages/kartli-islem.vue') }
+      { path: '/kartli-islem', component: () => import('../pages/kartli-islem.vue') },
+      { path: '/mevcut-rezerve', component: () => import('../pages/mevcut-rezerve.vue') }
       //{ path: '/odeme-islem', component: () => import('../pages/odeme-islem.vue') },
     ],
     meta: { requiresAuth: true }

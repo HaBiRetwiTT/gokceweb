@@ -277,6 +277,12 @@ const linksList: EssentialLinkProps[] = [
     caption: 'Ödeme - Depozito',
     icon: 'payments',
     action: 'showOdemeIslemModal'
+  },
+  {
+    title: 'Oda Tip Takvim',
+    caption: 'Mevcut - Rezerve',
+    icon: 'calendar_month',
+    link: '/mevcut-rezerve'
   }
 ];
 

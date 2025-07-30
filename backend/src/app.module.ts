@@ -7,6 +7,7 @@ import { MusteriModule } from './musteri/musteri.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
 import { ParametreModule } from './parametre.module';
+import { KonaklamaTakvimModule } from './konaklama-takvim/konaklama-takvim.module';
 import { DatabaseConfigService } from './database/database-config.service';
 import { JwtMiddleware } from './auth/jwt.middleware';
 import * as dotenv from 'dotenv';
@@ -31,6 +32,7 @@ dotenv.config({
     DashboardModule,
     AuthModule,
     ParametreModule,
+    KonaklamaTakvimModule,
   ],
   controllers: [AppController, OdemeIslemController],
   providers: [AppService, DatabaseConfigService, OdemeIslemService, DatabaseTransactionService],
