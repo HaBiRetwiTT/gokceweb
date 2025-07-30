@@ -9,6 +9,7 @@ export interface KonaklamaDetay {
   musteriAdi: string;
   odaNo: string;
   yatakNo: string;
+  konaklamaTipi: string;
 }
 
 export interface OdaTipDoluluk {
@@ -83,7 +84,8 @@ export class KonaklamaTakvimService {
           v.MstrAdi,
           v.KnklmOdaNo,
           v.KnklmYtkNo,
-          v.KnklmGrsTrh
+          v.KnklmGrsTrh,
+          v.KnklmTip
         FROM ${views.musteriKonaklama} v
         WHERE v.MstrDurum = 'KALIYOR' 
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
@@ -194,7 +196,8 @@ export class KonaklamaTakvimService {
               konaklamaDetaylari.push({
                 musteriAdi: konaklama.MstrAdi || 'Bilinmeyen',
                 odaNo: konaklama.KnklmOdaNo || '-',
-                yatakNo: konaklama.KnklmYtkNo || '-'
+                yatakNo: konaklama.KnklmYtkNo || '-',
+                konaklamaTipi: konaklama.KnklmTip || 'Belirtilmemiş'
               });
               
               // Debug için

@@ -108,7 +108,7 @@
                     self="center left"
                     :offset="[10, 0]"
                     class="bg-dark text-white shadow-2"
-                    style="font-size: 0.85rem; max-width: 300px;"
+                    style="font-size: 0.65rem; max-width: 300px;"
                   >
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
@@ -123,7 +123,13 @@
                           {{ detay.odaNo }}-{{ detay.yatakNo }}:
                         </div>
                         <div class="musteri-adi">
-                          {{ detay.musteriAdi }}
+                          {{ detay.musteriAdi }} 
+                          <span 
+                            :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
+                            class="konaklama-tipi"
+                          >
+                            ({{ detay.konaklamaTipi }})
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -162,6 +168,7 @@ interface KonaklamaDetay {
   musteriAdi: string
   odaNo: string
   yatakNo: string
+  konaklamaTipi: string
 }
 
 interface TakvimData {
@@ -198,6 +205,7 @@ async function loadTakvimData() {
     })
     
     takvimData.value = response.data
+    
     console.log('Takvim verileri yüklendi:', takvimData.value)
     console.log('Gün sayısı:', takvimData.value?.gunler?.length)
     console.log('İlk tarih:', takvimData.value?.gunler?.[0])
@@ -276,7 +284,7 @@ function getTotalKonaklama(odaTipi: TakvimData['odaTipleri'][0]): number {
   }, 0)
 }
 
-// Boş yatak oranına göre gradient renk hesapla (red -> green) - Daha belirgin skala
+// Boş yatak oranına göre gradient renk hesapla (red -> orange -> yellow -> green)
 function calculateGradientColor(bosYatak: number, doluYatak: number): string {
   const toplamKapasite = bosYatak + doluYatak
   
@@ -286,22 +294,29 @@ function calculateGradientColor(bosYatak: number, doluYatak: number): string {
   
   const bosOrani = bosYatak / toplamKapasite
   
-  // Red (255, 68, 68) -> Yellow (255, 235, 59) -> Green (76, 175, 80)
-  // Daha belirgin renk geçişi için 3 aşamalı sistem
+  // 4 aşamalı sistem: Red -> Orange -> Yellow (dar) -> Green
+  // Yellow sadece %40-60 arası dar aralıkta
   
-  if (bosOrani <= 0.5) {
-    // %0-50: Red -> Yellow
-    const localRatio = bosOrani * 2 // 0-1 arası normalize et
-    const r = 255
-    const g = Math.round(68 + (235 - 68) * localRatio)
-    const b = Math.round(68 + (59 - 68) * localRatio)
+  if (bosOrani <= 0.4) {
+    // %0-40: Red -> Orange
+    const localRatio = bosOrani / 0.4 // 0-1 arası normalize et
+    const r = Math.round(255 + (255 - 255) * localRatio) // 255 sabit
+    const g = Math.round(68 + (152 - 68) * localRatio)   // 68 -> 152
+    const b = Math.round(68 + (0 - 68) * localRatio)     // 68 -> 0
+    return `rgb(${r}, ${g}, ${b})`
+  } else if (bosOrani <= 0.6) {
+    // %40-60: Orange -> Yellow (dar aralık)
+    const localRatio = (bosOrani - 0.4) / 0.2 // 0-1 arası normalize et
+    const r = Math.round(255 + (255 - 255) * localRatio) // 255 sabit
+    const g = Math.round(152 + (235 - 152) * localRatio) // 152 -> 235
+    const b = Math.round(0 + (59 - 0) * localRatio)      // 0 -> 59
     return `rgb(${r}, ${g}, ${b})`
   } else {
-    // %50-100: Yellow -> Green
-    const localRatio = (bosOrani - 0.5) * 2 // 0-1 arası normalize et
-    const r = Math.round(255 + (76 - 255) * localRatio)
-    const g = Math.round(235 + (175 - 235) * localRatio)
-    const b = Math.round(59 + (80 - 59) * localRatio)
+    // %60-100: Yellow -> Green
+    const localRatio = (bosOrani - 0.6) / 0.4 // 0-1 arası normalize et
+    const r = Math.round(255 + (76 - 255) * localRatio)  // 255 -> 76
+    const g = Math.round(235 + (175 - 235) * localRatio) // 235 -> 175
+    const b = Math.round(59 + (80 - 59) * localRatio)    // 59 -> 80
     return `rgb(${r}, ${g}, ${b})`
   }
 }
@@ -579,11 +594,25 @@ watch(() => route.path, (newPath, oldPath) => {
   word-break: break-word;
 }
 
+.konaklama-tipi {
+  color: #ffffff;
+}
+
+.aylik-konaklama {
+  color: #4caf50 !important; /* Yeşil renk */
+  font-weight: 600;
+}
+
 
 
 /* Dark Mode Desteği */
 .body--dark .mevcut-rezerve-page {
   background: #121212;
+}
+
+.body--dark .aylik-konaklama {
+  color: #81c784 !important; /* Dark mode için açık yeşil */
+  font-weight: 600;
 }
 
 .body--dark .page-header,
