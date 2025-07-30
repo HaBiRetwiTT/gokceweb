@@ -1,11 +1,6 @@
 <template>
   <q-page class="mevcut-rezerve-page q-pa-md">
-    <!-- Başlık -->
-    <div class="page-header q-mb-lg">
-      <q-icon name="calendar_month" size="2rem" color="indigo-6" class="q-mr-sm" />
-      <span class="text-h4 text-weight-medium">Oda Tip Takvim</span>
-      <span class="text-subtitle1 text-grey-6 q-ml-sm">Mevcut - Rezerve</span>
-    </div>
+
 
     <!-- Yükleme İndikatörü -->
     <div v-if="loading" class="text-center q-pa-xl">
@@ -96,8 +91,18 @@
                     </div>
                     
                     <!-- Boş Yatak Sayısı -->
-                    <div class="bos-sayisi">
+                    <div class="bos-sayisi" :class="{ 'sifir-deger': doluluk.bosYatakSayisi === 0 }">
                       B: {{ doluluk.bosYatakSayisi }}
+                    </div>
+                    
+                    <!-- Rezerve Sayısı -->
+                    <div class="rezerve-sayisi sifir-deger">
+                      R: 0
+                    </div>
+                    
+                    <!-- Toplam Sayısı -->
+                    <div class="toplam-sayisi sifir-deger">
+                      T: 0
                     </div>
                   </div>
                   
@@ -129,6 +134,7 @@
                             v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 30, columnIndex * 30)" 
                             :key="(columnIndex - 1) * 30 + index"
                             class="tooltip-item q-mb-xs"
+                            :class="{ 'aylik-konaklama-satir': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' }"
                           >
                             <div class="oda-bilgi">
                               {{ detay.odaNo }}-{{ detay.yatakNo }}:
@@ -506,7 +512,7 @@ watch(() => route.path, (newPath, oldPath) => {
 
 .oda-tipi-cell {
   background: #f8f9fa;
-  padding: 0.75rem;
+  padding: 1.35rem;
   width: 135px;
   border-right: 1px solid #e0e0e0; /* Tarih sütunu ile arasında border */
 }
@@ -664,6 +670,16 @@ watch(() => route.path, (newPath, oldPath) => {
   font-weight: 600;
 }
 
+/* Aylık konaklama satırları silik ton */
+.tooltip-item:has(.aylik-konaklama) {
+  opacity: 0.3;
+}
+
+/* Alternatif - CSS :has() desteklenmiyorsa */
+.aylik-konaklama-satir {
+  opacity: 0.3;
+}
+
 
 
 /* Dark Mode Desteği */
@@ -765,6 +781,45 @@ watch(() => route.path, (newPath, oldPath) => {
 .body--dark .bos-sayisi {
   color: #ffffff; /* Belirgin beyaz */
   opacity: 1; /* Tam opak - daha belirgin */
+}
+
+.rezerve-sayisi {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  opacity: 1;
+  line-height: 1;
+  text-align: center;
+}
+
+.toplam-sayisi {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  opacity: 1;
+  line-height: 1;
+  text-align: center;
+}
+
+.body--dark .rezerve-sayisi {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.body--dark .toplam-sayisi {
+  color: #ffffff;
+  opacity: 1;
+}
+
+/* Sıfır değerli satırlar için silik renk */
+.sifir-deger {
+  opacity: 0.4 !important;
+  color: #cccccc !important;
+}
+
+.body--dark .sifir-deger {
+  color: #666666 !important;
+  opacity: 0.4 !important;
 }
 
 /* Dark mode için doluluk cell shadow */
