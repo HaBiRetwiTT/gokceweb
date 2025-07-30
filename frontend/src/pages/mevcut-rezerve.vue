@@ -711,6 +711,28 @@ watch(() => route.path, (newPath, oldPath) => {
   height: auto !important;
 }
 
+/* AGGRESSIVE SCROLLBAR ELIMINATION */
+.q-tooltip,
+.q-tooltip *,
+.custom-large-tooltip,
+.custom-large-tooltip *,
+.konaklama-tooltip,
+.konaklama-tooltip * {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.q-tooltip::-webkit-scrollbar,
+.custom-large-tooltip::-webkit-scrollbar,
+.konaklama-tooltip::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 
 
 .body--dark .page-header,
