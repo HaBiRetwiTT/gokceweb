@@ -107,8 +107,8 @@
                     anchor="center right" 
                     self="center left"
                     :offset="[10, 0]"
-                    class="bg-dark text-white shadow-2"
-                    style="font-size: 0.65rem; max-width: none; width: auto;"
+                    class="bg-dark text-white shadow-2 custom-large-tooltip"
+                    style="font-size: 0.65rem;"
                   >
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
@@ -116,7 +116,7 @@
                       </div>
                       <div class="tooltip-columns">
                         <div 
-                          v-for="columnIndex in Math.ceil(doluluk.konaklamaDetaylari.length / 40)"
+                          v-for="columnIndex in getColumnCount(doluluk.konaklamaDetaylari)"
                           :key="columnIndex"
                           class="tooltip-column"
                         >
@@ -348,6 +348,13 @@ function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][
 
 
 
+// Debug: Sütun sayısını konsola yazdır
+function getColumnCount(detaylar: KonaklamaDetay[]) {
+  const count = Math.ceil(detaylar.length / 40)
+  console.log(`📊 ${detaylar.length} kayıt için ${count} sütun hesaplandı`)
+  return count
+}
+
 // Component mount olduğunda veri yükle
 onMounted(() => {
   void loadTakvimData()
@@ -575,12 +582,29 @@ watch(() => route.path, (newPath, oldPath) => {
   opacity: 1; /* Tam opak - daha belirgin */
 }
 
-/* Tooltip Stilleri */
+/* Tooltip Stilleri - Quasar Override */
+.custom-large-tooltip {
+  max-width: none !important;
+  max-height: none !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+:deep(.custom-large-tooltip .q-tooltip__content) {
+  max-width: none !important;
+  max-height: none !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
 .konaklama-tooltip {
   padding: 0.5rem;
   line-height: 1.4;
-  max-height: none;
+  max-height: none !important;
   min-height: auto;
+  overflow: visible !important;
+  width: auto !important;
 }
 
 .tooltip-header {
@@ -596,13 +620,17 @@ watch(() => route.path, (newPath, oldPath) => {
   gap: 1rem;
   flex-wrap: nowrap;
   align-items: flex-start;
+  width: auto !important;
+  height: auto !important;
 }
 
 .tooltip-column {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 200px;
   max-width: 300px;
-  max-height: 900px; /* 40 satır için yeterli yükseklik */
+  width: 250px;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .tooltip-item {
@@ -641,6 +669,23 @@ watch(() => route.path, (newPath, oldPath) => {
 .body--dark .aylik-konaklama {
   color: #81c784 !important; /* Dark mode için açık yeşil */
   font-weight: 600;
+}
+
+/* Global Quasar Tooltip Override - Force no height limits */
+.q-tooltip {
+  max-height: none !important;
+  height: auto !important;
+}
+
+.q-tooltip .q-tooltip__content {
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Viewport constraint override */
+.q-tooltip--style-default {
+  max-height: none !important;
 }
 
 
