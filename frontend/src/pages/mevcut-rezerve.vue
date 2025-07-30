@@ -116,7 +116,7 @@
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
                         <div style="font-size: 0.5rem; color: #ccc;">
-                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun
+                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun (30/sütun)
                         </div>
                       </div>
                       <div class="tooltip-columns">
@@ -609,7 +609,23 @@ watch(() => route.path, (newPath, oldPath) => {
   max-height: none !important;
   min-height: auto;
   overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
   width: auto !important;
+  height: auto !important;
+}
+
+.konaklama-tooltip,
+.konaklama-tooltip * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.konaklama-tooltip::-webkit-scrollbar,
+.konaklama-tooltip *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .tooltip-header {
@@ -709,6 +725,37 @@ watch(() => route.path, (newPath, oldPath) => {
 * .q-tooltip__content {
   max-height: none !important;
   height: auto !important;
+}
+
+/* Force remove scrollbars from tooltips */
+.q-tooltip,
+.q-tooltip *,
+.custom-large-tooltip,
+.custom-large-tooltip * {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+/* Hide any scrollbars that might appear */
+.q-tooltip::-webkit-scrollbar,
+.q-tooltip *::-webkit-scrollbar,
+.custom-large-tooltip::-webkit-scrollbar,
+.custom-large-tooltip *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Force scrollbar-width to none */
+.q-tooltip,
+.q-tooltip *,
+.custom-large-tooltip,
+.custom-large-tooltip * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 
