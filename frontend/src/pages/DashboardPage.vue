@@ -107,6 +107,17 @@
             class="q-mb-sm"
             />
           </div>
+          <div class="col-auto">
+          <q-btn 
+            color="positive"
+            icon="calendar_month"
+            label="Oda Tip Takvim"
+            @click="goToMevcutRezerve"
+            outline
+              size="lg"
+            class="q-mb-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -141,6 +152,10 @@ function goToKartliIslem() {
 
 function goToMusteriIslem() {
   void router.push('/musteri-islem')
+}
+
+function goToMevcutRezerve() {
+  void router.push('/mevcut-rezerve')
 }
 
 

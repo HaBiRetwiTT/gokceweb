@@ -11,7 +11,8 @@ export class KonaklamaTakvimController {
     @Query('baslangicTarihi') baslangicTarihi?: string,
     @Query('gunSayisi') gunSayisi?: string
   ) {
-    const gunSayisiInt = gunSayisi ? parseInt(gunSayisi) : 30; // Varsayılan 30 gün
+    const gunSayisiInt = gunSayisi ? parseInt(gunSayisi) : 32; // Varsayılan 32 gün
+    console.log(`🎯 API çağrısı: gunSayisi param = ${gunSayisi}, parsed = ${gunSayisiInt}`);
     return this.konaklamaTakvimService.getOdaDolulukTakvimi(baslangicTarihi, gunSayisiInt);
   }
 }

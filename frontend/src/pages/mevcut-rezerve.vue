@@ -15,8 +15,6 @@
 
     <!-- Takvim Tablosu -->
     <div v-else-if="takvimData" class="calendar-container">
-
-
       <!-- Responsive Tablo -->
       <div class="table-wrapper">
         <table class="calendar-table">
@@ -26,22 +24,33 @@
               <th class="oda-tipi-header">
                 <q-btn 
                   icon="refresh" 
-                  flat
-                  dense
-                  round
-                  size="sm"
-                  color="white"
+                  flat 
+                  dense 
+                  round 
+                  size="xs"
                   @click="loadTakvimData"
-                  class="refresh-btn q-mr-sm"
+                  class="refresh-btn"
                 />
                 Oda Tipi
               </th>
               <th 
-                v-for="gun in takvimData.gunler" 
+                v-for="(gun, index) in takvimData.gunler" 
                 :key="gun"
                 class="tarih-header"
+                :class="{ 
+                  'month-change': isMonthChange(gun, index),
+                  'first-of-month': formatTarihKisa(gun) === '1'
+                }"
               >
                 <div class="tarih-cell">
+                  <!-- Ay değişimi göstergesi -->
+                  <div 
+                    v-if="isMonthChange(gun, index)" 
+                    class="month-indicator"
+                  >
+                    {{ getMonthName(gun) }}
+                  </div>
+                  
                   <div class="gun-adi">{{ getGunAdi(gun) }}</div>
                   <div class="tarih">{{ formatTarihKisa(gun) }}</div>
                 </div>
@@ -60,8 +69,8 @@
               <td class="oda-tipi-cell">
                 <div class="oda-tipi-content">
                   <div class="oda-tipi-adi">{{ odaTipi.odaTipi }}</div>
-                  <div v-if="odaTipi.maxPlanlananTarih" class="max-tarih">
-                    Son: {{ odaTipi.maxPlanlananTarih }}
+                  <div class="konaklama-toplam">
+                    Toplam Konaklama: {{ getTotalKonaklama(odaTipi) }}
                   </div>
                 </div>
               </td>
@@ -77,22 +86,16 @@
                 }"
               >
                 <div class="doluluk-indicator">
-                  <!-- Ana İçerik -->
-                  <div class="hucre-content">
-                    <q-icon 
-                      v-if="doluluk.dolu" 
-                      name="hotel" 
-                      size="1rem" 
-                      color="white"
-                      class="yatak-icon"
-                    />
+                  <!-- Ana İçerik - Sadece dolu hücrelerde göster -->
+                  <div v-if="doluluk.dolu" class="hucre-content">
+                    <!-- Dolu Yatak Sayısı -->
+                    <div class="dolu-sayisi">
+                      D: {{ doluluk.konaklamaDetaylari.length }}
+                    </div>
                     
-                    <!-- Konaklama Sayısı -->
-                    <div 
-                      v-if="doluluk.dolu && doluluk.konaklamaDetaylari.length > 0"
-                      class="konaklama-sayisi"
-                    >
-                      {{ doluluk.konaklamaDetaylari.length }}
+                    <!-- Boş Yatak Sayısı -->
+                    <div class="bos-sayisi">
+                      B: {{ doluluk.bosYatakSayisi }}
                     </div>
                   </div>
                   
@@ -148,9 +151,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated, watch } from 'vue'
 import { api } from '../boot/axios'
 import { Notify } from 'quasar'
+import { useRoute } from 'vue-router'
 
 interface KonaklamaDetay {
   musteriAdi: string
@@ -166,6 +170,7 @@ interface TakvimData {
       tarih: string
       dolu: boolean
       konaklamaDetaylari: KonaklamaDetay[]
+      bosYatakSayisi: number
     }>
     maxPlanlananTarih: string | null
   }>
@@ -175,6 +180,8 @@ interface TakvimData {
 const loading = ref(true)
 const error = ref<string | null>(null)
 const takvimData = ref<TakvimData | null>(null)
+const route = useRoute()
+
 
 // Takvim verilerini yükle
 async function loadTakvimData() {
@@ -184,12 +191,15 @@ async function loadTakvimData() {
     
     const response = await api.get('/konaklama-takvim/oda-doluluk', {
       params: {
-        gunSayisi: 30 // 30 gün göster
+        gunSayisi: 32 // 32 gün göster
       }
     })
     
     takvimData.value = response.data
     console.log('Takvim verileri yüklendi:', takvimData.value)
+    console.log('Gün sayısı:', takvimData.value?.gunler?.length)
+    console.log('İlk tarih:', takvimData.value?.gunler?.[0])
+    console.log('Son tarih:', takvimData.value?.gunler?.[takvimData.value.gunler.length - 1])
   } catch (err) {
     console.error('Takvim verileri yüklenirken hata:', err)
     error.value = 'Takvim verileri yüklenemedi. Lütfen tekrar deneyin.'
@@ -223,9 +233,25 @@ function getGunAdi(tarih: string): string {
 function formatTarihKisa(tarih: string): string {
   const parts = tarih.split('.')
   if (parts.length === 3) {
-    return `${parts[0]}.${parts[1]}`
+    return parts[0] // Sadece gün sayısı
   }
   return tarih
+}
+
+function isMonthChange(tarih: string, index: number): boolean {
+  if (!takvimData.value || index === 0) return false
+  
+  const currentDate = parseDate(tarih)
+  const prevDate = parseDate(takvimData.value.gunler[index - 1])
+  
+  return currentDate.getMonth() !== prevDate.getMonth()
+}
+
+function getMonthName(tarih: string): string {
+  const date = parseDate(tarih)
+  const aylar = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 
+                 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+  return aylar[date.getMonth()]
 }
 
 function formatTarihDetay(tarih: string): string {
@@ -241,10 +267,29 @@ function formatTarihDetay(tarih: string): string {
   return `${gun}, ${gunSayisi} ${ay}`
 }
 
+// Oda tipindeki toplam konaklama sayısını hesapla
+function getTotalKonaklama(odaTipi: TakvimData['odaTipleri'][0]): number {
+  return odaTipi.dolulukTarihleri.reduce((total: number, doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][0]) => {
+    return total + (doluluk.konaklamaDetaylari?.length || 0)
+  }, 0)
+}
+
 // Component mount olduğunda veri yükle
 onMounted(() => {
   void loadTakvimData()
 })
+
+// Sayfa her aktif olduğunda (geri gelindi / navigate edildi) yenile
+onActivated(() => {
+  void loadTakvimData()
+})
+
+// Route değişikliklerini izle (programmatik navigation için)
+watch(() => route.path, (newPath, oldPath) => {
+  if (newPath === '/mevcut-rezerve' && newPath !== oldPath) {
+    void loadTakvimData()
+  }
+}, { immediate: false })
 </script>
 
 <style scoped>
@@ -264,66 +309,87 @@ onMounted(() => {
 
 
 
+
+
 .table-wrapper {
   overflow-x: auto;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  /* Yatay kaydırma çubuğunu gizle */
+  position: relative;
+  /* Yatay kaydırma çubuğunu gizle ama kaydırmayı etkin tut */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE ve Edge */
 }
+
+
 
 .table-wrapper::-webkit-scrollbar {
   display: none; /* Chrome, Safari ve Opera */
 }
 
+
+
 .calendar-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px; /* 30 gün için daha geniş */
-  font-size: 0.85rem; /* Daha kompakt görünüm */
+  min-width: 995px; /* 960px + 35px (oda tipi artışı) */
+  font-size: 0.8rem; /* Daha kompakt görünüm */
 }
 
 /* Başlık Stilleri */
 .oda-tipi-header {
-  background: #3949ab;
+  background: #5c6bc0;
   color: white;
-  padding: 0.75rem 0.5rem;
+  padding: 0.75rem;
   text-align: center;
   font-weight: 600;
-  position: sticky;
-  left: 0;
-  z-index: 10;
-  width: 140px; /* Sabit genişlik - daraltıldı */
-  max-width: 140px;
-  min-width: 140px;
-  border-right: 2px solid #e0e0e0;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 135px;
+  font-size: 0.85rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.2); /* Tarih sütunu ile arasında border */
 }
 
-.refresh-btn {
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
-}
 
-.refresh-btn:hover {
-  opacity: 1;
-}
+
+
 
 .tarih-header {
   background: #5c6bc0;
   color: white;
-  padding: 0.4rem 0.2rem;
+  padding: 0.3rem 0.15rem;
   text-align: center;
-  width: 50px; /* Daha dar hücreler */
-  max-width: 50px;
-  min-width: 50px;
+  width: 36px; /* Çok dar hücreler */
+  max-width: 36px;
+  min-width: 36px;
   border-right: 1px solid rgba(255, 255, 255, 0.2);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  position: relative;
+}
+
+/* Ay değişimi göstergesi */
+.tarih-header.month-change {
+  border-left: 3px solid #ff9800;
+  background: linear-gradient(135deg, #ff9800 0%, #5c6bc0 100%);
+}
+
+.month-indicator {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff9800;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.first-of-month {
+  background: #7986cb !important;
+  font-weight: 600;
 }
 
 
@@ -336,14 +402,14 @@ onMounted(() => {
 }
 
 .gun-adi {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 500;
   line-height: 1;
 }
 
 .tarih {
-  font-size: 0.6rem;
-  opacity: 0.9;
+  font-size: 0.7rem;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -354,14 +420,9 @@ onMounted(() => {
 
 .oda-tipi-cell {
   background: #f8f9fa;
-  padding: 0.75rem 0.5rem;
-  border-right: 2px solid #e0e0e0;
-  position: sticky;
-  left: 0;
-  z-index: 5;
-  width: 140px; /* Sabit genişlik - daraltıldı */
-  max-width: 140px;
-  min-width: 140px;
+  padding: 0.75rem;
+  width: 135px;
+  border-right: 1px solid #e0e0e0; /* Tarih sütunu ile arasında border */
 }
 
 .oda-tipi-content {
@@ -373,13 +434,13 @@ onMounted(() => {
 .oda-tipi-adi {
   font-weight: 600;
   color: #2c3e50;
-  font-size: 0.8rem;
+  font-size: 0.8rem; /* 0.75rem'den 0.8rem'e artırıldı */
   line-height: 1.1;
   word-wrap: break-word;
 }
 
-.max-tarih {
-  font-size: 0.65rem;
+.konaklama-toplam {
+  font-size: 0.65rem; /* 0.6rem'den 0.65rem'e artırıldı */
   color: #7b1fa2;
   font-weight: 500;
   line-height: 1;
@@ -387,9 +448,10 @@ onMounted(() => {
 
 /* Doluluk Hücreleri */
 .doluluk-cell {
-  width: 50px; /* Dar hücreler */
-  height: 45px; /* Daha düşük */
-  border: 1px solid #e0e0e0;
+  width: 36px; /* Çok dar hücreler */
+  height: 40px; /* Daha düşük */
+  border: none; /* Border kaldırıldı */
+  box-shadow: 0 0 0 1px rgba(224, 224, 224, 0.5); /* Border yerine shadow */
   padding: 0;
   position: relative;
 }
@@ -418,27 +480,27 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.1rem;
   height: 100%;
+  width: 100%;
 }
 
-.yatak-icon {
-  flex-shrink: 0;
-}
-
-.konaklama-sayisi {
-  background: rgba(255, 255, 255, 0.9);
-  color: #2e7d32;
-  font-size: 0.7rem;
-  font-weight: 700;
-  border-radius: 50%;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.dolu-sayisi {
+  color: #ffffff;
+  font-size: 0.8rem; /* 0.7rem'den 0.8rem'e artırıldı */
+  font-weight: 600; /* 700'den 400'e düşürüldü - daha silik */
   line-height: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  opacity: 0.6; /* Daha silik görünüm */
+}
+
+.bos-sayisi {
+  color: #ffffff;
+  font-size: 0.8rem; /* 0.7rem'den 0.8rem'e artırıldı */
+  font-weight: 800; /* 700'den 800'e artırıldı - daha belirgin */
+  line-height: 1;
+  text-align: center;
+  opacity: 1; /* Tam opak - daha belirgin */
 }
 
 /* Tooltip Stilleri */
@@ -491,14 +553,30 @@ onMounted(() => {
   color: #e0e0e0;
 }
 
+.body--dark .konaklama-toplam {
+  color: #bb86fc; /* Dark mode için daha açık mor ton */
+}
+
 .body--dark .doluluk-cell.bos {
   background: #333;
 }
 
-.body--dark .konaklama-sayisi {
-  background: rgba(0, 0, 0, 0.8);
-  color: #81c784;
+.body--dark .dolu-sayisi {
+  color: #fdfafa; /* Daha silik gri ton */
+  opacity: 0.5; /* Dark modda daha da silik */
 }
+
+.body--dark .bos-sayisi {
+  color: #ffffff; /* Belirgin beyaz */
+  opacity: 1; /* Tam opak - daha belirgin */
+}
+
+/* Dark mode için doluluk cell shadow */
+.body--dark .doluluk-cell {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); /* Dark mode için açık shadow */
+}
+
+
 
 /* Responsive Tasarım */
 @media (max-width: 768px) {
@@ -514,7 +592,7 @@ onMounted(() => {
   
   .oda-tipi-header,
   .oda-tipi-cell {
-    width: 120px;
+    width: 120px; /* 135px'in tablet karşılığı */
     min-width: 120px;
     max-width: 120px;
   }
@@ -524,27 +602,27 @@ onMounted(() => {
 
 @media (max-width: 480px) {
   .calendar-table {
-    min-width: 900px; /* 30 gün için mobilde */
-    font-size: 0.8rem;
+    min-width: 790px; /* 760px + 30px (mobil oda tipi artışı) */
+    font-size: 0.75rem;
   }
   
   .tarih-header {
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    padding: 0.3rem 0.1rem;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    padding: 0.25rem 0.1rem;
   }
   
   .doluluk-cell {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 36px;
   }
 
   .oda-tipi-header,
   .oda-tipi-cell {
-    width: 100px;
-    min-width: 100px;
-    max-width: 100px;
+    width: 110px; /* 135px'in mobil karşılığı */
+    min-width: 110px;
+    max-width: 110px;
   }
 
   .gun-adi {
@@ -556,9 +634,15 @@ onMounted(() => {
   }
 
   .konaklama-sayisi {
-    width: 14px;
-    height: 14px;
-    font-size: 0.65rem;
+    width: 12px;
+    height: 12px;
+    font-size: 0.6rem;
+  }
+
+  .month-indicator {
+    font-size: 0.55rem;
+    padding: 1px 2px;
   }
 }
 </style>
+

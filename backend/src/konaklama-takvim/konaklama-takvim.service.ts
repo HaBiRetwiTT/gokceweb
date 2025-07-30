@@ -17,6 +17,7 @@ export interface OdaTipDoluluk {
     tarih: string; 
     dolu: boolean;
     konaklamaDetaylari: KonaklamaDetay[];
+    bosYatakSayisi: number;
   }[];
   maxPlanlananTarih: string | null;
 }
@@ -37,15 +38,18 @@ export class KonaklamaTakvimService {
   /**
    * Oda doluluk takvimini getirir
    * @param baslangicTarihi Başlangıç tarihi (opsiyonel, varsayılan bugün)
-   * @param gunSayisi Kaç gün gösterilecek (varsayılan 30)
+   * @param gunSayisi Kaç gün gösterilecek (varsayılan 32)
    */
-  async getOdaDolulukTakvimi(baslangicTarihi?: string, gunSayisi: number = 30): Promise<KonaklamaTakvimData> {
+  async getOdaDolulukTakvimi(baslangicTarihi?: string, gunSayisi: number = 32): Promise<KonaklamaTakvimData> {
     try {
       // Başlangıç tarihini belirle (bugün veya verilen tarih)
       const startDate = baslangicTarihi ? new Date(this.parseDate(baslangicTarihi)) : new Date();
+      console.log(`📍 Başlangıç tarihi belirlendi: ${this.formatDate(startDate)} (parametre: ${baslangicTarihi || 'bugün'})`);
       
       // Tarih dizisini oluştur
       const gunler = this.createDateArray(startDate, gunSayisi);
+      console.log(`🗓️ Takvim oluşturuluyor: ${gunSayisi} gün, ilk tarih: ${this.formatDate(startDate)}`);
+      console.log(`📅 İlk tarih: ${gunler[0]}, Son tarih: ${gunler[gunler.length - 1]}, Toplam: ${gunler.length}`);
       
       // Aktif konaklamaları v_MusteriKonaklama view'ından getir
       const aktifKonaklamalar = await this.getAktifKonaklamalar();
@@ -54,7 +58,7 @@ export class KonaklamaTakvimService {
       const odaTipGruplari = this.groupByOdaTipi(aktifKonaklamalar);
       
       // Her oda tipi için doluluk durumunu hesapla
-      const odaTipleri = this.calculateOdaDoluluk(odaTipGruplari, gunler);
+      const odaTipleri = await this.calculateOdaDoluluk(odaTipGruplari, gunler);
       
       return {
         gunler,
@@ -105,6 +109,25 @@ export class KonaklamaTakvimService {
   }
 
   /**
+   * Belirli oda tipi için toplam yatak sayısını getirir (BOŞ + DOLU)
+   */
+  private async getToplamYatakSayisi(odaTipi: string): Promise<number> {
+    try {
+      const query = `
+        SELECT COUNT(*) as toplamYatakSayisi
+        FROM tblOdaYatak 
+        WHERE odYatOdaTip = @0 AND odYatDurum IN ('BOŞ', 'DOLU')
+      `;
+      
+      const result = await this.musteriRepository.query(query, [odaTipi]);
+      return result[0]?.toplamYatakSayisi || 0;
+    } catch (error) {
+      console.error('getToplamYatakSayisi hatası:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Konaklamaları oda tipine göre gruplandırır
    */
   private groupByOdaTipi(konaklamalar: any[]): { [odaTipi: string]: any[] } {
@@ -125,10 +148,10 @@ export class KonaklamaTakvimService {
   /**
    * Her oda tipi için doluluk durumunu hesaplar
    */
-  private calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: any[] }, gunler: string[]): OdaTipDoluluk[] {
+  private async calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: any[] }, gunler: string[]): Promise<OdaTipDoluluk[]> {
     const odaTipleri: OdaTipDoluluk[] = [];
     
-    Object.keys(odaTipGruplari).forEach(odaTipi => {
+    for (const odaTipi of Object.keys(odaTipGruplari)) {
       const konaklamalar = odaTipGruplari[odaTipi];
       
       // Bu oda tipindeki en büyük planlanan çıkış tarihini bul
@@ -192,11 +215,34 @@ export class KonaklamaTakvimService {
           }
         });
         
+        // Oda no - yatak no'ya göre sırala
+        konaklamaDetaylari.sort((a, b) => {
+          const odaA = parseInt(a.odaNo) || 0;
+          const odaB = parseInt(b.odaNo) || 0;
+          
+          if (odaA === odaB) {
+            const yatakA = parseInt(a.yatakNo) || 0;
+            const yatakB = parseInt(b.yatakNo) || 0;
+            return yatakA - yatakB;
+          }
+          
+          return odaA - odaB;
+        });
+        
         return {
           tarih: gunTarihi,
           dolu: konaklamaDetaylari.length > 0,
-          konaklamaDetaylari
+          konaklamaDetaylari,
+          bosYatakSayisi: 0 // Geçici, aşağıda güncellenecek
         };
+      });
+      
+      // Bu oda tipi için toplam yatak sayısını al
+      const toplamYatakSayisi = await this.getToplamYatakSayisi(odaTipi);
+      
+      // Her güne göre boş yatak sayısını hesapla (toplam - o günkü konaklama sayısı)
+      dolulukTarihleri.forEach(doluluk => {
+        doluluk.bosYatakSayisi = toplamYatakSayisi - doluluk.konaklamaDetaylari.length;
       });
       
       odaTipleri.push({
@@ -204,7 +250,7 @@ export class KonaklamaTakvimService {
         dolulukTarihleri,
         maxPlanlananTarih: maxPlanlananTarih ? this.formatDate(maxPlanlananTarih) : null
       });
-    });
+    }
     
     // Oda tiplerini alfabetik sırala
     odaTipleri.sort((a, b) => a.odaTipi.localeCompare(b.odaTipi, 'tr'));
@@ -219,11 +265,21 @@ export class KonaklamaTakvimService {
     const dates: string[] = [];
     const currentDate = new Date(startDate);
     
+    console.log(`🏁 Tarih dizisi başlangıç: ${this.formatDate(currentDate)}, hedef gün sayısı: ${gunSayisi}`);
+    
     for (let i = 0; i < gunSayisi; i++) {
-      dates.push(this.formatDateForDisplay(new Date(currentDate)));
+      const dateToAdd = new Date(currentDate);
+      const formattedDate = this.formatDateForDisplay(dateToAdd);
+      dates.push(formattedDate);
+      
+      if (i < 3 || i >= gunSayisi - 3) {
+        console.log(`📅 Gün ${i + 1}: ${formattedDate}`);
+      }
+      
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
+    console.log(`✅ Tarih dizisi tamamlandı: ${dates.length} gün oluşturuldu`);
     return dates;
   }
 

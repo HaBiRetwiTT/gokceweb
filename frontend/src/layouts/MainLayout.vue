@@ -9,6 +9,8 @@
           icon="menu"
           aria-label="Menu"
           @click="toggleLeftDrawer"
+          @touchend.prevent="handleMenuTouchEnd"
+          class="menu-toggle-btn"
         />
 
         <q-toolbar-title class="logo-container">
@@ -459,9 +461,36 @@ watch(showEkHizmetlerModal, (val) => {
   if (val) void loadEkHizmetler();
 });
 
-function toggleLeftDrawer () {
-  // leftDrawerOpen.value = !leftDrawerOpen.value;
+function toggleLeftDrawer() {
+  // Android browser uyumluluğu için timeout eklendi
+  setTimeout(() => {
+    miniMenu.value = !miniMenu.value;
+    // Force re-render için
+    leftDrawerOpen.value = !leftDrawerOpen.value;
+    // Geri al
+    setTimeout(() => {
+      leftDrawerOpen.value = !leftDrawerOpen.value;
+    }, 10);
+  }, 50);
+}
+
+// Android browser için ayrı touch handler
+function handleMenuTouchEnd(event: TouchEvent) {
+  // Touch event'in gereksiz duplicate'ini önle
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // Android browser'da daha güvenilir toggle için
   miniMenu.value = !miniMenu.value;
+  
+  // Visual feedback için kısa animation trigger
+  const btn = event.target as HTMLElement;
+  if (btn) {
+    btn.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      btn.style.transform = '';
+    }, 150);
+  }
 }
 
 function handleLogout() {
@@ -751,6 +780,17 @@ onMounted(() => {
     ekHizmetlerMusteriRefresh.value++;
   });
   
+  // Android browser detection ve drawer fix
+  if (typeof window !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+    // Android browser için drawer başlangıç durumu fix
+    setTimeout(() => {
+      const drawerElement = document.querySelector('.q-drawer');
+      if (drawerElement) {
+        drawerElement.classList.add('android-drawer-fix');
+      }
+    }, 100);
+  }
+  
   // showOdemeIslemModal ile ilgili event listener ve state tanımı kaldırıldı.
 });
 
@@ -921,5 +961,48 @@ body.body--light .genel-toplam-row {
 body.body--dark .genel-toplam-row {
   background: #aaaaaa !important;
   color: #fff !important;
+}
+
+/* Android browser menü toggle fix */
+.menu-toggle-btn {
+  /* Touch event optimizasyonu */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 0.15s ease;
+}
+
+.menu-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Android browser için özel mobile CSS */
+@media (max-width: 768px) and (hover: none) {
+  .menu-toggle-btn {
+    /* Android touch için daha büyük hit area */
+    min-width: 48px;
+    min-height: 48px;
+    padding: 8px;
+  }
+  
+  /* Android browser'da drawer animation iyileştirme */
+  .q-drawer {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  }
+  
+  /* Android'de mini state transition */
+  .q-drawer .q-item {
+    transition: all 0.3s ease !important;
+  }
+}
+
+/* Android browser için özel fix class */
+.android-drawer-fix {
+  /* Android browser'da drawer render sorunu için */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 </style>
