@@ -108,28 +108,55 @@
                     self="center left"
                     :offset="[10, 0]"
                     class="bg-dark text-white shadow-2"
-                    style="font-size: 0.65rem; max-width: 300px;"
+                    style="font-size: 0.65rem; max-width: 600px;"
                   >
                     <div class="konaklama-tooltip">
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
                       </div>
-                      <div 
-                        v-for="(detay, index) in doluluk.konaklamaDetaylari" 
-                        :key="index"
-                        class="tooltip-item q-mb-xs"
-                      >
-                        <div class="oda-bilgi">
-                          {{ detay.odaNo }}-{{ detay.yatakNo }}:
-                        </div>
-                        <div class="musteri-adi">
-                          {{ detay.musteriAdi }} 
-                          <span 
-                            :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
-                            class="konaklama-tipi"
+                      <div class="tooltip-columns">
+                        <!-- İlk 40 satır - Sol Sütun -->
+                        <div class="tooltip-column">
+                          <div 
+                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice(0, 40)" 
+                            :key="index"
+                            class="tooltip-item q-mb-xs"
                           >
-                            ({{ detay.konaklamaTipi }})
-                          </span>
+                            <div class="oda-bilgi">
+                              {{ detay.odaNo }}-{{ detay.yatakNo }}:
+                            </div>
+                            <div class="musteri-adi">
+                              {{ detay.musteriAdi }} 
+                              <span 
+                                :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
+                                class="konaklama-tipi"
+                              >
+                                ({{ detay.konaklamaTipi }})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- 40'dan sonraki satırlar - Sağ Sütun -->
+                        <div v-if="doluluk.konaklamaDetaylari.length > 40" class="tooltip-column">
+                          <div 
+                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice(40)" 
+                            :key="index + 40"
+                            class="tooltip-item q-mb-xs"
+                          >
+                            <div class="oda-bilgi">
+                              {{ detay.odaNo }}-{{ detay.yatakNo }}:
+                            </div>
+                            <div class="musteri-adi">
+                              {{ detay.musteriAdi }} 
+                              <span 
+                                :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
+                                class="konaklama-tipi"
+                              >
+                                ({{ detay.konaklamaTipi }})
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -337,6 +364,8 @@ function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][
     backgroundImage: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor}dd 100%) !important`
   }
 }
+
+
 
 // Component mount olduğunda veri yükle
 onMounted(() => {
@@ -575,6 +604,18 @@ watch(() => route.path, (newPath, oldPath) => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   padding-bottom: 0.25rem;
   font-size: 0.9rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.tooltip-columns {
+  display: flex;
+  gap: 1rem;
+}
+
+.tooltip-column {
+  flex: 1;
+  min-width: 200px;
 }
 
 .tooltip-item {
@@ -614,6 +655,8 @@ watch(() => route.path, (newPath, oldPath) => {
   color: #81c784 !important; /* Dark mode için açık yeşil */
   font-weight: 600;
 }
+
+
 
 .body--dark .page-header,
 .body--dark .table-wrapper {
