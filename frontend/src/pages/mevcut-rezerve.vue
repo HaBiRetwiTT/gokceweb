@@ -116,7 +116,7 @@
                       <div class="tooltip-header q-mb-xs">
                         <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
                         <div style="font-size: 0.5rem; color: #ccc;">
-                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun (30/sütun)
+                          Toplam: {{ doluluk.konaklamaDetaylari.length }} kayıt / {{ getColumnCount(doluluk.konaklamaDetaylari) }} sütun
                         </div>
                       </div>
                       <div class="tooltip-columns">
@@ -382,15 +382,6 @@ watch(() => route.path, (newPath, oldPath) => {
 .mevcut-rezerve-page {
   min-height: 100vh;
   background: #f8f9fa;
-  overflow: visible !important;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-.mevcut-rezerve-page::-webkit-scrollbar {
-  display: none !important;
-  width: 0px !important;
-  height: 0px !important;
 }
 
 .page-header {
@@ -609,7 +600,7 @@ watch(() => route.path, (newPath, oldPath) => {
   max-height: none !important;
   width: auto !important;
   height: auto !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .konaklama-tooltip {
@@ -617,24 +608,8 @@ watch(() => route.path, (newPath, oldPath) => {
   line-height: 1.4;
   max-height: none !important;
   min-height: auto;
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
+  overflow: hidden !important;
   width: auto !important;
-  height: auto !important;
-}
-
-.konaklama-tooltip,
-.konaklama-tooltip * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-.konaklama-tooltip::-webkit-scrollbar,
-.konaklama-tooltip *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 
 .tooltip-header {
@@ -660,7 +635,7 @@ watch(() => route.path, (newPath, oldPath) => {
   max-width: 300px;
   width: 250px;
   max-height: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .tooltip-item {
@@ -710,7 +685,7 @@ watch(() => route.path, (newPath, oldPath) => {
 .q-tooltip .q-tooltip__content {
   max-height: none !important;
   height: auto !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 /* Viewport constraint override */
@@ -721,12 +696,12 @@ watch(() => route.path, (newPath, oldPath) => {
 /* Force override viewport constraints */
 .q-tooltip__content {
   max-height: 100vh !important;
-  overflow-y: visible !important;
+  overflow-y: hidden !important;
 }
 
 .q-tooltip .q-tooltip__content > div {
   max-height: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 /* Override any inherited height restrictions */
@@ -734,95 +709,6 @@ watch(() => route.path, (newPath, oldPath) => {
 * .q-tooltip__content {
   max-height: none !important;
   height: auto !important;
-}
-
-/* Force remove scrollbars from tooltips */
-.q-tooltip,
-.q-tooltip *,
-.custom-large-tooltip,
-.custom-large-tooltip * {
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
-  max-height: none !important;
-  height: auto !important;
-}
-
-/* Hide any scrollbars that might appear */
-.q-tooltip::-webkit-scrollbar,
-.q-tooltip *::-webkit-scrollbar,
-.custom-large-tooltip::-webkit-scrollbar,
-.custom-large-tooltip *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-/* Force scrollbar-width to none */
-.q-tooltip,
-.q-tooltip *,
-.custom-large-tooltip,
-.custom-large-tooltip * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-/* Ultimate scrollbar elimination - target all possible elements */
-*,
-html,
-body {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-*::-webkit-scrollbar,
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none !important;
-  width: 0px !important;
-  height: 0px !important;
-  background: transparent !important;
-}
-
-/* Target specific Quasar elements */
-.q-tooltip,
-.q-tooltip *,
-.q-menu,
-.q-menu *,
-.q-popup,
-.q-popup *,
-div[role="tooltip"],
-div[role="tooltip"] *,
-.q-tooltip__content,
-.q-tooltip__content *,
-[class*="tooltip"],
-[class*="tooltip"] * {
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
-  max-height: none !important;
-  height: auto !important;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-/* Hide all possible scrollbars */
-.q-tooltip::-webkit-scrollbar,
-.q-tooltip *::-webkit-scrollbar,
-.q-menu::-webkit-scrollbar,
-.q-menu *::-webkit-scrollbar,
-.q-popup::-webkit-scrollbar,
-.q-popup *::-webkit-scrollbar,
-div[role="tooltip"]::-webkit-scrollbar,
-div[role="tooltip"] *::-webkit-scrollbar,
-.q-tooltip__content::-webkit-scrollbar,
-.q-tooltip__content *::-webkit-scrollbar,
-[class*="tooltip"]::-webkit-scrollbar,
-[class*="tooltip"] *::-webkit-scrollbar {
-  display: none !important;
-  width: 0px !important;
-  height: 0px !important;
-  background: transparent !important;
 }
 
 
