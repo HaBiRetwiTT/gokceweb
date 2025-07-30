@@ -126,8 +126,8 @@
                           class="tooltip-column"
                         >
                           <div 
-                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 40, columnIndex * 40)" 
-                            :key="(columnIndex - 1) * 40 + index"
+                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 30, columnIndex * 30)" 
+                            :key="(columnIndex - 1) * 30 + index"
                             class="tooltip-item q-mb-xs"
                           >
                             <div class="oda-bilgi">
@@ -355,7 +355,7 @@ function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][
 
 // Debug: Sütun sayısını konsola yazdır
 function getColumnCount(detaylar: KonaklamaDetay[]) {
-  const count = Math.ceil(detaylar.length / 40)
+  const count = Math.ceil(detaylar.length / 30)
   console.log(`📊 ${detaylar.length} kayıt için ${count} sütun hesaplandı`)
   return count
 }
