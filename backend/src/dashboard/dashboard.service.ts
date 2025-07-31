@@ -354,15 +354,13 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
       
-      // Ana sorguyu basitleştir - tek seferde tüm aktif müşterileri al
+      // Ana sorguyu basitleştir - tek seferde tüm aktif müşterileri al (Yeni Müşteri ve Yeni Giriş hariç)
       const aktifMusteriQuery = `
         SELECT 
           COUNT(*) as ToplamAktifKonaklama,
           SUM(CASE WHEN v.KnklmTip = 'GÜNLÜK' THEN 1 ELSE 0 END) as GunlukKonaklama,
           SUM(CASE WHEN v.KnklmTip = 'HAFTALIK' THEN 1 ELSE 0 END) as HaftalikKonaklama,
           SUM(CASE WHEN v.KnklmTip = 'AYLIK' THEN 1 ELSE 0 END) as AylikKonaklama,
-          SUM(CASE WHEN CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Müşteri:%' THEN 1 ELSE 0 END) as YeniMusteriKonaklama,
-          SUM(CASE WHEN CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Giriş:%' THEN 1 ELSE 0 END) as YeniGirisKonaklama,
           SUM(v.KnklmNfyt) as ToplamGelir,
           AVG(v.KnklmNfyt) as OrtalamaGelir
         FROM ${views.musteriKonaklama} v
@@ -370,10 +368,8 @@ export class DashboardService {
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CONVERT(Date, v.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-          AND v.KnklmNot NOT LIKE '% - Yeni Müşteri:%'
-          AND v.KnklmNot NOT LIKE '% - Yeni Giriş:%'
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Müşteri:%')
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Giriş:%')
+          AND v.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
+          AND v.KnklmNot NOT LIKE '%- Yeni Giriş:%'
           AND v.knklmNo = (
             SELECT MAX(v2.knklmNo) 
             FROM ${views.musteriKonaklama} v2 
@@ -381,6 +377,32 @@ export class DashboardService {
               AND v2.MstrDurum = 'KALIYOR'
               AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
           )
+      `;
+      
+      // Yeni Müşteri sayısı için ayrı sorgu - getYeniMusteri ile aynı mantık
+      const yeniMusteriQuery = `
+        SELECT COUNT(*) as YeniMusteriKonaklama
+        FROM ${views.musteriKonaklama} v
+        LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
+        LEFT JOIN ${tables.konaklama} k ON v.knklmNo = k.knklmNo
+        WHERE v.MstrDurum = 'KALIYOR' 
+          AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+          AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+          AND CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
+          AND v.KnklmNot LIKE '%- Yeni Müşteri:%'
+      `;
+      
+      // Yeni Giriş sayısı için ayrı sorgu - getYeniGiris ile aynı mantık
+      const yeniGirisQuery = `
+        SELECT COUNT(*) as YeniGirisKonaklama
+        FROM ${views.musteriKonaklama} v
+        LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
+        LEFT JOIN ${tables.konaklama} k ON v.knklmNo = k.knklmNo
+        WHERE v.MstrDurum = 'KALIYOR' 
+          AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+          AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+          AND CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
+          AND v.KnklmNot LIKE '%- Yeni Giriş:%'
       `;
       // Devam Eden Konaklama (karttaki sayı) için birebir müşteri listesiyle aynı filtreyi kullanan sorgu
       const devamEdenQuery = `
@@ -392,10 +414,10 @@ export class DashboardService {
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CONVERT(Date, v.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-          AND v.KnklmNot NOT LIKE '% - Yeni Müşteri:%'
-          AND v.KnklmNot NOT LIKE '% - Yeni Giriş:%'
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Müşteri:%')
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Giriş:%')
+          AND v.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
+          AND v.KnklmNot NOT LIKE '%- Yeni Giriş:%'
+          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE '%- Yeni Müşteri:%')
+          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE '%- Yeni Giriş:%')
           AND v.knklmNo = (
             SELECT MAX(v2.knklmNo)
             FROM ${views.musteriKonaklama} v2
@@ -440,6 +462,8 @@ export class DashboardService {
       
       console.log('🔥 DEBUG: Card count query (borcluMusteriQuery):', borcluMusteriQuery);
       console.log('🔥 DEBUG: Card count query result will be logged after execution');
+      console.log('🔥 DEBUG: Yeni Müşteri card count query:', yeniMusteriQuery);
+      console.log('🔥 DEBUG: Yeni Giriş card count query:', yeniGirisQuery);
       
       // Alacaklı müşteri sayısı için ayrı sorgu - cari tablosu üzerinden hesapla
       const alacakliMusteriQuery = `
@@ -482,8 +506,10 @@ export class DashboardService {
       console.log('🔥 DEBUG: Süresi Dolan card count query:', suresiDolanQuery);
       
       // Paralel olarak tüm sorguları çalıştır
-      const [aktifResult, bugunCikanResult, borcluResult, alacakliResult, devamEdenResult, suresiDolanResult] = await Promise.all([
+      const [aktifResult, yeniMusteriResult, yeniGirisResult, bugunCikanResult, borcluResult, alacakliResult, devamEdenResult, suresiDolanResult] = await Promise.all([
         this.musteriRepository.query(aktifMusteriQuery),
+        this.musteriRepository.query(yeniMusteriQuery),
+        this.musteriRepository.query(yeniGirisQuery),
         this.musteriRepository.query(bugunCikanQuery),
         this.musteriRepository.query(borcluMusteriQuery),
         this.musteriRepository.query(alacakliMusteriQuery),
@@ -493,10 +519,14 @@ export class DashboardService {
       
       console.log('🔥 DEBUG: Card count query result (borcluResult):', borcluResult);
       console.log('🔥 DEBUG: Süresi Dolan card count result (suresiDolanResult):', suresiDolanResult);
+      console.log('🔥 DEBUG: Yeni Müşteri card count result (yeniMusteriResult):', yeniMusteriResult);
+      console.log('🔥 DEBUG: Yeni Giriş card count result (yeniGirisResult):', yeniGirisResult);
       
       // Sonuçları birleştir
       const result = {
         ...aktifResult[0],
+        YeniMusteriKonaklama: yeniMusteriResult[0]?.YeniMusteriKonaklama || 0,
+        YeniGirisKonaklama: yeniGirisResult[0]?.YeniGirisKonaklama || 0,
         DevamEdenKonaklama: devamEdenResult[0]?.DevamEdenKonaklama || 0,
         BugünCikanKonaklama: bugunCikanResult[0]?.BugünCikanKonaklama || 0,
         BorcluMusteriSayisi: borcluResult[0]?.BorcluMusteriSayisi || 0,
@@ -571,8 +601,8 @@ export class DashboardService {
           AND CONVERT(Date, v.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
           AND v.KnklmNot NOT LIKE '%Yeni Müşteri:%'
           AND v.KnklmNot NOT LIKE '%Yeni Giriş:%'
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Müşteri:%')
-          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE ' - Yeni Giriş:%')
+          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE '%- Yeni Müşteri:%')
+          AND NOT (CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND v.KnklmNot LIKE '%- Yeni Giriş:%')
           AND v.knklmNo = (
             SELECT MAX(v2.knklmNo) 
             FROM ${views.musteriKonaklama} v2 
@@ -793,7 +823,7 @@ export class DashboardService {
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-          AND v.KnklmNot LIKE ' - Yeni Giriş:%'
+          AND v.KnklmNot LIKE '%- Yeni Giriş:%'
       `;
 
       const parameters: string[] = [];
@@ -843,7 +873,7 @@ export class DashboardService {
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CONVERT(Date, v.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-          AND (v.KnklmNot LIKE ' - Yeni Müşteri:%' OR v.KnklmNot LIKE ' - Yeni Giriş:%')
+          AND (v.KnklmNot LIKE '%- Yeni Müşteri:%' OR v.KnklmNot LIKE '%- Yeni Giriş:%')
           AND v.KnklmNot NOT LIKE '%Dönem Yenileme:%'
       `;
 

@@ -1417,9 +1417,12 @@ async function submitForm() {
         MstrHspTip: form.value.MstrHspTip
       }
       
-      const response = await api.post(`/musteri-guncelle/${form.value.MstrTCN}`, updateData)
+      const response = await api.post(`/musteri/musteri-guncelle/${form.value.MstrTCN}`, updateData)
       if (response.data.success) {
         notify.value = response.data.message || 'Müşteri bilgileri başarıyla güncellendi!'
+        
+        // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+        window.dispatchEvent(new Event('statsNeedsUpdate'));
         
         // 3 saniye sonra mesajı temizle ve formu sıfırla
         setTimeout(() => {
@@ -1528,9 +1531,12 @@ async function submitForm() {
       depozito: depozitoData
     }
     
-    const response = await api.post('/musteri-islem', formData)
+    const response = await api.post('/musteri/musteri-islem', formData)
     if (response.data.success) {
       notify.value = response.data.message || 'Kayıt başarıyla eklendi!'
+      
+      // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
       // Form temizle
       form.value = { MstrAdi: '', MstrHspTip: 'Bireysel', MstrTCN: '', MstrTelNo: '', OdaTipi: '', OdaYatak: '', KonaklamaSuresi: 1, KonaklamaTipi: 'GÜNLÜK', ToplamBedel: 0, HesaplananBedel: 0, OdemeVadesi: bugunTarihi.value, OdemeTakvimGunu: null, OtgCheckbox: false }
       extraForm.value = {
@@ -1944,7 +1950,7 @@ async function onTCNBlur() {
 
   try {
     // Müşteri durum kontrolü yap
-    const response = await api.get(`/musteri-durum-kontrol/${tcn}`)
+    const response = await api.get(`/musteri/musteri-durum-kontrol/${tcn}`)
     
     if (response.data.success && response.data.data) {
       const durumData = response.data.data
@@ -1968,7 +1974,7 @@ async function onTCNBlur() {
       
         try {
           // Müşteri bilgilerini getir
-          const musteriResponse = await api.get(`/musteri-bilgi/${tcn}`)
+          const musteriResponse = await api.get(`/musteri/musteri-bilgi/${tcn}`)
           if (musteriResponse.data.success && musteriResponse.data.data) {
             const musteriData = musteriResponse.data.data
             
@@ -2048,7 +2054,7 @@ async function onTCNBlur() {
             
             // Ek notları ve ödeme vadesini yükle
             ekNotlar.value = konaklamaData.KnklmNot || ''
-            const vadeResponse = await api.get(`/musteri-odeme-vadesi/${tcn}`)
+            const vadeResponse = await api.get(`/musteri/musteri-odeme-vadesi/${tcn}`)
             if (vadeResponse.data.success && vadeResponse.data.odemeVadesi) {
                 form.value.OdemeVadesi = vadeResponse.data.odemeVadesi
             } else {

@@ -192,7 +192,12 @@
           size="sm"
           @click="refreshData"
           :loading="loading"
-        />
+          class="refresh-btn"
+        >
+          <q-tooltip class="bg-primary text-white text-body2" :delay="300">
+            Kart sayımlarını ve listeleri yenile
+          </q-tooltip>
+        </q-btn>
       </div>
       
 
@@ -2136,6 +2141,73 @@ async function loadCariHareketler(cariKod: string) {
   }
 }
 
+// 🔥 OTOMATİK STATS GÜNCELLEME FONKSİYONU
+async function updateStatsOnly() {
+  try {
+    console.log('🔄 Stats otomatik güncelleniyor...');
+    await Promise.all([
+      loadStats(),
+      loadCikisYapanlarSayisi()
+    ]);
+    console.log('✅ Stats başarıyla güncellendi');
+  } catch (error) {
+    console.error('❌ Stats güncelleme hatası:', error);
+  }
+}
+
+// 🔥 VERİ DEĞİŞİKLİK EVENT LISTENER'LARI
+function setupDataChangeListeners() {
+  // Modal başarılı işlem sonrası stats güncelleme
+  window.addEventListener('statsNeedsUpdate', () => {
+    console.log('📡 Stats güncelleme eventi alındı');
+    void updateStatsOnly();
+  });
+
+  // Sayfa görünür olduğunda stats güncelleme (focus/blur events)
+  window.addEventListener('focus', () => {
+    console.log('📡 Sayfa focus oldu - stats güncelleniyor');
+    void updateStatsOnly();
+  });
+
+  // Tab değişikliği sonrası stats güncelleme
+  window.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      console.log('📡 Tab aktif oldu - stats güncelleniyor');
+      void updateStatsOnly();
+    }
+  });
+}
+
+// 🔥 EVENT LISTENER'LARI TEMİZLEME
+function cleanupDataChangeListeners() {
+  window.removeEventListener('statsNeedsUpdate', () => void updateStatsOnly());
+  window.removeEventListener('focus', () => void updateStatsOnly());
+  window.removeEventListener('visibilitychange', () => void updateStatsOnly());
+}
+
+// 🔥 PERİYODİK STATS GÜNCELLEME (5 dakikada bir)
+let statsRefreshInterval: number | null = null;
+
+function startPeriodicStatsRefresh() {
+  // Eğer zaten çalışıyorsa temizle
+  if (statsRefreshInterval) {
+    clearInterval(statsRefreshInterval);
+  }
+  
+  // 5 dakikada bir stats güncelle
+  statsRefreshInterval = window.setInterval(() => {
+    console.log('🕐 Periyodik stats güncelleme...');
+    void updateStatsOnly();
+  }, 5 * 60 * 1000); // 5 dakika
+}
+
+function stopPeriodicStatsRefresh() {
+  if (statsRefreshInterval) {
+    clearInterval(statsRefreshInterval);
+    statsRefreshInterval = null;
+  }
+}
+
 async function refreshData() {
   // Konaklama geçmişi tablosunu gizle (modal işlemlerinden sonra güncel olmayabilir)
   showKonaklamaGecmisi.value = false
@@ -2177,12 +2249,12 @@ async function refreshData() {
 
 // Modal başarılı işlem sonrası güncelleme fonksiyonu
 function onModalSuccess() {
-  console.log('🎉 Modal başarılı işlem tamamlandı - Sayfa güncelleniyor...');
+  console.log('🎉 Modal başarılı işlem tamamlandı - Stats güncelleniyor...');
   
-  // Modal kapatıldıktan sonra kısa bir gecikme ile verileri yenile
+  // Modal kapatıldıktan sonra kısa bir gecikme ile stats'ı güncelle
   setTimeout(() => {
-    void refreshData();
-    console.log('✅ Sayfa başarıyla güncellendi');
+    void updateStatsOnly();
+    console.log('✅ Stats başarıyla güncellendi');
   }, 500);
 }
 
@@ -2480,7 +2552,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     } else {
       // Normal müşteri tablosundan geliyorsa - cari kodu oluştur
       // MstrNo'yu TC'den bulmamız gerekiyor, backend'den alacağız
-      const response = await api.get(`/musteri-bilgi/${musteri.MstrTCN}`);
+      const response = await api.get(`/musteri/musteri-bilgi/${musteri.MstrTCN}`);
       
       if (response.data.success && response.data.data) {
         const mstrNo = response.data.data.MstrNo;
@@ -3302,6 +3374,12 @@ onMounted(() => {
     await selectBestCard();
   })();
 
+  // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR
+  setupDataChangeListeners();
+  
+  // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ BAŞLAT
+  startPeriodicStatsRefresh();
+
   // Tahsilat sonrası bakiye güncelleme event listener
   window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
     const customEvent = e as CustomEvent;
@@ -3788,8 +3866,14 @@ onMounted(() => {
   onBeforeUnmount(() => {
     window.removeEventListener('showEkHizmetlerModal', ekHizmetHandler);
     window.removeEventListener('showOdemeIslemModal', odemeHandler);
+    
+    // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI TEMİZLE
+    cleanupDataChangeListeners();
+    
+    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ DURDUR
+    stopPeriodicStatsRefresh();
   });
-});
+})
 
 watch([showBorcluTable, showAlacakliTable], ([newBorclu, newAlacakli]) => {
   if (newBorclu || newAlacakli) {
@@ -4356,5 +4440,30 @@ body.body--dark .dashboard-table .q-table__bottom-item {
   .table-fade-leave-to {
     transform: translateY(10px) scale(0.98) !important;
   }
+}
+
+/* 🔥 REFRESH BUTTON STYLING */
+.refresh-btn {
+  transition: all 0.3s ease !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+
+.refresh-btn:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3) !important;
+}
+
+.refresh-btn:active {
+  transform: scale(0.95) !important;
+}
+
+.refresh-btn.q-loading {
+  opacity: 0.7 !important;
+}
+
+/* Dark mode refresh button */
+.body--dark .refresh-btn:hover {
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5) !important;
 }
 </style> 

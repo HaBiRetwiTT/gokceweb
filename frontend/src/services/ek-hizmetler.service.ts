@@ -14,6 +14,12 @@ export async function saveEkHizmetler(payload: {
   MstrOdaYatak: string;
   ekHizmetler: Array<{ label: string; miktar: number; toplamTutar: number }>;
 }) {
-  const response = await api.post('/ek-hizmetler', payload);
+  const response = await api.post('/musteri/ek-hizmetler', payload);
+  
+  // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+  if (response.data.success) {
+    window.dispatchEvent(new Event('statsNeedsUpdate'));
+  }
+  
   return response.data;
 } 

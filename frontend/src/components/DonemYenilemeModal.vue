@@ -702,7 +702,7 @@ async function saveDonemYenileme() {
       MstrKllnc: 'admin' // Varsayılan kullanıcı adı
     };
     
-    const response = await api.post('donem-yenileme', requestData);
+    const response = await api.post('/musteri/donem-yenileme', requestData);
 
     if (response.data.success) {
       Notify.create({
@@ -718,6 +718,9 @@ async function saveDonemYenileme() {
           }
         ]
       });
+      
+      // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
       
       // 3 saniye sonra modal'ı kapat ve parent'ı güncelle
       setTimeout(() => {
@@ -835,7 +838,7 @@ function handleCikisYap() {
           })
         };
 
-        const response = await api.post('cikis-yap', cikisData);
+        const response = await api.post('/musteri/cikis-yap', cikisData);
 
         if (response.data.success) {
     Notify.create({
@@ -845,6 +848,9 @@ function handleCikisYap() {
             timeout: 3000,
             actions: [{ icon: 'close', color: 'white', handler: () => { /* dismiss */ } }]
           });
+          
+          // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+          window.dispatchEvent(new Event('statsNeedsUpdate'));
           
           setTimeout(() => {
             emit('refresh');
@@ -2040,7 +2046,7 @@ async function onOdaDegisikligiOnayla() {
 
     console.log('Oda değişikliği onaylama request data:', requestData);
 
-    const response = await api.post('oda-degisikligi-onayla', requestData);
+    const response = await api.post('/musteri/oda-degisikligi-onayla', requestData);
 
     console.log('Backend response:', response.data);
 
@@ -2181,8 +2187,8 @@ async function direktOdaDegisikligiYap() {
     
     // Endpoint seçimi - İlk gün ise özel endpoint, değilse normal endpoint
     const endpoint = isIlkGun 
-      ? '/direkt-oda-degisikligi-konaklama-suresi-1'
-      : '/direkt-oda-degisikligi';
+      ? '/musteri/direkt-oda-degisikligi-konaklama-suresi-1'
+      : '/musteri/direkt-oda-degisikligi';
     
     console.log(`Endpoint seçildi: ${isIlkGun ? 'İlk gün endpoint' : 'Normal endpoint'}`);
     
@@ -2229,10 +2235,10 @@ async function direktOdaDegisikligiYap() {
 function setEkNotlarPrefixFromKnklmNot() {
   const knklmNot = props.selectedData?.KnklmNot || '';
   let prefix = '';
-  if (knklmNot.startsWith(' - Yeni Giriş: ')) {
-    prefix = ' - Yeni Giriş: ';
-  } else if (knklmNot.startsWith(' - Yeni Müşteri: ')) {
-    prefix = ' - Yeni Müşteri: ';
+  if (knklmNot.startsWith('%- Yeni Giriş: ')) {
+    prefix = '%- Yeni Giriş: ';
+  } else if (knklmNot.startsWith('%- Yeni Müşteri: ')) {
+    prefix = '%- Yeni Müşteri: ';
   } else if (knklmNot.startsWith('Dönem Yenileme: ')) {
     prefix = 'Dönem Yenileme: ';
   }
@@ -2358,7 +2364,7 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
       dialogdanMi,
       giderKaydiOlmasin // yeni parametre
     };
-    const response = await api.post('erken-cikis-yap', requestData);
+    const response = await api.post('/musteri/erken-cikis-yap', requestData);
     if (response.data.success) {
       Notify.create({
         type: 'positive',
@@ -2367,6 +2373,10 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
         timeout: 3000,
         actions: [{ icon: 'close', color: 'white', handler: () => { /* dismiss */ } }]
       });
+      
+      // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
+      
       setTimeout(() => {
         emit('refresh');
         closeModal();

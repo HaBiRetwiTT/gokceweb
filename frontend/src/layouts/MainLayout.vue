@@ -711,7 +711,7 @@ async function onKaydet() {
   // Eğer MstrNo yoksa, backend'den TCN ile bul
   if (!musteri.MstrNo && musteri.MstrTCN) {
     try {
-      const response = await api.get(`/musteri-bilgi/${musteri.MstrTCN}`);
+      const response = await api.get(`/musteri/musteri-bilgi/${musteri.MstrTCN}`);
       if (response.data.success && response.data.data && response.data.data.MstrNo) {
         musteri.MstrNo = response.data.data.MstrNo;
       } else {

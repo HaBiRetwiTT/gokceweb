@@ -7,6 +7,7 @@ import { MusteriService } from './musteri.service';
 import { CreateMusteriDto } from '../dto/create-musteri.dto';
 import { CikisYapDto } from '../dto/cikis-yap.dto';
 import { DatabaseTransactionService } from '../database/database-transaction.service';
+import { DatabaseConfigService } from '../database/database-config.service';
 import * as PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
@@ -19,7 +20,8 @@ import { QueryRunner } from 'typeorm';
 export class MusteriController {
   constructor(
     private readonly musteriService: MusteriService,
-    private readonly transactionService: DatabaseTransactionService
+    private readonly transactionService: DatabaseTransactionService,
+    private readonly dbConfig: DatabaseConfigService
   ) {}
 
   // Güvenli dosya adı oluşturucu - HTTP header uyumlu ASCII-only
@@ -186,7 +188,7 @@ export class MusteriController {
             console.log('AYRILDI durumundaki müşteri KALIYOR durumuna güncelleniyor...');
             await this.transactionService.executeQuery(
               queryRunner,
-              `UPDATE dbo.tblMusteri SET MstrDurum = 'KALIYOR' WHERE MstrTCN = @0`,
+              `UPDATE ${this.dbConfig.getTableName('tblMusteri')} SET MstrDurum = 'KALIYOR' WHERE MstrTCN = @0`,
               [String(musteriData.MstrTCN)]
             );
             console.log('Müşteri durumu AYRILDI -> KALIYOR güncellendi (Transaction-Safe)');
