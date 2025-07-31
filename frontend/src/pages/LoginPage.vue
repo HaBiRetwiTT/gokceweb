@@ -2,7 +2,7 @@
   <div class="fullscreen bg-blue text-white flex flex-center">
     <q-card class="my-card">
       <q-card-section>
-        <div class="text-h6">GÖKÇE Pansiyon</div>
+        <div class="text-h6">GÖKÇE PANSİYON</div>
         <div class="text-subtitle2">Giriş Yapın</div>
       </q-card-section>
 

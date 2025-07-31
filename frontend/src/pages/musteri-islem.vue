@@ -210,7 +210,11 @@
                   <div class="col oda-konaklama-col">
                     <q-select
                       v-model="form.OdaTipi"
-                      :options="odaTipleriOptions"
+                      :options="odaTipleriFormatted"
+                      option-value="value"
+                      option-label="label"
+                      emit-value
+                      map-options
                       label="Oda Tipi"
                       outlined
                       dense
@@ -231,11 +235,20 @@
                         </q-item>
                       </template>
                       <template v-slot:option="scope">
-                        <q-item v-bind="scope.itemProps" style="min-height: 28px; padding: 2px 12px;">
+                        <q-item v-bind="scope.itemProps" style="min-height: 32px; padding: 4px 12px;">
                           <q-item-section>
-                            <q-item-label style="font-size: 0.75rem; line-height: 1.1;">
-                              {{ scope.opt }}
+                            <q-item-label style="font-size: 0.75rem; line-height: 1.1; font-weight: 500;">
+                              {{ scope.opt.value }}
                             </q-item-label>
+                          </q-item-section>
+                          <q-item-section side>
+                            <q-chip 
+                              size="sm" 
+                              color="green-1" 
+                              text-color="green-8"
+                              :label="scope.opt.bosOdaSayisi + ' boş'"
+                              dense
+                            />
                           </q-item-section>
                         </q-item>
                       </template>
@@ -893,7 +906,8 @@ const originalFirmaDetails = ref<{
 } | null>(null)
 
 // Oda-Yatak dropdown için değişkenler
-const odaTipleriOptions = ref<string[]>([])
+const odaTipleriOptions = ref<{odaTipi: string, bosOdaSayisi: number}[]>([])
+const odaTipleriFormatted = ref<{value: string, label: string, bosOdaSayisi: number}[]>([])
 const bosOdalarOptions = ref<{label: string, value: string}[]>([])
 const odaYatakOptions = computed(() => bosOdalarOptions.value)
 const odaTipFiyatlari = ref<{OdLfytGun: number, OdLfytHft: number, OdLfytAyl: number, OdDpzt?: number} | null>(null)
@@ -1046,13 +1060,19 @@ async function loadFirmaList() {
 // Oda tiplerini getir (sadece boş odaların bulunduğu tipler)
 async function loadOdaTipleri() {
   try {
-    // console.log('Boş oda tipleri yükleniyor...')
     console.log('Boş oda tipleri yükleniyor...')
     const response = await api.get('/bos-oda-tipleri')
     console.log('Boş oda tipleri response:', response.data)
     if (response.data.success) {
       odaTipleriOptions.value = response.data.data
+      // Formatted options'u oluştur - dropdown'da boş oda sayısı gösterimi için
+      odaTipleriFormatted.value = response.data.data.map((item: {odaTipi: string, bosOdaSayisi: number}) => ({
+        value: item.odaTipi,
+        label: item.odaTipi, // Seçildiğinde sadece oda tipi görünsün
+        bosOdaSayisi: item.bosOdaSayisi
+      }))
       console.log('Boş oda tipleri yüklendi:', odaTipleriOptions.value)
+      console.log('Formatted oda tipleri:', odaTipleriFormatted.value)
     } else {
       console.error('Boş oda tipleri yüklenirken hata:', response.data)
     }
@@ -1253,8 +1273,6 @@ watch(() => form.value.OdaTipi, (newOdaTipi) => {
     form.value.OdaTipi = newOdaTipi
     form.value.OdaYatak = '' // Oda tipi değiştiğinde oda seçimini temizle
     void loadBosOdalar(newOdaTipi)
-    // Gelişmiş popup bildirim
-    showOdaTipiNotification(newOdaTipi)
     // Fiyat hesapla
     void hesaplaBedel()
   } else {
@@ -2306,8 +2324,6 @@ function onOdaTipiChanged(odaTipi: string | null) {
     form.value.OdaTipi = odaTipi
     form.value.OdaYatak = '' // Oda tipi değiştiğinde oda seçimini temizle
     void loadBosOdalar(odaTipi)
-    // Gelişmiş popup bildirim
-    showOdaTipiNotification(odaTipi)
     // Fiyat hesapla
     void hesaplaBedel()
     // Ek notları güncelle
@@ -2332,8 +2348,6 @@ function onOdaYatakChanged(odaYatak: string | null) {
 
   if (odaYatak) {
     form.value.OdaYatak = odaYatak
-    // Gelişmiş popup bildirim
-    showOdaYatakNotification(odaYatak)
     // Ek notları güncelle
     updateEkNotlar()
   }
@@ -2534,31 +2548,7 @@ function getSelectedOdaYatakTooltip(): string {
   return selected ? `Seçilen: ${selected.label}` : ''
 }
 
-// Oda tipi seçimi popup bildirimi
-function showOdaTipiNotification(odaTipi: string) {
-  notify.value = `✓ ${odaTipi} oda tipi seçildi. Boş odalar yükleniyor...`
-  setTimeout(() => {
-    if (bosOdalarOptions.value.length > 0) {
-      notify.value = `✓ ${bosOdalarOptions.value.length} adet boş oda bulundu.`
-    } else {
-      notify.value = `⚠ ${odaTipi} için boş oda bulunamadı.`
-    }
-    setTimeout(() => {
-      notify.value = ''
-    }, 3000)
-  }, 1500)
-}
 
-// Oda-yatak seçimi popup bildirimi
-function showOdaYatakNotification(odaYatak: string) {
-  const selectedOda = bosOdalarOptions.value.find(option => option.value === odaYatak)
-  if (selectedOda) {
-    notify.value = `✓ ${selectedOda.label} seçildi!`
-    setTimeout(() => {
-      notify.value = ''
-    }, 2500)
-  }
-}
 
 // Oda-yatak alanını temizle ve listeyi güncelle
 async function clearOdaYatakAndRefresh() {

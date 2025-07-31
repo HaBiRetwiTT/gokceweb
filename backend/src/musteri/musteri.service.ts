@@ -1042,24 +1042,71 @@ export class MusteriService {
     }
   }
 
-  // Sadece boş odaların bulunduğu oda tiplerini getir
-  async getBosOdaTipleri(): Promise<string[]> {
+  // Sadece boş odaların bulunduğu oda tiplerini getir (gerçek zamanlı boş oda sayısı ile)
+  async getBosOdaTipleri(): Promise<{odaTipi: string, bosOdaSayisi: number}[]> {
     try {
       const tables = this.dbConfig.getTables();
+      const views = this.dbConfig.getViews();
+      
+      // Bugünün tarihini al
+      const bugun = new Date();
+      const bugunStr = this.formatDateForComparison(bugun);
+      
       const query = `
-        SELECT DISTINCT OdYatOdaTip 
-        FROM ${tables.odaYatak} 
-        WHERE OdYatOdaTip IS NOT NULL 
-          AND OdYatOdaTip != '' 
-          AND OdYatDurum = 'BOŞ'
-        ORDER BY OdYatOdaTip
+        WITH ToplamYataklar AS (
+          -- Her oda tipi için toplam yatak sayısı (BOŞ + DOLU)
+          SELECT 
+            OdYatOdaTip,
+            COUNT(*) as ToplamYatak
+          FROM ${tables.odaYatak} 
+          WHERE OdYatOdaTip IS NOT NULL 
+            AND OdYatOdaTip != '' 
+            AND OdYatDurum IN ('BOŞ', 'DOLU')
+          GROUP BY OdYatOdaTip
+        ),
+        AktifKonaklamalar AS (
+          -- Bugün aktif olan konaklamalar
+          SELECT 
+            v.KnklmOdaTip,
+            COUNT(*) as DoluYatak
+          FROM ${views.musteriKonaklama} v
+          WHERE v.MstrDurum = 'KALIYOR' 
+            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+            AND v.KnklmPlnTrh IS NOT NULL
+            AND v.KnklmPlnTrh <> ''
+            AND v.KnklmGrsTrh IS NOT NULL
+            AND v.KnklmGrsTrh <> ''
+            AND CONVERT(Date, v.KnklmGrsTrh, 104) <= '${bugunStr}'
+            AND CONVERT(Date, v.KnklmPlnTrh, 104) >= '${bugunStr}'
+          GROUP BY v.KnklmOdaTip
+        )
+        SELECT 
+          t.OdYatOdaTip as OdaTipi,
+          ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0) as BosOdaSayisi
+        FROM ToplamYataklar t
+        LEFT JOIN AktifKonaklamalar a ON t.OdYatOdaTip = a.KnklmOdaTip
+        WHERE (ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0)) > 0
+        ORDER BY t.OdYatOdaTip
       `;
-      const result: { OdYatOdaTip: string }[] = await this.odaYatakRepository.query(query);
-      return result.map(item => item.OdYatOdaTip);
+      
+      const result: { OdaTipi: string; BosOdaSayisi: number }[] = await this.odaYatakRepository.query(query);
+      return result.map(item => ({
+        odaTipi: item.OdaTipi,
+        bosOdaSayisi: Number(item.BosOdaSayisi)
+      }));
     } catch (error) {
       console.error('Boş oda tipleri alınırken hata:', error);
       return [];
     }
+  }
+
+  // Tarih formatını SQL karşılaştırması için uygun hale getir
+  private formatDateForComparison(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async getBosOdalar(odaTipi: string): Promise<{value: string, label: string}[]> {

@@ -3466,7 +3466,7 @@ async function downloadKonaklamaGecmisiPDF() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/konaklama-gecmisi-pdf?${queryString}`;
+    const url = `/musteri/konaklama-gecmisi-pdf?${queryString}`;
     
     // PDF dosyasını indir
     const response = await api.get(url, {
@@ -3495,10 +3495,44 @@ async function downloadKonaklamaGecmisiPDF() {
     window.URL.revokeObjectURL(downloadUrl)
     
     console.log('PDF raporu başarıyla indirildi')
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('PDF raporu indirme hatası:', error)
-    // Hata mesajını göster
-    alert('PDF raporu indirilemedi: ' + (error as Error).message)
+    
+    let errorMessage = 'Bilinmeyen hata';
+    
+    // Type-safe error handling
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+        config?: unknown; 
+      };
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`;
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message;
+      }
+      
+      // Console'a detaylı hata bilgisi
+      console.error('PDF Error Details:', {
+        message: errorObj.message,
+        status: errorObj.response?.status,
+        data: errorObj.response?.data,
+        config: errorObj.config
+      });
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    
+    // Detaylı hata mesajını göster
+    alert(`PDF raporu indirilemedi: ${errorMessage}`);
   } finally {
     pdfLoading.value = false
   }
@@ -3517,7 +3551,7 @@ async function downloadKonaklamaGecmisiExcel() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/konaklama-gecmisi-excel?${queryString}`;
+    const url = `/musteri/konaklama-gecmisi-excel?${queryString}`;
     
     // Excel dosyasını indir
     const response = await api.get(url, {
@@ -3548,10 +3582,34 @@ async function downloadKonaklamaGecmisiExcel() {
     window.URL.revokeObjectURL(downloadUrl)
     
     console.log('Excel raporu başarıyla indirildi')
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Excel raporu indirme hatası:', error)
-    // Hata mesajını göster
-    alert('Excel raporu indirilemedi: ' + (error as Error).message)
+    
+    let errorMessage = 'Bilinmeyen hata';
+    
+    // Type-safe error handling
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      };
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`;
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    
+    alert(`Excel raporu indirilemedi: ${errorMessage}`);
   } finally {
     excelLoading.value = false
   }
@@ -3569,7 +3627,7 @@ async function downloadCariHareketlerPDF() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/cari-hareketler-pdf?${queryString}`;
+    const url = `/musteri/cari-hareketler-pdf?${queryString}`;
     console.log('PDF için gönderilen cariKod:', selectedBorcluMusteri.value?.CariKod);
     // Axios ile indir (authentication için)
     const response = await api.get(url, {
@@ -3583,17 +3641,50 @@ async function downloadCariHareketlerPDF() {
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = downloadUrl
-    link.download = `cari-hareketler-${Date.now()}.pdf`
+    // Dosya adını belirle
+    let fileName = 'cari-hareketler'
+    if (selectedBorcluMusteri.value?.CariAdi) {
+      fileName = `${selectedBorcluMusteri.value.CariAdi}-cari-hareketler`
+    } else if (selectedBorcluMusteri.value?.CariVTCN) {
+      fileName = `${selectedBorcluMusteri.value.CariVTCN}-cari-hareketler`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.pdf`
+    
+    link.download = fileName
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(downloadUrl)
     
     console.log('Cari hareketler PDF raporu başarıyla indirildi')
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Cari hareketler PDF raporu indirme hatası:', error)
-    // Hata mesajını göster
-    alert('PDF raporu indirilemedi: ' + (error as Error).message)
+    
+    let errorMessage = 'Bilinmeyen hata';
+    
+    // Type-safe error handling
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      };
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`;
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    
+    alert(`Cari hareketler PDF raporu indirilemedi: ${errorMessage}`);
   } finally {
     cariPdfLoading.value = false
   }
@@ -3611,7 +3702,7 @@ async function downloadCariHareketlerExcel() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/cari-hareketler-excel?${queryString}`;
+    const url = `/musteri/cari-hareketler-excel?${queryString}`;
     
     // Axios ile indir (authentication için)
     const response = await api.get(url, {
@@ -3625,17 +3716,50 @@ async function downloadCariHareketlerExcel() {
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = downloadUrl
-    link.download = `cari-hareketler-${Date.now()}.xlsx`
+    // Dosya adını belirle
+    let fileName = 'cari-hareketler'
+    if (selectedBorcluMusteri.value?.CariAdi) {
+      fileName = `${selectedBorcluMusteri.value.CariAdi}-cari-hareketler`
+    } else if (selectedBorcluMusteri.value?.CariVTCN) {
+      fileName = `${selectedBorcluMusteri.value.CariVTCN}-cari-hareketler`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.xlsx`
+    
+    link.download = fileName
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(downloadUrl)
     
     console.log('Cari hareketler Excel raporu başarıyla indirildi')
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Cari hareketler Excel raporu indirme hatası:', error)
-    // Hata mesajını göster
-    alert('Excel raporu indirilemedi: ' + (error as Error).message)
+    
+    let errorMessage = 'Bilinmeyen hata';
+    
+    // Type-safe error handling
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      };
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`;
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    
+    alert(`Cari hareketler Excel raporu indirilemedi: ${errorMessage}`);
   } finally {
     cariExcelLoading.value = false
   }

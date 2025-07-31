@@ -107,7 +107,11 @@
                     <div class="col oda-konaklama-col">
                       <q-select
                         v-model="formData.KnklmOdaTip"
-                        :options="odaTipleri"
+                        :options="odaTipleriFormatted"
+                        option-value="value"
+                        option-label="label"
+                        emit-value
+                        map-options
                         label="Oda Tipi"
                         outlined
                         dense
@@ -126,11 +130,20 @@
                           </q-item>
                         </template>
                         <template v-slot:option="scope">
-                          <q-item v-bind="scope.itemProps" style="min-height: 28px; padding: 2px 12px;">
+                          <q-item v-bind="scope.itemProps" style="min-height: 32px; padding: 4px 12px;">
                             <q-item-section>
-                              <q-item-label style="font-size: 0.75rem; line-height: 1.1;">
-                                {{ scope.opt }}
+                              <q-item-label style="font-size: 0.75rem; line-height: 1.1; font-weight: 500;">
+                                {{ scope.opt.value }}
                               </q-item-label>
+                            </q-item-section>
+                            <q-item-section side>
+                                                          <q-chip 
+                              size="sm" 
+                              color="green-1" 
+                              text-color="green-8"
+                              :label="scope.opt.bosOdaSayisi + ' boş'"
+                              dense
+                            />
                             </q-item-section>
                           </q-item>
                         </template>
@@ -537,7 +550,8 @@ onMounted(() => {
 
 const saving = ref(false);
 const veriYukleniyor = ref(false); // Veri yükleme sırasında watchers'ları disable etmek için
-const odaTipleri = ref<string[]>([]);
+const odaTipleri = ref<{odaTipi: string, bosOdaSayisi: number}[]>([]);
+const odaTipleriFormatted = ref<{value: string, label: string, bosOdaSayisi: number}[]>([]);
 
 // 🔥 Dinamik buton isimleri - aktif karta göre değişir
 const donemYenileButtonLabel = computed(() => {
@@ -1008,10 +1022,19 @@ const formData = ref({
   eskiOdaYatak: ''
 });
 
-// Ödeme vadesi seçildiğinde popup'ı kapat
-function onOdemeVadesiSelected(date: string) {
+// Ödeme vadesi geçmiş tarih kontrolü helper fonksiyonu
+function validateOdemeVadesi(dateStr: string, showNotification: boolean = true): string {
+  if (!dateStr || dateStr.trim() === '') {
+    // Boş tarih için bugünün tarihini döndür
+    const bugun = new Date();
+    const d = bugun.getDate().toString().padStart(2, '0');
+    const m = (bugun.getMonth() + 1).toString().padStart(2, '0');
+    const y = bugun.getFullYear();
+    return `${d}.${m}.${y}`;
+  }
+
   // Seçilen tarihi güvenli şekilde Date objesine çevir
-  const parts = date.split('.');
+  const parts = dateStr.split('.');
   let gun = Number(parts[0]);
   let ay = Number(parts[1]);
   let yil = Number(parts[2]);
@@ -1027,17 +1050,26 @@ function onOdemeVadesiSelected(date: string) {
   const secilen = new Date(yil, ay - 1, gun);
 
   if (secilen < bugun) {
-    Notify.create({
-      type: 'warning',
-      message: 'Geçmiş bir tarih seçilemez! Ödeme vadesi bugünün tarihi olarak ayarlandı.'
-    });
+    if (showNotification) {
+      Notify.create({
+        type: 'warning',
+        message: 'Geçmiş bir tarih seçilemez! Ödeme vadesi bugünün tarihi olarak ayarlandı.'
+      });
+    }
     const d = bugun.getDate().toString().padStart(2, '0');
     const m = (bugun.getMonth() + 1).toString().padStart(2, '0');
     const y = bugun.getFullYear();
-    formData.value.OdemeVadesi = `${d}.${m}.${y}`;
-  } else {
-  formData.value.OdemeVadesi = date;
+    return `${d}.${m}.${y}`;
   }
+
+  return dateStr;
+}
+
+// Ödeme vadesi seçildiğinde popup'ı kapat
+function onOdemeVadesiSelected(date: string) {
+  const validatedDate = validateOdemeVadesi(date, true);
+  formData.value.OdemeVadesi = validatedDate;
+  
   if (odemeVadesiPopup.value) {
     odemeVadesiPopup.value.hide();
   }
@@ -1181,8 +1213,11 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
       console.log('🔥 Modal: Frontend\'den gelen ödeme vadesi (ham):', newData.OdemeVadesi);
       const formatted = convertDateFormat(newData.OdemeVadesi || '');
       console.log('🔥 Modal: Formatlanmış ödeme vadesi:', formatted);
-      return formatted;
-    })(), // 🔥 Tarih formatını düzelt
+      // Geçmiş tarih kontrolü uygula (notification gösterme)
+      const validated = validateOdemeVadesi(formatted, false);
+      console.log('🔥 Modal: Validasyondan geçen ödeme vadesi:', validated);
+      return validated;
+    })(), // 🔥 Tarih formatını düzelt ve geçmiş tarih kontrolü yap
     eskiKnklmPlnTrh: newData.KnklmPlnTrh,
     eskiOdaYatak: mevcutOdaYatak
   };
@@ -1203,22 +1238,24 @@ watch(() => props.selectedData, async (newData) => {
     // 🔥 Ödeme vadesi öncelik sırası: 1. Frontend'den geçirilen değer, 2. Backend'den çekilen değer
     if (newData.OdemeVadesi && newData.OdemeVadesi.trim() !== '') {
       // Frontend'den ödeme vadesi değeri gelmiş (ağırlıklı ortalama)
-      formData.value.OdemeVadesi = convertDateFormat(newData.OdemeVadesi);
+      const formatted = convertDateFormat(newData.OdemeVadesi);
+      formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
       console.log('Modal: Frontend\'den ödeme vadesi kullanıldı:', newData.OdemeVadesi);
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
         const vadeRes = await api.get(`dashboard/musteri-odeme-vadesi/${encodeURIComponent(newData.MstrTCN)}`);
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
-          formData.value.OdemeVadesi = convertDateFormat(vadeRes.data.data.odemeVadesi);
+          const formatted = convertDateFormat(vadeRes.data.data.odemeVadesi);
+          formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
           console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
         } else {
-          formData.value.OdemeVadesi = '';
-          console.log('Modal: Ödeme vadesi bulunamadı');
+          formData.value.OdemeVadesi = validateOdemeVadesi('', false);
+          console.log('Modal: Ödeme vadesi bulunamadı, bugünün tarihi kullanıldı');
         }
       } catch (error) {
-        formData.value.OdemeVadesi = '';
-        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata:', error);
+        formData.value.OdemeVadesi = validateOdemeVadesi('', false);
+        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata, bugünün tarihi kullanıldı:', error);
       }
     }
     
@@ -1245,22 +1282,24 @@ watch(() => props.modelValue, async (yeni) => {
     // 🔥 Ödeme vadesi öncelik sırası: 1. Frontend'den geçirilen değer, 2. Backend'den çekilen değer
     if (props.selectedData.OdemeVadesi && props.selectedData.OdemeVadesi.trim() !== '') {
       // Frontend'den ödeme vadesi değeri gelmiş (ağırlıklı ortalama)
-      formData.value.OdemeVadesi = convertDateFormat(props.selectedData.OdemeVadesi);
+      const formatted = convertDateFormat(props.selectedData.OdemeVadesi);
+      formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
       console.log('Modal: Frontend\'den ödeme vadesi kullanıldı:', props.selectedData.OdemeVadesi);
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
         const vadeRes = await api.get(`dashboard/musteri-odeme-vadesi/${encodeURIComponent(props.selectedData.MstrTCN)}`);
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
-          formData.value.OdemeVadesi = convertDateFormat(vadeRes.data.data.odemeVadesi);
+          const formatted = convertDateFormat(vadeRes.data.data.odemeVadesi);
+          formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
           console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
         } else {
-          formData.value.OdemeVadesi = '';
-          console.log('Modal: Ödeme vadesi bulunamadı');
+          formData.value.OdemeVadesi = validateOdemeVadesi('', false);
+          console.log('Modal: Ödeme vadesi bulunamadı, bugünün tarihi kullanıldı');
         }
       } catch (error) {
-        formData.value.OdemeVadesi = '';
-        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata:', error);
+        formData.value.OdemeVadesi = validateOdemeVadesi('', false);
+        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata, bugünün tarihi kullanıldı:', error);
       }
     }
     
@@ -1402,16 +1441,28 @@ async function loadOdaTipleri() {
     if (response.data.success) {
       odaTipleri.value = response.data.data;
       
+      // Formatted options'u oluştur - dropdown'da boş oda sayısı gösterimi için
+      odaTipleriFormatted.value = response.data.data.map((item: {odaTipi: string, bosOdaSayisi: number}) => ({
+        value: item.odaTipi,
+        label: item.odaTipi, // Seçildiğinde sadece oda tipi görünsün
+        bosOdaSayisi: item.bosOdaSayisi
+      }));
+      
       // Dönem yenileme özel durumu: Mevcut müşterinin oda tipi her zaman listede bulunmalı
       if (props.selectedData && props.selectedData.KnklmOdaTip) {
         const mevcutOdaTipi = props.selectedData.KnklmOdaTip;
         
         // Mevcut oda tipi listede var mı kontrol et
-        const mevcutTipVarMi = odaTipleri.value.includes(mevcutOdaTipi);
+        const mevcutTipVarMi = odaTipleri.value.some(item => item.odaTipi === mevcutOdaTipi);
         
         if (!mevcutTipVarMi) {
-          // Mevcut oda tipi listede yoksa listenin başına ekle
-          odaTipleri.value.unshift(mevcutOdaTipi);
+          // Mevcut oda tipi listede yoksa listenin başına ekle (boş oda sayısı 0 ile)
+          odaTipleri.value.unshift({odaTipi: mevcutOdaTipi, bosOdaSayisi: 0});
+          odaTipleriFormatted.value.unshift({
+            value: mevcutOdaTipi,
+            label: mevcutOdaTipi, // Seçildiğinde sadece oda tipi görünsün
+            bosOdaSayisi: 0
+          });
           console.log('Mevcut müşterinin oda tipi listeye eklendi:', mevcutOdaTipi);
           console.log('Güncel oda tipleri listesi:', odaTipleri.value);
         }

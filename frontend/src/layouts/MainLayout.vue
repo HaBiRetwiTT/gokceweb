@@ -2,27 +2,16 @@
   <q-layout view="lHh Lpr lFf">
     <q-header elevated>
       <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          aria-label="Menu"
-          @click="toggleLeftDrawer"
-          @touchend.prevent="handleMenuTouchEnd"
-          class="menu-toggle-btn"
-        />
-
         <q-toolbar-title class="logo-container">
           <img 
             :src="logoSrc" 
-            alt="GÖKÇE Pansiyon" 
+            alt="GÖKÇE PANSİYON" 
             class="logo-image"
             @error="handleLogoError"
             @load="handleLogoLoad"
           />
           <div class="logo-text-container">
-            <span class="logo-text">GÖKÇE Pansiyon</span>
+            <span class="logo-text">GÖKÇE PANSİYON</span>
             <span class="system-title">Müşteri Takip Sistemi</span>
           </div>
         </q-toolbar-title>
@@ -108,11 +97,25 @@
         <q-item-label
           header
           class="menu-header"
-          v-show="!miniMenu"
         >
           <div class="menu-title-container">
-            <span class="menu-title">ANA MENÜ</span>
-            <span :class="versionInfoClass">v.{{ currentVersion }}</span>
+            <div class="menu-left-section">
+              <q-btn
+                flat
+                dense
+                round
+                :icon="miniMenu ? 'menu' : 'first_page'"
+                aria-label="Ana Menü Mini/Maxi"
+                @click="toggleMiniMenu"
+                @touchend.prevent="handleMenuTouchEnd"
+                class="menu-toggle-btn-sidebar"
+                size="sm"
+              >
+                <q-tooltip>{{ miniMenu ? 'Ana Menüyü Genişlet' : 'Ana Menüyü Küçült' }}</q-tooltip>
+              </q-btn>
+              <span class="menu-title" v-show="!miniMenu">ANA MENÜ</span>
+            </div>
+            <span :class="versionInfoClass" v-show="!miniMenu">v.{{ currentVersion }}</span>
           </div>
         </q-item-label>
 
@@ -461,17 +464,12 @@ watch(showEkHizmetlerModal, (val) => {
   if (val) void loadEkHizmetler();
 });
 
-function toggleLeftDrawer() {
-  // Android browser uyumluluğu için timeout eklendi
-  setTimeout(() => {
-    miniMenu.value = !miniMenu.value;
-    // Force re-render için
-    leftDrawerOpen.value = !leftDrawerOpen.value;
-    // Geri al
-    setTimeout(() => {
-      leftDrawerOpen.value = !leftDrawerOpen.value;
-    }, 10);
-  }, 50);
+function toggleMiniMenu() {
+  // Ana menü mini/maxi toggle işlevi
+  miniMenu.value = !miniMenu.value;
+  
+  // Kullanıcı tercihini localStorage'a kaydet
+  localStorage.setItem('miniMenuPreference', miniMenu.value.toString());
 }
 
 // Android browser için ayrı touch handler
@@ -480,8 +478,8 @@ function handleMenuTouchEnd(event: TouchEvent) {
   event.preventDefault();
   event.stopPropagation();
   
-  // Android browser'da daha güvenilir toggle için
-  miniMenu.value = !miniMenu.value;
+  // toggleMiniMenu fonksiyonunu kullan
+  toggleMiniMenu();
   
   // Visual feedback için kısa animation trigger
   const btn = event.target as HTMLElement;
@@ -759,6 +757,15 @@ onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
   isAdmin.value = localStorage.getItem('isAdmin') === 'true';
+  
+  // Kaydedilmiş menü tercihini yükle
+  const savedMiniMenu = localStorage.getItem('miniMenuPreference');
+  if (savedMiniMenu === 'false') {
+    miniMenu.value = false;
+  } else {
+    miniMenu.value = true; // Default: mini
+  }
+  
   // Kaydedilmiş dark mode tercihini yükle
   const savedDarkMode = localStorage.getItem('darkMode');
   if (savedDarkMode === 'true') {
@@ -827,7 +834,7 @@ onMounted(() => {
 }
 
 .system-title {
-  font-size: 0.79rem;
+  font-size: 0.86rem;
   font-weight: 500;
   color: #e3f2fd;
   letter-spacing: 0.3px;
@@ -866,9 +873,16 @@ onMounted(() => {
   }
 }
 
-/* Sürüm bilgisi stilleri */
+/* Ana menü başlık stilleri */
 .menu-header {
-  padding: 12px 16px;
+  padding: 16px 16px;
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.08) 0%, rgba(30, 136, 229, 0.08) 100%);
+  margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .menu-title-container {
@@ -878,11 +892,36 @@ onMounted(() => {
   width: 100%;
 }
 
+.menu-left-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-toggle-btn-sidebar {
+  color: var(--q-primary) !important;
+  background-color: rgba(25, 118, 210, 0.1);
+  border: 1px solid rgba(25, 118, 210, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-toggle-btn-sidebar:hover {
+  background-color: rgba(25, 118, 210, 0.2);
+  border-color: rgba(25, 118, 210, 0.4);
+  transform: scale(1.05);
+}
+
+.menu-toggle-btn-sidebar i {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .menu-title {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--q-primary);
-  font-size: 0.9rem;
-  letter-spacing: 0.5px;
+  font-size: 1rem;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .version-info {
@@ -904,6 +943,86 @@ onMounted(() => {
 }
 .body--dark .version-warning {
   color: #ff5252 !important;
+}
+
+/* Dark mode için ana menü başlık */
+.body--dark .menu-header {
+  background: linear-gradient(135deg, rgba(144, 202, 249, 0.1) 0%, rgba(66, 165, 245, 0.1) 100%);
+}
+
+.body--dark .menu-title {
+  color: #90caf9;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Dark mode için menü toggle butonu */
+.body--dark .menu-toggle-btn-sidebar {
+  color: #90caf9 !important;
+  background-color: rgba(144, 202, 249, 0.1);
+  border: 1px solid rgba(144, 202, 249, 0.2);
+}
+
+.body--dark .menu-toggle-btn-sidebar:hover {
+  background-color: rgba(144, 202, 249, 0.2);
+  border-color: rgba(144, 202, 249, 0.4);
+}
+
+/* Mini menü modunda buton positioning */
+.q-drawer--mini .menu-header {
+  padding: 12px 8px;
+  text-align: center;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.q-drawer--mini .menu-title-container {
+  justify-content: center;
+  width: 100%;
+}
+
+.q-drawer--mini .menu-left-section {
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+
+.q-drawer--mini .menu-toggle-btn-sidebar {
+  margin: 0 auto;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background-color: rgba(25, 118, 210, 0.15) !important;
+  border: 2px solid rgba(25, 118, 210, 0.3) !important;
+}
+
+/* Dark mode için mini mod butonu */
+.body--dark .q-drawer--mini .menu-toggle-btn-sidebar {
+  background-color: rgba(144, 202, 249, 0.15) !important;
+  border: 2px solid rgba(144, 202, 249, 0.3) !important;
+}
+
+/* Mini modda header'ın her zaman görünmesini sağla */
+.q-drawer--mini .q-item-label[header] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.q-drawer--mini .menu-header {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+/* Mini modda buton hover efektleri */
+.q-drawer--mini .menu-toggle-btn-sidebar:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3) !important;
+}
+
+.body--dark .q-drawer--mini .menu-toggle-btn-sidebar:hover {
+  box-shadow: 0 4px 12px rgba(144, 202, 249, 0.3) !important;
 }
 .q-table th, .q-table td {
   border: 1px solid #444 !important;
@@ -969,7 +1088,11 @@ body.body--dark .genel-toplam-row {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+.menu-toggle-btn i {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .menu-toggle-btn:active {

@@ -22,7 +22,8 @@
                   flat 
                   dense 
                   round 
-                  size="xs"
+                  size="sm"
+                  color="lime-2"
                   @click="loadTakvimData"
                   class="refresh-btn"
                 />
@@ -441,6 +442,25 @@ watch(() => route.path, (newPath, oldPath) => {
   border-right: 1px solid rgba(255, 255, 255, 0.2); /* Tarih sütunu ile arasında border */
 }
 
+.refresh-btn {
+  margin-right: 8px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.refresh-btn .q-btn__content i {
+  color: white !important;
+  font-size: 1.2rem;
+}
+
 
 
 
@@ -849,6 +869,16 @@ watch(() => route.path, (newPath, oldPath) => {
 
 .body--dark .oda-tipi-cell {
   border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Dark mode için açık border */
+}
+
+.body--dark .refresh-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.body--dark .refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 

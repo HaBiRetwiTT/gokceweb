@@ -15,42 +15,103 @@ import jsPDF from 'jspdf';
 import { QueryRunner } from 'typeorm';
 //import { MusteriBilgi } from '../dto/musteri-bilgi.dto';
 
-@Controller()
+@Controller('musteri')
 export class MusteriController {
   constructor(
     private readonly musteriService: MusteriService,
     private readonly transactionService: DatabaseTransactionService
   ) {}
 
-  // Tarih formatı helper fonksiyonu
-  private formatDate(date: Date): string {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
+  // Güvenli dosya adı oluşturucu - HTTP header uyumlu ASCII-only
+  private createSafeFileName(fileName: string): string {
+    return fileName
+      .replace(/[<>:"/\\|?*]/g, '_') // Yasak karakterleri alt çizgi ile değiştir
+      .replace(/\s+/g, '_') // Boşlukları alt çizgi ile değiştir
+      // Türkçe karakterleri ASCII karşılıkları ile değiştir
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[ıİ]/g, 'i')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[üÜ]/g, 'u')
+      // Diğer özel karakterleri kaldır (sadece ASCII bırak)
+      .replace(/[^\x00-\x7F]/g, '_')
+      .substring(0, 100); // Maksimum 100 karakter
+  }
+
+  // Tarih formatı helper fonksiyonu - güvenli tarih dönüştürme
+  private formatDate(date: Date | string | null | undefined): string {
+    if (!date) return '';
+    
+    let dateObj: Date;
+    
+    if (typeof date === 'string') {
+      // Boş string kontrolü
+      if (date.trim() === '') return '';
+      
+      // DD.MM.YYYY formatını kontrol et ve dönüştür
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
+        const [day, month, year] = date.split('.');
+        dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        dateObj = new Date(date);
+      }
+    } else {
+      dateObj = date;
+    }
+    
+    // Date objesi geçerli mi kontrol et
+    if (isNaN(dateObj.getTime())) {
+      console.warn('Geçersiz tarih:', date);
+      return '';
+    }
+    
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = dateObj.getFullYear();
     return `${day}.${month}.${year}`;
   }
 
-  // Font dosyası kontrol fonksiyonu
+  // Türkçe karakter destekli font dosyası kontrol fonksiyonu
   private getFontPath(): string {
     const possiblePaths = [
+      // DejaVu Sans - En iyi Türkçe karakter desteği
       './fonts/DejaVuSans.ttf',
       './backend/fonts/DejaVuSans.ttf',
       path.join(__dirname, '../fonts/DejaVuSans.ttf'),
       path.join(__dirname, '../../fonts/DejaVuSans.ttf'),
       path.join(process.cwd(), 'fonts/DejaVuSans.ttf'),
-      path.join(process.cwd(), 'backend/fonts/DejaVuSans.ttf')
+      path.join(process.cwd(), 'backend/fonts/DejaVuSans.ttf'),
+      
+      // Sistem fontları - Linux
+      '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+      '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+      '/usr/share/fonts/TTF/DejaVuSans.ttf',
+      
+      // Sistem fontları - Windows
+      'C:\\Windows\\Fonts\\arial.ttf',
+      'C:\\Windows\\Fonts\\calibri.ttf',
+      'C:\\Windows\\Fonts\\tahoma.ttf',
+      
+      // Sistem fontları - macOS
+      '/System/Library/Fonts/Arial.ttf',
+      '/System/Library/Fonts/Helvetica.ttc',
+      '/Library/Fonts/Arial.ttf'
     ];
 
     for (const fontPath of possiblePaths) {
-      console.log(`Checking font path: ${fontPath}`);
-      if (fs.existsSync(fontPath)) {
-        console.log(`Font found at: ${fontPath}`);
-        return fontPath;
+      try {
+        if (fs.existsSync(fontPath)) {
+          console.log('Türkçe destekli font bulundu:', fontPath);
+          return fontPath;
+        }
+      } catch (error) {
+        console.warn('Font kontrol hatası:', fontPath, error);
       }
     }
 
-    console.error('Font file not found in any of the expected paths');
-    throw new Error('Font dosyası bulunamadı');
+    console.warn('Türkçe destekli font dosyası bulunamadı, sistem fontu kullanılacak');
+    return '';
   }
 
   @Post()
@@ -982,63 +1043,123 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // PDF oluştur
-      const doc = new jsPDF();
+      // PDF oluştur - Türkçe karakter desteği ile
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 50,
+        info: {
+          Title: raporBaslik,
+          Author: 'GÖKÇE PANSİYON',
+          Subject: 'Konaklama Geçmişi Raporu',
+          Creator: 'GÖKÇE PANSİYON Müşteri Takip Sistemi'
+        }
+      });
       
-      // Font ayarları
-      doc.setFont('helvetica');
-      doc.setFontSize(16);
+      // PDF buffer'ı toplamak için
+      const chunks: Buffer[] = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      
+      // Türkçe font'u yükle ve kullan
+      try {
+        const fontPath = this.getFontPath();
+        if (fontPath && fs.existsSync(fontPath)) {
+          doc.registerFont('Turkish', fontPath);
+          doc.font('Turkish');
+        } else {
+          // Font bulunamazsa fallback olarak Times-Roman kullan (daha iyi Unicode desteği)
+          doc.font('Times-Roman');
+        }
+      } catch (error) {
+        console.warn('Font yükleme hatası, varsayılan font kullanılıyor:', error);
+        doc.font('Times-Roman');
+      }
       
       // Başlık
-      doc.text(raporBaslik, 20, 20);
+      doc.fontSize(16);
+      doc.text(raporBaslik, 50, 50);
       
-      // Tarih
-      doc.setFontSize(10);
-      doc.text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 20, 30);
-      doc.text(`Toplam Kayıt: ${konaklamaGecmisi.length}`, 20, 40);
+      // Tarih bilgileri
+      doc.fontSize(10);
+      doc.text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 50, 80);
+      doc.text(`Toplam Kayit: ${konaklamaGecmisi.length}`, 50, 95);
       
       // Tablo başlıkları
-      const headers = ['Tarih', 'Oda-Yatak', 'Tip', 'Tutar', 'Giriş', 'Çıkış'];
-      const startY = 60;
-      let currentY = startY;
+      const headers = ['Tarih', 'Oda-Yatak', 'Tip', 'Tutar', 'Giris', 'Cikis'];
+      let currentY = 120;
       
-      doc.setFontSize(8);
+      doc.fontSize(9);
       headers.forEach((header, index) => {
-        doc.text(header, 20 + (index * 30), currentY);
+        doc.text(header, 50 + (index * 85), currentY);
       });
       
-      currentY += 10;
+      currentY += 25; // Başlık satırı ile ilk veri satırı arasında optimal boşluk
       
       // Veriler
-      konaklamaGecmisi.slice(0, 20).forEach((row, index) => {
-        if (currentY > 250) {
+      doc.fontSize(8);
+      konaklamaGecmisi.slice(0, 30).forEach((row, index) => {
+        if (currentY > 750) {
           doc.addPage();
-          currentY = 20;
+          currentY = 50;
         }
         
-        const tarih = row.kKytTarihi ? this.formatDate(new Date(row.kKytTarihi)) : 'N/A';
+        const tarih = this.formatDate(row.kKytTarihi);
         const odaYatak = `${row.KnklmOdaNo}-${row.KnklmYtkNo}`;
-        const tip = row.KnklmTip || 'N/A';
-        const tutar = row.KnklmNfyt || 0;
-        const giris = row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A';
-        const cikis = row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A';
+        const tip = row.KnklmTip || '';
+        const tutar = row.KnklmNfyt ? `${row.KnklmNfyt} TL` : '';
+        const giris = this.formatDate(row.KnklmGrsTrh);
+        const cikis = this.formatDate(row.KnklmCksTrh);
         
-        doc.text(tarih, 20, currentY);
-        doc.text(odaYatak, 50, currentY);
-        doc.text(tip, 80, currentY);
-        doc.text(tutar.toString(), 110, currentY);
-        doc.text(giris, 140, currentY);
-        doc.text(cikis, 170, currentY);
+        // Hücreleri yazdır - optimal spacing
+        doc.text(tarih, 50, currentY);
+        doc.text(odaYatak, 135, currentY);
+        doc.text(tip, 220, currentY);
+        doc.text(tutar, 305, currentY);
+        doc.text(giris, 390, currentY);
+        doc.text(cikis, 475, currentY);
         
-        currentY += 5;
+        currentY += 20; // Optimal satır aralığı
       });
       
-      // Response headers
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${raporBaslik.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf"`);
+      // PDF'i sonlandır
+      doc.end();
       
-      // PDF'i gönder
-      res.send(Buffer.from(doc.output('arraybuffer')));
+      // PDF hazır olduğunda gönder
+      doc.on('end', () => {
+        try {
+          const pdfBuffer = Buffer.concat(chunks);
+          
+          if (pdfBuffer.length === 0) {
+            throw new Error('PDF buffer boş');
+          }
+          
+          // Response headers - UTF-8 destekli
+          res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
+          const safeFileName = this.createSafeFileName(`${raporBaslik}-${new Date().toISOString().split('T')[0]}.pdf`);
+          const safeRaporBaslik = this.createSafeFileName(raporBaslik);
+          res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(`${safeRaporBaslik}-${new Date().toISOString().split('T')[0]}.pdf`)}`);
+          res.setHeader('Content-Length', pdfBuffer.length);
+          
+          console.log(`PDF başarıyla oluşturuldu: ${pdfBuffer.length} bytes`);
+          res.send(pdfBuffer);
+        } catch (bufferError) {
+          console.error('PDF buffer hatası:', bufferError);
+          res.status(500).json({ 
+            success: false, 
+            message: `PDF buffer hatası: ${bufferError.message}` 
+          });
+        }
+      });
+      
+      // PDF error handling
+      doc.on('error', (pdfError) => {
+        console.error('PDF oluşturma hatası:', pdfError);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false, 
+            message: `PDF oluşturma hatası: ${pdfError.message}` 
+          });
+        }
+      });
     } catch (error) {
       console.error('PDF rapor hatası:', error);
       console.error('Error details:', {
@@ -1077,45 +1198,38 @@ export class MusteriController {
         throw new Error('TC No veya Firma Adı gerekli');
       }
 
-      // Excel verilerini hazırla
+      // Excel verilerini hazırla - temiz ve güvenli format
       const excelData = konaklamaGecmisi.map(row => ({
-        'Kayıt Tarihi': this.formatDate(new Date(row.kKytTarihi)),
-        'Oda-Yatak': `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-        'Konaklama Tipi': row.KnklmTip || 'N/A',
-        'Tutar (TL)': row.KnklmNfyt || 0,
-        'Giriş Tarihi': row.KnklmGrsTrh ? this.formatDate(new Date(row.KnklmGrsTrh)) : 'N/A',
-        'Planlanan Çıkış': row.KnklmPlnTrh ? this.formatDate(new Date(row.KnklmPlnTrh)) : 'N/A',
-        'Çıkış Tarihi': row.KnklmCksTrh ? this.formatDate(new Date(row.KnklmCksTrh)) : 'N/A',
-        'Not': row.KnklmNot || ''
+        'Kayit Tarihi': this.formatDate(row.kKytTarihi) || '',
+        'Oda-Yatak': `${row.KnklmOdaNo || ''}-${row.KnklmYtkNo || ''}`,
+        'Konaklama Tipi': (row.KnklmTip || '').toString(),
+        'Tutar (TL)': parseFloat(row.KnklmNfyt) || 0,
+        'Giris Tarihi': this.formatDate(row.KnklmGrsTrh) || '',
+        'Planlanan Cikis': this.formatDate(row.KnklmPlnTrh) || '',
+        'Cikis Tarihi': this.formatDate(row.KnklmCksTrh) || '',
+        'Not': (row.KnklmNot || '').toString()
       }));
 
-      // Excel workbook oluştur
+      // Excel workbook oluştur - minimal ve güvenli yaklaşım
       const workbook = XLSX.utils.book_new();
+      
+      // Worksheet oluştur - otomatik header detection
       const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-      // Sütun genişliklerini ayarla
-      const columnWidths = [
-        { wch: 12 }, // Kayıt Tarihi
-        { wch: 10 }, // Oda-Yatak
-        { wch: 15 }, // Konaklama Tipi
-        { wch: 12 }, // Tutar
-        { wch: 12 }, // Giriş Tarihi
-        { wch: 12 }, // Planlanan Çıkış
-        { wch: 12 }, // Çıkış Tarihi
-        { wch: 10 }, // Durum
-        { wch: 30 }  // Not
-      ];
-      worksheet['!cols'] = columnWidths;
+      // Workbook'a worksheet ekle - basit isim
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
 
-      // Workbook'a worksheet ekle
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Konaklama Geçmişi');
+      // Excel dosyasını oluştur - minimal options
+      const excelBuffer = XLSX.write(workbook, { 
+        type: 'buffer', 
+        bookType: 'xlsx'
+      });
 
-      // Excel dosyasını oluştur
-      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-      // Response headers
+      // Response headers - UTF-8 destekli
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="konaklama-gecmisi-${Date.now()}.xlsx"`);
+      const safeExcelFileName = this.createSafeFileName(`${raporBaslik}-${Date.now()}.xlsx`);
+      const safeRaporBaslik = this.createSafeFileName(raporBaslik);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeExcelFileName}"; filename*=UTF-8''${encodeURIComponent(`${safeRaporBaslik}-${Date.now()}.xlsx`)}`);
       res.setHeader('Content-Length', excelBuffer.length);
 
       res.send(excelBuffer);
@@ -1152,51 +1266,144 @@ export class MusteriController {
       } else {
         throw new Error('TC No, Firma Adı veya Cari Kod gerekli');
       }
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.pdf"`);
-      doc.pipe(res);
-      doc.fontSize(20).text('GÖKÇE PANSİYON', { align: 'center' });
+      // Cari Hareketler PDF oluştur - Türkçe karakter destekli
+      const doc = new PDFDocument({ 
+        size: 'A4', 
+        margin: 50,
+        info: {
+          Title: raporBaslik,
+          Author: 'GÖKÇE PANSİYON',
+          Subject: 'Cari Hareketler Raporu',
+          Creator: 'GÖKÇE PANSİYON Müşteri Takip Sistemi'
+        }
+      });
+      
+      // PDF buffer'ı toplamak için
+      const chunks: Buffer[] = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      
+      // Türkçe font'u yükle ve kullan
+      try {
+        const fontPath = this.getFontPath();
+        if (fontPath && fs.existsSync(fontPath)) {
+          doc.registerFont('Turkish', fontPath);
+          doc.font('Turkish');
+        } else {
+          // Font bulunamazsa fallback olarak Times-Roman kullan
+          doc.font('Times-Roman');
+        }
+      } catch (error) {
+        console.warn('Font yükleme hatası, varsayılan font kullanılıyor:', error);
+        doc.font('Times-Roman');
+      }
+      
+      // Header
+      doc.fontSize(20).text('GOKCE PANSIYON', { align: 'center' });
       doc.moveDown();
       doc.fontSize(16).text(raporBaslik, { align: 'center' });
       doc.moveDown();
       doc.fontSize(10).text(`Rapor Tarihi: ${this.formatDate(new Date())}`, { align: 'right' });
       doc.moveDown(2);
-      const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar', 'Birim'];
+      
+      const headers = ['Tarih', 'Islem Tipi', 'Aciklama', 'Tutar', 'Birim'];
       const columnWidths = [80, 80, 180, 70, 50];
       let yPosition = doc.y;
+      
       doc.fontSize(9);
       headers.forEach((header, index) => {
         doc.text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), yPosition);
       });
+      
+      yPosition += 20; // Başlık satırlarından sonra optimal boşluk
+      
       doc.fontSize(8);
       if (hareketler.length === 0) {
-        yPosition += 25;
-        doc.text('Kayıt bulunamadı', 50, yPosition, { width: 400 });
+        yPosition += 25; // Başlık satırı ile ilk veri satırı arasında optimal boşluk
+        doc.text('Kayit bulunamadi', 50, yPosition, { width: 400 });
       } else {
         hareketler.forEach((row, index) => {
-          const rowHeight = 20;
           if (yPosition > 650) {
             doc.addPage();
-            yPosition = 50;
+            yPosition = 40;
           }
+          
           // Alan adlarını birebir eşleştir
           const rowData = [
-            row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
+            this.formatDate(row.iKytTarihi),
             row.islemTip || '',
             row.islemBilgi || '',
             `${row.islemTutar?.toLocaleString('tr-TR') || 0} TL`,
             row.islemBirim || ''
           ];
+          
+          // Açıklama sütunu için özel işlem
+          const aciklamaText = rowData[2];
+          const estimatedLines = Math.ceil(aciklamaText.length / 30); // Yaklaşık 30 karakter per satır
+          const rowHeight = Math.max(20, estimatedLines * 12); // Minimum 20px, her satır için 12px
+          
+          // Hücreleri yazdır
           rowData.forEach((cell, cellIndex) => {
             const cellWidth = columnWidths[cellIndex];
             const cellX = 50 + columnWidths.slice(0, cellIndex).reduce((a, b) => a + b, 0);
-            doc.text(cell, cellX, yPosition, { width: cellWidth, align: 'left' });
+            
+            if (cellIndex === 2) { // Açıklama sütunu
+              doc.text(cell, cellX, yPosition, { 
+                width: cellWidth, 
+                align: 'left'
+              });
+            } else {
+              doc.text(cell, cellX, yPosition, { 
+                width: cellWidth, 
+                align: 'left' 
+              });
+            }
           });
-          yPosition += 25;
+          
+          yPosition += rowHeight + 5; // Dinamik satır yüksekliği + optimal boşluk
         });
       }
+      
+      // PDF'i sonlandır
       doc.end();
+      
+      // PDF hazır olduğunda gönder
+      doc.on('end', () => {
+        try {
+          const pdfBuffer = Buffer.concat(chunks);
+          
+          if (pdfBuffer.length === 0) {
+            throw new Error('PDF buffer boş');
+          }
+          
+          // Response headers - UTF-8 destekli
+          res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
+          const safeFileName = this.createSafeFileName(`${raporBaslik}-${new Date().toISOString().split('T')[0]}.pdf`);
+          const safeRaporBaslik = this.createSafeFileName(raporBaslik);
+          res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(`${safeRaporBaslik}-${new Date().toISOString().split('T')[0]}.pdf`)}`);
+          res.setHeader('Content-Length', pdfBuffer.length);
+          
+          console.log(`Cari hareketler PDF başarıyla oluşturuldu: ${pdfBuffer.length} bytes`);
+          res.send(pdfBuffer);
+        } catch (bufferError) {
+          console.error('Cari hareketler PDF buffer hatası:', bufferError);
+          res.status(500).json({ 
+            success: false, 
+            message: `PDF buffer hatası: ${bufferError.message}` 
+          });
+        }
+      });
+      
+      // PDF error handling
+      doc.on('error', (pdfError) => {
+        console.error('Cari hareketler PDF oluşturma hatası:', pdfError);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false, 
+            message: `PDF oluşturma hatası: ${pdfError.message}` 
+          });
+        }
+      });
+      
     } catch (error) {
       console.error('Cari hareketler PDF rapor hatası:', error);
       res.status(500).json({ success: false, message: 'Cari hareketler PDF raporu oluşturulamadı' });
@@ -1227,23 +1434,32 @@ export class MusteriController {
       } else {
         throw new Error('TC No, Firma Adı veya Cari Kod gerekli');
       }
-      // Alan adlarını birebir eşleştir
+      // Excel verilerini hazırla - temiz ve güvenli format
       const excelData = hareketler.length === 0
-        ? [{ 'Tarih': '', 'İşlem Tipi': '', 'Açıklama': 'Kayıt bulunamadı', 'Tutar (TL)': '', 'Birim': '' }]
+        ? [{ 'Tarih': '', 'Islem Tipi': '', 'Aciklama': 'Kayit bulunamadi', 'Tutar (TL)': 0, 'Birim': '' }]
         : hareketler.map(row => ({
-            'Tarih': row.iKytTarihi ? this.formatDate(new Date(row.iKytTarihi)) : '',
-            'İşlem Tipi': row.islemTip || '',
-            'Açıklama': row.islemBilgi || '',
-            'Tutar (TL)': row.islemTutar || 0,
-            'Birim': row.islemBirim || ''
+            'Tarih': this.formatDate(row.iKytTarihi) || '',
+            'Islem Tipi': (row.islemTip || '').toString(),
+            'Aciklama': (row.islemBilgi || '').toString(),
+            'Tutar (TL)': parseFloat(row.islemTutar) || 0,
+            'Birim': (row.islemBirim || '').toString()
           }));
+      // Excel workbook oluştur - minimal ve güvenli yaklaşım
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(excelData);
-      worksheet['!cols'] = [ { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 8 } ];
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Cari Hareketler');
-      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+      
+      // Excel dosyasını oluştur - minimal options
+      const excelBuffer = XLSX.write(workbook, { 
+        type: 'buffer', 
+        bookType: 'xlsx'
+      });
+      
+      // Response headers - UTF-8 destekli
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="cari-hareketler-${Date.now()}.xlsx"`);
+      const safeExcelFileName = this.createSafeFileName(`${raporBaslik}-${new Date().toISOString().split('T')[0]}.xlsx`);
+      const safeRaporBaslik = this.createSafeFileName(raporBaslik);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeExcelFileName}"; filename*=UTF-8''${encodeURIComponent(`${safeRaporBaslik}-${new Date().toISOString().split('T')[0]}.xlsx`)}`);
       res.setHeader('Content-Length', excelBuffer.length);
       res.send(excelBuffer);
     } catch (error) {
