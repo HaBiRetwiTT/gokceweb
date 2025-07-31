@@ -11,7 +11,7 @@
       v-if="icon"
       avatar
     >
-      <q-icon :name="icon" />
+      <q-icon :name="icon" :style="iconColor ? `color: ${iconColor}` : ''" />
       <q-tooltip v-if="mini" style="min-width: 250px; text-align: center; font-size: 1em; color:cyan;">{{ title }}</q-tooltip>
     </q-item-section>
 
@@ -33,6 +33,7 @@ export interface EssentialLinkProps {
   icon?: string;
   action?: string | undefined;
   mini?: boolean;
+  iconColor?: string;
 };
 
 const props = withDefaults(defineProps<EssentialLinkProps>(), {
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<EssentialLinkProps>(), {
   link: '#',
   icon: '',
   mini: false,
+  iconColor: '',
 });
 
 const router = useRouter();

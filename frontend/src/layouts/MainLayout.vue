@@ -252,7 +252,8 @@ import { api } from '../boot/axios';
 const router = useRouter();
 const $q = useQuasar();
 
-const linksList: EssentialLinkProps[] = [
+// Tüm menü linklerini tanımla
+const allLinksList: EssentialLinkProps[] = [
   {
     title: 'Dashboard',
     caption: 'Grafik / İstatistik',
@@ -275,13 +276,21 @@ const linksList: EssentialLinkProps[] = [
     title: 'Ek Hizmetler',
     caption: 'Çamaşır - Ütü vb.',
     icon: 'room_service',
-    action: 'showEkHizmetlerModal'
+    action: 'showEkHizmetlerModal',
+    iconColor: '#64B5F6'
   },
   {
     title: 'Müşteri Tahsilat',
     caption: 'Ödeme - Depozito',
     icon: 'payments',
-    action: 'showOdemeIslemModal'
+    action: 'showOdemeIslemModal',
+    iconColor: '#64B5F6'
+  },
+  {
+    title: 'Gelir/Gider Kayıt',
+    caption: 'Extra İşlemler',
+    icon: 'receipt',
+    link: '/gelir-gider'
   },
   {
     title: 'Oda Tip Takvim',
@@ -290,6 +299,22 @@ const linksList: EssentialLinkProps[] = [
     link: '/mevcut-rezerve'
   }
 ];
+
+// Mevcut route'u takip et
+const currentRoute = computed(() => router.currentRoute.value.path);
+
+// Dinamik menü listesi - kartlı işlem sayfasında değilse Ek Hizmetler ve Müşteri Tahsilat'ı gizle
+const linksList = computed(() => {
+  const isKartliIslemPage = currentRoute.value === '/kartli-islem';
+  
+  return allLinksList.filter(link => {
+    // Kartlı işlem sayfasında değilse bu menüleri gizle
+    if (!isKartliIslemPage && (link.title === 'Ek Hizmetler' || link.title === 'Müşteri Tahsilat')) {
+      return false;
+    }
+    return true;
+  });
+});
 
 const leftDrawerOpen = ref(false);
 const miniMenu = ref(true);
@@ -570,13 +595,29 @@ if (typeof window !== 'undefined') {
 }
 
 function refreshPage() {
-  // Eğer tam ekran ise, localStorage'a kaydet
-  if (isFullScreen.value) {
-    localStorage.setItem('restoreFullScreen', 'true');
+  // Kartlı işlem sayfasındaysa stats verilerini yenile
+  if (router.currentRoute.value.path === '/kartli-islem') {
+    console.log('🔄 Kartlı işlem sayfası stats verileri yenileniyor...');
+    window.dispatchEvent(new Event('refreshKartliIslemStats'));
+    
+    // Kullanıcıya bilgi ver
+    Notify.create({
+      type: 'info',
+      message: 'Stats verileri yenileniyor...',
+      icon: 'refresh',
+      position: 'top',
+      timeout: 2000
+    });
   } else {
-    localStorage.removeItem('restoreFullScreen');
+    // Diğer sayfalarda normal sayfa yenileme
+    // Eğer tam ekran ise, localStorage'a kaydet
+    if (isFullScreen.value) {
+      localStorage.setItem('restoreFullScreen', 'true');
+    } else {
+      localStorage.removeItem('restoreFullScreen');
+    }
+    window.location.reload();
   }
-  window.location.reload();
 }
 
 // Sürüm kontrolü fonksiyonu

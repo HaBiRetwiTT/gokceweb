@@ -2163,6 +2163,12 @@ function setupDataChangeListeners() {
     void updateStatsOnly();
   });
 
+  // Header'daki yenile butonundan gelen event
+  window.addEventListener('refreshKartliIslemStats', () => {
+    console.log('📡 Header yenile butonu eventi alındı');
+    void updateStatsOnly();
+  });
+
   // Sayfa görünür olduğunda stats güncelleme (focus/blur events)
   window.addEventListener('focus', () => {
     console.log('📡 Sayfa focus oldu - stats güncelleniyor');
@@ -2181,6 +2187,7 @@ function setupDataChangeListeners() {
 // 🔥 EVENT LISTENER'LARI TEMİZLEME
 function cleanupDataChangeListeners() {
   window.removeEventListener('statsNeedsUpdate', () => void updateStatsOnly());
+  window.removeEventListener('refreshKartliIslemStats', () => void updateStatsOnly());
   window.removeEventListener('focus', () => void updateStatsOnly());
   window.removeEventListener('visibilitychange', () => void updateStatsOnly());
 }
@@ -3255,7 +3262,7 @@ function stopDrag() {
 async function selectBestCard() {
   // 🔥 ÖNCELİK SIRASI: Süresi dolan kartlar her zaman öncelikli!
   
-  // 1. Önce süresi dolan kartları kontrol et
+  // 1. Önce süresi dolan kartlarını kontrol et
   const suresiDolanList = await loadMusteriListesiReturn('suresi-dolan');
   const suresiDolanSayisi = suresiDolanList ? suresiDolanList.length : 0;
   
@@ -3265,11 +3272,19 @@ async function selectBestCard() {
     return;
   }
   
-  // 2. Süresi dolan kart yoksa diğer kartları kontrol et
+  // 2. Süresi dolan kart yoksa (stats verisi 0 ise) devam eden kartını seç
+  const devamEdenList = await loadMusteriListesiReturn('toplam-aktif');
+  const devamEdenSayisi = devamEdenList ? devamEdenList.length : 0;
+  
+  if (devamEdenSayisi > 0) {
+    void loadFilteredData('toplam-aktif');
+    return;
+  }
+  
+  // 3. Diğer kartları kontrol et (devam eden kartı zaten kontrol ettik)
   const cardTypes = [
     'alacakli-musteriler',
     'borclu-musteriler', 
-    'toplam-aktif',
     'yeni-musteri',
     'yeni-giris',
     'bugun-cikan',
