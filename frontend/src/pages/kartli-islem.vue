@@ -2058,7 +2058,7 @@ async function loadDinamikOdaTipleri() {
   }
 }
 
-async function loadBorcluMusteriler(page: number = 1, limit: number = 100) {
+async function loadBorcluMusteriler(page: number = 1, limit: number = 1000) {
   loading.value = true
   try {
     const response = await api.get(`/dashboard/borclu-musteriler?page=${page}&limit=${limit}`)
@@ -2074,7 +2074,7 @@ async function loadBorcluMusteriler(page: number = 1, limit: number = 100) {
   }
 }
 
-async function loadAlacakliMusteriler(page: number = 1, limit: number = 100) {
+async function loadAlacakliMusteriler(page: number = 1, limit: number = 1000) {
   loading.value = true
   try {
     const response = await api.get(`/dashboard/alacakli-musteriler?page=${page}&limit=${limit}`)
@@ -2146,30 +2146,33 @@ async function refreshData() {
   
   sortingInProgress = false  // Manuel yenileme için API çağrısına izin ver
   
-  // Önce tüm istatistikleri yükle
-  await Promise.all([
-    loadStats(),
-    loadKonaklamaTipleri(),
-    loadOdaTipleri(),
-    loadCikisYapanlarSayisi()
-  ])
-  
-  // 🔥 DİNAMİK LİSTELERİ YÜKLE (eğer aktif filtre varsa)
-  if (currentFilter.value) {
-    await loadDinamikKonaklamaTipleri()
-    await loadDinamikOdaTipleri()
+  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Tüm API çağrılarını paralel yap
+  loading.value = true
+  try {
+    await Promise.all([
+      loadStats(),
+      loadKonaklamaTipleri(),
+      loadOdaTipleri(),
+      loadCikisYapanlarSayisi()
+    ])
+    
+    // 🔥 DİNAMİK LİSTELERİ YÜKLE (eğer aktif filtre varsa)
+    if (currentFilter.value) {
+      await Promise.all([
+        loadDinamikKonaklamaTipleri(),
+        loadDinamikOdaTipleri()
+      ])
+    }
+    
+    // Seçili kartın verilerini yükle
+    if (currentFilter.value) {
+      await loadSelectedCardData(currentFilter.value)
+    }
+  } catch (error) {
+    console.error('Veri yenileme hatası:', error)
+  } finally {
+    loading.value = false
   }
-  
-  // Eğer aktif filtre yoksa veya seçili kartın değeri 0 ise, akıllı kart seçimi yap
-  if (!currentFilter.value || getCurrentCardValue() === 0) {
-    await selectBestCard()
-  } else {
-    // Aktif filtre varsa sadece o kartın verilerini yenile
-    void loadSelectedCardData(currentFilter.value)
-  }
-  selectedNormalMusteri.value = null;
-  window.kartliIslemSelectedNormalMusteri = null;
-  window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
 }
 
 // Modal başarılı işlem sonrası güncelleme fonksiyonu
@@ -2859,9 +2862,11 @@ async function loadFilteredData(filter: string) {
   
   sortingInProgress = false  // Filtre değiştiğinde yeni veri çek
   
-  // 🔥 DİNAMİK LİSTELERİ YÜKLE
-  await loadDinamikKonaklamaTipleri()
-  await loadDinamikOdaTipleri()
+  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
+  await Promise.all([
+    loadDinamikKonaklamaTipleri(),
+    loadDinamikOdaTipleri()
+  ])
   
   // Yeni kart seçildiğinde arama metnini temizle ve filtreyi kaldır
   searchText.value = ''
@@ -2935,9 +2940,11 @@ function clearFilters() {
   selectedTip.value = 'TÜMÜ'
   selectedOdaTip.value = 'TÜMÜ'
   
-  // Dinamik listeleri yeniden yükle
-  void loadDinamikKonaklamaTipleri()
-  void loadDinamikOdaTipleri()
+  // Dinamik listeleri paralel yükle
+  void Promise.all([
+    loadDinamikKonaklamaTipleri(),
+    loadDinamikOdaTipleri()
+  ])
   
   // Seçili kartın verilerini yenile
   if (currentFilter.value) {
@@ -3170,23 +3177,7 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag);
 }
 
-// 🔥 MEVCUT KART DEĞERİNİ ALMA FONKSİYONU
-function getCurrentCardValue(): number {
-  if (!currentFilter.value) return 0
-  
-  const cardValues: Record<string, number> = {
-    'suresi-dolan': stats.value.SuresiGecentKonaklama || 0,
-    'borclu-musteriler': stats.value.BorcluMusteriSayisi || 0,
-    'alacakli-musteriler': stats.value.AlacakliMusteriSayisi || 0,
-    'toplam-aktif': stats.value.ToplamAktifKonaklama || 0,
-    'yeni-musteri': stats.value.YeniMusteriKonaklama || 0,
-    'yeni-giris': stats.value.YeniGirisKonaklama || 0,
-    'bugun-cikan': stats.value.BugünCikanKonaklama || 0,
-    'cikis-yapanlar': cikisYapanlarSayisi.value || 0
-  }
-  
-  return cardValues[currentFilter.value] || 0
-}
+
 
 // 🔥 AKILLI KART SEÇİM FONKSİYONU (asenkron)
 async function selectBestCard() {
@@ -3247,7 +3238,7 @@ async function loadBorcluMusterilerReturn() {
   return response.data.success ? response.data.data : [];
 }
 async function loadAlacakliMusterilerReturn() {
-  const response = await api.get('/dashboard/alacakli-musteriler');
+  const response = await api.get('/dashboard/alacakli-musteriler?page=1&limit=1000');
   return response.data.success ? response.data.data : [];
 }
 async function loadCikisYapanlarListesiReturn() {
@@ -3266,9 +3257,11 @@ async function loadMusteriListesiReturn(cardType: string) {
 async function loadSelectedCardData(cardType: string) {
   console.log(`Seçilen kart verileri yükleniyor: ${cardType}`)
   
-  // 🔥 DİNAMİK LİSTELERİ YÜKLE
-  await loadDinamikKonaklamaTipleri()
-  await loadDinamikOdaTipleri()
+  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
+  await Promise.all([
+    loadDinamikKonaklamaTipleri(),
+    loadDinamikOdaTipleri()
+  ])
   
   if (cardType === 'borclu-musteriler') {
     // Borçlu müşteriler tablosunu göster

@@ -341,13 +341,19 @@ export class DashboardController {
 
   // Alacaklı Müşteri Listesi - bakiyesi negatif olan müşteriler (işletme müşteriye borçlu)
   @Get('alacakli-musteriler')
-  async getAlacakliMusteriler() {
+  async getAlacakliMusteriler(@Query('page') page: string = '1', @Query('limit') limit: string = '100') {
     try {
-      const data = await this.dashboardService.getAlacakliMusteriler();
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+      
+      const result = await this.dashboardService.getAlacakliMusteriler(pageNum, limitNum);
       return {
         success: true,
-        data: data,
-        count: data.length
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        count: result.data.length
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
@@ -557,6 +563,24 @@ export class DashboardController {
       throw new HttpException({
         success: false,
         message: `Kara listeden çıkarma işlemi başarısız: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Cache temizleme endpoint'i
+  @Put('clear-cache')
+  async clearCache() {
+    try {
+      this.dashboardService.clearStatsCache();
+      return {
+        success: true,
+        message: 'Cache başarıyla temizlendi'
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Cache temizleme hatası: ${errorMessage}`
       }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

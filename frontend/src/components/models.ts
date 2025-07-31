@@ -10,6 +10,8 @@ export interface Meta {
 export interface DashboardStats {
   ToplamAktifKonaklama?: number;
   SuresiGecentKonaklama?: number;
+  DevamEdenKonaklama?: number;    // 🔥 Yeni alan
+  SuresiDolanKonaklama?: number;  // 🔥 Yeni alan
   BugünCikanKonaklama?: number;
   BugünGirenKonaklama?: number;
   YeniMusteriKonaklama?: number;  // 🔥 Yeni alan
