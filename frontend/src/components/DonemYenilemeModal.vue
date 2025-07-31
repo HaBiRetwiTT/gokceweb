@@ -1437,24 +1437,20 @@ watch([() => formData.value.HesaplananBedel, () => formData.value.ToplamBedel], 
 
 async function loadOdaTipleri() {
   try {
-    const response = await api.get('bos-oda-tipleri');
+    const response = await api.get('/musteri/bos-oda-tipleri');
     if (response.data.success) {
       odaTipleri.value = response.data.data;
-      
       // Formatted options'u oluştur - dropdown'da boş oda sayısı gösterimi için
       odaTipleriFormatted.value = response.data.data.map((item: {odaTipi: string, bosOdaSayisi: number}) => ({
         value: item.odaTipi,
         label: item.odaTipi, // Seçildiğinde sadece oda tipi görünsün
         bosOdaSayisi: item.bosOdaSayisi
       }));
-      
       // Dönem yenileme özel durumu: Mevcut müşterinin oda tipi her zaman listede bulunmalı
       if (props.selectedData && props.selectedData.KnklmOdaTip) {
         const mevcutOdaTipi = props.selectedData.KnklmOdaTip;
-        
         // Mevcut oda tipi listede var mı kontrol et
         const mevcutTipVarMi = odaTipleri.value.some(item => item.odaTipi === mevcutOdaTipi);
-        
         if (!mevcutTipVarMi) {
           // Mevcut oda tipi listede yoksa listenin başına ekle (boş oda sayısı 0 ile)
           odaTipleri.value.unshift({odaTipi: mevcutOdaTipi, bosOdaSayisi: 0});
@@ -1467,7 +1463,6 @@ async function loadOdaTipleri() {
           console.log('Güncel oda tipleri listesi:', odaTipleri.value);
         }
       }
-      
       // Dönem yenileme formunda ilk yüklemede loadBosOdalar çalıştırma
       // Bu fonksiyon sadece oda tipi değiştirildiğinde çalışacak
     }
@@ -1484,7 +1479,7 @@ async function loadBosOdalar() {
   
   try {
     console.log('Boş odalar yükleniyor, oda tipi:', formData.value.KnklmOdaTip);
-    const response = await api.get(`bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
     console.log('Boş odalar response:', response.data);
     if (response.data.success) {
       bosOdalar.value = response.data.data;
@@ -1583,7 +1578,7 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && formData.value.KnklmOdaTip) {
     try {
-      const response = await api.get(`oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+      const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data;
       }
@@ -1688,7 +1683,7 @@ async function calculateBedel() {
   try {
     // Oda tip fiyatlarını getir
     console.log('Fiyat bilgileri getiriliyor:', formData.value.KnklmOdaTip);
-    const response = await api.get(`oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
     console.log('Fiyat response:', response.data);
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data;

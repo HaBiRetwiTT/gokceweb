@@ -979,7 +979,7 @@ async function hesaplaBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    const response = await api.get(`/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
+    const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data
       
@@ -1043,7 +1043,7 @@ async function hesaplaBedel() {
 // Sayfa yüklendiğinde firma listesini getir
 async function loadFirmaList() {
   try {
-    const response = await api.get('/firma-listesi')
+    const response = await api.get('/musteri/firma-listesi')
     if (response.data.success) {
       firmaList.value = response.data.data
       // Dropdown için uygun format
@@ -1061,7 +1061,7 @@ async function loadFirmaList() {
 async function loadOdaTipleri() {
   try {
     console.log('Boş oda tipleri yükleniyor...')
-    const response = await api.get('/bos-oda-tipleri')
+    const response = await api.get('/musteri/bos-oda-tipleri')
     console.log('Boş oda tipleri response:', response.data)
     if (response.data.success) {
       odaTipleriOptions.value = response.data.data
@@ -1089,7 +1089,7 @@ async function loadBosOdalar(odaTipi: string) {
       bosOdalarOptions.value = []
       return
     }
-    const response = await api.get(`/bos-odalar/${encodeURIComponent(odaTipi)}`)
+    const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(odaTipi)}`)
     console.log('Boş odalar response:', response.data)
     if (response.data.success) {
       bosOdalarOptions.value = response.data.data
@@ -1164,7 +1164,7 @@ async function onFirmaSelected(firmaName: string) {
   }
 
   try {
-    const response = await api.get(`/firma-detay/${encodeURIComponent(trimmedName)}`)
+    const response = await api.get(`/musteri/firma-detay/${encodeURIComponent(trimmedName)}`)
     if (response.data.success && response.data.data) {
       const details = response.data.data
       extraForm.value.MstrVD = details.MstrVD || ''
@@ -1200,7 +1200,7 @@ async function onCorporateFieldChanged() {
 
     if (hasChanges) {
       try {
-        await api.post('/firma-guncelle', {
+        await api.post('/musteri/firma-guncelle', {
           firmaName: currentFirma,
           MstrVD: extraForm.value.MstrVD,
           MstrVno: extraForm.value.MstrVno,
@@ -2407,7 +2407,7 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && form.value.OdaTipi) {
     try {
-      const response = await api.get(`/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
+      const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(form.value.OdaTipi)}`)
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data
       }
