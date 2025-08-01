@@ -506,17 +506,7 @@ export class DashboardController {
     }
   }
 
-  // 🔥 DEBUG: v_MusteriKonaklama view'ının yapısını ve verilerini test et
-  @Get('test-musteri-konaklama-view')
-  async testMusteriKonaklamaView(): Promise<any> {
-    try {
-      const result = await this.dashboardService.testMusteriKonaklamaView();
-      return result;
-    } catch (error) {
-      console.error('testMusteriKonaklamaView hatası:', error);
-      throw new HttpException('View test edilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
+
 
   // 🔥 FİRMA GENELİ KONAKLAMA GEÇMİŞİ
   @Get('firma-konaklama-gecmisi/:firmaAdi')

@@ -137,6 +137,18 @@ const show = ref(props.show);
 watch(() => props.show, v => show.value = v);
 watch(show, v => emit('update:show', v));
 
+// 🔥 DEBUG: Props değişikliklerini izle
+watch(() => props.musteriAdi, (newValue) => {
+  console.log('🔥 OdemeIslemForm - musteriAdi prop değişti:', newValue);
+}, { immediate: true });
+
+watch(() => props.show, (newValue) => {
+  console.log('🔥 OdemeIslemForm - show prop değişti:', newValue);
+  if (newValue) {
+    console.log('🔥 OdemeIslemForm - Modal açıldı, musteriAdi:', props.musteriAdi);
+  }
+}, { immediate: true });
+
 const odemeTipleri = [
   { label: 'Nakit Kasa(TL)', value: 'nakit' },
   { label: 'Kredi Kartları', value: 'kredi' },

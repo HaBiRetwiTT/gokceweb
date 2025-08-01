@@ -17,7 +17,7 @@ export class FirewallService {
       select: ['mstrTCN'],
       where: { MstrDurum: 'KALIYOR' },
     });
-    return result.map(item => item.mstrTCN);
+    return result.map((item) => item.mstrTCN);
   }
 
   async writeJsonFile(data: string[], filename: string) {
@@ -28,10 +28,10 @@ export class FirewallService {
     const client = new Client();
     try {
       await client.access({
-        host: "94.199.202.175",
-        user: "visitor",
-        password: "6rm$p736U",
-        secure: false
+        host: '94.199.202.175',
+        user: 'visitor',
+        password: '6rm$p736U',
+        secure: false,
       });
       await client.uploadFrom(localFile, remoteFile);
     } finally {

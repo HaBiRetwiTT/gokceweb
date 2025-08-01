@@ -726,6 +726,24 @@ async function saveDonemYenileme() {
       setTimeout(() => {
         emit('saved');
         closeModal();
+        
+        // 🔥 MÜŞTERİ BİLGİSİNİ GLOBAL STATE'E AKTAR VE TAHSİLAT MODALINI AÇ
+        setTimeout(() => {
+          // Müşteri bilgisini global state'e aktar
+          if (props.selectedData) {
+            console.log('🔥 saveDonemYenileme - props.selectedData:', props.selectedData)
+            console.log('🔥 saveDonemYenileme - MstrAdi:', props.selectedData.MstrAdi)
+            window.kartliIslemSelectedNormalMusteri = {
+              ...props.selectedData,
+              MstrAdi: props.selectedData.MstrAdi || ''
+            };
+            console.log('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+          } else {
+            console.log('❌ saveDonemYenileme - props.selectedData bulunamadı')
+          }
+          console.log('🔥 saveDonemYenileme - showOdemeIslemModal event dispatched')
+          window.dispatchEvent(new Event('showOdemeIslemModal'));
+        }, 500);
       }, 3000);
       
     } else {
@@ -854,7 +872,25 @@ function handleCikisYap() {
           
           setTimeout(() => {
             emit('refresh');
-    closeModal();
+            closeModal();
+            
+            // 🔥 MÜŞTERİ BİLGİSİNİ GLOBAL STATE'E AKTAR VE TAHSİLAT MODALINI AÇ
+            setTimeout(() => {
+              // Müşteri bilgisini global state'e aktar
+              if (props.selectedData) {
+                console.log('🔥 handleCikisYap - props.selectedData:', props.selectedData)
+                console.log('🔥 handleCikisYap - MstrAdi:', props.selectedData.MstrAdi)
+                window.kartliIslemSelectedNormalMusteri = {
+                  ...props.selectedData,
+                  MstrAdi: props.selectedData.MstrAdi || ''
+                };
+                console.log('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+              } else {
+                console.log('❌ handleCikisYap - props.selectedData bulunamadı')
+              }
+              console.log('🔥 handleCikisYap - showOdemeIslemModal event dispatched')
+              window.dispatchEvent(new Event('showOdemeIslemModal'));
+            }, 500);
           }, 3000);
 
         } else {
@@ -1085,7 +1121,7 @@ function onOdemeVadesiSelected(date: string) {
 function convertDateFormat(dateStr: string): string {
   if (!dateStr || dateStr.trim() === '') return '';
   
-  console.log('🔥 Modal convertDateFormat giriş:', dateStr);
+
   
   // MM.DD.YYYY formatını kontrol et ve DD.MM.YYYY'ye çevir
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
@@ -1094,24 +1130,24 @@ function convertDateFormat(dateStr: string): string {
       const firstPart = parseInt(parts[0] || '0');
       const secondPart = parseInt(parts[1] || '0');
       
-      console.log('🔥 Modal tarih parçaları:', { firstPart, secondPart, parts });
+
       
       // Eğer ikinci kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (ay 12'den büyük olamaz)
       if (secondPart > 12) {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 Modal MM.DD.YYYY -> DD.MM.YYYY dönüşümü (ay > 12):', result);
+
         return result;
       }
       // Eğer ilk kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (gün > 12)
       else if (firstPart > 12) {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 Modal MM.DD.YYYY -> DD.MM.YYYY dönüşümü (gün > 12):', result);
+
         return result;
       }
       // Eğer her ikisi de 12'den küçükse, varsayılan olarak MM.DD.YYYY kabul et
       else {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 Modal varsayılan MM.DD.YYYY -> DD.MM.YYYY dönüşümü:', result);
+
         return result;
       }
     }
@@ -1122,7 +1158,7 @@ function convertDateFormat(dateStr: string): string {
     // YYYY-MM-DD formatı
     const parts = dateStr.split('-');
     const result = `${parts[2]}.${parts[1]}.${parts[0]}`;
-    console.log('🔥 Modal YYYY-MM-DD -> DD.MM.YYYY dönüşümü:', result);
+
     return result;
   }
   
@@ -1130,11 +1166,11 @@ function convertDateFormat(dateStr: string): string {
     // MM/DD/YYYY formatı
     const parts = dateStr.split('/');
     const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-    console.log('🔥 Modal MM/DD/YYYY -> DD.MM.YYYY dönüşümü:', result);
+
     return result;
   }
   
-  console.log('🔥 Modal format tanınmadı, olduğu gibi döndürülüyor:', dateStr);
+
   return dateStr; // Değiştirilemezse olduğu gibi döndür
 }
 
@@ -1157,11 +1193,7 @@ function calculateKonaklamaSuresi(plnTrh: string, grsTrh: string): number {
     const gunFarki = plnTarih.getTime() - grsTarih.getTime();
     const gunSayisi = Math.ceil(gunFarki / (1000 * 60 * 60 * 24));
     
-    console.log('Konaklama süresi hesaplandı:', {
-      girisTarihi: grsTrh,
-      cikisTarihi: plnTrh,
-      gunSayisi: gunSayisi
-    });
+
     
     return Math.max(1, gunSayisi); // En az 1 gün
   } catch (error) {
@@ -1190,7 +1222,7 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
     const gunFarki = Math.max(1, Math.ceil((plnTarih.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
     hesaplananKonaklamaSuresi = gunFarki;
   }
-  console.log('Form yüklenirken konaklama süresi hesaplandı:', hesaplananKonaklamaSuresi);
+
 
   // Konaklama süresi hesaplama (sadece Bugün Giren ve Devam Eden için)
   let readonlySure = false;
@@ -1216,12 +1248,9 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
     KnklmPlnTrh: newData.KnklmPlnTrh || '',
     KnklmNot: newData.KnklmNot || '',
     OdemeVadesi: (() => {
-      console.log('🔥 Modal: Frontend\'den gelen ödeme vadesi (ham):', newData.OdemeVadesi);
       const formatted = convertDateFormat(newData.OdemeVadesi || '');
-      console.log('🔥 Modal: Formatlanmış ödeme vadesi:', formatted);
       // Geçmiş tarih kontrolü uygula (notification gösterme)
       const validated = validateOdemeVadesi(formatted, false);
-      console.log('🔥 Modal: Validasyondan geçen ödeme vadesi:', validated);
       return validated;
     })(), // 🔥 Tarih formatını düzelt ve geçmiş tarih kontrolü yap
     eskiKnklmPlnTrh: newData.KnklmPlnTrh,
@@ -1246,7 +1275,7 @@ watch(() => props.selectedData, async (newData) => {
       // Frontend'den ödeme vadesi değeri gelmiş (ağırlıklı ortalama)
       const formatted = convertDateFormat(newData.OdemeVadesi);
       formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
-      console.log('Modal: Frontend\'den ödeme vadesi kullanıldı:', newData.OdemeVadesi);
+      
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
@@ -1254,14 +1283,11 @@ watch(() => props.selectedData, async (newData) => {
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
           const formatted = convertDateFormat(vadeRes.data.data.odemeVadesi);
           formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
-          console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
         } else {
           formData.value.OdemeVadesi = validateOdemeVadesi('', false);
-          console.log('Modal: Ödeme vadesi bulunamadı, bugünün tarihi kullanıldı');
         }
-      } catch (error) {
+      } catch {
         formData.value.OdemeVadesi = validateOdemeVadesi('', false);
-        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata, bugünün tarihi kullanıldı:', error);
       }
     }
     
@@ -1290,7 +1316,6 @@ watch(() => props.modelValue, async (yeni) => {
       // Frontend'den ödeme vadesi değeri gelmiş (ağırlıklı ortalama)
       const formatted = convertDateFormat(props.selectedData.OdemeVadesi);
       formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
-      console.log('Modal: Frontend\'den ödeme vadesi kullanıldı:', props.selectedData.OdemeVadesi);
     } else {
       // Frontend'den gelmemişse backend'den çekmeye çalış
       try {
@@ -1298,14 +1323,11 @@ watch(() => props.modelValue, async (yeni) => {
         if (vadeRes.data.success && vadeRes.data.data && vadeRes.data.data.odemeVadesi) {
           const formatted = convertDateFormat(vadeRes.data.data.odemeVadesi);
           formData.value.OdemeVadesi = validateOdemeVadesi(formatted, false);
-          console.log('Modal: Backend\'den ödeme vadesi çekildi:', vadeRes.data.data.odemeVadesi);
         } else {
           formData.value.OdemeVadesi = validateOdemeVadesi('', false);
-          console.log('Modal: Ödeme vadesi bulunamadı, bugünün tarihi kullanıldı');
         }
-      } catch (error) {
+      } catch {
         formData.value.OdemeVadesi = validateOdemeVadesi('', false);
-        console.log('Modal: Backend\'den ödeme vadesi çekilirken hata, bugünün tarihi kullanıldı:', error);
       }
     }
     
@@ -1322,7 +1344,6 @@ watch(() => props.modelValue, async (yeni) => {
 // Watch for KonaklamaSuresi changes to trigger calculations
 watch(() => formData.value.KonaklamaSuresi, (newSure, oldSure) => {
   if (newSure !== oldSure && newSure >= 1) {
-    console.log('Watch: Konaklama süresi değişti:', oldSure, '->', newSure);
     void onKonaklamaSuresiChanged();
   }
 });
@@ -1331,12 +1352,10 @@ watch(() => formData.value.KonaklamaSuresi, (newSure, oldSure) => {
 watch(() => formData.value.KnklmOdaTip, (newTip, oldTip) => {
   // Veri yükleme sırasında watcher'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - Oda tipi watcher atlandı')
     return
   }
   
   if (newTip !== oldTip) {
-    console.log('Watch: Oda tipi değişti:', oldTip, '->', newTip);
     void onOdaTipiChange();
   }
 });
@@ -1345,12 +1364,10 @@ watch(() => formData.value.KnklmOdaTip, (newTip, oldTip) => {
 watch(() => formData.value.OdaYatak, (newOdaYatak, oldOdaYatak) => {
   // Veri yükleme sırasında watcher'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - Oda-yatak watcher atlandı')
     return
   }
   
   if (newOdaYatak !== oldOdaYatak && newOdaYatak) {
-    console.log('Watch: Oda-yatak değişti:', oldOdaYatak, '->', newOdaYatak);
     
     // Oda değişikliği kontrolü ve not yönetimi
     const yeniOdaYatakValue = typeof newOdaYatak === 'string' ? newOdaYatak : newOdaYatak.value;
@@ -1364,22 +1381,17 @@ watch(() => formData.value.OdaYatak, (newOdaYatak, oldOdaYatak) => {
     if (yeniOdaYatakValue && eskiOdaYatakValue && 
         yeniOdaYatakValue.replace(' (mevcut)', '') === eskiOdaYatakValue) {
       
-      console.log('Oda değişikliği geri alındı - not siliniyor:', { eski: eskiOdaYatakValue, yeni: yeniOdaYatakValue });
-      
-      // Oda değişikliği notunu sil
-      if (odaDegisikligiRegex.test(mevcutNot)) {
-        let yeniNot = mevcutNot.replace(odaDegisikligiRegex, '').trim();
-        // Gereksiz ayırıcıları temizle
-        yeniNot = yeniNot.replace(/\s*-\s*$/, '').replace(/^\s*-\s*/, '').replace(/\s*-\/- -\/- /, ' -/- ');
-        formData.value.KnklmNot = yeniNot;
-        console.log('Oda değişikliği notu silindi:', formData.value.KnklmNot);
-      }
+              // Oda değişikliği notunu sil
+        if (odaDegisikligiRegex.test(mevcutNot)) {
+          let yeniNot = mevcutNot.replace(odaDegisikligiRegex, '').trim();
+          // Gereksiz ayırıcıları temizle
+          yeniNot = yeniNot.replace(/\s*-\s*$/, '').replace(/^\s*-\s*/, '').replace(/\s*-\/- -\/- /, ' -/- ');
+          formData.value.KnklmNot = yeniNot;
+        }
     }
     // Eğer farklı bir oda seçerse (yeni değişiklik)
     else if (yeniOdaYatakValue && eskiOdaYatakValue && 
              yeniOdaYatakValue.replace(' (mevcut)', '') !== eskiOdaYatakValue) {
-      
-      console.log('Oda değişti - not ekleniyor:', { eski: eskiOdaYatakValue, yeni: yeniOdaYatakValue });
       
       // Önce mevcut oda değişikliği notunu sil (varsa)
       let temizlenmisMot = mevcutNot;
@@ -1398,8 +1410,6 @@ watch(() => formData.value.OdaYatak, (newOdaYatak, oldOdaYatak) => {
         // Mevcut not yoksa, direkt ekle
         formData.value.KnklmNot = odaDegisikligiNotu;
       }
-      
-      console.log('Oda değişikliği notu eklendi:', formData.value.KnklmNot);
     }
     
     void onOdaYatakChange();
@@ -1423,7 +1433,6 @@ watch(() => formData.value.KonaklamaTipi, (newTip) => {
 watch(() => ekBilgiler.value, () => {
   // Veri yükleme sırasında watcher'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - EkBilgiler watcher atlandı')
     return
   }
   
@@ -1434,7 +1443,6 @@ watch(() => ekBilgiler.value, () => {
 // Watch for ToplamBedel changes to update notes (Bedel değişikliklerini izle)
 watch([() => formData.value.HesaplananBedel, () => formData.value.ToplamBedel], () => {
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - ToplamBedel watcher atlandı')
     return
   }
   if (donemYenileButtonLabel.value === 'ODA DEĞİŞİKLİ' && ekNotKilitli.value) return;
@@ -1465,8 +1473,6 @@ async function loadOdaTipleri() {
             label: mevcutOdaTipi, // Seçildiğinde sadece oda tipi görünsün
             bosOdaSayisi: 0
           });
-          console.log('Mevcut müşterinin oda tipi listeye eklendi:', mevcutOdaTipi);
-          console.log('Güncel oda tipleri listesi:', odaTipleri.value);
         }
       }
       // Dönem yenileme formunda ilk yüklemede loadBosOdalar çalıştırma
@@ -1484,9 +1490,7 @@ async function loadBosOdalar() {
   }
   
   try {
-    console.log('Boş odalar yükleniyor, oda tipi:', formData.value.KnklmOdaTip);
     const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
-    console.log('Boş odalar response:', response.data);
     if (response.data.success) {
       bosOdalar.value = response.data.data;
       
@@ -1507,7 +1511,6 @@ async function loadBosOdalar() {
               label: `${mevcutOdaYatak} (mevcut)`
             };
             bosOdalar.value.unshift(mevcutOdaYatakOption);
-            console.log('Mevcut oda-yatak listeye eklendi:', mevcutOdaYatak);
           } else {
             // Mevcut oda-yatak listede varsa, o referansı kullan
             mevcutOdaYatakOption = bosOdalar.value.find(oda => oda.value === mevcutOdaYatak)!;
@@ -1517,13 +1520,10 @@ async function loadBosOdalar() {
           if (formData.value.OdaYatak && 
               typeof formData.value.OdaYatak === 'object' && 
               formData.value.OdaYatak.value === mevcutOdaYatak) {
-            console.log('FormData OdaYatak referansı güncelleniyor:', mevcutOdaYatakOption);
             formData.value.OdaYatak = mevcutOdaYatakOption;
           }
         }
       }
-      
-      console.log('Boş odalar yüklendi:', bosOdalar.value);
     } else {
       console.error('Boş odalar yüklenirken hata:', response.data);
       bosOdalar.value = [];
@@ -1537,11 +1537,8 @@ async function loadBosOdalar() {
 async function onOdaTipiChange() {
   // Veri yükleme sırasında onchange handler'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - onOdaTipi atlandı')
     return
   }
-  
-  console.log('Oda tipi değişti:', formData.value.KnklmOdaTip);
   
   // Oda seçimini ve bedelleri temizle
   formData.value.OdaYatak = '';
@@ -1562,7 +1559,6 @@ async function onOdaTipiChange() {
 async function onOdaYatakChange() {
   // Veri yükleme sırasında onchange handler'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - onOdaYatakChange atlandı')
     return
   }
   
@@ -1606,7 +1602,7 @@ async function onKonaklamaSuresiChanged() {
   const haftalikFiyat = Number(odaTipFiyatlari.value.OdLfytHft) || 0;
   const aylikFiyat = Number(odaTipFiyatlari.value.OdLfytAyl) || 0;
   
-  console.log('Fiyat analizi:', { sure, gunlukFiyat, haftalikFiyat, aylikFiyat });
+
   
   // Yeni formulasyon ile konaklama tipini hesapla
   let hesaplananTip = '';
@@ -1615,41 +1611,32 @@ async function onKonaklamaSuresiChanged() {
   if (sure <= 7 && sure * gunlukFiyat <= haftalikFiyat) {
     hesaplananTip = 'GÜNLÜK';
     hesaplananTutar = sure * gunlukFiyat;
-    console.log('Günlük seçildi:', { gunlukToplam: hesaplananTutar, haftalikFiyat });
   } else if (sure > 7 && sure <= 14 && (sure - 7) * gunlukFiyat + haftalikFiyat <= 2 * haftalikFiyat) {
     hesaplananTip = '1 HAFTALIK';
     hesaplananTutar = (sure - 7) * gunlukFiyat + haftalikFiyat;
-    console.log('1 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ikiHaftalik: 2 * haftalikFiyat });
   } else if (sure > 14 && sure <= 21 && (sure - 14) * gunlukFiyat + 2 * haftalikFiyat <= 3 * haftalikFiyat) {
     hesaplananTip = '2 HAFTALIK';
     hesaplananTutar = (sure - 14) * gunlukFiyat + 2 * haftalikFiyat;
-    console.log('2 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ucHaftalik: 3 * haftalikFiyat });
   } else if (sure > 21 && (sure - 21) * gunlukFiyat + 3 * haftalikFiyat <= aylikFiyat) {
     hesaplananTip = '3 HAFTALIK';
     hesaplananTutar = (sure - 21) * gunlukFiyat + 3 * haftalikFiyat;
-    console.log('3 Haftalık seçildi:', { hesaplanan: hesaplananTutar, aylikFiyat });
   } else if (sure <= 7) {
     hesaplananTip = '1 HAFTALIK';
     hesaplananTutar = haftalikFiyat;
-    console.log('1 Haftalık seçildi (6-7 gün için):', { gunlukToplam: sure * gunlukFiyat, haftalikFiyat });
   } else if (sure <= 14) {
     hesaplananTip = '2 HAFTALIK';
     hesaplananTutar = 2 * haftalikFiyat;
-    console.log('2 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar });
   } else if (sure <= 21) {
     hesaplananTip = '3 HAFTALIK';
     hesaplananTutar = 3 * haftalikFiyat;
-    console.log('3 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar });
   } else {
     hesaplananTip = 'AYLIK';
     hesaplananTutar = aylikFiyat;
-    console.log('Aylık seçildi:', { sure, aylikFiyat });
   }
   
   // Aylık fiyat kontrolü - hesaplanan tutar aylık fiyatı geçerse aylık yap
   if (hesaplananTutar > aylikFiyat) {
     formData.value.KonaklamaTipi = 'AYLIK';
-    console.log('Aylık fiyat sınırı aşıldı, aylık seçildi:', { hesaplananTutar, aylikFiyat });
   } else {
     formData.value.KonaklamaTipi = hesaplananTip;
   }
@@ -1671,14 +1658,8 @@ function onToplamBedelChanged(yeniBedel: string | number | null) {
 
 // Fiyat hesaplama fonksiyonu - musteri-islem.vue ile aynı mantık
 async function calculateBedel() {
-  console.log('calculateBedel çağrıldı:', {
-    odaTip: formData.value.KnklmOdaTip,
-    sure: formData.value.KonaklamaSuresi,
-    tip: formData.value.KonaklamaTipi
-  });
   
   if (!formData.value.KnklmOdaTip || !formData.value.KonaklamaSuresi || !formData.value.KonaklamaTipi) {
-    console.log('Bedel hesaplama için gerekli bilgiler eksik');
     formData.value.HesaplananBedel = 0;
     if (isInitializing.value) {
       formData.value.ToplamBedel = 0;
@@ -1688,9 +1669,7 @@ async function calculateBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    console.log('Fiyat bilgileri getiriliyor:', formData.value.KnklmOdaTip);
     const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
-    console.log('Fiyat response:', response.data);
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data;
       
@@ -1729,7 +1708,6 @@ async function calculateBedel() {
       // Aylık fiyat kontrolü - hesaplanan fiyat aylık fiyatı geçerse aylık fiyat uygula
       if (hesaplananFiyat > aylikFiyat) {
         hesaplananFiyat = aylikFiyat;
-        console.log(`Bedel hesaplaması: ${tip} hesaplandı ${hesaplananFiyat} TL, ama aylık fiyat uygulandı: ${aylikFiyat} TL`);
       }
       // 🔽 Onlar basamağına aşağı yuvarla
       hesaplananFiyat = Math.floor(hesaplananFiyat / 10) * 10;
@@ -1794,7 +1772,6 @@ function cancelEkBilgiler() {
 function saveEkBilgiler() {
   // Değişiklikleri kabul et ve dialog'u kapat
   showEkBilgilerDialog.value = false;
-  console.log('Ek Bilgiler kaydedildi:', ekBilgiler.value);
 }
 
 // Ek notları otomatik güncelle - musteri-islem.vue ile aynı mantık
@@ -2004,7 +1981,6 @@ function hesaplaVeGosterOdaDegisikligiDialog() {
 const ekNotKilitli = ref(false);
 
 async function onOdaDegisikligiOnayla() {
-  console.log('[onOdaDegisikligiOnayla] FONKSİYON BAŞI');
   
   try {
     loading.value = true;
@@ -2044,11 +2020,7 @@ async function onOdaDegisikligiOnayla() {
       ekNotlar: formData.value.KnklmNot
     };
 
-    console.log('Oda değişikliği onaylama request data:', requestData);
-
     const response = await api.post('/musteri/oda-degisikligi-onayla', requestData);
-
-    console.log('Backend response:', response.data);
 
     if (response.data.success) {
       // Başarılı işlem mesajı
@@ -2080,7 +2052,18 @@ async function onOdaDegisikligiOnayla() {
         // 4. Başarı sinyali gönder
         emit('success');
         
-        console.log('[onOdaDegisikligiOnayla] Tüm işlemler tamamlandı: Dialog kapandı, Modal kapandı, Sayfa güncellendi');
+        // 🔥 MÜŞTERİ BİLGİSİNİ GLOBAL STATE'E AKTAR VE TAHSİLAT MODALINI AÇ
+        setTimeout(() => {
+          // Müşteri bilgisini global state'e aktar
+          if (props.selectedData) {
+            window.kartliIslemSelectedNormalMusteri = {
+              ...props.selectedData,
+              MstrAdi: props.selectedData.MstrAdi || ''
+            };
+          }
+          window.dispatchEvent(new Event('showOdemeIslemModal'));
+        }, 500);
+        
       }, 3000);
       
     } else {
@@ -2106,8 +2089,6 @@ async function onOdaDegisikligiOnayla() {
   } finally {
     loading.value = false;
   }
-  
-  console.log('[onOdaDegisikligiOnayla] FONKSİYON SONU');
 }
 
 // 🔥 KONAKLAMA SÜRESİ 1 GÜNLÜK ODA DEĞİŞİKLİĞİ DİREKT İŞLEM
@@ -2124,10 +2105,6 @@ async function direktOdaDegisikligiYap() {
       position: 'top',
       timeout: 2000
     });
-
-    console.log('=== direktOdaDegisikligiYap başlatıldı ===');
-    console.log('formData.value:', formData.value);
-    console.log('hesaplamaDetay.value:', hesaplamaDetay.value);
 
     // Hesaplama yapılmışsa onaylanmış fiyat kullan, yoksa 0
     const hesaplananBedel = hesaplamaDetay.value?.onaylanmisFiyat || 0;
@@ -2164,8 +2141,6 @@ async function direktOdaDegisikligiYap() {
       hesaplananBedel: hesaplananBedel // Ücret farkı hesaplaması için
     };
 
-    console.log('Request payload for direkt-oda-degisikligi:', requestPayload);
-
     // 🔥 Konaklamanın ilk günü kontrolü - Endpoint seçimi
     const girisTarihi = props.selectedData?.KnklmGrsTrh;
     let isIlkGun = false;
@@ -2190,11 +2165,7 @@ async function direktOdaDegisikligiYap() {
       ? '/musteri/direkt-oda-degisikligi-konaklama-suresi-1'
       : '/musteri/direkt-oda-degisikligi';
     
-    console.log(`Endpoint seçildi: ${isIlkGun ? 'İlk gün endpoint' : 'Normal endpoint'}`);
-    
     const response = await api.post(endpoint, requestPayload);
-
-    console.log('API response:', response.data);
 
     if (response.data.success) {
       $q.notify({
@@ -2207,6 +2178,18 @@ async function direktOdaDegisikligiYap() {
       // Emit success event to parent
       emit('success');
       onDialogHide();
+      
+      // 🔥 MÜŞTERİ BİLGİSİNİ GLOBAL STATE'E AKTAR VE TAHSİLAT MODALINI AÇ
+      setTimeout(() => {
+        // Müşteri bilgisini global state'e aktar
+        if (props.selectedData) {
+          window.kartliIslemSelectedNormalMusteri = {
+            ...props.selectedData,
+            MstrAdi: props.selectedData.MstrAdi || ''
+          };
+        }
+        window.dispatchEvent(new Event('showOdemeIslemModal'));
+      }, 500);
     } else {
       throw new Error(response.data.message || 'Oda değişikliği işlemi başarısız');
     }
@@ -2254,19 +2237,18 @@ function setEkNotlarPrefixFromKnklmNot() {
 }
 
 onMounted(() => {
-  console.log('[DonemYenilemeModal] Component MOUNT edildi!');
   setEkNotlarPrefixFromKnklmNot();
 });
 
 // --- 1. isInitializing flag'i ekle ---
 const isInitializing = ref(false);
 
-watch(() => formData.value.ToplamBedel, (yeni, eski) => {
-  console.log('[watch:ToplamBedel] Değişti:', eski, '->', yeni);
+watch(() => formData.value.ToplamBedel, () => {
+  // Watch for ToplamBedel changes
 });
 
-watch(() => formData.value.HesaplananBedel, (yeni, eski) => {
-  console.log('[watch:HesaplananBedel] Değişti:', eski, '->', yeni);
+watch(() => formData.value.HesaplananBedel, () => {
+  // Watch for HesaplananBedel changes
 });
 
 // Yeni oda tipi günlük bedel: ana formdaki HesaplananBedel / KonaklamaSuresi (kalan gün)
@@ -2380,6 +2362,24 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
       setTimeout(() => {
         emit('refresh');
         closeModal();
+        
+        // 🔥 MÜŞTERİ BİLGİSİNİ GLOBAL STATE'E AKTAR VE TAHSİLAT MODALINI AÇ
+        setTimeout(() => {
+          // Müşteri bilgisini global state'e aktar
+          if (props.selectedData) {
+            console.log('🔥 direktOdaDegisikligiYap - props.selectedData:', props.selectedData)
+            console.log('🔥 direktOdaDegisikligiYap - MstrAdi:', props.selectedData.MstrAdi)
+            window.kartliIslemSelectedNormalMusteri = {
+              ...props.selectedData,
+              MstrAdi: props.selectedData.MstrAdi || ''
+            };
+            console.log('🔥 direktOdaDegisikligiYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+          } else {
+            console.log('❌ direktOdaDegisikligiYap - props.selectedData bulunamadı')
+          }
+          console.log('🔥 direktOdaDegisikligiYap - showOdemeIslemModal event dispatched')
+          window.dispatchEvent(new Event('showOdemeIslemModal'));
+        }, 500);
       }, 3000);
     } else {
       throw new Error(response.data.message || 'Bilinmeyen bir hata oluştu.');

@@ -373,6 +373,7 @@ export class MusteriService {
   async getMevcutKonaklamaBilgisi(tcNo: string): Promise<any> {
     try {
       const tables = this.dbConfig.getTables();
+      const views = this.dbConfig.getViews();
       // Mevcut aktif konaklama bilgisini v_MusteriKonaklama view'dan al
       const query = `
         SELECT 
@@ -404,7 +405,7 @@ export class MusteriService {
           m.MstrFrmTel,
           m.MstrFrmMdr,
           m.MstrMdrTel
-        FROM [dbo].[v_MusteriKonaklama] v
+        FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
         WHERE v.MstrTCN = @0 
           AND v.MstrDurum = 'KALIYOR'

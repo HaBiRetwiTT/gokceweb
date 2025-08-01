@@ -148,7 +148,6 @@ export class DashboardService {
   // 🔥 KOORDİNELİ ÇALIŞMA: Seçili konaklama tipine göre uygun oda tiplerini getir
   async getOdaTipleriByKonaklama(konaklamaTip: string, kartTip: string = 'toplam-aktif'): Promise<string[]> {
     try {
-      console.log('🔥 getOdaTipleriByKonaklama çağrıldı - konaklamaTip:', konaklamaTip, 'kartTip:', kartTip);
       
       // Seçili karta göre müşteri listesini al
       let musteriListesi: MusteriKonaklamaData[] = [];
@@ -176,21 +175,16 @@ export class DashboardService {
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
       
-      console.log('🔥 getOdaTipleriByKonaklama musteriListesi length:', musteriListesi.length);
-      
       // Müşteri listesinden konaklama tipine göre filtreleme yap
       let filteredList = musteriListesi;
       if (konaklamaTip && konaklamaTip !== 'TÜMÜ') {
         filteredList = musteriListesi.filter(m => m.KnklmTip === konaklamaTip);
-        console.log('🔥 getOdaTipleriByKonaklama filtered by konaklamaTip:', konaklamaTip, 'filtered length:', filteredList.length);
       }
       
       // Filtrelenmiş listeden distinct oda tiplerini çıkar
       const odaTipleri = [...new Set(filteredList.map(m => m.KnklmOdaTip))].filter(tip => tip && tip.trim() !== '');
-      console.log('🔥 getOdaTipleriByKonaklama odaTipleri:', odaTipleri);
       
       const finalResult = ['TÜMÜ', ...odaTipleri.sort()];
-      console.log('🔥 getOdaTipleriByKonaklama final result:', finalResult);
       
       return finalResult;
     } catch (error) {
@@ -205,7 +199,6 @@ export class DashboardService {
       // 🔥 URL DECODING: Sadece gerçekten URL encoding'den gelen + karakterlerini boşluk yap
       // Eğer odaTip'te + karakteri varsa ve bu gerçek bir oda tipi ise, URL encoding yapma
       const decodedOdaTip = odaTip;
-      console.log('🔥 getKonaklamaTipleriByOda çağrıldı - odaTip:', odaTip, 'decodedOdaTip:', decodedOdaTip, 'kartTip:', kartTip);
       
       // Seçili karta göre müşteri listesini al
       let musteriListesi: MusteriKonaklamaData[] = [];
@@ -233,26 +226,16 @@ export class DashboardService {
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
       
-      console.log('🔥 getKonaklamaTipleriByOda musteriListesi length:', musteriListesi.length);
-      
       // Müşteri listesinden oda tipine göre filtreleme yap (decoded oda tipini kullan)
       let filteredList = musteriListesi;
       if (decodedOdaTip && decodedOdaTip !== 'TÜMÜ') {
-        // 🔥 DEBUG: Veritabanındaki oda tiplerini kontrol et
-        const uniqueOdaTipleri = [...new Set(musteriListesi.map(m => m.KnklmOdaTip))];
-        console.log('🔥 getKonaklamaTipleriByOda - Veritabanındaki oda tipleri:', uniqueOdaTipleri);
-        console.log('🔥 getKonaklamaTipleriByOda - Aranan oda tipi:', decodedOdaTip);
-        
         filteredList = musteriListesi.filter(m => m.KnklmOdaTip === decodedOdaTip);
-        console.log('🔥 getKonaklamaTipleriByOda filtered by odaTip:', decodedOdaTip, 'filtered length:', filteredList.length);
       }
       
       // Filtrelenmiş listeden distinct konaklama tiplerini çıkar
       const konaklamaTipleri = [...new Set(filteredList.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
-      console.log('🔥 getKonaklamaTipleriByOda konaklamaTipleri:', konaklamaTipleri);
       
       const finalResult = ['TÜMÜ', ...konaklamaTipleri.sort()];
-      console.log('🔥 getKonaklamaTipleriByOda final result:', finalResult);
       
       return finalResult;
     } catch (error) {
@@ -460,10 +443,7 @@ export class DashboardService {
         )
       `;
       
-      console.log('🔥 DEBUG: Card count query (borcluMusteriQuery):', borcluMusteriQuery);
-      console.log('🔥 DEBUG: Card count query result will be logged after execution');
-      console.log('🔥 DEBUG: Yeni Müşteri card count query:', yeniMusteriQuery);
-      console.log('🔥 DEBUG: Yeni Giriş card count query:', yeniGirisQuery);
+
       
       // Alacaklı müşteri sayısı için ayrı sorgu - cari tablosu üzerinden hesapla
       const alacakliMusteriQuery = `
@@ -503,7 +483,7 @@ export class DashboardService {
           )
       `;
       
-      console.log('🔥 DEBUG: Süresi Dolan card count query:', suresiDolanQuery);
+
       
       // Paralel olarak tüm sorguları çalıştır
       const [aktifResult, yeniMusteriResult, yeniGirisResult, bugunCikanResult, borcluResult, alacakliResult, devamEdenResult, suresiDolanResult] = await Promise.all([
@@ -517,10 +497,7 @@ export class DashboardService {
         this.musteriRepository.query(suresiDolanQuery)
       ]);
       
-      console.log('🔥 DEBUG: Card count query result (borcluResult):', borcluResult);
-      console.log('🔥 DEBUG: Süresi Dolan card count result (suresiDolanResult):', suresiDolanResult);
-      console.log('🔥 DEBUG: Yeni Müşteri card count result (yeniMusteriResult):', yeniMusteriResult);
-      console.log('🔥 DEBUG: Yeni Giriş card count result (yeniGirisResult):', yeniGirisResult);
+
       
       // Sonuçları birleştir
       const result = {
@@ -685,8 +662,7 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      console.log('🔥 DEBUG: getSuresiDolanMusteri list count:', result.length);
-      console.log('🔥 DEBUG: getSuresiDolanMusteri query:', query);
+
       return result;
     } catch (error) {
       console.error('getSuresiDolanMusteri hatası:', error);
@@ -898,14 +874,9 @@ export class DashboardService {
   // Borçlu Müşteriler - tblCari bilgileri ve hesaplanan borç tutarları
   async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
-      console.log(`🔥 getBorcluMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
-      
       const tables = this.dbConfig.getTables();
       const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
-      
-      console.log('🔥 DEBUG: Tables config:', tables);
-      console.log('🔥 DEBUG: Views config:', views);
       
       // Eğer limit çok yüksekse (tüm verileri getirmek istiyorsa), pagination'ı devre dışı bırak
       const usePagination = limit < 1000;
@@ -931,10 +902,6 @@ export class DashboardService {
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
       const total = countResult[0]?.TotalCount || 0;
-      
-      console.log(`🔥 getBorcluMusteriler toplam kayıt: ${total}`);
-      console.log('🔥 DEBUG: List count query (countQuery):', countQuery);
-      console.log('🔥 DEBUG: List count query result (countResult):', countResult);
       
       // Ana sorgu - pagination ile
       const query = `
@@ -1013,17 +980,6 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      
-      // 🔥 DEBUG: CikisTarihi ve MstrDurum değerlerini kontrol et
-      console.log(`🔥 getBorcluMusteriler - Toplam ${result.length} kayıt alındı`);
-      result.forEach((musteri, index) => {
-        console.log(`🔥 getBorcluMusteriler - Kayıt ${index + 1}: CariKod: ${musteri.CariKod}, MstrTCN: ${musteri.CariVTCN || 'NULL'}, CikisTarihi: "${musteri.CikisTarihi}", KnklmCksTrh: "${musteri.KnklmCksTrh}", KnklmPlnTrh: "${musteri.KnklmPlnTrh}", MstrDurum: "${musteri.MstrDurum}"`);
-      });
-      
-      // 🔥 DEBUG: İlk birkaç kaydın tüm alanlarını göster
-      if (result.length > 0) {
-        console.log('🔥 DEBUG: İlk borçlu kayıt tüm alanları:', JSON.stringify(result[0], null, 2));
-      }
       
       // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
@@ -1156,19 +1112,12 @@ export class DashboardService {
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
       
-      console.log('🔥 DEBUG: Alacakli main query:', query);
+
       
       const result: any[] = await this.musteriRepository.query(query);
       
       // 🔥 DEBUG: MstrDurum değerlerini kontrol et
-      result.forEach((musteri, index) => {
-        console.log(`🔥 getAlacakliMusteriler - Kayıt ${index + 1}: CariKod: ${musteri.CariKod}, MstrTCN: ${musteri.MstrTCN || 'NULL'}, CikisTarihi: "${musteri.CikisTarihi}", MstrDurum: "${musteri.MstrDurum}", Type: ${typeof musteri.MstrDurum}`);
-      });
-      
-      // 🔥 DEBUG: İlk birkaç kaydın tüm alanlarını göster
-      if (result.length > 0) {
-        console.log('🔥 DEBUG: İlk alacakli kayıt tüm alanları:', JSON.stringify(result[0], null, 2));
-      }
+
       
       // Toplam sayıyı hesapla (pagination olmadığında)
       let total = result.length;
@@ -1298,7 +1247,7 @@ export class DashboardService {
       
       // 🔥 URL DECODING: URL encoding'den gelen + karakterlerini boşluk yap
       const decodedOdaTipi = decodeURIComponent(odaTipi);
-      console.log('🔥 getCikisYapanlarListesi - odaTipi:', odaTipi, 'decodedOdaTipi:', decodedOdaTipi);
+
       
       // 🔥 DEBUG: Canlı veritabanındaki oda tipi değerlerini kontrol et
       if (odaTipi !== 'TÜMÜ') {
@@ -1317,9 +1266,9 @@ export class DashboardService {
         
         try {
           const odaTipiKontrol = await this.musteriRepository.query(odaTipiKontrolQuery);
-          console.log('🔥 DEBUG - Veritabanındaki oda tipleri:', odaTipiKontrol);
-        } catch (error) {
-          console.log('🔥 DEBUG - Oda tipi kontrol hatası:', error);
+                  // Oda tipi kontrolü başarısız oldu, devam et
+      } catch (error) {
+        // Oda tipi kontrolü başarısız oldu, devam et
         }
       }
       let query = `
@@ -2003,58 +1952,5 @@ export class DashboardService {
     this.statsCache = null;
   }
 
-  // 🔥 DEBUG: v_MusteriKonaklama view'ının yapısını ve verilerini test et
-  async testMusteriKonaklamaView(): Promise<any> {
-    try {
-      const views = this.dbConfig.getViews();
-      
-      // View'ın yapısını kontrol et
-      const structureQuery = `
-        SELECT TOP 10 *
-        FROM ${views.musteriKonaklama}
-        ORDER BY knklmNo DESC
-      `;
-      
-      const structureResult = await this.musteriRepository.query(structureQuery);
-      
-      // KnklmCksTrh ve KnklmPlnTrh alanlarının varlığını kontrol et
-      const fieldCheckQuery = `
-        SELECT 
-          COUNT(*) as TotalRecords,
-          COUNT(KnklmCksTrh) as KnklmCksTrhCount,
-          COUNT(KnklmPlnTrh) as KnklmPlnTrhCount,
-          COUNT(MstrDurum) as MstrDurumCount,
-          COUNT(MstrTCN) as MstrTCNCount,
-          COUNT(MstrNo) as MstrNoCount
-        FROM ${views.musteriKonaklama}
-      `;
-      
-      const fieldCheckResult = await this.musteriRepository.query(fieldCheckQuery);
-      
-      // Örnek veriler
-      const sampleQuery = `
-        SELECT TOP 5 
-          MstrTCN,
-          MstrNo,
-          KnklmCksTrh,
-          KnklmPlnTrh,
-          MstrDurum,
-          knklmNo
-        FROM ${views.musteriKonaklama}
-        ORDER BY knklmNo DESC
-      `;
-      
-      const sampleResult = await this.musteriRepository.query(sampleQuery);
-      
-      return {
-        viewName: views.musteriKonaklama,
-        structure: structureResult,
-        fieldCheck: fieldCheckResult[0],
-        sampleData: sampleResult
-      };
-    } catch (error) {
-      console.error('testMusteriKonaklamaView hatası:', error);
-      throw error;
-    }
-  }
+
 }

@@ -40,16 +40,18 @@ export class OdemeIslemService {
    */
   async getMaxIslemno(): Promise<{ maxIslemno: number }> {
     try {
-      const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
-        return await this.transactionService.executeQuery(
-          queryRunner,
-          'SELECT ISNULL(MAX(islemno), 0) as maxIslemno FROM tblislem'
-        );
-      });
-      
+      const result = await this.transactionService.executeInTransaction(
+        async (queryRunner) => {
+          return await this.transactionService.executeQuery(
+            queryRunner,
+            'SELECT ISNULL(MAX(islemno), 0) as maxIslemno FROM tblislem',
+          );
+        },
+      );
+
       const maxIslemno = result[0]?.maxIslemno || 0;
       this.logger.log(`Maksimum islemno: ${maxIslemno}`);
-      
+
       return { maxIslemno: Number(maxIslemno) };
     } catch (error) {
       this.logger.error('Maksimum islemno getirilirken hata:', error);

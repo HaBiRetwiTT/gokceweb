@@ -991,6 +991,12 @@
     />
 
     <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="selectedNormalMusteri?.MstrAdi || ''" @bakiyeGuncelle="bakiyeGuncelleHandler" />
+    
+    <!-- 🔥 DEBUG: Seçili müşteri bilgisi -->
+    <div v-if="false" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid black; z-index: 9999;">
+      <div>selectedNormalMusteri: {{ selectedNormalMusteri?.MstrAdi || 'BOŞ' }}</div>
+      <div>showOdemeIslemModal: {{ showOdemeIslemModal }}</div>
+    </div>
     <EkHizmetlerForm v-model:show="showEkHizmetlerModal" />
 
     <!-- DEBUG LOGS -->
@@ -2403,8 +2409,7 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
       }
       
       // Modal'ı aç - ödeme vadesi formatını düzelt
-      console.log('🔥 Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
-      console.log('🔥 Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
+      
       donemYenilemeData.value = { ...row, OdemeVadesi: convertDateFormat(odemeVadesi) };
       showDonemYenilemeModal.value = true;
     };
@@ -2649,9 +2654,10 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     ]);
     
     if (bakiyeResponse.data.success) {
-      selectedMusteriBakiye.value = bakiyeResponse.data.bakiye || 0;
+      const hamBakiye = bakiyeResponse.data.bakiye || 0;
+      selectedMusteriBakiye.value = hamBakiye;
       // Global erişim için window objesine ata
-      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = bakiyeResponse.data.bakiye || 0;
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = hamBakiye;
     } else {
       selectedMusteriBakiye.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
@@ -2662,6 +2668,18 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     } else {
       selectedMusteriDepozito.value = 0;
     }
+
+    // 🔥 DEPOZİTO BAKİYESİNİ ANA BAKİYEDEN ÇIKAR
+    // Depozito bakiyesi pozitif ise (müşterinin depozitosu var), ana bakiyeden çıkar
+    // Depozito bakiyesi negatif ise (müşteriye depozito iadesi yapılmış), ana bakiyeye ekle
+    const depozitoBakiye = selectedMusteriDepozito.value;
+    const hamBakiye = selectedMusteriBakiye.value;
+    
+    // Net bakiye = Ham bakiye - Depozito bakiyesi
+    const netBakiye = hamBakiye - depozitoBakiye;
+    
+    selectedMusteriBakiye.value = netBakiye;
+    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = netBakiye;
   } catch (error: unknown) {
     console.error('Müşteri bakiye hesaplama hatası:', error);
     selectedMusteriBakiye.value = 0;
@@ -3055,7 +3073,6 @@ async function loadFilteredData(filter: string) {
     void loadBorcluMusteriler().then(() => {
       // Eğer borçlu müşteri listesi boşsa, akıllı kart seçimi yap
       if (borcluMusteriListesi.value.length === 0) {
-        console.log('🔥 Borçlu müşteri listesi boş, akıllı kart seçimi yapılıyor')
         void selectBestCard()
       }
     })
@@ -3450,26 +3467,90 @@ async function loadSelectedCardData(cardType: string) {
 
 // Lifecycle
 onMounted(() => {
-  // Sayfa yüklendiğinde akıllı kart seçimi yap
-  void (async () => {
-    await refreshData();
-    await selectBestCard();
-  })();
-
-  // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR
-  setupDataChangeListeners();
-  
-  // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ BAŞLAT
-  startPeriodicStatsRefresh();
-
-  // Tahsilat sonrası bakiye güncelleme event listener
-  window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
-    const customEvent = e as CustomEvent;
-    const musteri = customEvent.detail || selectedNormalMusteri.value;
-    console.log('EVENT YAKALANDI', musteri);
-    if (musteri) {
-      void hesaplaMusteriBakiye(musteri);
+  // 🔥 EĞER MUSTERI-ISLEM SAYFASINDAN GELİNİYORSA, SEÇİLİ MÜŞTERİYİ AYARLA
+  if (window.kartliIslemSelectedNormalMusteri) {
+    console.log('🔥 kartli-islem sayfası yüklendi, seçili müşteri bulundu:', window.kartliIslemSelectedNormalMusteri)
+    
+    // Yeni kayıt edilen müşteri bilgilerini al
+    const newCustomer = window.kartliIslemSelectedNormalMusteri as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum?: string; customerNote?: string };
+    
+    // 🔥 MÜŞTERİ NOTUNA GÖRE HANGİ KARTIN SEÇİLECEĞİNİ BELİRLE
+    let targetCard = 'toplam-aktif'; // Varsayılan
+    
+    if (newCustomer.customerNote?.includes('Yeni Müşteri:')) {
+      // Eğer müşteri "Yeni Müşteri: " notu ile kaydedildiyse, "Yeni Müşteri" kartını seç
+      targetCard = 'yeni-musteri';
+    } else if (newCustomer.customerNote?.includes('Yeni Giriş:')) {
+      // Eğer müşteri "Yeni Giriş: " notu ile kaydedildiyse, "Yeni Giriş" kartını seç
+      targetCard = 'yeni-giris';
+    } else if (newCustomer.MstrDurum === 'AYRILDI') {
+      // Eğer müşteri ayrıldıysa, "Çıkış Yapanlar" kartını seç
+      targetCard = 'cikis-yapanlar';
     }
+    
+    console.log('🎯 Hedef kart belirlendi:', targetCard, 'Müşteri durumu:', newCustomer.MstrDurum);
+    
+    // Hedef kartı seç ve verileri yükle
+    void loadFilteredData(targetCard).then(async () => {
+      // Veriler yüklendikten sonra yeni müşteriyi bul ve seç
+      await findAndSelectNewCustomer(newCustomer);
+    });
+  } else {
+    // 🔥 NORMAL SAYFA GİRİŞİ - Varsayılan davranış
+    void (async () => {
+      await refreshData();
+      await selectBestCard();
+    })();
+
+    // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR
+    setupDataChangeListeners();
+    
+    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ BAŞLAT
+    startPeriodicStatsRefresh();
+
+    // Tahsilat sonrası bakiye güncelleme event listener
+    window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
+      const customEvent = e as CustomEvent;
+      const musteri = customEvent.detail || selectedNormalMusteri.value;
+      console.log('EVENT YAKALANDI', musteri);
+      if (musteri) {
+        void hesaplaMusteriBakiye(musteri);
+      }
+    });
+  }
+  
+  const ekHizmetHandler = () => { showEkHizmetlerModal.value = true; };
+  const odemeHandler = () => { 
+    console.log('🔥 showOdemeIslemModal event received, opening modal...')
+    
+    // 🔥 DÖNEM YENİLEME MODALINDAN GELEN MÜŞTERİ BİLGİSİNİ AKTAR
+    if (window.kartliIslemSelectedNormalMusteri) {
+      console.log('🔥 Global state\'den müşteri bilgisi alınıyor:', window.kartliIslemSelectedNormalMusteri)
+      selectedNormalMusteri.value = window.kartliIslemSelectedNormalMusteri as MusteriKonaklama;
+      console.log('🔥 selectedNormalMusteri güncellendi:', selectedNormalMusteri.value)
+      console.log('🔥 Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
+      
+      // 🔥 KISA BİR BEKLEME SONRASI MODALI AÇ - REACTIVE UPDATE İÇİN
+      setTimeout(() => {
+        console.log('🔥 Modal açılıyor, son kontrol - Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
+        showOdemeIslemModal.value = true;
+      }, 100);
+    } else {
+      console.log('❌ window.kartliIslemSelectedNormalMusteri bulunamadı')
+      showOdemeIslemModal.value = true; 
+    }
+  };
+  window.addEventListener('showEkHizmetlerModal', ekHizmetHandler);
+  window.addEventListener('showOdemeIslemModal', odemeHandler);
+  onBeforeUnmount(() => {
+    window.removeEventListener('showEkHizmetlerModal', ekHizmetHandler);
+    window.removeEventListener('showOdemeIslemModal', odemeHandler);
+    
+    // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI TEMİZLE
+    cleanupDataChangeListeners();
+    
+    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ DURDUR
+    stopPeriodicStatsRefresh();
   });
 })
 
@@ -3933,18 +4014,142 @@ const dinamikOdaTipleri = ref<string[]>(['TÜMÜ'])
 // 🔥 KOORDİNELİ ÇALIŞMA FONKSİYONLARI
 // Bu fonksiyon artık kullanılmıyor - watch fonksiyonları kullanılıyor
 
+// 🔥 YENİ KAYIT EDİLEN MÜŞTERİYİ BUL VE SEÇ FONKSİYONU
+async function findAndSelectNewCustomer(newCustomer: { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum?: string; customerNote?: string }) {
+  console.log('🔍 Yeni müşteri aranıyor:', newCustomer);
+  
+  // Kısa bir bekleme süresi ekle (verilerin yüklenmesi için)
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Hangi listeyi kontrol edeceğimizi belirle
+  let customerList: unknown[] = [];
+  let isBorcluTable = false;
+  let isAlacakliTable = false;
+  
+  if (showBorcluTable.value) {
+    customerList = borcluMusteriListesi.value;
+    isBorcluTable = true;
+  } else if (showAlacakliTable.value) {
+    customerList = alacakliMusteriListesi.value;
+    isAlacakliTable = true;
+  } else {
+    customerList = musteriListesi.value;
+  }
+  
+  console.log('📋 Kontrol edilecek liste:', customerList.length, 'kayıt');
+  
+  // Yeni müşteriyi listede ara
+  const foundCustomer = customerList.find(customer => {
+    const cust = customer as { MstrTCN?: string; MstrAdi?: string; MstrTelNo?: string; CariAdi?: string };
+    
+    // TC kimlik numarası ile eşleştir
+    if (cust.MstrTCN === newCustomer.MstrTCN) {
+      return true;
+    }
+    
+    // Eğer TC kimlik yoksa, müşteri adı ve telefon ile eşleştir
+    if (!cust.MstrTCN && !newCustomer.MstrTCN) {
+      return cust.MstrAdi === newCustomer.MstrAdi && 
+             cust.MstrTelNo === newCustomer.MstrTelNo;
+    }
+    
+    return false;
+  });
+  
+  if (foundCustomer) {
+    console.log('✅ Yeni müşteri bulundu:', foundCustomer);
+    
+    // Müşteriyi seç
+    if (isBorcluTable) {
+      selectedBorcluMusteri.value = foundCustomer as BorcluMusteri;
+      // Borçlu müşteri seçildiğinde cari hareketleri yükle
+      const borcluCustomer = foundCustomer as BorcluMusteri;
+      void loadCariHareketler(borcluCustomer.CariKod);
+    } else if (isAlacakliTable) {
+      selectedBorcluMusteri.value = foundCustomer as BorcluMusteri;
+      // Alacaklı müşteri seçildiğinde cari hareketleri yükle
+      const alacakliCustomer = foundCustomer as BorcluMusteri;
+      void loadCariHareketler(alacakliCustomer.CariKod);
+    } else {
+      selectedNormalMusteri.value = foundCustomer as MusteriKonaklama;
+      // Normal müşteri seçildiğinde konaklama geçmişini yükle
+      const normalCustomer = foundCustomer as MusteriKonaklama;
+      void loadKonaklamaGecmisi(normalCustomer.MstrTCN);
+    }
+    
+    // 🔥 GLOBAL WINDOW OBJESİNİ GÜNCELLE - MÜŞTERİ ADINI DA EKLE
+    const customerWithName = {
+      ...foundCustomer,
+      MstrAdi: newCustomer.MstrAdi // Yeni kayıt edilen müşterinin adını kullan
+    };
+    window.kartliIslemSelectedNormalMusteri = customerWithName;
+    
+    // Müşteri bakiyesini hesapla
+    void hesaplaMusteriBakiye(foundCustomer as MusteriKonaklama | BorcluMusteri | AlacakliMusteri);
+    
+    // Kısa bir bekleme sonrası modalı aç
+    setTimeout(() => {
+      console.log('🎯 Müşteri seçildi, modal açılıyor...');
+      showOdemeIslemModal.value = true;
+    }, 1000);
+    
+  } else {
+    console.log('❌ Yeni müşteri listede bulunamadı');
+    // 🔥 MÜŞTERİ BULUNAMADIYSA, YİNE DE GLOBAL VERİYİ GÜNCELLE VE MODALI AÇ
+    const customerWithName = {
+      ...newCustomer,
+      MstrAdi: newCustomer.MstrAdi // Yeni kayıt edilen müşterinin adını kullan
+    };
+    window.kartliIslemSelectedNormalMusteri = customerWithName;
+    
+    // 🔥 SELECTED NORMAL MÜŞTERİYİ DE AYARLA (MODAL İÇİN)
+    selectedNormalMusteri.value = customerWithName as MusteriKonaklama;
+    
+    setTimeout(() => {
+      console.log('🎯 Müşteri bulunamadı, global veri ile modal açılıyor...');
+      showOdemeIslemModal.value = true;
+    }, 1000);
+  }
+}
+
 watch(currentFilter, (val) => {
   window.kartliIslemCurrentFilter = val ?? '';
 });
 watch(selectedNormalMusteri, (val) => {
   window.kartliIslemSelectedNormalMusteri = val ?? null;
+  console.log('🔥 selectedNormalMusteri değişti:', val?.MstrAdi || 'BOŞ');
 });
 
 const showEkHizmetlerModal = ref(false);
 
 onMounted(() => {
+  // 🔥 EĞER MUSTERI-ISLEM SAYFASINDAN GELİNİYORSA, SEÇİLİ MÜŞTERİYİ AYARLA
+  if (window.kartliIslemSelectedNormalMusteri) {
+    console.log('🔥 kartli-islem sayfası yüklendi, seçili müşteri bulundu:', window.kartliIslemSelectedNormalMusteri)
+    selectedNormalMusteri.value = window.kartliIslemSelectedNormalMusteri as MusteriKonaklama;
+  }
+  
   const ekHizmetHandler = () => { showEkHizmetlerModal.value = true; };
-  const odemeHandler = () => { showOdemeIslemModal.value = true; };
+  const odemeHandler = () => { 
+    console.log('🔥 showOdemeIslemModal event received, opening modal...')
+    
+    // 🔥 DÖNEM YENİLEME MODALINDAN GELEN MÜŞTERİ BİLGİSİNİ AKTAR
+    if (window.kartliIslemSelectedNormalMusteri) {
+      console.log('🔥 Global state\'den müşteri bilgisi alınıyor:', window.kartliIslemSelectedNormalMusteri)
+      selectedNormalMusteri.value = window.kartliIslemSelectedNormalMusteri as MusteriKonaklama;
+      console.log('🔥 selectedNormalMusteri güncellendi:', selectedNormalMusteri.value)
+      console.log('🔥 Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
+      
+      // 🔥 KISA BİR BEKLEME SONRASI MODALI AÇ - REACTIVE UPDATE İÇİN
+      setTimeout(() => {
+        console.log('🔥 Modal açılıyor, son kontrol - Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
+        showOdemeIslemModal.value = true;
+      }, 100);
+    } else {
+      console.log('❌ window.kartliIslemSelectedNormalMusteri bulunamadı')
+      showOdemeIslemModal.value = true; 
+    }
+  };
   window.addEventListener('showEkHizmetlerModal', ekHizmetHandler);
   window.addEventListener('showOdemeIslemModal', odemeHandler);
   onBeforeUnmount(() => {

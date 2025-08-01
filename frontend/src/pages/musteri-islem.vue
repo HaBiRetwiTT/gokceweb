@@ -762,14 +762,25 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
+import { useRouter } from 'vue-router'
 import { api } from '../boot/axios'
 import { QForm } from 'quasar'
 import type { AxiosError } from 'axios';
 import { Notify } from 'quasar';
 
 const $q = useQuasar()
+const router = useRouter()
 
-
+// Helper function to safely extract value from OdaYatak field
+function getOdaYatakValue(odaYatak: string | { value: string; label: string } | null | undefined): string {
+  if (typeof odaYatak === 'string') {
+    return odaYatak
+  }
+  if (odaYatak && typeof odaYatak === 'object' && 'value' in odaYatak) {
+    return odaYatak.value || ''
+  }
+  return ''
+}
 
 // SessionStorage'dan TC kimlik auto-fill kontrolü
 async function checkAndApplyAutoFillTCKimlik() {
@@ -1537,6 +1548,52 @@ async function submitForm() {
       
       // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
       window.dispatchEvent(new Event('statsNeedsUpdate'));
+      
+      // 🔥 KAYIT BAŞARILI - KARTLI İŞLEM SAYFASINA YÖNLENDİR VE TAHSİLAT MODALINI AÇ
+      const savedMusteriData = {
+        MstrTCN: form.value.MstrTCN,
+        MstrAdi: form.value.MstrAdi,
+        MstrHspTip: form.value.MstrHspTip,
+        MstrTelNo: form.value.MstrTelNo,
+        MstrFirma: extraForm.value.MstrFirma || '',
+        MstrVD: extraForm.value.MstrVD || '',
+        MstrDurum: 'KALIYOR',
+        KnklmOdaTip: form.value.OdaTipi,
+        KnklmOdaNo: getOdaYatakValue(form.value.OdaYatak).split('-')[0] || '',
+        KnklmYtkNo: getOdaYatakValue(form.value.OdaYatak).split('-')[1] || '',
+        KnklmNfyt: form.value.ToplamBedel,
+        KnklmGrsTrh: bugunTarihi.value,
+        KnklmPlnTrh: planlananCikisTarihi.value,
+        KnklmNot: ekNotlar.value,
+        OdemeVadesi: form.value.OdemeVadesi,
+        // 🔥 KART SEÇİMİ İÇİN NOT BİLGİSİNİ EKLE
+        customerNote: ekNotlar.value
+      }
+      
+      // Global window objesine kaydedilen müşteri bilgilerini set et
+      window.kartliIslemSelectedNormalMusteri = savedMusteriData
+      
+      // 2 saniye sonra kartli-islem sayfasına yönlendir
+      setTimeout(() => {
+        Notify.create({
+          type: 'positive',
+          message: 'Kayıt başarılı! Kartlı işlem sayfasına yönlendiriliyor ve tahsilat formu açılıyor...',
+          position: 'top',
+          timeout: 2000
+        })
+        
+        router.push('/kartli-islem')
+        
+        // Kartli-islem sayfası yüklendikten sonra tahsilat modalını aç
+        setTimeout(() => {
+          // DOM'un tamamen güncellendiğinden emin ol
+          nextTick().then(() => {
+            console.log('🔥 showOdemeIslemModal event dispatched')
+            window.dispatchEvent(new Event('showOdemeIslemModal'))
+          })
+        }, 1000)
+      }, 2000)
+      
       // Form temizle
       form.value = { MstrAdi: '', MstrHspTip: 'Bireysel', MstrTCN: '', MstrTelNo: '', OdaTipi: '', OdaYatak: '', KonaklamaSuresi: 1, KonaklamaTipi: 'GÜNLÜK', ToplamBedel: 0, HesaplananBedel: 0, OdemeVadesi: bugunTarihi.value, OdemeTakvimGunu: null, OtgCheckbox: false }
       extraForm.value = {
@@ -1576,10 +1633,6 @@ async function submitForm() {
       bosOdalarOptions.value = []
       // Ek bilgiler alanını gizle
       showExtraFields.value = false
-      // 3 saniye sonra mesajı temizle
-      setTimeout(() => {
-        notify.value = ''
-      }, 3000)
     } else {
       notify.value = 'Kayıt sırasında hata oluştu!'
     }
