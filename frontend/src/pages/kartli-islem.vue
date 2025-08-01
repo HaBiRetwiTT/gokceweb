@@ -2641,6 +2641,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     }
     
     if (!cariKod) {
+      console.log('🔥 CariKod bulunamadı, bakiyeler sıfırlanıyor');
       selectedMusteriBakiye.value = 0;
       selectedMusteriDepozito.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
@@ -2648,25 +2649,33 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     }
     
     // Backend'den bakiye ve depozito bilgilerini paralel olarak al
+    console.log('🔥 Bakiye hesaplama başladı, cariKod:', cariKod);
     const [bakiyeResponse, depozitoResponse] = await Promise.all([
       api.get(`/dashboard/musteri-bakiye/${cariKod}`),
       api.get(`/dashboard/musteri-depozito-bakiye/${cariKod}`)
     ]);
+    
+    console.log('🔥 Bakiye response:', bakiyeResponse.data);
+    console.log('🔥 Depozito response:', depozitoResponse.data);
     
     if (bakiyeResponse.data.success) {
       const hamBakiye = bakiyeResponse.data.bakiye || 0;
       selectedMusteriBakiye.value = hamBakiye;
       // Global erişim için window objesine ata
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = hamBakiye;
+      console.log('🔥 Ham bakiye set edildi:', hamBakiye);
     } else {
       selectedMusteriBakiye.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
+      console.log('🔥 Bakiye response başarısız');
     }
 
     if (depozitoResponse.data.success) {
       selectedMusteriDepozito.value = depozitoResponse.data.depozitoBakiye || 0;
+      console.log('🔥 Depozito bakiyesi set edildi:', depozitoResponse.data.depozitoBakiye);
     } else {
       selectedMusteriDepozito.value = 0;
+      console.log('🔥 Depozito response başarısız');
     }
 
     // 🔥 DEPOZİTO BAKİYESİNİ ANA BAKİYEDEN ÇIKAR
@@ -2675,13 +2684,19 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     const depozitoBakiye = selectedMusteriDepozito.value;
     const hamBakiye = selectedMusteriBakiye.value;
     
+    console.log('🔥 Depozito bakiyesi:', depozitoBakiye);
+    console.log('🔥 Ham bakiye:', hamBakiye);
+    
     // Net bakiye = Ham bakiye - Depozito bakiyesi
     const netBakiye = hamBakiye - depozitoBakiye;
+    
+    console.log('🔥 Net bakiye hesaplandı:', netBakiye);
     
     selectedMusteriBakiye.value = netBakiye;
     (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = netBakiye;
   } catch (error: unknown) {
     console.error('Müşteri bakiye hesaplama hatası:', error);
+    console.log('🔥 Hata durumunda bakiyeler sıfırlanıyor');
     selectedMusteriBakiye.value = 0;
     selectedMusteriDepozito.value = 0;
     (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
@@ -2740,11 +2755,8 @@ function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
         console.log('Alacaklı müşteri tek tıklandı:', row)
         selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
         
-        // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
-        const alacakTutari = -(row.AlacakTutari || 0);
-        selectedMusteriBakiye.value = alacakTutari;
-        // Global erişim için window objesine ata
-        (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = alacakTutari;
+        // 🔥 Seçilen müşteri bakiyesini hesapla (depozito dahil)
+        await hesaplaMusteriBakiye(row);
         
         // Firma bakiyesini hesapla
         await hesaplaAlacakliMusteriFirmaBakiye(row)
@@ -2777,11 +2789,8 @@ async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
     console.log('Alacaklı müşteri çift tıklandı:', row)
     selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
     
-    // Müşteri bakiyesini alacak tutarı olarak ata (negatif değer)
-    const alacakTutari2 = -(row.AlacakTutari || 0);
-    selectedMusteriBakiye.value = alacakTutari2;
-    // Global erişim için window objesine ata
-    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = alacakTutari2;
+    // 🔥 Seçilen müşteri bakiyesini hesapla (depozito dahil)
+    await hesaplaMusteriBakiye(row);
     
     // Firma bakiyesini hesapla
     await hesaplaAlacakliMusteriFirmaBakiye(row)
