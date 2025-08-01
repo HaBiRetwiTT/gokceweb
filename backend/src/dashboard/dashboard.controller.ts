@@ -318,8 +318,6 @@ export class DashboardController {
       const pageNum = parseInt(page) || 1;
       const limitNum = parseInt(limit) || 100;
       
-      console.log(`🔥 getBorcluMusteriler endpoint çağrıldı - page: ${pageNum}, limit: ${limitNum}`);
-      
       const result = await this.dashboardService.getBorcluMusteriler(pageNum, limitNum);
       return {
         success: true,
@@ -485,6 +483,38 @@ export class DashboardController {
         message: `Firma bakiye hesaplama hatası: ${errorMessage}`,
         bakiye: 0
       }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 MÜŞTERİ DEPOZİTO BAKİYE HESAPLAMA
+  @Get('musteri-depozito-bakiye/:cariKod')
+  async getMusteriDepozitoBakiye(@Param('cariKod') cariKod: string) {
+    try {
+      const depozitoBakiye = await this.dashboardService.getMusteriDepozitoBakiye(cariKod);
+      return {
+        success: true,
+        depozitoBakiye: depozitoBakiye,
+        cariKod: cariKod
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Müşteri depozito bakiyesi hesaplama hatası: ${errorMessage}`,
+        depozitoBakiye: 0
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 DEBUG: v_MusteriKonaklama view'ının yapısını ve verilerini test et
+  @Get('test-musteri-konaklama-view')
+  async testMusteriKonaklamaView(): Promise<any> {
+    try {
+      const result = await this.dashboardService.testMusteriKonaklamaView();
+      return result;
+    } catch (error) {
+      console.error('testMusteriKonaklamaView hatası:', error);
+      throw new HttpException('View test edilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -701,5 +731,7 @@ export class DashboardController {
       };
     }
   }
+
+
 
 } 

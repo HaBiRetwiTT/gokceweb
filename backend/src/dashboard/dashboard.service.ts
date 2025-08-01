@@ -901,7 +901,11 @@ export class DashboardService {
       console.log(`🔥 getBorcluMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
       
       const tables = this.dbConfig.getTables();
+      const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
+      
+      console.log('🔥 DEBUG: Tables config:', tables);
+      console.log('🔥 DEBUG: Views config:', views);
       
       // Eğer limit çok yüksekse (tüm verileri getirmek istiyorsa), pagination'ı devre dışı bırak
       const usePagination = limit < 1000;
@@ -953,7 +957,39 @@ export class DashboardService {
             GROUP BY i.islemCrKod
             HAVING left(i.islemCrKod,1) = 'M' and i.islemCrKod = c.CariKod and (SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
                    SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) > 0)
-          ) as BorcTutari
+          ) as BorcTutari,
+          (
+            SELECT TOP 1 
+              CASE 
+                WHEN v.KnklmCksTrh IS NOT NULL AND v.KnklmCksTrh != '' THEN v.KnklmCksTrh
+                ELSE v.KnklmPlnTrh
+              END
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as CikisTarihi,
+          (
+            SELECT TOP 1 v.KnklmCksTrh
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as KnklmCksTrh,
+          (
+            SELECT TOP 1 v.KnklmPlnTrh
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as KnklmPlnTrh,
+          (
+            SELECT TOP 1 v.MstrDurum
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as MstrDurum
         FROM ${tables.cari} c
         LEFT JOIN ${tables.musteri} m ON (
           (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
@@ -977,7 +1013,17 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log(`🔥 getBorcluMusteriler sayfa ${page} için ${result.length} kayıt bulundu`);
+      
+      // 🔥 DEBUG: CikisTarihi ve MstrDurum değerlerini kontrol et
+      console.log(`🔥 getBorcluMusteriler - Toplam ${result.length} kayıt alındı`);
+      result.forEach((musteri, index) => {
+        console.log(`🔥 getBorcluMusteriler - Kayıt ${index + 1}: CariKod: ${musteri.CariKod}, MstrTCN: ${musteri.CariVTCN || 'NULL'}, CikisTarihi: "${musteri.CikisTarihi}", KnklmCksTrh: "${musteri.KnklmCksTrh}", KnklmPlnTrh: "${musteri.KnklmPlnTrh}", MstrDurum: "${musteri.MstrDurum}"`);
+      });
+      
+      // 🔥 DEBUG: İlk birkaç kaydın tüm alanlarını göster
+      if (result.length > 0) {
+        console.log('🔥 DEBUG: İlk borçlu kayıt tüm alanları:', JSON.stringify(result[0], null, 2));
+      }
       
       // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
@@ -1012,9 +1058,8 @@ export class DashboardService {
   // Alacaklı Müşteriler - bakiyesi negatif olan müşteriler (işletme müşteriye borçlu)
   async getAlacakliMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
-      console.log(`🔥 getAlacakliMusteriler çağrıldı - page: ${page}, limit: ${limit}`);
-      
       const tables = this.dbConfig.getTables();
+      const views = this.dbConfig.getViews();
       
       // Önce alacaklı müşterileri bul
       const alacakliQuery = `
@@ -1067,8 +1112,40 @@ export class DashboardService {
             FROM ${tables.islem} i 
             GROUP BY i.islemCrKod
             HAVING left(i.islemCrKod,1) = 'M' and i.islemCrKod = c.CariKod and (SUM(CASE WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) -
-                   SUM(CASE WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar ELSE 0 END) < 0)
-          )) as AlacakTutari
+                   SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) < 0)
+          )) as AlacakTutari,
+          (
+            SELECT TOP 1 
+              CASE 
+                WHEN v.KnklmCksTrh IS NOT NULL AND v.KnklmCksTrh != '' THEN v.KnklmCksTrh
+                ELSE v.KnklmPlnTrh
+              END
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as CikisTarihi,
+          (
+            SELECT TOP 1 v.KnklmCksTrh
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as KnklmCksTrh,
+          (
+            SELECT TOP 1 v.KnklmPlnTrh
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as KnklmPlnTrh,
+          (
+            SELECT TOP 1 v.MstrDurum
+            FROM ${views.musteriKonaklama} v
+            WHERE (v.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL)
+               OR (v.MstrNo = m.MstrNo AND m.MstrTCN IS NULL)
+            ORDER BY v.knklmNo DESC
+          ) as MstrDurum
         FROM ${tables.cari} c
         LEFT JOIN ${tables.musteri} m ON (
           (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
@@ -1079,15 +1156,25 @@ export class DashboardService {
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
       
+      console.log('🔥 DEBUG: Alacakli main query:', query);
+      
       const result: any[] = await this.musteriRepository.query(query);
+      
+      // 🔥 DEBUG: MstrDurum değerlerini kontrol et
+      result.forEach((musteri, index) => {
+        console.log(`🔥 getAlacakliMusteriler - Kayıt ${index + 1}: CariKod: ${musteri.CariKod}, MstrTCN: ${musteri.MstrTCN || 'NULL'}, CikisTarihi: "${musteri.CikisTarihi}", MstrDurum: "${musteri.MstrDurum}", Type: ${typeof musteri.MstrDurum}`);
+      });
+      
+      // 🔥 DEBUG: İlk birkaç kaydın tüm alanlarını göster
+      if (result.length > 0) {
+        console.log('🔥 DEBUG: İlk alacakli kayıt tüm alanları:', JSON.stringify(result[0], null, 2));
+      }
       
       // Toplam sayıyı hesapla (pagination olmadığında)
       let total = result.length;
       if (!usePagination) {
         total = alacakliMusteriler.length;
       }
-      
-      console.log(`🔥 getAlacakliMusteriler sonucu: ${result.length} kayıt, toplam: ${total}`);
       
       return {
         data: result,
@@ -1123,7 +1210,6 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [cariKod]);
-      console.log(`${cariKod} için ${result.length} cari hareket bulundu`);
       return result;
     } catch (error) {
       console.error('getCariHareketler hatası:', error);
@@ -1158,7 +1244,6 @@ export class DashboardService {
       
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
       const sayisi = Number(result[0]?.CikisYapanSayisi || 0);
-      console.log('Çıkış yapanlar sayısı:', sayisi);
       return sayisi;
     } catch (error) {
       console.error('getCikisYapanlarSayisi hatası:', error);
@@ -1887,10 +1972,89 @@ export class DashboardService {
     }
   }
 
+  // 🔥 DEPOZİTO BAKİYE HESAPLAMA FONKSİYONU
+  async getMusteriDepozitoBakiye(cariKod: string): Promise<number> {
+    try {
+      const result: any = await this.musteriRepository.query(`
+        SELECT 
+          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar ELSE 0 END) as DepozitoTahsilat,
+          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar ELSE 0 END) as DepozitoIade
+        FROM ${this.dbConfig.getTables().islem} 
+        WHERE islemCrKod = @0
+      `, [cariKod]);
+
+      if (!result || result.length === 0) {
+        return 0;
+      }
+
+      const depozitoTahsilat = result[0].DepozitoTahsilat || 0;
+      const depozitoIade = result[0].DepozitoIade || 0;
+      const depozitoBakiye = depozitoTahsilat - depozitoIade;
+
+      return depozitoBakiye;
+    } catch (error) {
+      console.error('🔥 Depozito bakiyesi hesaplama hatası:', error);
+      return 0;
+    }
+  }
+
   // Cache temizleme fonksiyonu
   clearStatsCache(): void {
     this.statsCache = null;
-    console.log('Stats cache cleared');
   }
 
+  // 🔥 DEBUG: v_MusteriKonaklama view'ının yapısını ve verilerini test et
+  async testMusteriKonaklamaView(): Promise<any> {
+    try {
+      const views = this.dbConfig.getViews();
+      
+      // View'ın yapısını kontrol et
+      const structureQuery = `
+        SELECT TOP 10 *
+        FROM ${views.musteriKonaklama}
+        ORDER BY knklmNo DESC
+      `;
+      
+      const structureResult = await this.musteriRepository.query(structureQuery);
+      
+      // KnklmCksTrh ve KnklmPlnTrh alanlarının varlığını kontrol et
+      const fieldCheckQuery = `
+        SELECT 
+          COUNT(*) as TotalRecords,
+          COUNT(KnklmCksTrh) as KnklmCksTrhCount,
+          COUNT(KnklmPlnTrh) as KnklmPlnTrhCount,
+          COUNT(MstrDurum) as MstrDurumCount,
+          COUNT(MstrTCN) as MstrTCNCount,
+          COUNT(MstrNo) as MstrNoCount
+        FROM ${views.musteriKonaklama}
+      `;
+      
+      const fieldCheckResult = await this.musteriRepository.query(fieldCheckQuery);
+      
+      // Örnek veriler
+      const sampleQuery = `
+        SELECT TOP 5 
+          MstrTCN,
+          MstrNo,
+          KnklmCksTrh,
+          KnklmPlnTrh,
+          MstrDurum,
+          knklmNo
+        FROM ${views.musteriKonaklama}
+        ORDER BY knklmNo DESC
+      `;
+      
+      const sampleResult = await this.musteriRepository.query(sampleQuery);
+      
+      return {
+        viewName: views.musteriKonaklama,
+        structure: structureResult,
+        fieldCheck: fieldCheckResult[0],
+        sampleData: sampleResult
+      };
+    } catch (error) {
+      console.error('testMusteriKonaklamaView hatası:', error);
+      throw error;
+    }
+  }
 }

@@ -232,10 +232,20 @@
         <!-- SEÇİLEN MÜŞTERİ BAKİYE BİLGİSİ -->
         <div class="row items-center q-gutter-sm">
           <div class="text-body1 text-grey-5">
-            Seçilen Müşteri Bakiye:
+            Bakiye:
           </div>
           <div class="text-h6 text-weight-bold" :class="getMusteriBakiyeClass(selectedMusteriBakiye)">
             {{ formatCurrency(selectedMusteriBakiye) }}
+          </div>
+        </div>
+
+        <!-- SEÇİLEN MÜŞTERİ DEPOZİTO BİLGİSİ -->
+        <div class="row items-center q-gutter-sm">
+          <div class="text-body1 text-grey-5">
+            Depozito:
+          </div>
+          <div class="text-h6 text-weight-bold" :class="getMusteriBakiyeClass(selectedMusteriDepozito)">
+            {{ formatCurrency(selectedMusteriDepozito) }}
           </div>
         </div>
       </div>
@@ -371,7 +381,9 @@
       >
       <!-- Borçlu müşteri özel hücre şablonları -->
       <template v-slot:body-cell-cKytTarihi="props">
-        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
           {{ formatDate(props.value) }}
         </q-td>
       </template>
@@ -434,6 +446,20 @@
           </span>
         </q-td>
       </template>
+
+      <template v-slot:body-cell-CikisTarihi="props">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
+          <span :class="{ 
+            'text-grey': !props.value,
+            'exit-date-highlight': props.row.MstrDurum === 'AYRILDI' && props.value,
+            'planned-date-highlight': props.row.MstrDurum === 'KALIYOR' && props.value
+          }">
+            {{ props.value ? formatDate(props.value) : '-' }}
+          </span>
+        </q-td>
+      </template>
       </q-table>
     </transition>
 
@@ -464,7 +490,9 @@
       >
       <!-- Alacaklı müşteri özel hücre şablonları -->
       <template v-slot:body-cell-cKytTarihi="props">
-        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
           {{ formatDate(props.value) }}
         </q-td>
       </template>
@@ -516,6 +544,20 @@
           <div class="text-weight-bold text-green">
             {{ formatCurrency(props.value) }}
           </div>
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CikisTarihi="props">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
+          <span :class="{ 
+            'text-grey': !props.value,
+            'exit-date-highlight': props.row.MstrDurum === 'AYRILDI' && props.value,
+            'planned-date-highlight': props.row.MstrDurum === 'KALIYOR' && props.value
+          }">
+            {{ props.value ? formatDate(props.value) : '-' }}
+          </span>
         </q-td>
       </template>
       </q-table>
@@ -1024,6 +1066,7 @@ const selectedKonaklamaDetay = ref<KonaklamaGecmisi | null>(null)
 
 // 🔥 SEÇİLEN MÜŞTERİ BAKİYE BİLGİSİ
 const selectedMusteriBakiye = ref<number>(0)
+const selectedMusteriDepozito = ref<number>(0)
 const selectedFirmaBakiye = ref<number>(0)
 
 // 🔥 FİRMA FİLTRESİ
@@ -1210,6 +1253,7 @@ watch(
     // Modal kapandığında (true'dan false'a geçtiğinde) bakiyeyi sıfırla
     if (oldValue === true && newValue === false) {
       selectedMusteriBakiye.value = 0
+      selectedMusteriDepozito.value = 0
       selectedFirmaBakiye.value = 0
       console.log('Dönem yenileme modal kapandı - müşteri ve firma bakiyesi sıfırlandı')
     }
@@ -1565,6 +1609,22 @@ const borcluColumns = [
       const tarihB = parseDateString(rowB.cKytTarihi);
       return tarihB.getTime() - tarihA.getTime();
     }
+  },
+  {
+    name: 'CikisTarihi',
+    label: 'Çkş. / Pln. Tarihi',
+    align: 'center' as const,
+    field: 'CikisTarihi',
+    sortable: true,
+    format: (val: string) => val ? formatDate(val) : '-',
+    sort: (a: string, b: string) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      const tarihA = parseDateString(a);
+      const tarihB = parseDateString(b);
+      return tarihA.getTime() - tarihB.getTime();
+    }
   }
 ]
 
@@ -1697,6 +1757,22 @@ const alacakliColumns = [
       const tarihA = parseDateString(rowA.cKytTarihi);
       const tarihB = parseDateString(rowB.cKytTarihi);
       return tarihB.getTime() - tarihA.getTime(); // DESC sıralama
+    }
+  },
+  {
+    name: 'CikisTarihi',
+    label: 'Çkş. / Pln. Tarihi',
+    align: 'center' as const,
+    field: 'CikisTarihi',
+    sortable: true,
+    format: (val: string) => val ? formatDate(val) : '-',
+    sort: (a: string, b: string) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      const tarihA = parseDateString(a);
+      const tarihB = parseDateString(b);
+      return tarihA.getTime() - tarihB.getTime();
     }
   }
 ]
@@ -2019,14 +2095,12 @@ async function loadDinamikKonaklamaTipleri() {
   try {
     // Eğer currentFilter yoksa varsayılan olarak toplam-aktif kullan
     const kartTip = currentFilter.value || 'toplam-aktif'
-    console.log('🔥 Dinamik konaklama tipleri yükleniyor... Kart tipi:', kartTip)
     
     const response = await api.get(`/dashboard/dinamik-konaklama-tipleri?kartTip=${encodeURIComponent(kartTip)}`)
     if (response.data.success) {
       dinamikKonaklamaTipleri.value = response.data.data
       // Dinamik listeyi filtrelenmiş listeye ata
       filteredKonaklamaTipleri.value = response.data.data
-      console.log('✅ Dinamik konaklama tipleri yüklendi:', response.data.data)
     } else {
       console.error('❌ Dinamik konaklama tipleri API hatası:', response.data)
       // Hata durumunda statik listeyi kullan
@@ -2043,14 +2117,12 @@ async function loadDinamikOdaTipleri() {
   try {
     // Eğer currentFilter yoksa varsayılan olarak toplam-aktif kullan
     const kartTip = currentFilter.value || 'toplam-aktif'
-    console.log('🔥 Dinamik oda tipleri yükleniyor... Kart tipi:', kartTip)
     
     const response = await api.get(`/dashboard/dinamik-oda-tipleri?kartTip=${encodeURIComponent(kartTip)}`)
     if (response.data.success) {
       dinamikOdaTipleri.value = response.data.data
       // Dinamik listeyi filtrelenmiş listeye ata
       filteredOdaTipleri.value = response.data.data
-      console.log('✅ Dinamik oda tipleri yüklendi:', response.data.data)
     } else {
       console.error('❌ Dinamik oda tipleri API hatası:', response.data)
       // Hata durumunda statik listeyi kullan
@@ -2150,6 +2222,13 @@ async function updateStatsOnly() {
       loadCikisYapanlarSayisi()
     ]);
     console.log('✅ Stats başarıyla güncellendi');
+    
+    // 🔥 SEÇİLİ KARTIN LİSTESİNİ DE YENİLE
+    if (currentFilter.value) {
+      console.log(`🔄 Seçili kart listesi yenileniyor: ${currentFilter.value}`);
+      await loadSelectedCardData(currentFilter.value);
+      console.log('✅ Seçili kart listesi başarıyla güncellendi');
+    }
   } catch (error) {
     console.error('❌ Stats güncelleme hatası:', error);
   }
@@ -2417,8 +2496,6 @@ function onBorcluMusteriDoubleClick(evt: Event, row: BorcluMusteri) {
     }
     
     // Modal'ı aç - ödeme vadesi formatını düzelt
-    console.log('🔥 Borçlu müşteri modal açılıyor - Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
-    console.log('🔥 Borçlu müşteri modal açılıyor - Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
     
     // Borçlu müşteri verilerini normal müşteri formatına çevir
     const modalData = {
@@ -2465,8 +2542,6 @@ function formatDate(dateStr: string): string {
 function convertDateFormat(dateStr: string): string {
   if (!dateStr || dateStr.trim() === '') return '';
   
-  console.log('🔥 convertDateFormat giriş:', dateStr);
-  
   // MM.DD.YYYY formatını kontrol et ve DD.MM.YYYY'ye çevir
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
     const parts = dateStr.split('.');
@@ -2474,24 +2549,19 @@ function convertDateFormat(dateStr: string): string {
       const firstPart = parseInt(parts[0] || '0');
       const secondPart = parseInt(parts[1] || '0');
       
-      console.log('🔥 Tarih parçaları:', { firstPart, secondPart, parts });
-      
       // Eğer ikinci kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (ay 12'den büyük olamaz)
       if (secondPart > 12) {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 MM.DD.YYYY -> DD.MM.YYYY dönüşümü (ay > 12):', result);
         return result;
       }
       // Eğer ilk kısım 12'den büyükse, bu MM.DD.YYYY formatıdır (gün > 12)
       else if (firstPart > 12) {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 MM.DD.YYYY -> DD.MM.YYYY dönüşümü (gün > 12):', result);
         return result;
       }
       // Eğer her ikisi de 12'den küçükse, varsayılan olarak MM.DD.YYYY kabul et
       else {
         const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-        console.log('🔥 Varsayılan MM.DD.YYYY -> DD.MM.YYYY dönüşümü:', result);
         return result;
       }
     }
@@ -2502,7 +2572,6 @@ function convertDateFormat(dateStr: string): string {
     // YYYY-MM-DD formatı
     const parts = dateStr.split('-');
     const result = `${parts[2]}.${parts[1]}.${parts[0]}`;
-    console.log('🔥 YYYY-MM-DD -> DD.MM.YYYY dönüşümü:', result);
     return result;
   }
   
@@ -2510,11 +2579,9 @@ function convertDateFormat(dateStr: string): string {
     // MM/DD/YYYY formatı
     const parts = dateStr.split('/');
     const result = `${parts[1]}.${parts[0]}.${parts[2]}`;
-    console.log('🔥 MM/DD/YYYY -> DD.MM.YYYY dönüşümü:', result);
     return result;
   }
   
-  console.log('🔥 Format tanınmadı, olduğu gibi döndürülüyor:', dateStr);
   return dateStr; // Değiştirilemezse olduğu gibi döndür
 }
 
@@ -2570,12 +2637,16 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     
     if (!cariKod) {
       selectedMusteriBakiye.value = 0;
+      selectedMusteriDepozito.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
       return;
     }
     
-    // Backend'den bakiye bilgisini al
-    const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
+    // Backend'den bakiye ve depozito bilgilerini paralel olarak al
+    const [bakiyeResponse, depozitoResponse] = await Promise.all([
+      api.get(`/dashboard/musteri-bakiye/${cariKod}`),
+      api.get(`/dashboard/musteri-depozito-bakiye/${cariKod}`)
+    ]);
     
     if (bakiyeResponse.data.success) {
       selectedMusteriBakiye.value = bakiyeResponse.data.bakiye || 0;
@@ -2585,9 +2656,16 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
       selectedMusteriBakiye.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     }
+
+    if (depozitoResponse.data.success) {
+      selectedMusteriDepozito.value = depozitoResponse.data.depozitoBakiye || 0;
+    } else {
+      selectedMusteriDepozito.value = 0;
+    }
   } catch (error: unknown) {
     console.error('Müşteri bakiye hesaplama hatası:', error);
     selectedMusteriBakiye.value = 0;
+    selectedMusteriDepozito.value = 0;
     (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
   }
 }
@@ -2713,8 +2791,6 @@ async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
     }
     
     // Modal'ı aç - ödeme vadesi formatını düzelt
-    console.log('🔥 Alacaklı müşteri modal açılıyor - Backend\'den gelen ödeme vadesi (ham):', odemeVadesi);
-    console.log('🔥 Alacaklı müşteri modal açılıyor - Formatlanmış ödeme vadesi:', convertDateFormat(odemeVadesi));
     
     // Alacaklı müşteri verilerini normal müşteri formatına çevir
     const modalData = {
@@ -2884,6 +2960,8 @@ function getDateClass(dateStr: string): string {
   }
 }
 
+
+
 // Arama fonksiyonu
 function performSearch(searchValue: string) {
   if (!searchValue || searchValue.length < 3) {
@@ -2959,6 +3037,7 @@ async function loadFilteredData(filter: string) {
   
   // 🔥 Müşteri bakiyesini sıfırla
   selectedMusteriBakiye.value = 0;
+  selectedMusteriDepozito.value = 0;
   selectedFirmaBakiye.value = 0;
   // Global erişim için window objesini de sıfırla
   (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
@@ -3013,8 +3092,6 @@ async function loadFilteredData(filter: string) {
 
 // 🔥 FİLTRE TEMİZLEME FONKSİYONU
 function clearFilters() {
-  console.log('🔥 Filtreler temizleniyor...')
-  
   // Her iki combobox'ı da TÜMÜ yap
   selectedTip.value = 'TÜMÜ'
   selectedOdaTip.value = 'TÜMÜ'
@@ -3030,7 +3107,6 @@ function clearFilters() {
     void loadSelectedCardData(currentFilter.value)
   }
   
-  console.log('✅ Filtreler temizlendi')
   selectedNormalMusteri.value = null
   window.kartliIslemSelectedNormalMusteri = null
   selectedCustomer.value = null;
@@ -3039,11 +3115,8 @@ function clearFilters() {
 
 //  KOORDİNELİ ÇALIŞMA EVENT HANDLER'LARI
 async function onKonaklamaTipiChange(newValue: string) {
-  console.log('🔥 Konaklama tipi değişti:', newValue)
-  
   // Eğer oda tipi zaten TÜMÜ dışında bir seçim yapılmışsa, oda tipi listesini değiştirme
   if (selectedOdaTip.value !== 'TÜMÜ' && selectedOdaTip.value !== undefined) {
-    console.log('Oda tipi zaten seçili olduğu için oda tipi listesi değiştirilmiyor:', selectedOdaTip.value)
     void refreshData()
     return
   }
@@ -3073,11 +3146,8 @@ async function onKonaklamaTipiChange(newValue: string) {
 }
 
 async function onOdaTipiChange(newValue: string) {
-  console.log('🔥🔥🔥 ODA TİPİ DEĞİŞTİ - FONKSİYON ÇALIŞIYOR:', newValue)
-  
   // Eğer konaklama tipi zaten TÜMÜ dışında bir seçim yapılmışsa, konaklama tipi listesini değiştirme
   if (selectedTip.value !== 'TÜMÜ' && selectedTip.value !== undefined) {
-    console.log('Konaklama tipi zaten seçili olduğu için konaklama tipi listesi değiştirilmiyor:', selectedTip.value)
     // Sadece seçili kartın verilerini yenile (refreshData çağırma, dinamik listeleri sıfırlar)
     if (currentFilter.value) {
       void loadSelectedCardData(currentFilter.value)
@@ -3091,13 +3161,10 @@ async function onOdaTipiChange(newValue: string) {
     console.log('Oda tipi TÜMÜ - Tüm konaklama tipleri gösteriliyor')
       } else {
       // Belirli bir oda tipi seçildiğinde, o oda tipine uygun konaklama tiplerini getir
-      console.log('🔥 API çağrısı yapılıyor...')
       try {
         const response = await api.get(`/dashboard/konaklama-tipleri-by-oda?odaTip=${encodeURIComponent(newValue)}&kartTip=${currentFilter.value}`)
-        console.log('🔥 API response:', response.data)
         if (response.data.success) {
           filteredKonaklamaTipleri.value = response.data.data
-          console.log('Oda tipi filtrelendi - Konaklama tipleri:', response.data.data)
         } else {
           filteredKonaklamaTipleri.value = [...tumKonaklamaTipleri.value]
         }
@@ -3417,6 +3484,7 @@ function onFirmaFiltresiChange(newValue: boolean) {
       selectedNormalMusteri.value = null;
       selectedBorcluMusteri.value = null;
       selectedMusteriBakiye.value = 0;
+      selectedMusteriDepozito.value = 0;
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     });
   } else {
@@ -3426,6 +3494,7 @@ function onFirmaFiltresiChange(newValue: boolean) {
     showKonaklamaGecmisi.value = false;
     showCariHareketler.value = false;
     selectedMusteriBakiye.value = 0;
+    selectedMusteriDepozito.value = 0;
     selectedFirmaBakiye.value = 0;
     (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     selectedFirmaAdi.value = '';
@@ -4480,5 +4549,46 @@ body.body--dark .dashboard-table .q-table__bottom-item {
 /* Dark mode refresh button */
 .body--dark .refresh-btn:hover {
   box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5) !important;
+}
+
+/* 🔥 Çıkış tarihi vurgulama - AYRILDI durumu için eliptik kırmızı-turuncu arka plan */
+.exit-date-highlight {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff8c42 100%) !important;
+  color: white !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3) !important;
+  display: inline-block !important;
+  line-height: 1.2 !important;
+}
+
+/* Dark mode için çıkış tarihi vurgulama */
+.body--dark .exit-date-highlight {
+  background: linear-gradient(135deg, #ff5722 0%, #ff7043 50%, #ff8a65 100%) !important;
+  box-shadow: 0 2px 6px rgba(255, 87, 34, 0.4) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 🔥 Planlanan tarih vurgulama - KALIYOR durumu için eliptik fıstık yeşili arka plan */
+.planned-date-highlight {
+  background: linear-gradient(135deg, #90EE90 0%, #98FB98 50%, #ADFF2F 100%) !important;
+  color: #2E7D32 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 2px 4px rgba(144, 238, 144, 0.4) !important;
+  display: inline-block !important;
+  line-height: 1.2 !important;
+}
+
+/* Dark mode için planlanan tarih vurgulama */
+.body--dark .planned-date-highlight {
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #81C784 100%) !important;
+  color: white !important;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
 }
 </style> 

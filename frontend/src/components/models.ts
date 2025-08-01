@@ -76,6 +76,10 @@ export interface BorcluMusteri {
   MstrHspTip?: string;
   BorcTutari: number;
   OdemeVadesi?: string; // <-- Bunu ekleyin
+  CikisTarihi?: string; // 🔥 Çıkış tarihi - en büyük knklmNo kaydından
+  KnklmCksTrh?: string; // 🔥 Orijinal çıkış tarihi
+  KnklmPlnTrh?: string; // 🔥 Orijinal planlanan tarih
+  MstrDurum?: string; // 🔥 Müşteri durumu - en büyük knklmNo kaydından
 }
 
 export interface AlacakliMusteri {
@@ -90,6 +94,10 @@ export interface AlacakliMusteri {
   MstrFirma?: string;
   MstrHspTip?: string;
   AlacakTutari: number;
+  CikisTarihi?: string; // 🔥 Çıkış tarihi - en büyük knklmNo kaydından
+  KnklmCksTrh?: string; // 🔥 Orijinal çıkış tarihi
+  KnklmPlnTrh?: string; // 🔥 Orijinal planlanan tarih
+  MstrDurum?: string; // 🔥 Müşteri durumu - en büyük knklmNo kaydından
 }
 
 export interface CariHareket {

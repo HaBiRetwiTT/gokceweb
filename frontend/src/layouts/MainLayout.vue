@@ -600,14 +600,14 @@ function refreshPage() {
     console.log('🔄 Kartlı işlem sayfası stats verileri yenileniyor...');
     window.dispatchEvent(new Event('refreshKartliIslemStats'));
     
-    // Kullanıcıya bilgi ver
-    Notify.create({
-      type: 'info',
-      message: 'Stats verileri yenileniyor...',
-      icon: 'refresh',
-      position: 'top',
-      timeout: 2000
-    });
+          // Kullanıcıya bilgi ver
+      Notify.create({
+        type: 'info',
+        message: 'Kart Sayım ve liste verileri yenileniyor...',
+        icon: 'refresh',
+        position: 'top',
+        timeout: 10000
+      });
   } else {
     // Diğer sayfalarda normal sayfa yenileme
     // Eğer tam ekran ise, localStorage'a kaydet
