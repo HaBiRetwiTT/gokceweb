@@ -1473,8 +1473,9 @@ function parseDateString(dateStr: string): Date {
   return new Date(0) // Hata durumunda epoch başlangıcı
 }
 
-// Tablo konfigürasyonu
-const columns = [
+// 🔥 DİNAMİK TABLO KONFİGÜRASYONU - Çıkış tarihi sütunu sadece çıkış yapan kartlarda görünür
+const columns = computed(() => {
+  const baseColumns = [
   {
     name: 'MstrTCN',
     required: true,
@@ -1628,7 +1629,19 @@ const columns = [
     align: 'center' as const,
     field: 'actions'
   }
-]
+  ]
+  
+  // 🔥 Çıkış tarihi sütunu sadece çıkış yapan kartlarda görünür
+  const cikisYapanKartlar = ['cikis-yapanlar', 'bugun-cikan']
+  
+  if (currentFilter.value && cikisYapanKartlar.includes(currentFilter.value)) {
+    // Çıkış yapan kartlar için çıkış tarihi sütununu ekle
+    return baseColumns
+  } else {
+    // Diğer kartlar için çıkış tarihi sütununu çıkar
+    return baseColumns.filter(col => col.name !== 'KnklmCksTrh')
+  }
+})
 
 // Borçlu müşteriler tablosu için
 const borcluColumns = [
