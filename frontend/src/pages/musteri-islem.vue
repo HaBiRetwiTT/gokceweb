@@ -1582,7 +1582,7 @@ async function submitForm() {
           timeout: 2000
         })
         
-        router.push('/kartli-islem')
+        router.push('/kartli-islem?autoOpenModal=true')
         
         // Kartli-islem sayfası yüklendikten sonra tahsilat modalını aç
         setTimeout(() => {

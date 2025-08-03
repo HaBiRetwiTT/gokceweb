@@ -1053,6 +1053,7 @@ export class MusteriService {
       const bugun = new Date();
       const bugunStr = this.formatDateForComparison(bugun);
       
+      // 🔥 OPTİMİZE EDİLMİŞ CTE SORGUSU: Daha verimli bakiye hesaplama
       const query = `
         WITH ToplamYataklar AS (
           -- Her oda tipi için toplam yatak sayısı (BOŞ + DOLU)
@@ -1066,7 +1067,7 @@ export class MusteriService {
           GROUP BY OdYatOdaTip
         ),
         AktifKonaklamalar AS (
-          -- Bugün aktif olan konaklamalar
+          -- Bugün aktif olan konaklamalar - ROW_NUMBER ile optimize edilmiş
           SELECT 
             v.KnklmOdaTip,
             COUNT(*) as DoluYatak
@@ -1080,15 +1081,31 @@ export class MusteriService {
             AND v.KnklmGrsTrh <> ''
             AND CONVERT(Date, v.KnklmGrsTrh, 104) <= '${bugunStr}'
             AND CONVERT(Date, v.KnklmPlnTrh, 104) >= '${bugunStr}'
+            AND v.knklmNo = (
+              SELECT MAX(v2.knklmNo) 
+              FROM ${views.musteriKonaklama} v2 
+              WHERE v2.MstrTCN = v.MstrTCN
+                AND v2.MstrDurum = 'KALIYOR'
+                AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
+            )
           GROUP BY v.KnklmOdaTip
+        ),
+        BosOdaHesaplama AS (
+          -- Boş oda hesaplama - tek seferde tüm hesaplamalar
+          SELECT 
+            t.OdYatOdaTip as OdaTipi,
+            ISNULL(t.ToplamYatak, 0) as ToplamYatak,
+            ISNULL(a.DoluYatak, 0) as DoluYatak,
+            ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0) as BosOdaSayisi
+          FROM ToplamYataklar t
+          LEFT JOIN AktifKonaklamalar a ON t.OdYatOdaTip = a.KnklmOdaTip
         )
         SELECT 
-          t.OdYatOdaTip as OdaTipi,
-          ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0) as BosOdaSayisi
-        FROM ToplamYataklar t
-        LEFT JOIN AktifKonaklamalar a ON t.OdYatOdaTip = a.KnklmOdaTip
-        WHERE (ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0)) > 0
-        ORDER BY t.OdYatOdaTip
+          OdaTipi,
+          BosOdaSayisi
+        FROM BosOdaHesaplama
+        WHERE BosOdaSayisi > 0
+        ORDER BY OdaTipi
       `;
       
       const result: { OdaTipi: string; BosOdaSayisi: number }[] = await this.odaYatakRepository.query(query);
@@ -3082,50 +3099,111 @@ export class MusteriService {
 
   // Seçili müşteri için cari hareketler
   async getCariHareketler(tcNo: string): Promise<any[]> {
-    const tables = this.dbConfig.getTables();
-    // Önce müşteri bilgisi al
-    const musteri = await this.getMusteriBilgiByTCN(tcNo);
-    if (!musteri || !musteri.MstrNo || !musteri.MstrHspTip) {
-      console.log(`[CariHareketler] tcNo ile müşteri bulunamadı:`, tcNo);
-      return [];
+    try {
+      const tables = this.dbConfig.getTables();
+      
+      // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
+      const query = `
+        WITH MusteriCariKod AS (
+          -- TC'den cari kod bulma
+          SELECT 
+            CASE 
+              WHEN m.MstrHspTip = 'Kurumsal' THEN 'MK' + CAST(m.MstrNo AS VARCHAR(10))
+              ELSE 'MB' + CAST(m.MstrNo AS VARCHAR(10))
+            END as CariKod
+          FROM ${tables.musteri} m
+          WHERE m.MstrTCN = @0
+            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+        ),
+        CariHareketler AS (
+          -- Cari hareketleri getir
+          SELECT 
+            i.iKytTarihi,
+            i.islemKllnc,
+            i.islemOzel1,
+            i.islemOzel2,
+            i.islemOzel3,
+            i.islemArac,
+            i.islemTip,
+            i.islemGrup,
+            i.islemBilgi,
+            i.islemTutar,
+            ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
+          FROM ${tables.islem} i
+          INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
+        )
+        SELECT 
+          iKytTarihi,
+          islemKllnc,
+          islemOzel1,
+          islemOzel2,
+          islemOzel3,
+          islemArac,
+          islemTip,
+          islemGrup,
+          islemBilgi,
+          islemTutar
+        FROM CariHareketler
+        ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
+      `;
+      
+      const result: any[] = await this.musteriRepository.query(query, [tcNo]);
+      console.log(`TC: ${tcNo} için ${result.length} cari hareket bulundu`);
+      return result;
+    } catch (error) {
+      console.error('getCariHareketler hatası:', error);
+      throw new Error('Cari hareketler alınamadı');
     }
-    const cariKod = musteri.MstrHspTip === 'Bireysel' ? `MB${musteri.MstrNo}` : `MK${musteri.MstrNo}`;
-    console.log(`[CariHareketler] tcNo: ${tcNo}, cariKod: ${cariKod}`);
-    const query = `
-      SELECT iKytTarihi, islemTip, islemBilgi, islemTutar, islemBirim
-      FROM ${tables.islem}
-      WHERE islemCrKod = @0
-      ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
-    `;
-    const hareketler = await this.musteriRepository.query(query, [cariKod]);
-    console.log(`[CariHareketler] ${tcNo} için bulunan hareket sayısı:`, hareketler.length);
-    return hareketler;
   }
 
   // Seçili firma için cari hareketler
   async getFirmaCariHareketler(firmaAdi: string): Promise<any[]> {
-    const tables = this.dbConfig.getTables();
-    // Firma müşterilerini bul
-    const musteriler = await this.musteriRepository.query(
-      `SELECT MstrNo, MstrHspTip FROM ${tables.musteri} WHERE MstrFirma = @0`, [firmaAdi]
-    );
-    if (!musteriler.length) {
-      console.log(`[FirmaCariHareketler] Firma müşterisi bulunamadı:`, firmaAdi);
+    try {
+      const tables = this.dbConfig.getTables();
+      
+      // 🔥 CTE OPTİMİZASYONU: Firma cari hareketlerini tek sorguda getir
+      const query = `
+        WITH FirmaMusterileri AS (
+          -- Firma müşterilerini ve cari kodlarını hesapla
+          SELECT 
+            MstrNo,
+            MstrHspTip,
+            CASE 
+              WHEN MstrHspTip = 'Bireysel' THEN 'MB' + CAST(MstrNo AS VARCHAR(10))
+              ELSE 'MK' + CAST(MstrNo AS VARCHAR(10))
+            END as CariKod
+          FROM ${tables.musteri} 
+          WHERE MstrFirma = @0
+        ),
+        FirmaCariHareketleri AS (
+          -- Firma müşterilerinin cari hareketlerini getir
+          SELECT 
+            i.iKytTarihi,
+            i.islemTip,
+            i.islemBilgi,
+            i.islemTutar,
+            i.islemBirim,
+            ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
+          FROM ${tables.islem} i
+          INNER JOIN FirmaMusterileri fm ON i.islemCrKod = fm.CariKod
+        )
+        SELECT 
+          iKytTarihi,
+          islemTip,
+          islemBilgi,
+          islemTutar,
+          islemBirim
+        FROM FirmaCariHareketleri
+        ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
+      `;
+      
+      const hareketler = await this.musteriRepository.query(query, [firmaAdi]);
+      console.log(`[FirmaCariHareketler] ${firmaAdi} için bulunan hareket sayısı:`, hareketler.length);
+      return hareketler;
+    } catch (error) {
+      console.error('getFirmaCariHareketler hatası:', error);
       return [];
     }
-    const cariKodlar = musteriler.map((m: any) => m.MstrHspTip === 'Bireysel' ? `MB${m.MstrNo}` : `MK${m.MstrNo}`);
-    console.log(`[FirmaCariHareketler] firmaAdi: ${firmaAdi}, cariKodlar:`, cariKodlar);
-    if (!cariKodlar.length) return [];
-    const inClause = cariKodlar.map(() => '?').join(',');
-    const query = `
-      SELECT iKytTarihi, islemTip, islemBilgi, islemTutar, islemBirim
-      FROM ${tables.islem}
-      WHERE islemCrKod IN (${inClause})
-      ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
-    `;
-    const hareketler = await this.musteriRepository.query(query, cariKodlar);
-    console.log(`[FirmaCariHareketler] ${firmaAdi} için bulunan hareket sayısı:`, hareketler.length);
-    return hareketler;
   }
 
   /**

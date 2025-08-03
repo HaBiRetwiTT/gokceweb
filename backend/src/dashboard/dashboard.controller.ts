@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Query, HttpException, HttpStatus, Param, Put } from '@nestjs/common';
+import { Controller, Get, Query, HttpException, HttpStatus, Param, Put, Post } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
@@ -362,6 +362,52 @@ export class DashboardController {
     }
   }
 
+  // 🔥 Bakiyesiz Hesaplar - hem bakiye hem de depozito bakiyesi 0 olan müşteriler
+  @Get('bakiyesiz-hesaplar')
+  async getBakiyesizHesaplar(
+    @Query('page') page: string = '1', 
+    @Query('limit') limit: string = '1000'
+  ) {
+    try {
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+      
+      const result = await this.dashboardService.getBakiyesizHesaplar(pageNum, limitNum);
+      return {
+        success: true,
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        count: result.data.length
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Bakiyesiz hesaplar listesi alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 GÜVENLİ BAKİYESİZ HESAPLAR STATS HESAPLAMA
+  @Get('bakiyesiz-hesaplar-stats')
+  async getBakiyesizHesaplarStats() {
+    try {
+      const bakiyesizHesaplarSayisi = await this.dashboardService.getBakiyesizHesaplarStats();
+      return {
+        success: true,
+        bakiyesizHesaplarSayisi: bakiyesizHesaplarSayisi
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Bakiyesiz hesaplar stats hesaplanamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Cari Hareketler - seçilen müşterinin tüm işlemleri
   @Get('cari-hareketler')
   async getCariHareketler(@Query('cariKod') cariKod: string) {
@@ -589,6 +635,7 @@ export class DashboardController {
 
   // Cache temizleme endpoint'i
   @Put('clear-cache')
+  @Post('clear-stats-cache')
   async clearCache() {
     try {
       this.dashboardService.clearStatsCache();
@@ -722,6 +769,7 @@ export class DashboardController {
     }
   }
 
+  // Test endpoint'i kaldırıldı - gerekli değil
 
 
 } 

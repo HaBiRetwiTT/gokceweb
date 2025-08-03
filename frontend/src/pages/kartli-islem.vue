@@ -64,7 +64,7 @@
         >
           <q-card-section class="q-pa-xs">
             <div class="text-body2">Devam Eden</div>
-            <div class="text-h5">{{ stats.ToplamAktifKonaklama || 0 }}</div>
+            <div class="text-h5">{{ stats.DevamEdenKonaklama || 0 }}</div>
           </q-card-section>
         </q-card>
       </div>
@@ -81,6 +81,9 @@
           </q-card-section>
         </q-card>
       </div>
+      
+      <!-- 🔥 GRUP AYIRICI - İlk 6 kart ile sonraki 3 kart arası -->
+      <div class="stats-group-divider"></div>
       
       <div class="stats-card-wrapper">
         <q-card 
@@ -110,11 +113,29 @@
         </q-card>
       </div>
       
+      <!-- 🔥 YENİ KART: Bakiyesiz Hesaplar -->
+      <div class="stats-card-wrapper">
+        <q-card 
+          class="bg-grey-6 text-white compact-card clickable-card"
+          :class="{ 'active-filter': currentFilter === 'bakiyesiz-hesaplar' }"
+          @click="loadFilteredData('bakiyesiz-hesaplar')"
+          v-if="true"
+        >
+          <q-card-section class="q-pa-xs">
+            <div class="text-body2">Bakiyesiz Hesaplar</div>
+            <div class="text-h5">{{ stats.BakiyesizHesaplarSayisi || 0 }}</div>
+          </q-card-section>
+        </q-card>
+      </div>
+      
+      <!-- 🔥 GRUP AYIRICI - Bakiyesiz Hesaplar ile Listelenen Tutar arası -->
+      <div class="stats-group-divider"></div>
+      
       <div class="stats-card-wrapper">
         <q-card class="bg-purple text-white compact-card">
           <q-card-section class="q-pa-xs">
             <div class="text-body2">Listelenen Tutar</div>
-            <div class="text-h5">{{ formatCurrency(listelenenGelir) }}</div>
+            <div class="text-h5">{{ formatIntegerCurrency(listelenenGelir) }}</div>
           </q-card-section>
         </q-card>
       </div>
@@ -130,7 +151,7 @@
           outlined
           dense
           @update:model-value="onKonaklamaTipiChange"
-          :disable="showBorcluTable || showAlacakliTable"
+          :disable="showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable"
         />
       </div>
 
@@ -160,7 +181,7 @@
           outlined
           dense
           @update:model-value="onOdaTipiChange"
-          :disable="showBorcluTable || showAlacakliTable"
+          :disable="showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable"
         />
       </div>
 
@@ -254,8 +275,8 @@
     <!-- Ana Grid - Normal Müşteri Tablosu -->
     <transition name="table-fade" mode="out-in">
       <q-table
-        v-if="!showBorcluTable && !showAlacakliTable"
-        :key="`normal-table`"
+        v-if="!showBorcluTable && !showAlacakliTable && !showBakiyesizHesaplarTable"
+        :key="`normal-table-${currentFilter || 'default'}`"
         :rows="displayedMusteriListesi"
         :columns="columns"
         :row-key="(row: MusteriKonaklama) => `${row.MstrTCN}-${row.KnklmOdaNo}-${row.KnklmYtkNo}`"
@@ -563,11 +584,118 @@
       </q-table>
     </transition>
 
+    <!-- 🔥 Bakiyesiz Hesaplar Tablosu -->
+    <transition name="table-fade" mode="out-in">
+      <q-table
+        v-if="showBakiyesizHesaplarTable"
+        :key="`bakiyesiz-table`"
+        :rows="bakiyesizHesaplarListesi"
+        :columns="bakiyesizHesaplarColumns"
+        :row-key="(row: BakiyesizHesaplar) => row.CariKod"
+        :loading="bakiyesizHesaplarLoading"
+        :pagination="bakiyesizHesaplarPagination"
+        dense
+        bordered
+        separator="cell"
+        class="dashboard-table compact-table"
+        @row-click="onBakiyesizHesaplarClick"
+        @row-dblclick="onBakiyesizHesaplarDoubleClick"
+        @request="onBakiyesizHesaplarRequest"
+        :rows-per-page-options="[5, 10, 20]"
+        rows-per-page-label="Sayfa Başına Kayıt"
+        table-style="width: 100%"
+        :disable-sort="false"
+        flat
+        :no-data-label="bakiyesizHesaplarLoading ? 'Veriler Yükleniyor...' : 'Bakiyesiz Hesap Bulunamadı'"
+      >
+      <!-- Bakiyesiz hesaplar özel hücre şablonları -->
+      <template v-slot:body-cell-cKytTarihi="props">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
+          {{ formatDate(props.value) }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariKllnc="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariKod="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariAdi="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          <div class="text-weight-bold">{{ props.value }}</div>
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariVD="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariVTCN="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariYetkili="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+      <template v-slot:body-cell-CariTelNo="props">
+        <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+          {{ props.value }}
+        </q-td>
+      </template>
+
+                      <template v-slot:body-cell-BorcTutari="props">
+                  <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+                    <div class="text-weight-bold text-grey-6">
+                      {{ formatCurrency(props.value) }}
+                    </div>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-CksPlnTrh="props">
+                  <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
+                    <div :class="getDateClass(props.value)">
+                      {{ props.value ? formatDate(props.value) : '-' }}
+                    </div>
+                  </q-td>
+                </template>
+
+      <template v-slot:body-cell-CikisTarihi="props">
+        <q-td :props="props" :class="{ 
+          'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod
+        }">
+          <span :class="{ 
+            'text-grey': !props.value,
+            'exit-date-highlight': props.row.MstrDurum === 'AYRILDI' && props.value,
+            'planned-date-highlight': props.row.MstrDurum === 'KALIYOR' && props.value
+          }">
+            {{ props.value ? formatDate(props.value) : '-' }}
+          </span>
+        </q-td>
+      </template>
+      </q-table>
+    </transition>
+
     <!-- Cari Hareketler Tablosu (Seçilen Müşteri veya Firma Filtresi için) -->
     <transition name="table-fade" mode="out-in">
       <q-table
         ref="cariHareketlerTableRef"
-        v-if="(showBorcluTable || showAlacakliTable) && showCariHareketler"
+        v-if="(showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable) && showCariHareketler"
         :key="cariHareketlerKey"
         :rows="displayedCariHareketlerListesi"
         :columns="cariHareketlerColumns"
@@ -1016,7 +1144,12 @@ import OdemeIslemForm from '../components/OdemeIslemForm.vue';
 //import EkHizmetlerForm from '../components/EkHizmetlerForm.vue';
 
 // Tip tanımları
-import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, CariHareket, KonaklamaGecmisi } from '../components/models';
+import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, BakiyesizHesaplar, CariHareket, KonaklamaGecmisi } from '../components/models';
+
+// QTable pagination event tipi
+// Quasar'ın bazı sürümlerinde QTableRequest tipi export edilmiyor, bu yüzden elle tanımlıyoruz
+// Eğer Quasar güncellenirse, import ile kullanılabilir
+// https://quasar.dev/vue-components/table#pagination-and-sorting
 
 // Router instance
 const router = useRouter()
@@ -1026,8 +1159,10 @@ const loading = ref(false)
 const musteriListesi = ref<MusteriKonaklama[]>([])
 const borcluMusteriListesi = ref<BorcluMusteri[]>([])
 const alacakliMusteriListesi = ref<AlacakliMusteri[]>([])
+const bakiyesizHesaplarListesi = ref<BakiyesizHesaplar[]>([])
 const showBorcluTable = ref(false)
 const showAlacakliTable = ref(false)
+const showBakiyesizHesaplarTable = ref(false)
 const stats = ref<DashboardStats>({})
 const konaklamaTipleri = ref<string[]>(['TÜMÜ'])
 const selectedTip = ref('TÜMÜ')
@@ -1053,6 +1188,7 @@ const selectedBorcluMusteri = ref<BorcluMusteri | AlacakliMusteri | null>(null)
 const showCariHareketler = ref(false)
 const cariHareketlerListesi = ref<CariHareket[]>([])
 const cariHareketlerLoading = ref(false)
+const bakiyesizHesaplarLoading = ref(false)
 
 // 🔥 Cari hareketler tablosu için ref
 const cariHareketlerTableRef = ref<{ $el: HTMLElement } | null>(null)
@@ -1115,6 +1251,9 @@ const listelenenGelir = computed(() => {
   } else if (showAlacakliTable.value) {
     // Alacaklı müşteriler tablosu aktifse filtrelenmiş alacak tutarlarını topla (negatif değer)
     return -(displayedAlacakliMusteriListesi.value.reduce((total, musteri) => total + (musteri.AlacakTutari || 0), 0))
+  } else if (showBakiyesizHesaplarTable.value) {
+    // Bakiyesiz hesaplar tablosu aktifse toplam 0 (çünkü tüm hesapların bakiyesi 0)
+    return 0
   } else {
     // Normal müşteri tablosu aktifse filtrelenmiş konaklama tutarlarını topla
     return displayedMusteriListesi.value.reduce((total, musteri) => total + (musteri.KnklmNfyt || 0), 0)
@@ -1207,11 +1346,13 @@ const isSearchFocused = ref<boolean>(false)
 // 🔥 Alt grid animasyon kontrolü
 const cariHareketlerKey = ref<string>('cari-empty')
 const konaklamaGecmisiKey = ref<string>('konaklama-empty')
+const bakiyesizHesaplarKey = ref<string>('bakiyesiz-empty')
 
 // 🔥 Tek tıklama gecikme kontrolü
 const normalMusteriClickTimeout = ref<number | null>(null)
 const borcluMusteriClickTimeout = ref<number | null>(null)
 const alacakliMusteriClickTimeout = ref<number | null>(null)
+const bakiyesizHesaplarClickTimeout = ref<number | null>(null)
 
 const shouldShowSearchBox = computed(() => {
   // DEBUG logları kaldırıldı
@@ -1783,6 +1924,85 @@ const alacakliColumns = [
   }
 ]
 
+// 🔥 Bakiyesiz hesaplar tablosu için (sıralama backend'de yapılıyor)
+const bakiyesizHesaplarColumns = [
+  {
+    name: 'cKytTarihi',
+    label: 'Kayıt Tarihi',
+    align: 'center' as const,
+    field: 'cKytTarihi',
+    sortable: true,
+    format: (val: string) => formatDate(val),
+    sort: sortByDate
+  },
+  {
+    name: 'CariKllnc',
+    label: 'Kullanıcı',
+    align: 'left' as const,
+    field: 'CariKllnc',
+    sortable: true
+  },
+  {
+    name: 'CariKod',
+    label: 'Cari Kod',
+    align: 'left' as const,
+    field: 'CariKod',
+    sortable: true
+  },
+  {
+    name: 'CariAdi',
+    label: 'Müşteri Adı',
+    align: 'left' as const,
+    field: 'CariAdi',
+    sortable: true
+  },
+  {
+    name: 'CariVD',
+    label: 'Vergi Dairesi',
+    align: 'left' as const,
+    field: 'CariVD',
+    sortable: true
+  },
+  {
+    name: 'CariVTCN',
+    label: 'VDNo/TC No',
+    align: 'left' as const,
+    field: 'CariVTCN',
+    sortable: true
+  },
+  {
+    name: 'CariYetkili',
+    label: 'Yetkili',
+    align: 'left' as const,
+    field: 'CariYetkili',
+    sortable: true
+  },
+  {
+    name: 'CariTelNo',
+    label: 'Telefon',
+    align: 'left' as const,
+    field: 'CariTelNo',
+    sortable: true
+  },
+  {
+    name: 'BorcTutari',
+    label: 'Bakiye',
+    align: 'right' as const,
+    field: 'BorcTutari',
+    sortable: true,
+    format: (val: number) => formatCurrency(val)
+  },
+  {
+    name: 'CksPlnTrh',
+    label: 'Çkş. / Pln. Tarihi',
+    align: 'center' as const,
+    field: 'CksPlnTrh',
+    sortable: true,
+    format: (val: string) => val ? formatDate(val) : '-',
+    sort: sortByDate
+  }
+]
+
 // Borçlu müşteriler için
 const borcluPagination = ref({
   sortBy: 'odemeVadesi', // 1. kademe: ödeme vadesi
@@ -1798,6 +2018,16 @@ const alacakliPagination = ref({
   page: 1,
   rowsPerPage: 5
 })
+
+// 🔥 Bakiyesiz hesaplar için (Alacaklı Müşteriler gibi basit)
+const bakiyesizHesaplarPagination = ref({
+  sortBy: 'cKytTarihi',
+  descending: false,  // Eskiden yeniye sıralama
+  page: 1,
+  rowsPerPage: 10
+})
+
+
 
 // Cari hareketler için
 const cariHareketlerPagination = ref({
@@ -2173,6 +2403,39 @@ async function loadAlacakliMusteriler(page: number = 1, limit: number = 1000) {
   }
 }
 
+async function loadBakiyesizHesaplar(page: number = 1, limit: number = 1000) {
+  bakiyesizHesaplarLoading.value = true
+  try {
+    const response = await api.get(`/dashboard/bakiyesiz-hesaplar?page=${page}&limit=${limit}`)
+    if (response.data.success) {
+      bakiyesizHesaplarListesi.value = [...response.data.data]
+      // Pagination bilgilerini güncelle
+      bakiyesizHesaplarPagination.value.page = response.data.page;
+    }
+  } catch (error) {
+    console.error('🔥 Bakiyesiz hesaplar listesi yüklenemedi:', error)
+  } finally {
+    bakiyesizHesaplarLoading.value = false
+  }
+}
+
+// 🔥 Bakiyesiz hesaplar request event handler
+function onBakiyesizHesaplarRequest(props: { pagination: { page: number; rowsPerPage: number; sortBy?: string; descending?: boolean } }) {
+  // Pagination state'ini güncelle
+  bakiyesizHesaplarPagination.value.page = props.pagination.page;
+  bakiyesizHesaplarPagination.value.rowsPerPage = props.pagination.rowsPerPage;
+  
+  // Optional değerleri kontrol et
+  if (props.pagination.sortBy !== undefined) {
+    bakiyesizHesaplarPagination.value.sortBy = props.pagination.sortBy;
+  }
+  if (props.pagination.descending !== undefined) {
+    bakiyesizHesaplarPagination.value.descending = props.pagination.descending;
+  }
+}
+
+
+
 async function loadCariHareketler(cariKod: string) {
   cariHareketlerLoading.value = true
   
@@ -2219,21 +2482,26 @@ async function loadCariHareketler(cariKod: string) {
   }
 }
 
+// 🔥 BACKEND STATS CACHE'İNİ TEMİZLE
+async function clearBackendStatsCache() {
+  try {
+    await api.post('/api/dashboard/clear-stats-cache');
+  } catch (error) {
+    console.error('❌ Backend stats cache temizleme hatası:', error);
+  }
+}
+
 // 🔥 OTOMATİK STATS GÜNCELLEME FONKSİYONU
 async function updateStatsOnly() {
   try {
-    console.log('🔄 Stats otomatik güncelleniyor...');
     await Promise.all([
       loadStats(),
       loadCikisYapanlarSayisi()
     ]);
-    console.log('✅ Stats başarıyla güncellendi');
     
     // 🔥 SEÇİLİ KARTIN LİSTESİNİ DE YENİLE
     if (currentFilter.value) {
-      console.log(`🔄 Seçili kart listesi yenileniyor: ${currentFilter.value}`);
       await loadSelectedCardData(currentFilter.value);
-      console.log('✅ Seçili kart listesi başarıyla güncellendi');
     }
   } catch (error) {
     console.error('❌ Stats güncelleme hatası:', error);
@@ -2244,7 +2512,8 @@ async function updateStatsOnly() {
 function setupDataChangeListeners() {
   // Modal başarılı işlem sonrası stats güncelleme
   window.addEventListener('statsNeedsUpdate', () => {
-    console.log('📡 Stats güncelleme eventi alındı');
+    // 🔥 BACKEND CACHE'İ TEMİZLE VE STATS GÜNCELLE
+    void clearBackendStatsCache();
     void updateStatsOnly();
   });
 
@@ -2278,27 +2547,28 @@ function cleanupDataChangeListeners() {
 }
 
 // 🔥 PERİYODİK STATS GÜNCELLEME (5 dakikada bir)
-let statsRefreshInterval: number | null = null;
+// 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
+// let statsRefreshInterval: number | null = null;
 
-function startPeriodicStatsRefresh() {
-  // Eğer zaten çalışıyorsa temizle
-  if (statsRefreshInterval) {
-    clearInterval(statsRefreshInterval);
-  }
-  
-  // 5 dakikada bir stats güncelle
-  statsRefreshInterval = window.setInterval(() => {
-    console.log('🕐 Periyodik stats güncelleme...');
-    void updateStatsOnly();
-  }, 5 * 60 * 1000); // 5 dakika
-}
+// function startPeriodicStatsRefresh() {
+//   // Eğer zaten çalışıyorsa temizle
+//   if (statsRefreshInterval) {
+//     clearInterval(statsRefreshInterval);
+//   }
+//   
+//   // 5 dakikada bir stats güncelle
+//   statsRefreshInterval = window.setInterval(() => {
+//     console.log('🕐 Periyodik stats güncelleme...');
+//     void updateStatsOnly();
+//   }, 5 * 60 * 1000); // 5 dakika
+// }
 
-function stopPeriodicStatsRefresh() {
-  if (statsRefreshInterval) {
-    clearInterval(statsRefreshInterval);
-    statsRefreshInterval = null;
-  }
-}
+// function stopPeriodicStatsRefresh() {
+//   if (statsRefreshInterval) {
+//     clearInterval(statsRefreshInterval);
+//     statsRefreshInterval = null;
+//   }
+// }
 
 async function refreshData() {
   // Konaklama geçmişi tablosunu gizle (modal işlemlerinden sonra güncel olmayabilir)
@@ -2450,91 +2720,72 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
   }, 300)
 }
 
-// Borçlu müşteri çift tıklama event handler
+// 🔥 BORÇLU MÜŞTERİ DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
 function onBorcluMusteriDoubleClick(evt: Event, row: BorcluMusteri) {
-  // 🔥 Tek tıklama timeout'unu iptal et
+  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
   if (borcluMusteriClickTimeout.value) {
     clearTimeout(borcluMusteriClickTimeout.value)
     borcluMusteriClickTimeout.value = null
   }
   
-  console.log('Borçlu müşteri satırına çift tıklandı:', row);
-  selectedBorcluMusteri.value = row;
-  showCariHareketler.value = true;
-  void loadCariHareketler(row.CariKod);
+  // 🔥 Müşteri bilgisini global state'e aktar
+  window.kartliIslemSelectedNormalMusteri = {
+    MstrTCN: row.CariVTCN || '',
+    MstrAdi: row.CariAdi || '',
+    MstrTelNo: row.CariTelNo || '',
+    MstrDurum: 'KALIYOR',
+    customerNote: 'Borçlu Müşteri'
+  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
   
-  // 🔥 Seçilen müşteri bakiyesini hesapla
-  void hesaplaMusteriBakiye(row);
+  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
   
-  // 🔥 Borçlu müşteri için firma bakiyesini hesapla ve selectedNormalMusteri'yi güncelle
-  void hesaplaBorcluMusteriFirmaBakiye(row);
-  
-  // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
-  if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
-    // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin cari hareketlerini göster
-    console.log('Firma filtresi aktifken borçlu müşteri seçildi:', row.CariAdi);
-    // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
-  } else {
-    // Normal durum - firma filtresini sıfırla (ama hesaplaBorcluMusteriFirmaBakiye zaten uygun şekilde ayarlıyor)
-    // firmaFiltresiAktif.value = false; // Bu satırı kaldırıyoruz çünkü hesaplaBorcluMusteriFirmaBakiye zaten hallediyor
-  }
-  
-  // 🔥 Modal açma işlemi - borçlu müşteri için dönem yenileme modal'ı
-  const modalAcilisAkisi = async () => {
-    let odemeVadesi = '';
-    
-    // 1. Önce borçlu müşteri listesinden TC ile eşleştirme yap
-    const borcluMusteriVadesi = borcluMusteriListesi.value.find(b => b.CariVTCN === row.CariVTCN)?.OdemeVadesi;
-    
-    if (borcluMusteriVadesi && borcluMusteriVadesi.trim() !== '') {
-      odemeVadesi = borcluMusteriVadesi;
-    } else {
-      // 2. Borçlu müşteri listesinde bulunamazsa dashboard servisten hesaplat
-      try {
-        const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.CariVTCN || '')}`);
-        if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
-          odemeVadesi = vadeResponse.data.data.odemeVadesi;
-        }
-      } catch (error) {
-        console.error('Ödeme vadesi hesaplama hatası:', error);
-      }
-    }
-    
-    // Modal'ı aç - ödeme vadesi formatını düzelt
-    
-    // Borçlu müşteri verilerini normal müşteri formatına çevir
-    const modalData = {
-      MstrTCN: row.CariVTCN || '',
-      MstrAdi: row.CariAdi,
-      MstrTelNo: row.CariTelNo || '',
-      MstrHspTip: row.MstrHspTip || 'Bireysel',
-      MstrFirma: row.MstrFirma || '',
-      KnklmOdaTip: '',
-      KnklmOdaNo: '',
-      KnklmYtkNo: '',
-      KnklmTip: '',
-      KnklmNfyt: 0,
-      KnklmGrsTrh: '',
-      KnklmPlnTrh: '',
-      KnklmNot: '',
-      OdemeVadesi: convertDateFormat(odemeVadesi)
-    };
-    
-    donemYenilemeData.value = modalData;
-    showDonemYenilemeModal.value = true;
-  };
-  
-  void modalAcilisAkisi();
+  // 🔥 Müşteri Tahsilat modalını aç
+  window.dispatchEvent(new Event('showOdemeIslemModal'));
 }
 
-
-
-function formatCurrency(value: number | undefined): string {
-  if (!value) return '0 ₺'
+function formatCurrency(value: number | undefined | string | null): string {
+  if (value === null || value === undefined || value === '') return '0 ₺'
+  
+  // String'i number'a çevir
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  // NaN kontrolü
+  if (isNaN(numValue)) {
+    return '0 ₺'
+  }
+  
+  // Ondalık küsuratları yuvarla (2 basamak)
+  const roundedValue = Math.round(numValue * 100) / 100
+  
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY'
-  }).format(value)
+  }).format(roundedValue)
+}
+
+// Tam sayı tutar formatlama fonksiyonu (ondalık küsurat göstermez)
+function formatIntegerCurrency(value: number | undefined | string | null): string {
+  if (value === null || value === undefined || value === '') return '0 ₺'
+  
+  // String'i number'a çevir
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  // NaN kontrolü
+  if (isNaN(numValue)) {
+    return '0 ₺'
+  }
+  
+  // Tam sayıya yuvarla (ondalık kısmı kaldır)
+  const integerValue = Math.round(numValue)
+  
+  // Manuel formatlama ile kesinlik sağla
+  const formattedNumber = new Intl.NumberFormat('tr-TR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(integerValue)
+  
+  return `${formattedNumber} ₺`
 }
 
 function formatDate(dateStr: string): string {
@@ -2774,74 +3025,86 @@ function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
   }, 300)
 }
 
-// 🔥 ALACAKLI MÜŞTERİ DOUBLE CLICK FONKSİYONU
-async function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
-  // 🔥 Tek tıklama timeout'unu iptal et
+// 🔥 ALACAKLI MÜŞTERİ DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
+function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
+  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
   if (alacakliMusteriClickTimeout.value) {
     clearTimeout(alacakliMusteriClickTimeout.value)
     alacakliMusteriClickTimeout.value = null
   }
   
-  try {
-    // Önceki seçimi temizle
-    selectedBorcluMusteri.value = null
-    
-    console.log('Alacaklı müşteri çift tıklandı:', row)
-    selectedBorcluMusteri.value = row // Alacaklı müşteri de aynı yapıda olduğu için
-    
-    // 🔥 Seçilen müşteri bakiyesini hesapla (depozito dahil)
-    await hesaplaMusteriBakiye(row);
-    
-    // Firma bakiyesini hesapla
-    await hesaplaAlacakliMusteriFirmaBakiye(row)
-    
-    // Cari hareketler tablosunu göster
-    showCariHareketler.value = true
-    void loadCariHareketler(row.CariKod)
-    console.log('Alacaklı müşteri için cari hareketler yükleniyor:', row.CariKod)
-  } catch (error) {
-    console.error('Alacaklı müşteri seçme hatası:', error)
+  // 🔥 Müşteri bilgisini global state'e aktar
+  window.kartliIslemSelectedNormalMusteri = {
+    MstrTCN: row.CariVTCN || '',
+    MstrAdi: row.CariAdi || '',
+    MstrTelNo: row.CariTelNo || '',
+    MstrDurum: 'KALIYOR',
+    customerNote: 'Alacaklı Müşteri'
+  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
+  
+  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
+  
+  // 🔥 Müşteri Tahsilat modalını aç
+  window.dispatchEvent(new Event('showOdemeIslemModal'));
+}
+
+// 🔥 BAKİYESİZ HESAPLAR GECİKMELİ TEK TIKLAMA FONKSİYONU
+function onBakiyesizHesaplarClick(evt: Event, row: BakiyesizHesaplar) {
+  // 🔥 Önceki timeout'u temizle
+  if (bakiyesizHesaplarClickTimeout.value) {
+    clearTimeout(bakiyesizHesaplarClickTimeout.value)
   }
   
-  // 🔥 Modal açma işlemi - alacaklı müşteri için dönem yenileme modal'ı
-  const modalAcilisAkisi = async () => {
-    let odemeVadesi = '';
-    
-    // Alacaklı müşteri için sadece backend'den ödeme vadesi çek
-    try {
-      const vadeResponse = await api.get(`/dashboard/musteri-odeme-vadesi/${encodeURIComponent(row.CariVTCN || '')}`);
-      if (vadeResponse.data.success && vadeResponse.data.data?.odemeVadesi) {
-        odemeVadesi = vadeResponse.data.data.odemeVadesi;
+  // 🔥 300ms gecikme ile tek tıklama işlemini başlat
+  bakiyesizHesaplarClickTimeout.value = window.setTimeout(() => {
+    void (async () => {
+      try {
+        // Önceki seçimi temizle
+        selectedBorcluMusteri.value = null
+        
+        selectedBorcluMusteri.value = row // Bakiyesiz hesap da aynı yapıda olduğu için
+        
+        // 🔥 Seçilen müşteri bakiyesini hesapla (depozito dahil)
+        await hesaplaMusteriBakiye(row);
+        
+        // Firma bakiyesini hesapla
+        await hesaplaBakiyesizHesaplarFirmaBakiye(row)
+        
+        // Cari hareketler tablosunu göster
+        showCariHareketler.value = true
+        void loadCariHareketler(row.CariKod)
+      } catch (error) {
+        console.error('Bakiyesiz hesap seçme hatası:', error)
       }
-    } catch (error) {
-      console.error('Ödeme vadesi hesaplama hatası:', error);
-    }
-    
-    // Modal'ı aç - ödeme vadesi formatını düzelt
-    
-    // Alacaklı müşteri verilerini normal müşteri formatına çevir
-    const modalData = {
-      MstrTCN: row.CariVTCN || '',
-      MstrAdi: row.CariAdi,
-      MstrTelNo: row.CariTelNo || '',
-      MstrHspTip: row.MstrHspTip || 'Bireysel',
-      MstrFirma: row.MstrFirma || '',
-      KnklmOdaTip: '',
-      KnklmOdaNo: '',
-      KnklmYtkNo: '',
-      KnklmTip: '',
-      KnklmNfyt: 0,
-      KnklmGrsTrh: '',
-      KnklmPlnTrh: '',
-      KnklmNot: '',
-      OdemeVadesi: convertDateFormat(odemeVadesi)
-    };
-    
-    donemYenilemeData.value = modalData;
-    showDonemYenilemeModal.value = true;
-  };
+      
+      bakiyesizHesaplarClickTimeout.value = null
+    })()
+  }, 300)
+}
+
+// 🔥 BAKİYESİZ HESAPLAR DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
+function onBakiyesizHesaplarDoubleClick(evt: Event, row: BakiyesizHesaplar) {
+  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
+  if (bakiyesizHesaplarClickTimeout.value) {
+    clearTimeout(bakiyesizHesaplarClickTimeout.value)
+    bakiyesizHesaplarClickTimeout.value = null
+  }
   
-  void modalAcilisAkisi();
+  // 🔥 Müşteri bilgisini global state'e aktar
+  window.kartliIslemSelectedNormalMusteri = {
+    MstrTCN: row.CariVTCN || '',
+    MstrAdi: row.CariAdi || '',
+    MstrTelNo: row.CariTelNo || '',
+    MstrDurum: 'KALIYOR',
+    customerNote: 'Bakiyesiz Hesap'
+  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
+  
+  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
+  
+  // 🔥 Müşteri Tahsilat modalını aç
+  window.dispatchEvent(new Event('showOdemeIslemModal'));
 }
 
 // 🔥 ALACAKLI MÜŞTERİ İÇİN FİRMA BAKİYE HESAPLAMA FONKSİYONU
@@ -2898,6 +3161,66 @@ async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMuster
     }
   } catch (error) {
     console.error('Alacaklı müşteri firma bakiye hesaplama hatası:', error);
+    selectedFirmaBakiye.value = 0;
+    selectedFirmaAdi.value = '';
+    selectedNormalMusteri.value = null;
+  }
+}
+
+// 🔥 BAKİYESİZ HESAPLAR İÇİN FİRMA BAKİYE HESAPLAMA FONKSİYONU
+async function hesaplaBakiyesizHesaplarFirmaBakiye(bakiyesizHesaplar: BakiyesizHesaplar) {
+  try {
+    // 🔥 selectedNormalMusteri'yi güncelle (UI'da firma bakiye setinin görünmesi için)
+    const bakiyesizHesaplarData = {
+      MstrTCN: '', // Bakiyesiz hesaplar tablosunda TC bilgisi yok
+      MstrHspTip: bakiyesizHesaplar.MstrHspTip || 'Bireysel',
+      MstrFirma: bakiyesizHesaplar.MstrFirma || '',
+      MstrAdi: bakiyesizHesaplar.CariAdi || '',
+      MstrTelNo: bakiyesizHesaplar.CariTelNo || '',
+      KnklmOdaTip: '',
+      KnklmOdaNo: '',
+      KnklmYtkNo: '',
+      KnklmTip: '',
+      KnklmNfyt: 0,
+      KnklmGrsTrh: '',
+      KnklmPlnTrh: '',
+      KnklmNot: '',
+      CariKod: bakiyesizHesaplar.CariKod // Bakiyesiz hesaplar için CariKod bilgisini ekle
+    };
+    
+    selectedNormalMusteri.value = bakiyesizHesaplarData;
+    
+    // 🔥 window.kartliIslemSelectedNormalMusteri'yi de güncelle (Müşteri Tahsilat formu için)
+    window.kartliIslemSelectedNormalMusteri = bakiyesizHesaplarData;
+    
+    // Kurumsal müşteri değilse firma bakiyesi sıfır
+    if (!bakiyesizHesaplar.MstrFirma || bakiyesizHesaplar.MstrHspTip !== 'Kurumsal') {
+      selectedFirmaBakiye.value = 0;
+      // Firma filtresi aktif değilse firma adını da temizle
+      if (!firmaFiltresiAktif.value) {
+        selectedFirmaAdi.value = '';
+      }
+      // Bireysel müşteri için firma filtresini kapat (sadece filtre aktif değilse)
+      if (!firmaFiltresiAktif.value) {
+        firmaFiltresiAktif.value = false;
+      }
+      return;
+    }
+    
+    // 🔥 Firma adını güncelle (sadece filtre aktif değilse)
+    if (!firmaFiltresiAktif.value) {
+      selectedFirmaAdi.value = bakiyesizHesaplar.MstrFirma;
+    }
+    
+    // Firma bakiyesini hesapla
+    const firmaResponse = await api.get(`/dashboard/firma-bakiye/${encodeURIComponent(bakiyesizHesaplar.MstrFirma)}`);
+    if (firmaResponse.data.success) {
+      selectedFirmaBakiye.value = firmaResponse.data.bakiye || 0;
+    } else {
+      selectedFirmaBakiye.value = 0;
+    }
+  } catch (error) {
+    console.error('Bakiyesiz hesaplar firma bakiye hesaplama hatası:', error);
     selectedFirmaBakiye.value = 0;
     selectedFirmaAdi.value = '';
     selectedNormalMusteri.value = null;
@@ -2978,12 +3301,31 @@ function getDateClass(dateStr: string): string {
   const date = new Date(year, month, day)
   const today = new Date()
   
-  if (date < today) {
-    return 'text-red text-weight-bold' // Geçmiş tarih
+  // Bugünün başlangıcını al (saat 00:00:00)
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  
+  console.log('🔥 getDateClass Debug:', {
+    dateStr,
+    parts,
+    year,
+    month,
+    day,
+    date: date.toDateString(),
+    today: today.toDateString(),
+    todayStart: todayStart.toDateString(),
+    isPast: date < todayStart,
+    isToday: date.toDateString() === today.toDateString()
+  })
+  
+  if (date < todayStart) {
+    console.log('🔥 Geçmiş tarih - past-date-highlight')
+    return 'past-date-highlight' // Geçmiş tarih - eliptik kırmızı
   } else if (date.toDateString() === today.toDateString()) {
-    return 'text-orange text-weight-bold' // Bugün
+    console.log('🔥 Bugün - today-date-highlight')
+    return 'today-date-highlight' // Bugün - eliptik turuncu
   } else {
-    return 'text-green' // Gelecek tarih
+    console.log('🔥 Gelecek tarih - future-date-highlight')
+    return 'future-date-highlight' // Gelecek tarih - eliptik yeşil
   }
 }
 
@@ -3077,6 +3419,7 @@ async function loadFilteredData(filter: string) {
     // Borçlu müşteriler tablosunu göster
     showBorcluTable.value = true
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
     selectedBorcluMusteri.value = null  // Seçimi temizle
     showCariHareketler.value = false    // Cari hareketler tablosunu gizle
     void loadBorcluMusteriler().then(() => {
@@ -3091,6 +3434,7 @@ async function loadFilteredData(filter: string) {
     // Alacaklı müşteriler tablosunu göster
     showBorcluTable.value = false
     showAlacakliTable.value = true
+    showBakiyesizHesaplarTable.value = false
     selectedBorcluMusteri.value = null  // Seçimi temizle
     showCariHareketler.value = false    // Cari hareketler tablosunu gizle
     void loadAlacakliMusteriler().then(() => {
@@ -3099,15 +3443,63 @@ async function loadFilteredData(filter: string) {
         void selectBestCard()
       }
     })
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    alacakliPagination.value.page = 1
+    alacakliPagination.value.rowsPerPage = 5
+  } else if (filter === 'bakiyesiz-hesaplar') {
+    // 🔥 Bakiyesiz hesaplar tablosunu göster
+    currentFilter.value = 'bakiyesiz-hesaplar'
+    showBorcluTable.value = false
+    showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = true
+    selectedBorcluMusteri.value = null  // Seçimi temizle
+    showCariHareketler.value = false    // Cari hareketler tablosunu gizle
+    
+    // Bakiyesiz hesapları yükle ve hata durumunda bile tabloyu göster
+    try {
+      // Tablo key'ini güncelle
+      bakiyesizHesaplarKey.value = `bakiyesiz-${Date.now()}`
+      
+      await loadBakiyesizHesaplar()
+    } catch (error) {
+      console.error('Bakiyesiz hesaplar yüklenirken hata:', error)
+      // Hata durumunda bile tabloyu göster, selectBestCard çağırma
+    }
+    
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    bakiyesizHesaplarPagination.value.page = 1
+    bakiyesizHesaplarPagination.value.rowsPerPage = 10
+    
+    // Session storage'a kaydet
+    sessionStorage.setItem('kartliIslemLastCard', 'bakiyesiz-hesaplar')
   } else if (filter === 'cikis-yapanlar') {
     // Çıkış yapanlar listesini göster
     showBorcluTable.value = false
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
     void loadCikisYapanlarListesi()
   } else {
     // Normal müşteri tablosunu göster
     showBorcluTable.value = false
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
+    
+    // 🔥 İlk 6 kart için pagination'ı önce sıfırla
+    console.log('🔥 İlk 6 kart pagination sıfırlanıyor:', {
+      before: { page: pagination.value.page, rowsPerPage: pagination.value.rowsPerPage },
+      filter: filter
+    })
+    
+    pagination.value.page = 1
+    pagination.value.rowsPerPage = 10
+    
+    console.log('🔥 İlk 6 kart pagination sıfırlandı:', {
+      after: { page: pagination.value.page, rowsPerPage: pagination.value.rowsPerPage }
+    })
+    
+    // Pagination değişikliğinin DOM'a yansıması için nextTick kullan
+    await nextTick()
+    
     void refreshData()
   }
   selectedNormalMusteri.value = null;
@@ -3448,37 +3840,74 @@ async function loadSelectedCardData(cardType: string) {
     console.log('Borçlu müşteriler tablosu gösteriliyor')
     showBorcluTable.value = true
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
     selectedBorcluMusteri.value = null
     showCariHareketler.value = false
     void loadBorcluMusteriler()
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    borcluPagination.value.page = 1
+    borcluPagination.value.rowsPerPage = 5
   } else if (cardType === 'alacakli-musteriler') {
     // Alacaklı müşteriler tablosunu göster
     console.log('Alacaklı müşteriler tablosu gösteriliyor')
     showBorcluTable.value = false
     showAlacakliTable.value = true
+    showBakiyesizHesaplarTable.value = false
     selectedBorcluMusteri.value = null
     showCariHareketler.value = false
     void loadAlacakliMusteriler()
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    alacakliPagination.value.page = 1
+    alacakliPagination.value.rowsPerPage = 5
+  } else if (cardType === 'bakiyesiz-hesaplar') {
+    // 🔥 Bakiyesiz hesaplar tablosunu göster
+    showBorcluTable.value = false
+    showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = true
+    selectedBorcluMusteri.value = null
+    showCariHareketler.value = false
+    void loadBakiyesizHesaplar()
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    bakiyesizHesaplarPagination.value.page = 1
+    bakiyesizHesaplarPagination.value.rowsPerPage = 10
   } else if (cardType === 'cikis-yapanlar') {
     // Çıkış yapanlar listesini göster
     console.log('Çıkış yapanlar listesi gösteriliyor')
     showBorcluTable.value = false
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
     void loadCikisYapanlarListesi()
+    // 🔥 Pagination'ı sıfırla - ilk sayfadan başla
+    pagination.value.page = 1
+    pagination.value.rowsPerPage = 10
   } else {
     // Normal müşteri tablosunu göster
     console.log('Normal müşteri tablosu gösteriliyor')
     showBorcluTable.value = false
     showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
+    
+    // 🔥 İlk 6 kart için pagination'ı önce sıfırla
+    pagination.value.page = 1
+    pagination.value.rowsPerPage = 10
+    
+    // Pagination değişikliğinin DOM'a yansıması için nextTick kullan
+    await nextTick()
+    
     void loadMusteriListesi()
   }
 }
 
 // Lifecycle
 onMounted(() => {
+  // 🔥 URL'den autoOpenModal parametresini kontrol et
+  const urlParams = new URLSearchParams(window.location.search);
+  const shouldAutoOpenModal = urlParams.get('autoOpenModal') === 'true';
+  
   // 🔥 EĞER MUSTERI-ISLEM SAYFASINDAN GELİNİYORSA, SEÇİLİ MÜŞTERİYİ AYARLA
-  if (window.kartliIslemSelectedNormalMusteri) {
+  if (window.kartliIslemSelectedNormalMusteri && shouldAutoOpenModal) {
     console.log('🔥 kartli-islem sayfası yüklendi, seçili müşteri bulundu:', window.kartliIslemSelectedNormalMusteri)
+    console.log('🔥 Otomatik modal açma aktif - musteri-islem sayfasından gelindi')
     
     // Yeni kayıt edilen müşteri bilgilerini al
     const newCustomer = window.kartliIslemSelectedNormalMusteri as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum?: string; customerNote?: string };
@@ -3506,6 +3935,14 @@ onMounted(() => {
     });
   } else {
     // 🔥 NORMAL SAYFA GİRİŞİ - Varsayılan davranış
+    console.log('🔥 Normal sayfa girişi - otomatik modal açma devre dışı')
+    
+    // Eğer musteri-islem sayfasından gelindi ama manuel geçiş ise, global state'i temizle
+    if (window.kartliIslemSelectedNormalMusteri && !shouldAutoOpenModal) {
+      console.log('🔥 Manuel geçiş tespit edildi, global state temizleniyor')
+      window.kartliIslemSelectedNormalMusteri = null;
+    }
+    
     void (async () => {
       await refreshData();
       await selectBestCard();
@@ -3514,8 +3951,8 @@ onMounted(() => {
     // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR
     setupDataChangeListeners();
     
-    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ BAŞLAT
-    startPeriodicStatsRefresh();
+    // 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
+    // startPeriodicStatsRefresh();
 
     // Tahsilat sonrası bakiye güncelleme event listener
     window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
@@ -3558,8 +3995,8 @@ onMounted(() => {
     // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI TEMİZLE
     cleanupDataChangeListeners();
     
-    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ DURDUR
-    stopPeriodicStatsRefresh();
+    // 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
+    // stopPeriodicStatsRefresh();
   });
 })
 
@@ -4168,8 +4605,8 @@ onMounted(() => {
     // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI TEMİZLE
     cleanupDataChangeListeners();
     
-    // 🔥 PERİYODİK STATS GÜNCELLEME'Yİ DURDUR
-    stopPeriodicStatsRefresh();
+    // 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
+    // stopPeriodicStatsRefresh();
   });
 })
 
@@ -4184,6 +4621,9 @@ function bakiyeGuncelleHandler() {
   if (selectedNormalMusteri.value) {
     void hesaplaMusteriBakiye(selectedNormalMusteri.value);
   }
+  
+  // 🔥 STATS GÜNCELLEME EVENT'İNİ TETİKLE
+  window.dispatchEvent(new Event('statsNeedsUpdate'));
 }
 
 </script>
@@ -4216,6 +4656,54 @@ function bakiyeGuncelleHandler() {
   display: flex;
   gap: 4px;
   margin-bottom: 8px;
+  align-items: center;
+}
+
+/* 🔥 GRUP AYIRICI - İlk 6 kart ile sonraki 3 kart arası */
+.stats-group-divider {
+  width: 3px;
+  height: 60px;
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0.8) 0%, 
+    rgba(255, 255, 255, 0.4) 50%, 
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  border-radius: 2px;
+  margin: 0 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 5;
+}
+
+/* Dark mode için ayırıcı */
+.body--dark .stats-group-divider {
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0.3) 0%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Ayırıcıya hover efekti */
+.stats-group-divider:hover {
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 1) 0%, 
+    rgba(255, 255, 255, 0.6) 50%, 
+    rgba(255, 255, 255, 1) 100%
+  );
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scaleY(1.1);
+  transition: all 0.3s ease;
+}
+
+.body--dark .stats-group-divider:hover {
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0.5) 0%, 
+    rgba(255, 255, 255, 0.2) 50%, 
+    rgba(255, 255, 255, 0.5) 100%
+  );
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .stats-card-wrapper {
@@ -4803,6 +5291,64 @@ body.body--dark .dashboard-table .q-table__bottom-item {
   background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #81C784 100%) !important;
   color: white !important;
   box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 🔥 Bakiyesiz Hesaplar için tarih vurgulama - Geçmiş tarihler için eliptik kırmızı arka plan */
+.past-date-highlight {
+  background: linear-gradient(135deg, #ff4444 0%, #ff6666 50%, #ff8888 100%) !important;
+  color: white !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 4px rgba(255, 68, 68, 0.3) !important;
+  display: inline-block !important;
+  line-height: 1.2 !important;
+}
+
+/* 🔥 Bakiyesiz Hesaplar için tarih vurgulama - Bugün için eliptik turuncu arka plan */
+.today-date-highlight {
+  background: linear-gradient(135deg, #ff9800 0%, #ffb74d 50%, #ffcc80 100%) !important;
+  color: white !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3) !important;
+  display: inline-block !important;
+  line-height: 1.2 !important;
+}
+
+/* 🔥 Bakiyesiz Hesaplar için tarih vurgulama - Gelecek tarihler için eliptik yeşil arka plan */
+.future-date-highlight {
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #81C784 100%) !important;
+  color: white !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3) !important;
+  display: inline-block !important;
+  line-height: 1.2 !important;
+}
+
+/* Dark mode için bakiyesiz hesaplar tarih vurgulama */
+.body--dark .past-date-highlight {
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 50%, #ef5350 100%) !important;
+  box-shadow: 0 2px 6px rgba(211, 47, 47, 0.4) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+.body--dark .today-date-highlight {
+  background: linear-gradient(135deg, #f57c00 0%, #ff9800 50%, #ffb74d 100%) !important;
+  box-shadow: 0 2px 6px rgba(245, 124, 0, 0.4) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+.body--dark .future-date-highlight {
+  background: linear-gradient(135deg, #388e3c 0%, #4caf50 50%, #66bb6a 100%) !important;
+  box-shadow: 0 2px 6px rgba(56, 142, 60, 0.4) !important;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
 }
 </style> 

@@ -5,3 +5,13 @@ declare namespace NodeJS {
     VUE_ROUTER_BASE: string | undefined;
   }
 }
+
+// Global window object extensions
+declare global {
+  interface Window {
+    kartliIslemAutoOpenModal?: boolean;
+  }
+  
+  // Ensure console is properly typed
+  var console: Console;
+}

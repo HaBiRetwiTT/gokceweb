@@ -18,6 +18,7 @@ export interface DashboardStats {
   YeniGirisKonaklama?: number;    // 🔥 Yeni alan
   BorcluMusteriSayisi?: number;
   AlacakliMusteriSayisi?: number;
+  BakiyesizHesaplarSayisi?: number; // 🔥 Yeni alan
   ToplamGelir?: number;
 }
 
@@ -94,6 +95,24 @@ export interface AlacakliMusteri {
   MstrFirma?: string;
   MstrHspTip?: string;
   AlacakTutari: number;
+  CikisTarihi?: string; // 🔥 Çıkış tarihi - en büyük knklmNo kaydından
+  KnklmCksTrh?: string; // 🔥 Orijinal çıkış tarihi
+  KnklmPlnTrh?: string; // 🔥 Orijinal planlanan tarih
+  MstrDurum?: string; // 🔥 Müşteri durumu - en büyük knklmNo kaydından
+}
+
+export interface BakiyesizHesaplar {
+  cKytTarihi: string;
+  CariKllnc: string;
+  CariKod: string;
+  CariAdi: string;
+  CariVD?: string;
+  CariVTCN?: string;
+  CariYetkili?: string;
+  CariTelNo?: string;
+  MstrFirma?: string;
+  MstrHspTip?: string;
+  BorcTutari: number; // Bakiyesiz hesaplarda her zaman 0 olacak
   CikisTarihi?: string; // 🔥 Çıkış tarihi - en büyük knklmNo kaydından
   KnklmCksTrh?: string; // 🔥 Orijinal çıkış tarihi
   KnklmPlnTrh?: string; // 🔥 Orijinal planlanan tarih

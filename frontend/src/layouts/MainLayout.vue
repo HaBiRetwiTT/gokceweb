@@ -603,7 +603,7 @@ function refreshPage() {
           // Kullanıcıya bilgi ver
       Notify.create({
         type: 'info',
-        message: 'Kart Sayım ve liste verileri yenileniyor...',
+        message: 'Kart Sayım ve Liste Verileri Yenileniyor...',
         icon: 'refresh',
         position: 'top',
         timeout: 10000
@@ -707,10 +707,10 @@ function handleMenuAction(action: string) {
     }
     const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
     const currentFilter = window.kartliIslemCurrentFilter;
-    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan'].includes(currentFilter)) {
+    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan'].includes(currentFilter)) {
       Notify.create({
         type: 'warning',
-        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- kartlarından biri seçili iken kullanılabilir.'
+        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- -Bugün Çıkan- kartlarından biri seçili iken kullanılabilir.'
       });
       return;
     }

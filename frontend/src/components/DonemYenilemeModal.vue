@@ -454,18 +454,18 @@
       <q-card-section>
         <div class="text-h6">ODA DEĞİŞİKLİĞİ HESAPLAMA</div>
         <div class="q-mt-md">
-          <div><b>Eski Günlük Konaklama Bedeli:</b> {{ odaDegisikligiDialogData.gunlukBedel.toFixed(2) }} TL</div>
+          <div><b>Eski Günlük Konaklama Bedeli:</b> {{ formatCurrency(odaDegisikligiDialogData.gunlukBedel) }}</div>
           <div><b>Çıkışa Kalan Gün:</b> {{ odaDegisikligiDialogData.kalanGun }} gün</div>
-          <div><b>GİDER Yazılacak Bedel:</b> {{ odaDegisikligiDialogData.giderBedel.toFixed(2) }} TL</div>
-          <div><b>Yeni Oda Tipi Günlük Bedel:</b> {{ odaDegisikligiDialogData.yeniOdaTipiGunlukBedel.toFixed(2) }} TL</div>
-          <div><b>GELİR Yazılacak Bedel:</b> {{ odaDegisikligiDialogData.gelirBedel.toFixed(2) }} TL</div>
+          <div><b>GİDER Yazılacak Bedel:</b> {{ formatCurrency(odaDegisikligiDialogData.giderBedel) }}</div>
+          <div><b>Yeni Oda Tipi Günlük Bedel:</b> {{ formatCurrency(odaDegisikligiDialogData.yeniOdaTipiGunlukBedel) }}</div>
+          <div><b>GELİR Yazılacak Bedel:</b> {{ formatCurrency(odaDegisikligiDialogData.gelirBedel) }}</div>
           <template v-if="odaDegisikligiDialogData.tahsilEdilecekBedel > 0">
             <div style="height: 1em;"></div>
-            <div><b>TAHSİL EDİLECEK BEDEL:</b> {{ odaDegisikligiDialogData.tahsilEdilecekBedel.toFixed(2) }} TL</div>
+            <div><b>TAHSİL EDİLECEK BEDEL:</b> {{ formatCurrency(odaDegisikligiDialogData.tahsilEdilecekBedel) }}</div>
           </template>
           <template v-else-if="odaDegisikligiDialogData.tahsilEdilecekBedel < 0">
             <div style="height: 1em;"></div>
-            <div><b>İADE EDİLECEK BEDEL:</b> {{ Math.abs(odaDegisikligiDialogData.tahsilEdilecekBedel).toFixed(2) }} TL</div>
+            <div><b>İADE EDİLECEK BEDEL:</b> {{ formatCurrency(Math.abs(odaDegisikligiDialogData.tahsilEdilecekBedel)) }}</div>
           </template>
         </div>
         
@@ -492,11 +492,11 @@
       <q-card-section>
         <div class="text-h6">ERKEN ÇIKIŞ HESAPLAMA</div>
         <div class="q-mt-md">
-          <div><b>Oda Günlük Konaklama Bedeli:</b> {{ erkenCikisDialogData.gunlukBedel.toFixed(2) }} TL</div>
+          <div><b>Oda Günlük Konaklama Bedeli:</b> {{ formatCurrency(erkenCikisDialogData.gunlukBedel) }}</div>
           <div><b>Çıkışa Kalan Gün:</b> {{ erkenCikisDialogData.kalanGun }} gün</div>
-          <div><b>Gider yazılacak bedel:</b> {{ erkenCikisDialogData.giderBedel.toFixed(2) }} TL</div>
+          <div><b>Gider yazılacak bedel:</b> {{ formatCurrency(erkenCikisDialogData.giderBedel) }}</div>
           <div style="height: 1em;"></div>
-          <div><b>İADE EDİLECEK BEDEL:</b> {{ erkenCikisDialogData.iadeBedel.toFixed(2) }} TL</div>
+          <div><b>İADE EDİLECEK BEDEL:</b> {{ formatCurrency(erkenCikisDialogData.iadeBedel) }}</div>
           <div style="height: 1em;"></div>
           <!-- Ek Notlar label ve içeriği -->
           <div class="q-mt-lg" v-if="erkenCikisDialogData.ekNotlar">
@@ -547,6 +547,27 @@ const odemeVadesiPopup = ref();
 onMounted(() => {
   setEkNotlarPrefixFromKnklmNot();
 });
+
+// Tutar formatlama fonksiyonu (ondalık küsuratları yuvarlar)
+function formatCurrency(value: number | undefined | string | null): string {
+  if (value === null || value === undefined || value === '') return '0 ₺'
+  
+  // String'i number'a çevir
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  // NaN kontrolü
+  if (isNaN(numValue)) {
+    return '0 ₺'
+  }
+  
+  // Ondalık küsuratları yuvarla (2 basamak)
+  const roundedValue = Math.round(numValue * 100) / 100
+  
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY'
+  }).format(roundedValue)
+}
 
 const saving = ref(false);
 const veriYukleniyor = ref(false); // Veri yükleme sırasında watchers'ları disable etmek için
@@ -741,7 +762,8 @@ async function saveDonemYenileme() {
           } else {
             console.log('❌ saveDonemYenileme - props.selectedData bulunamadı')
           }
-          console.log('🔥 saveDonemYenileme - showOdemeIslemModal event dispatched')
+          // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+          (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
           window.dispatchEvent(new Event('showOdemeIslemModal'));
         }, 500);
       }, 3000);
@@ -888,7 +910,8 @@ function handleCikisYap() {
               } else {
                 console.log('❌ handleCikisYap - props.selectedData bulunamadı')
               }
-              console.log('🔥 handleCikisYap - showOdemeIslemModal event dispatched')
+              // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+              (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
               window.dispatchEvent(new Event('showOdemeIslemModal'));
             }, 500);
           }, 3000);
@@ -2061,6 +2084,8 @@ async function onOdaDegisikligiOnayla() {
               MstrAdi: props.selectedData.MstrAdi || ''
             };
           }
+          // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+          (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
           window.dispatchEvent(new Event('showOdemeIslemModal'));
         }, 500);
         
@@ -2188,6 +2213,8 @@ async function direktOdaDegisikligiYap() {
             MstrAdi: props.selectedData.MstrAdi || ''
           };
         }
+        // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+        (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
         window.dispatchEvent(new Event('showOdemeIslemModal'));
       }, 500);
     } else {
@@ -2377,7 +2404,8 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
           } else {
             console.log('❌ direktOdaDegisikligiYap - props.selectedData bulunamadı')
           }
-          console.log('🔥 direktOdaDegisikligiYap - showOdemeIslemModal event dispatched')
+          // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
+          (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
           window.dispatchEvent(new Event('showOdemeIslemModal'));
         }, 500);
       }, 3000);

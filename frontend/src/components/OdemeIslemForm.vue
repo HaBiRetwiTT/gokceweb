@@ -190,7 +190,12 @@ async function fetchKomisyonOrani() {
 }
 
 watch(show, (v) => {
-  if (v) void fetchKomisyonOrani();
+  if (v) {
+    void fetchKomisyonOrani();
+  } else {
+    // 🔥 MODAL KAPATILDIĞINDA STATS GÜNCELLEME EVENT'İNİ TETİKLE
+    window.dispatchEvent(new Event('statsNeedsUpdate'));
+  }
 });
 
 // Komisyon checkbox değiştiğinde textbox değerini oranla çarp/böl
@@ -336,7 +341,7 @@ async function printMultipleFis(fisliOdemeler: Array<{ tutar: string | number; t
       odaBilgisi: musteri.OdaYatak || (musteri.KnklmOdaNo && musteri.KnklmYtkNo ? `${musteri.KnklmOdaNo} - ${musteri.KnklmYtkNo}` : ''),
       aciklama: odemeTipiGrupLabel,
       tutar: od.tutar,
-      kalanBorc: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(kalanBorc),
+      kalanBorc: formatCurrency(kalanBorc),
       sonOdemeTarihi: new Date().toLocaleDateString('tr-TR'),
       tarih: new Date().toLocaleDateString('tr-TR'),
       islemYapan: islemKllnc,
@@ -712,6 +717,10 @@ async function onKaydet() {
       resetForm();
       console.log('BAKİYE GÜNCELLE EMIT', musteri);
       emit('bakiyeGuncelle', musteri);
+      
+      // 🔥 STATS GÜNCELLEME EVENT'İNİ TETİKLE
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
+      
       show.value = false;
     } else {
       Notify.create({ type: 'negative', message: response.data.message || 'Tahsilat işlemleri kaydedilemedi.' });
@@ -725,7 +734,32 @@ async function onKaydet() {
 
 function onClose() {
   resetForm();
+  
+      // 🔥 VAZGEÇ DURUMUNDA DA STATS GÜNCELLEME EVENT'İNİ TETİKLE
+    window.dispatchEvent(new Event('statsNeedsUpdate'));
+  
   show.value = false;
+}
+
+// Tutar formatlama fonksiyonu (ondalık küsuratları yuvarlar)
+function formatCurrency(value: number | undefined | string | null): string {
+  if (value === null || value === undefined || value === '') return '0 ₺'
+  
+  // String'i number'a çevir
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  // NaN kontrolü
+  if (isNaN(numValue)) {
+    return '0 ₺'
+  }
+  
+  // Ondalık küsuratları yuvarla (2 basamak)
+  const roundedValue = Math.round(numValue * 100) / 100
+  
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY'
+  }).format(roundedValue)
 }
 </script>
 

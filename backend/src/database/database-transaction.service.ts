@@ -104,8 +104,11 @@ export class DatabaseTransactionService {
       console.log('🔧 Stored Procedure çalıştırılıyor:', spName);
       console.log('📊 Parametreler:', parameters);
       
+      // Stored procedure için özel timeout ayarı (60 saniye)
+      const timeoutQuery = `SET LOCK_TIMEOUT 60000; ${query}`;
+      
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const result = await queryRunner.query(query, parameters);
+      const result = await queryRunner.query(timeoutQuery, parameters);
       
       console.log('✅ Stored Procedure başarılı');
        

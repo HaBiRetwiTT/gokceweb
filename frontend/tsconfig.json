@@ -25,6 +25,11 @@
       "chrome",
       "node"
     ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "skipLibCheck": true,
     "noEmit": true,
     "resolveJsonModule": true,

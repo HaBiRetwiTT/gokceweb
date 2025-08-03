@@ -77,30 +77,60 @@ export class KonaklamaTakvimService {
   private async getAktifKonaklamalar(): Promise<any[]> {
     try {
       const views = this.dbConfig.getViews();
+      
+      // 🔥 CTE OPTİMİZASYONU: Aktif konaklamaları daha verimli getir
       const query = `
+        WITH AktifKonaklamalar AS (
+          -- Ana aktif konaklama verileri
+          SELECT 
+            v.KnklmOdaTip,
+            v.KnklmPlnTrh,
+            v.MstrAdi,
+            v.KnklmOdaNo,
+            v.KnklmYtkNo,
+            v.KnklmGrsTrh,
+            v.KnklmTip,
+            v.MstrTCN,
+            v.knklmNo,
+            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
+          FROM ${views.musteriKonaklama} v
+          WHERE v.MstrDurum = 'KALIYOR' 
+            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+            AND v.KnklmPlnTrh IS NOT NULL
+            AND v.KnklmPlnTrh <> ''
+        ),
+        SonKonaklamalar AS (
+          -- Her müşteri için en son konaklama kaydı
+          SELECT 
+            KnklmOdaTip,
+            KnklmPlnTrh,
+            MstrAdi,
+            KnklmOdaNo,
+            KnklmYtkNo,
+            KnklmGrsTrh,
+            KnklmTip
+          FROM AktifKonaklamalar
+          WHERE rn = 1
+        )
         SELECT 
-          v.KnklmOdaTip,
-          v.KnklmPlnTrh,
-          v.MstrAdi,
-          v.KnklmOdaNo,
-          v.KnklmYtkNo,
-          v.KnklmGrsTrh,
-          v.KnklmTip
-        FROM ${views.musteriKonaklama} v
-        WHERE v.MstrDurum = 'KALIYOR' 
-          AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-          AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-          AND v.KnklmPlnTrh IS NOT NULL
-          AND v.KnklmPlnTrh <> ''
-        ORDER BY v.KnklmOdaTip,
-                 CASE v.KnklmTip 
+          KnklmOdaTip,
+          KnklmPlnTrh,
+          MstrAdi,
+          KnklmOdaNo,
+          KnklmYtkNo,
+          KnklmGrsTrh,
+          KnklmTip
+        FROM SonKonaklamalar
+        ORDER BY KnklmOdaTip,
+                 CASE KnklmTip 
                    WHEN 'GÜNLÜK' THEN 1
                    WHEN 'HAFTALIK' THEN 2  
                    WHEN 'AYLIK' THEN 3
                    ELSE 4
                  END,
-                 v.KnklmOdaNo ASC, 
-                 v.KnklmYtkNo ASC
+                 KnklmOdaNo ASC, 
+                 KnklmYtkNo ASC
       `;
       
       const result = await this.musteriRepository.query(query);
