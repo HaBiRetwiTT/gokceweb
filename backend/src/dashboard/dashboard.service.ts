@@ -681,6 +681,7 @@ export class DashboardService {
           k.knklmNfyt as KnklmNfyt, 
           k.knklmGrsTrh as KnklmGrsTrh, 
           k.knklmPlnTrh as KnklmPlnTrh, 
+          k.knklmCksTrh as KnklmCksTrh,
           k.knklmNot as KnklmNot,
           ISNULL(k.knklmKrLst, '') as KnklmKrLst
         FROM ${tables.konaklama} k
