@@ -358,6 +358,14 @@
         </q-td>
       </template>
 
+      <template v-slot:body-cell-KnklmCksTrh="props">
+        <q-td :props="props">
+          <div :class="getDateClass(props.value)">
+            {{ formatDate(props.value) }}
+          </div>
+        </q-td>
+      </template>
+
       <template v-slot:body-cell-actions="props">
         <q-td :props="props">
           <q-icon 
@@ -917,16 +925,18 @@
 
       <template v-slot:body-cell-Detaylar="props">
         <q-td :props="props">
-          <q-btn 
-            flat 
-            round 
-            dense 
-            color="primary" 
-            icon="info"
-            @click="showKonaklamaDetay(props.row)"
+          <q-icon 
+            name="visibility"
+            color="blue-6"
+            size="sm"
+            class="cursor-pointer"
           >
-            <q-tooltip>Detayları Görüntüle</q-tooltip>
-          </q-btn>
+            <q-tooltip class="bg-blue text-white text-body2" :delay="300">
+              <div style="white-space: pre-line; max-width: 300px;">
+                {{ getKonaklamaTooltipContent(props.row) }}
+              </div>
+            </q-tooltip>
+          </q-icon>
         </q-td>
       </template>
       </q-table>
@@ -1601,6 +1611,14 @@ const columns = [
     label: 'Planlanan Çıkış',
     align: 'center' as const,
     field: 'KnklmPlnTrh',
+    sortable: true,
+    sort: sortByDate
+  },
+  {
+    name: 'KnklmCksTrh',
+    label: 'Çıkış Tarihi',
+    align: 'center' as const,
+    field: 'KnklmCksTrh',
     sortable: true,
     sort: sortByDate
   },
@@ -2306,6 +2324,8 @@ async function loadCikisYapanlarListesi() {
     const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}&odaTip=${encodeURIComponent(selectedOdaTip.value)}`)
     if (response.data.success) {
       musteriListesi.value = [...response.data.data]
+      // 🔥 Filtrelenmiş listeyi de güncelle - bu kritik!
+      filteredMusteriListesi.value = [...response.data.data]
       console.log(`${response.data.count} çıkış yapan müşteri yüklendi`)
     }
   } catch (error) {
@@ -2651,6 +2671,26 @@ function getMusteriTooltipContent(row: MusteriKonaklama): string {
     `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`,
     `📅 Giriş: ${formatDate(row.KnklmGrsTrh)}`,
     `📅 Çıkış Planı: ${formatDate(row.KnklmPlnTrh)}`,
+    `📝 Not: ${row.KnklmNot || 'Not yok'}`
+  ]
+  
+  // Kara liste uyarısı
+  if (row.KnklmKrLst === 'EVET') {
+    bilgiler.unshift('🚨 KARA LİSTE MÜŞTERİSİ')
+  }
+  
+  return bilgiler.join('\n')
+}
+
+// Konaklama geçmişi tooltip içeriği oluşturma fonksiyonu
+function getKonaklamaTooltipContent(row: KonaklamaGecmisi & { MstrAdi?: string; MstrTCN?: string; MstrTelNo?: string; MstrFirma?: string }): string {
+  const bilgiler = [
+    `🏠 Oda: ${row.KnklmOdaNo}-${row.KnklmYtkNo} (${row.KnklmOdaTip})`,
+    `📋 Konaklama Tipi: ${row.KnklmTip}`,
+    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`,
+    `📅 Giriş: ${formatDate(row.KnklmGrsTrh)}`,
+    `📅 Çıkış Planı: ${formatDate(row.KnklmPlnTrh)}`,
+    `📅 Çıkış: ${row.KnklmCksTrh ? formatDate(row.KnklmCksTrh) : 'Henüz çıkış yapılmadı'}`,
     `📝 Not: ${row.KnklmNot || 'Not yok'}`
   ]
   
@@ -3430,6 +3470,9 @@ async function loadFilteredData(filter: string) {
   // 🔥 Seçilen kartı session storage'a kaydet
   sessionStorage.setItem('kartliIslemLastCard', filter)
   
+  // 🔥 Global değişkeni güncelle (MainLayout için)
+;(window as { kartliIslemCurrentFilter?: string }).kartliIslemCurrentFilter = filter
+  
   sortingInProgress = false  // Filtre değiştiğinde yeni veri çek
   
   // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
@@ -3742,11 +3785,11 @@ async function loadKonaklamaGecmisi(tcKimlik: string) {
   }
 }
 
-// Konaklama detay dialog'unu göster
-function showKonaklamaDetay(row: KonaklamaGecmisi) {
-  selectedKonaklamaDetay.value = row;
-  showKonaklamaDetayDialog.value = true;
-}
+// Konaklama detay dialog'unu göster - artık kullanılmıyor (tooltip ile değiştirildi)
+// function showKonaklamaDetay(row: KonaklamaGecmisi) {
+//   selectedKonaklamaDetay.value = row;
+//   showKonaklamaDetayDialog.value = true;
+// }
 
 // Dialog sürükleme fonksiyonları
 let isDragging = false;
@@ -3874,6 +3917,9 @@ async function loadMusteriListesiReturn(cardType: string) {
 async function loadSelectedCardData(cardType: string) {
   console.log(`Seçilen kart verileri yükleniyor: ${cardType}`)
   
+  // 🔥 Global değişkeni güncelle (MainLayout için)
+  ;(window as { kartliIslemCurrentFilter?: string }).kartliIslemCurrentFilter = cardType
+  
   // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
   await Promise.all([
     loadDinamikKonaklamaTipleri(),
@@ -3945,6 +3991,9 @@ async function loadSelectedCardData(cardType: string) {
 
 // Lifecycle
 onMounted(() => {
+  // 🔥 Global değişkeni başlangıçta ayarla (MainLayout için)
+  ;(window as { kartliIslemCurrentFilter?: string | null }).kartliIslemCurrentFilter = null
+  
   // 🔥 URL'den autoOpenModal parametresini kontrol et
   const urlParams = new URLSearchParams(window.location.search);
   const shouldAutoOpenModal = urlParams.get('autoOpenModal') === 'true';

@@ -54,6 +54,7 @@ export interface MusteriKonaklama {
   KnklmNfyt: number;
   KnklmGrsTrh: string;
   KnklmPlnTrh: string;
+  KnklmCksTrh?: string;
   KnklmNot?: string;
   KnklmKrLst?: string; // 🚨 Kara Liste Flag
   isKaraListe?: boolean; // Frontend için computed field

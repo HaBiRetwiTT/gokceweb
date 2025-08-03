@@ -241,7 +241,7 @@
 
 <script setup lang="ts">
 
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, Notify } from 'quasar';
 import EssentialLink, { type EssentialLinkProps } from '../components/EssentialLink.vue';
@@ -306,12 +306,33 @@ const currentRoute = computed(() => router.currentRoute.value.path);
 // Dinamik menü listesi - kartlı işlem sayfasında değilse Ek Hizmetler ve Müşteri Tahsilat'ı gizle
 const linksList = computed(() => {
   const isKartliIslemPage = currentRoute.value === '/kartli-islem';
+  const currentFilter = kartliIslemCurrentFilter.value || window.kartliIslemCurrentFilter;
+  
+  // 🔥 DEBUG: Mevcut durumu logla
+  const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
+  console.log('🔥 MainLayout linksList computed:', {
+    isKartliIslemPage,
+    currentFilter,
+    shouldShowOdemeIslem: isKartliIslemPage && currentFilter && ilk6Kart.includes(currentFilter)
+  });
   
   return allLinksList.filter(link => {
     // Kartlı işlem sayfasında değilse bu menüleri gizle
     if (!isKartliIslemPage && (link.title === 'Ek Hizmetler' || link.title === 'Müşteri Tahsilat')) {
       return false;
     }
+    
+    // Kartlı işlem sayfasındaysa, sadece ilk 6 kart seçiliyse Müşteri Tahsilat'ı göster
+    if (isKartliIslemPage && link.title === 'Müşteri Tahsilat') {
+      const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
+      if (!currentFilter || !ilk6Kart.includes(currentFilter)) {
+        console.log('🔥 Müşteri Tahsilat gizlendi - kart:', currentFilter);
+        return false;
+      }
+    }
+    
+    // Ek Hizmetler tüm kartlarda görünür (sadece sayfa kontrolü)
+    
     return true;
   });
 });
@@ -329,6 +350,9 @@ const isChecking = ref(false);
 const currentVersion = ref('');
 const pendingUpdate = ref(false);
 const showEkHizmetlerModal = ref(false);
+
+// 🔥 Kartlı işlem current filter için reactive ref
+const kartliIslemCurrentFilter = ref<string | null>(null);
 
 interface KartliIslemMusteri {
   MstrNo?: number;
@@ -672,16 +696,8 @@ declare global {
 function handleMenuAction(action: string) {
   if (action === 'showEkHizmetlerModal') {
     if (router.currentRoute.value.path === '/kartli-islem') {
-      // Kartlı işlem sayfasında, currentFilter ve seçili müşteri kontrolü
+      // Kartlı işlem sayfasında, sadece seçili müşteri kontrolü
       const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
-      const currentFilter = window.kartliIslemCurrentFilter;
-      if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter)) {
-        Notify.create({
-          type: 'warning',
-          message: 'Ek Hizmetler formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- kartlarından biri seçili iken kullanılır.'
-        });
-        return;
-      }
       if (!selectedNormalMusteri || typeof selectedNormalMusteri !== 'object' || Array.isArray(selectedNormalMusteri) || Object.keys(selectedNormalMusteri).length === 0) {
         Notify.create({
           type: 'warning',
@@ -707,10 +723,10 @@ function handleMenuAction(action: string) {
     }
     const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
     const currentFilter = window.kartliIslemCurrentFilter;
-    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan'].includes(currentFilter)) {
+    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'].includes(currentFilter)) {
       Notify.create({
         type: 'warning',
-        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- -Bugün Çıkan- kartlarından biri seçili iken kullanılabilir.'
+        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- -Bugün Çıkan- -Çıkış Yapanlar- kartlarından biri seçili iken kullanılabilir.'
       });
       return;
     }
@@ -797,6 +813,26 @@ async function onKaydet() {
 onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
+  
+  // 🔥 window.kartliIslemCurrentFilter değişikliklerini izle
+  const checkKartliIslemFilter = () => {
+    const newFilter = window.kartliIslemCurrentFilter;
+    if (kartliIslemCurrentFilter.value !== newFilter) {
+      console.log('🔥 MainLayout: kartliIslemCurrentFilter değişti:', newFilter);
+      kartliIslemCurrentFilter.value = newFilter || null;
+    }
+  };
+  
+  // İlk kontrol
+  checkKartliIslemFilter();
+  
+  // Periyodik kontrol (100ms'de bir)
+  const intervalId = setInterval(checkKartliIslemFilter, 100);
+  
+  // Component unmount olduğunda interval'i temizle
+  onUnmounted(() => {
+    clearInterval(intervalId);
+  });
   isAdmin.value = localStorage.getItem('isAdmin') === 'true';
   
   // Kaydedilmiş menü tercihini yükle

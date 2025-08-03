@@ -18,6 +18,7 @@ export interface MusteriKonaklamaData {
   KnklmNfyt: number;
   KnklmGrsTrh: string;
   KnklmPlnTrh: string;
+  KnklmCksTrh: string;
   KnklmNot: string;
   KnklmKrLst?: string; // 🚨 Kara Liste Flag
   odemeVadesi?: string;
@@ -1233,37 +1234,31 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
       
-      // 🔥 CTE OPTİMİZASYONU: Çıkış yapan müşterileri daha verimli hesapla
+      // 🔥 UYUM SAĞLAMA: Liste fonksiyonu ile aynı filtreleme mantığını kullan
       const query = `
-        WITH SonKonaklamalar AS (
-          -- Her müşteri için en son konaklama kaydı
+        SELECT COUNT(*) as CikisYapanSayisi
+        FROM (
           SELECT 
             k.knklmMstrNo,
-            k.knklmNo,
-            k.knklmCksTrh,
-            k.kKytTarihi,
-            ROW_NUMBER() OVER (PARTITION BY k.knklmMstrNo ORDER BY k.knklmNo DESC) as rn
+            MAX(k.knklmNo) as SonKnklmNo
           FROM ${tables.konaklama} k
-          WHERE k.kKytTarihi IS NOT NULL
-            AND k.kKytTarihi != ''
-            AND CONVERT(Date, k.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
-        ),
-        CikisYapanlar AS (
-          -- Çıkış yapan müşteriler
-          SELECT COUNT(*) as CikisYapanSayisi
-          FROM SonKonaklamalar sk
-          INNER JOIN ${tables.musteri} m ON sk.knklmMstrNo = m.MstrNo
-          WHERE sk.rn = 1
-            AND sk.knklmCksTrh IS NOT NULL 
-            AND sk.knklmCksTrh != ''
-            AND CONVERT(Date, sk.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
-            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-        )
-        SELECT CikisYapanSayisi FROM CikisYapanlar
+          WHERE k.knklmCksTrh IS NOT NULL 
+            AND k.knklmCksTrh != ''
+          GROUP BY k.knklmMstrNo
+        ) SonKayitlar
+        INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 
+                                           AND SonKayitlar.SonKnklmNo = k2.knklmNo
+        INNER JOIN ${tables.musteri} m ON k2.knklmMstrNo = m.MstrNo
+        WHERE k2.knklmCksTrh IS NOT NULL 
+          AND k2.knklmCksTrh != ''
+          AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
+          AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
       `;
       
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
       const sayisi = Number(result[0]?.CikisYapanSayisi || 0);
+      
+      console.log('🔍 getCikisYapanlarSayisi sonucu:', sayisi, 'kayıt bulundu');
       return sayisi;
     } catch (error) {
       console.error('getCikisYapanlarSayisi hatası:', error);
@@ -1330,7 +1325,6 @@ export class DashboardService {
             AND k2.knklmCksTrh != ''
             AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
             AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-            AND CONVERT(Date, k2.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
           GROUP BY KnklmOdaTip
           ORDER BY KnklmOdaTip
         `;
@@ -1356,6 +1350,7 @@ export class DashboardService {
           k2.KnklmNfyt,
           k2.KnklmGrsTrh,
           k2.KnklmPlnTrh,
+          k2.KnklmCksTrh,
           ISNULL(k2.KnklmNot, '') as KnklmNot,
           ISNULL(k2.KnklmKrLst, '') as KnklmKrLst
         FROM (
@@ -1363,6 +1358,8 @@ export class DashboardService {
             k.knklmMstrNo,
             MAX(k.knklmNo) as SonKnklmNo
           FROM ${tables.konaklama} k
+          WHERE k.knklmCksTrh IS NOT NULL 
+            AND k.knklmCksTrh != ''
           GROUP BY k.knklmMstrNo
         ) SonKayitlar
         INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 
@@ -1372,7 +1369,6 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-          AND CONVERT(Date, k2.kKytTarihi, 104) >= DATEADD(YEAR, -1, GETDATE())
       `;
 
       const parameters: string[] = [];
@@ -1389,8 +1385,40 @@ export class DashboardService {
 
       query += ` ORDER BY CONVERT(Date, k2.knklmCksTrh, 104) DESC, k2.KnklmTip DESC`;
 
+      console.log('🔍 SQL SORGUSU:', query);
+      console.log('🔍 PARAMETRELER:', parameters);
+
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
+      
+      // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
+      if (result.length > 0) {
+        console.log('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
+        result.slice(0, 3).forEach((item, index) => {
+          console.log(`Kayıt ${index + 1}:`, {
+            MstrAdi: item.MstrAdi,
+            KnklmCksTrh: item.KnklmCksTrh,
+            KnklmPlnTrh: item.KnklmPlnTrh,
+            KnklmCksTrhType: typeof item.KnklmCksTrh
+          });
+        });
+      }
+      
       console.log('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
+      console.log('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
+      
+      // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
+      if (result.length > 0) {
+        console.log('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
+        result.slice(0, 3).forEach((item, index) => {
+          console.log(`Kayıt ${index + 1}:`, {
+            MstrAdi: item.MstrAdi,
+            KnklmCksTrh: item.KnklmCksTrh,
+            KnklmPlnTrh: item.KnklmPlnTrh,
+            KnklmCksTrhType: typeof item.KnklmCksTrh
+          });
+        });
+      }
+      
       return result;
     } catch (error) {
       console.error('getCikisYapanlarListesi hatası:', error);
