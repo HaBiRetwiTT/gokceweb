@@ -360,16 +360,18 @@
 
       <template v-slot:body-cell-actions="props">
         <q-td :props="props">
-          <q-btn 
-            flat 
-            round 
-            dense 
-            color="blue" 
-            icon="visibility"
-            @click="showDetails(props.row)"
+          <q-icon 
+            name="visibility"
+            color="blue-6"
+            size="sm"
+            class="cursor-help"
           >
-            <q-tooltip>Detay Görüntüle</q-tooltip>
-          </q-btn>
+            <q-tooltip class="bg-blue text-white text-body2" :delay="300">
+              <div style="white-space: pre-line; max-width: 300px;">
+                {{ getMusteriTooltipContent(props.row) }}
+              </div>
+            </q-tooltip>
+          </q-icon>
         </q-td>
       </template>
       </q-table>
@@ -589,7 +591,7 @@
       <q-table
         v-if="showBakiyesizHesaplarTable"
         :key="`bakiyesiz-table`"
-        :rows="bakiyesizHesaplarListesi"
+        :rows="displayedBakiyesizHesaplarListesi"
         :columns="bakiyesizHesaplarColumns"
         :row-key="(row: BakiyesizHesaplar) => row.CariKod"
         :loading="bakiyesizHesaplarLoading"
@@ -1177,6 +1179,7 @@ const cikisYapanlarSayisi = ref<number>(0)
 const searchText = ref('')
 const filteredMusteriListesi = ref<MusteriKonaklama[]>([])
 const filteredBorcluMusteriListesi = ref<BorcluMusteri[]>([])
+const filteredBakiyesizHesaplarListesi = ref<BakiyesizHesaplar[]>([])
 const filteredCariHareketlerListesi = ref<CariHareket[]>([])
 
 // Dönem yenileme modal için
@@ -1335,6 +1338,17 @@ const displayedCariHareketlerListesi = computed(() => {
   return cariHareketlerListesi.value;
 })
 
+const displayedBakiyesizHesaplarListesi = computed(() => {
+  let baseList = bakiyesizHesaplarListesi.value;
+  
+  // Arama filtresi uygula
+  if (searchText.value && searchText.value.length >= 3) {
+    baseList = filteredBakiyesizHesaplarListesi.value;
+  }
+  
+  return baseList;
+})
+
 const displayedKonaklamaGecmisiListesi = computed(() => {
   return konaklamaGecmisiListesi.value
 })
@@ -1364,6 +1378,9 @@ const shouldShowSearchBox = computed(() => {
   }
   if (showAlacakliTable.value) {
     return alacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage;
+  }
+  if (showBakiyesizHesaplarTable.value) {
+    return bakiyesizHesaplarListesi.value.length > bakiyesizHesaplarPagination.value.rowsPerPage;
   }
   return musteriListesi.value.length > pagination.value.rowsPerPage;
 });
@@ -2622,9 +2639,27 @@ function onModalSuccess() {
 
 
 
-function showDetails(row: MusteriKonaklama) {
-  selectedRow.value = row
-  showDetailDialog.value = true
+// Müşteri bilgilerini tooltip için formatlayan fonksiyon
+function getMusteriTooltipContent(row: MusteriKonaklama): string {
+  const bilgiler = [
+    `👤 Müşteri: ${row.MstrAdi}`,
+    `🆔 TC/VD No: ${row.MstrTCN}`,
+    `📞 Telefon: ${row.MstrTelNo || 'Belirtilmemiş'}`,
+    `🏢 Firma: ${row.MstrFirma || 'Bireysel'}`,
+    `🏠 Oda: ${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
+    `📋 Konaklama Tipi: ${row.KnklmTip}`,
+    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`,
+    `📅 Giriş: ${formatDate(row.KnklmGrsTrh)}`,
+    `📅 Çıkış Planı: ${formatDate(row.KnklmPlnTrh)}`,
+    `📝 Not: ${row.KnklmNot || 'Not yok'}`
+  ]
+  
+  // Kara liste uyarısı
+  if (row.KnklmKrLst === 'EVET') {
+    bilgiler.unshift('🚨 KARA LİSTE MÜŞTERİSİ')
+  }
+  
+  return bilgiler.join('\n')
 }
 
 // Çift tıklama event handler
@@ -3336,6 +3371,7 @@ function performSearch(searchValue: string) {
   if (!searchValue || searchValue.length < 3) {
     filteredMusteriListesi.value = []
     filteredBorcluMusteriListesi.value = []
+    filteredBakiyesizHesaplarListesi.value = []
     filteredCariHareketlerListesi.value = []
     return
   }
@@ -3353,6 +3389,14 @@ function performSearch(searchValue: string) {
   // Borçlu müşteri listesi için arama
   filteredBorcluMusteriListesi.value = borcluMusteriListesi.value.filter(musteri => {
     return Object.values(musteri).some(value => {
+      if (value === null || value === undefined) return false
+      return String(value).toLowerCase().includes(searchLower)
+    })
+  })
+  
+  // Bakiyesiz hesaplar listesi için arama
+  filteredBakiyesizHesaplarListesi.value = bakiyesizHesaplarListesi.value.filter(hesap => {
+    return Object.values(hesap).some(value => {
       if (value === null || value === undefined) return false
       return String(value).toLowerCase().includes(searchLower)
     })
@@ -3398,6 +3442,7 @@ async function loadFilteredData(filter: string) {
   searchText.value = ''
   filteredMusteriListesi.value = []
   filteredBorcluMusteriListesi.value = []
+  filteredBakiyesizHesaplarListesi.value = []
   filteredCariHareketlerListesi.value = []
   
   // Konaklama geçmişi tablosunu gizle ve seçimi temizle
