@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Query, HttpException, HttpStatus, Param, Put, Post } from '@nestjs/common';
+import { Controller, Get, Query, HttpException, HttpStatus, Param, Put, Post, Res } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
@@ -408,7 +408,7 @@ export class DashboardController {
     }
   }
 
-  // Cari Hareketler - seçilen müşterinin tüm işlemleri
+  // Cari Hareketler - seçilen müşterinin tüm işlemleri (Cari Kod ile)
   @Get('cari-hareketler')
   async getCariHareketler(@Query('cariKod') cariKod: string) {
     try {
@@ -430,6 +430,148 @@ export class DashboardController {
       throw new HttpException({
         success: false,
         message: `Cari hareketler alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Cari Hareketler - seçilen müşterinin tüm işlemleri (TC Kimlik ile)
+  @Get('cari-hareketler-tc')
+  async getCariHareketlerByTC(@Query('tcKimlik') tcKimlik: string) {
+    try {
+      if (!tcKimlik) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      const data = await this.dashboardService.getCariHareketlerByTC(tcKimlik);
+      return {
+        success: true,
+        data: data,
+        count: data.length
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Cari hareketler alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 TC Kimlik ile Cari Hareketler PDF
+  @Get('cari-hareketler-tc-pdf')
+  async getCariHareketlerByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+    try {
+      if (!tcKimlik) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      const pdfBuffer = await this.dashboardService.generateCariHareketlerByTCPDF(tcKimlik);
+      
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="cari-hareketler-${tcKimlik}-${new Date().toISOString().split('T')[0]}.pdf"`,
+        'Content-Length': pdfBuffer.length,
+      });
+      
+      res.send(pdfBuffer);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Cari hareketler PDF oluşturulamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 TC Kimlik ile Cari Hareketler Excel
+  @Get('cari-hareketler-tc-excel')
+  async getCariHareketlerByTCExcel(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+    try {
+      if (!tcKimlik) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      const excelBuffer = await this.dashboardService.generateCariHareketlerByTCExcel(tcKimlik);
+      
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="cari-hareketler-${tcKimlik}-${new Date().toISOString().split('T')[0]}.xlsx"`,
+        'Content-Length': excelBuffer.length,
+      });
+      
+      res.send(excelBuffer);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Cari hareketler Excel oluşturulamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 TC Kimlik ile Konaklama Geçmişi PDF
+  @Get('konaklama-gecmisi-tc-pdf')
+  async getKonaklamaGecmisiByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+    try {
+      if (!tcKimlik) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      const pdfBuffer = await this.dashboardService.generateKonaklamaGecmisiByTCPDF(tcKimlik);
+      
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="konaklama-gecmisi-${tcKimlik}-${new Date().toISOString().split('T')[0]}.pdf"`,
+        'Content-Length': pdfBuffer.length,
+      });
+      
+      res.send(pdfBuffer);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Konaklama geçmişi PDF oluşturulamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // 🔥 TC Kimlik ile Konaklama Geçmişi Excel
+  @Get('konaklama-gecmisi-tc-excel')
+  async getKonaklamaGecmisiByTCExcel(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+    try {
+      if (!tcKimlik) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      const excelBuffer = await this.dashboardService.generateKonaklamaGecmisiByTCExcel(tcKimlik);
+      
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="konaklama-gecmisi-${tcKimlik}-${new Date().toISOString().split('T')[0]}.xlsx"`,
+        'Content-Length': excelBuffer.length,
+      });
+      
+      res.send(excelBuffer);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Konaklama geçmişi Excel oluşturulamadı: ${errorMessage}`
       }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

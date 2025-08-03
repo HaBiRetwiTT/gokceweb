@@ -619,19 +619,22 @@ if (typeof window !== 'undefined') {
 }
 
 function refreshPage() {
+  // 🔥 VERSİYON KONTROLÜ: Header'daki yenile butonuna basıldığında sürüm kontrolü yap
+  void checkForUpdates()
+  
   // Kartlı işlem sayfasındaysa stats verilerini yenile
   if (router.currentRoute.value.path === '/kartli-islem') {
     console.log('🔄 Kartlı işlem sayfası stats verileri yenileniyor...');
     window.dispatchEvent(new Event('refreshKartliIslemStats'));
     
-          // Kullanıcıya bilgi ver
-      Notify.create({
-        type: 'info',
-        message: 'Kart Sayım ve Liste Verileri Yenileniyor...',
-        icon: 'refresh',
-        position: 'top',
-        timeout: 10000
-      });
+    // Kullanıcıya bilgi ver
+    Notify.create({
+      type: 'info',
+      message: 'Kart Sayım ve Liste Verileri Yenileniyor...',
+      icon: 'refresh',
+      position: 'top',
+      timeout: 10000
+    });
   } else {
     // Diğer sayfalarda normal sayfa yenileme
     // Eğer tam ekran ise, localStorage'a kaydet

@@ -705,7 +705,7 @@
     <transition name="table-fade" mode="out-in">
       <q-table
         ref="cariHareketlerTableRef"
-        v-if="(showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable) && showCariHareketler"
+        v-if="showCariHareketler"
         :key="cariHareketlerKey"
         :rows="displayedCariHareketlerListesi"
         :columns="cariHareketlerColumns"
@@ -713,8 +713,9 @@
         :loading="cariHareketlerLoading"
         :pagination="cariHareketlerPagination"
         dense
+        bordered
         separator="cell"
-        class="dashboard-table compact-table q-mt-sm"
+        class="dashboard-table compact-table q-mt-sm cari-hareketler-table"
         :rows-per-page-options="[15, 25, 50]"
         rows-per-page-label="Sayfa Başına Kayıt"
         table-style="width: 100%"
@@ -725,19 +726,34 @@
       <template v-slot:top>
         <div class="text-h6 text-primary table-header-row">
           <span v-if="firmaFiltresiAktif && selectedFirmaAdi">{{ selectedFirmaAdi }} - Firma Cari Hareketler</span>
+          <span v-else-if="selectedNormalMusteri">{{ selectedNormalMusteri.MstrAdi }} - Cari Hareketler</span>
           <span v-else-if="selectedBorcluMusteri">{{ selectedBorcluMusteri.CariAdi }} - Cari Hareketler</span>
           <span v-else>Cari Hareketler</span>
+          
+          <!-- 🔥 DİNAMİK BUTON: Cari Hareketler/Konaklama Geçmişi arasında geçiş -->
+          <q-btn
+            v-if="showToggleButton"
+            unelevated
+            color="deep-orange"
+            text-color="white"
+            @click="toggleAltTable"
+            class="q-mr-md toggle-button"
+            size="md"
+            :icon="currentAltTableType === 'cari' ? 'swap_horiz' : 'swap_horiz'"
+            :label="toggleButtonLabel"
+          />
+          
           <q-btn
             flat
             round
             dense
             class="pdf-btn"
-            @click="() => downloadCariHareketlerPDF()"
+            @click="() => downloadCurrentAltTablePDF()"
             :loading="cariPdfLoading"
           >
             <img src="/icons/adobe-pdf.png" alt="PDF" class="report-icon" />
             <q-tooltip class="bg-blue text-white text-body2" :delay="300">
-              Cari Hareketler PDF
+              {{ currentAltTableType === 'cari' ? 'Cari Hareketler PDF' : 'Konaklama Geçmişi PDF' }}
             </q-tooltip>
           </q-btn>
           <q-btn
@@ -745,12 +761,12 @@
             round
             dense
             class="excel-btn"
-            @click="() => downloadCariHareketlerExcel()"
+            @click="() => downloadCurrentAltTableExcel()"
             :loading="cariExcelLoading"
           >
             <img src="/icons/excel-xlsx.png" alt="Excel" class="report-icon" />
             <q-tooltip class="bg-green text-white text-body2" :delay="300">
-              Cari Hareketler Excel
+              {{ currentAltTableType === 'cari' ? 'Cari Hareketler Excel' : 'Konaklama Geçmişi Excel' }}
             </q-tooltip>
           </q-btn>
         </div>
@@ -787,6 +803,14 @@
           </div>
         </q-td>
       </template>
+
+      <template v-slot:body-cell-islemBilgi="props">
+        <q-td :props="props">
+          <div class="text-wrap" style="max-width: 374px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+            {{ props.value }}
+          </div>
+        </q-td>
+      </template>
       </q-table>
     </transition>
 
@@ -794,7 +818,7 @@
     <transition name="table-fade" mode="out-in">
       <q-table
         ref="konaklamaGecmisiTableRef"
-        v-if="!showBorcluTable && !showAlacakliTable && showKonaklamaGecmisi"
+        v-if="showKonaklamaGecmisi"
         :key="konaklamaGecmisiKey"
         :rows="displayedKonaklamaGecmisiListesi"
         :columns="konaklamaGecmisiColumns"
@@ -816,18 +840,33 @@
         <div class="text-h6 text-primary table-header-row">
           <span v-if="firmaFiltresiAktif && selectedFirmaAdi">{{ selectedFirmaAdi }} - Firma Konaklama Geçmişi</span>
           <span v-else-if="selectedNormalMusteri">{{ selectedNormalMusteri.MstrAdi }} - Konaklama Geçmişi</span>
+          <span v-else-if="selectedBorcluMusteri">{{ selectedBorcluMusteri.CariAdi }} - Konaklama Geçmişi</span>
           <span v-else>Konaklama Geçmişi</span>
+          
+          <!-- 🔥 DİNAMİK BUTON: Cari Hareketler/Konaklama Geçmişi arasında geçiş -->
+          <q-btn
+            v-if="showToggleButton"
+            unelevated
+            color="deep-orange"
+            text-color="white"
+            @click="toggleAltTable"
+            class="q-mr-md toggle-button"
+            size="md"
+            :icon="currentAltTableType === 'cari' ? 'swap_horiz' : 'swap_horiz'"
+            :label="toggleButtonLabel"
+          />
+          
           <q-btn
             flat
             round
             dense
             class="pdf-btn"
-            @click="() => downloadKonaklamaGecmisiPDF()"
+            @click="() => downloadCurrentAltTablePDF()"
             :loading="pdfLoading"
           >
             <img src="/icons/adobe-pdf.png" alt="PDF" class="report-icon" />
             <q-tooltip class="bg-red text-white text-body2" :delay="300">
-              PDF Raporu İndir
+              {{ currentAltTableType === 'cari' ? 'Cari Hareketler PDF' : 'Konaklama Geçmişi PDF' }}
             </q-tooltip>
           </q-btn>
           <q-btn
@@ -835,12 +874,12 @@
             round
             dense
             class="excel-btn"
-            @click="() => downloadKonaklamaGecmisiExcel()"
+            @click="() => downloadCurrentAltTableExcel()"
             :loading="excelLoading"
           >
             <img src="/icons/excel-xlsx.png" alt="Excel" class="report-icon" />
             <q-tooltip class="bg-green text-white text-body2" :delay="300">
-              Excel Raporu İndir
+              {{ currentAltTableType === 'cari' ? 'Cari Hareketler Excel' : 'Konaklama Geçmişi Excel' }}
             </q-tooltip>
           </q-btn>
         </div>
@@ -1153,7 +1192,6 @@ import { api } from '../boot/axios'
 import DonemYenilemeModal from '../components/DonemYenilemeModal.vue'
 import { selectedCustomer } from '../stores/selected-customer';
 import OdemeIslemForm from '../components/OdemeIslemForm.vue';
-import { versionChecker } from '../services/version-checker.service';
 //import EkHizmetlerForm from '../components/EkHizmetlerForm.vue';
 
 // Tip tanımları
@@ -1217,6 +1255,10 @@ const konaklamaGecmisiListesi = ref<KonaklamaGecmisi[]>([])
 const konaklamaGecmisiLoading = ref(false)
 const showKonaklamaDetayDialog = ref(false)
 const selectedKonaklamaDetay = ref<KonaklamaGecmisi | null>(null)
+
+// 🔥 DİNAMİK BUTON SİSTEMİ
+const showToggleButton = ref(false)
+const currentAltTableType = ref<'konaklama' | 'cari'>('konaklama')
 
 
 
@@ -1358,6 +1400,15 @@ const displayedBakiyesizHesaplarListesi = computed(() => {
   }
   
   return baseList;
+})
+
+// 🔥 DİNAMİK BUTON COMPUTED PROPERTY'LERİ
+const toggleButtonLabel = computed(() => {
+  if (currentAltTableType.value === 'konaklama') {
+    return 'Cari Hareketler'
+  } else {
+    return 'Konaklama Geçmişi'
+  }
 })
 
 const displayedKonaklamaGecmisiListesi = computed(() => {
@@ -2152,7 +2203,8 @@ const cariHareketlerColumns = computed(() => {
       label: 'Bilgi',
       align: 'left' as const,
       field: 'islemBilgi',
-      sortable: true
+      sortable: true,
+      style: 'max-width: 250px; white-space: normal; word-wrap: break-word;'
     },
     {
       name: 'islemTutar',
@@ -2533,6 +2585,59 @@ async function loadCariHareketler(cariKod: string) {
   }
 }
 
+// TC Kimlik ile cari hareketler yükleme fonksiyonu
+async function loadCariHareketlerByTC(tcKimlik: string) {
+  console.log('🔄 loadCariHareketlerByTC başladı, TC:', tcKimlik)
+  cariHareketlerLoading.value = true
+  
+  // 🔥 ÖNEMLİ: Önceki müşterinin cari hareketlerini temizle
+  cariHareketlerListesi.value = []
+  filteredCariHareketlerListesi.value = []
+  
+  // 🔥 Pagination'ı sıfırla
+  cariHareketlerPagination.value.page = 1
+  
+  // TC Kimlik'i temizle
+  const cleanTCKimlik = (tcKimlik || '').trim()
+  
+  // Key'i sadece farklı müşteri seçildiğinde güncelle
+  const newKey = `cari-tc-${cleanTCKimlik}`
+  if (cariHareketlerKey.value !== newKey) {
+    cariHareketlerKey.value = newKey
+  }
+  
+  try {
+    console.log('🔄 API çağrısı yapılıyor:', `/dashboard/cari-hareketler-tc?tcKimlik=${encodeURIComponent(cleanTCKimlik)}`)
+    const response = await api.get(`/dashboard/cari-hareketler-tc?tcKimlik=${encodeURIComponent(cleanTCKimlik)}`)
+    console.log('🔄 API yanıtı:', response.data)
+    
+    if (response.data.success) {
+      cariHareketlerListesi.value = [...response.data.data]
+      console.log(`🔄 TC: ${cleanTCKimlik} için ${response.data.data.length} cari hareket yüklendi`)
+      console.log('🔄 cariHareketlerListesi güncellendi:', cariHareketlerListesi.value.length)
+      
+      // Tablo yüklendikten sonra scroll pozisyonunu sıfırla
+      await nextTick()
+      if (cariHareketlerTableRef.value) {
+        const tableElement = cariHareketlerTableRef.value.$el
+        if (tableElement) {
+          tableElement.scrollTop = 0
+        }
+      }
+    } else {
+      console.log(`🔄 TC: ${cleanTCKimlik} için cari hareket bulunamadı`)
+    }
+  } catch (error) {
+    console.error('🔄 Cari hareketler yüklenemedi:', error)
+    // Hata durumunda da listeleri temizle
+    cariHareketlerListesi.value = []
+    filteredCariHareketlerListesi.value = []
+  } finally {
+    cariHareketlerLoading.value = false
+    console.log('🔄 loadCariHareketlerByTC bitti')
+  }
+}
+
 // 🔥 BACKEND STATS CACHE'İNİ TEMİZLE
 async function clearBackendStatsCache() {
   try {
@@ -2631,16 +2736,7 @@ async function refreshData() {
   
   sortingInProgress = false  // Manuel yenileme için API çağrısına izin ver
   
-  // 🔥 VERSİYON KONTROLÜ: Yenile butonuna basıldığında sürüm kontrolü yap
-  try {
-    const hasUpdate = await versionChecker.manualCheck()
-    if (hasUpdate) {
-      console.log('🔄 Yeni sürüm bulundu - Kullanıcıya bildirim gösteriliyor')
-      // Version checker servisi otomatik olarak popup gösterecek
-    }
-  } catch (error) {
-    console.warn('Sürüm kontrolü sırasında hata:', error)
-  }
+
   
   // 🔥 PERFORMANS İYİLEŞTİRMESİ: Tüm API çağrılarını paralel yap
   loading.value = true
@@ -2753,6 +2849,24 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   };
   window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
   
+  // 🔥 DİNAMİK TABLO GÖSTERİMİ: Hangi kart seçiliyse ona göre tablo göster
+  const ilk6Kart = ['cikis-yapanlar', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan']
+  const son3Kart = ['borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar']
+  
+  if (ilk6Kart.includes(currentFilter.value || '')) {
+    // İlk 6 kart için konaklama geçmişi göster
+    showKonaklamaGecmisi.value = true
+    showCariHareketler.value = false
+    currentAltTableType.value = 'konaklama'
+    void loadKonaklamaGecmisi(row.MstrTCN)
+  } else if (son3Kart.includes(currentFilter.value || '')) {
+    // Son 3 kart için cari hareketler göster
+    showKonaklamaGecmisi.value = false
+    showCariHareketler.value = true
+    currentAltTableType.value = 'cari'
+    void loadCariHareketler(row.MstrTCN)
+  }
+  
   if (currentFilter.value === 'cikis-yapanlar' || currentFilter.value === 'bugun-cikan') {
     sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
     void router.push('/musteri-islem');
@@ -2801,8 +2915,13 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
     const realRow = borcluMusteriListesi.value.find(b => b.CariKod === row.CariKod) || row;
     console.log('Borçlu müşteri satırına tek tıklandı:', realRow);
     selectedBorcluMusteri.value = realRow;
+    
+    // 🔥 DİNAMİK TABLO GÖSTERİMİ: Borçlu müşteri kartı için cari hareketler göster
     showCariHareketler.value = true;
+    showKonaklamaGecmisi.value = false;
+    currentAltTableType.value = 'cari';
     void loadCariHareketler(realRow.CariKod);
+    
     // 🔥 Seçilen müşteri bakiyesini hesapla
     void hesaplaMusteriBakiye(realRow);
     // 🔥 Borçlu müşteri için firma bakiyesini hesapla ve selectedNormalMusteri'yi güncelle
@@ -3112,8 +3231,10 @@ function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
         // Firma bakiyesini hesapla
         await hesaplaAlacakliMusteriFirmaBakiye(row)
         
-        // Cari hareketler tablosunu göster
+        // 🔥 DİNAMİK TABLO GÖSTERİMİ: Alacaklı müşteri kartı için cari hareketler göster
         showCariHareketler.value = true
+        showKonaklamaGecmisi.value = false
+        currentAltTableType.value = 'cari'
         void loadCariHareketler(row.CariKod)
         console.log('Alacaklı müşteri için cari hareketler yükleniyor:', row.CariKod)
       } catch (error) {
@@ -3171,8 +3292,10 @@ function onBakiyesizHesaplarClick(evt: Event, row: BakiyesizHesaplar) {
         // Firma bakiyesini hesapla
         await hesaplaBakiyesizHesaplarFirmaBakiye(row)
         
-        // Cari hareketler tablosunu göster
+        // 🔥 DİNAMİK TABLO GÖSTERİMİ: Bakiyesiz hesaplar kartı için cari hareketler göster
         showCariHareketler.value = true
+        showKonaklamaGecmisi.value = false
+        currentAltTableType.value = 'cari'
         void loadCariHareketler(row.CariKod)
       } catch (error) {
         console.error('Bakiyesiz hesap seçme hatası:', error)
@@ -3490,6 +3613,80 @@ function onSearchChange(newValue: string | number | null) {
   performSearch(searchValue)
 }
 
+// 🔥 DİNAMİK BUTON FONKSİYONU
+function toggleAltTable() {
+  console.log('🔄 toggleAltTable başladı, currentAltTableType:', currentAltTableType.value)
+  console.log('🔄 selectedNormalMusteri:', selectedNormalMusteri.value?.MstrAdi)
+  console.log('🔄 selectedBorcluMusteri:', selectedBorcluMusteri.value?.CariAdi)
+  console.log('🔄 currentFilter:', currentFilter.value)
+  
+  if (currentAltTableType.value === 'konaklama') {
+    // Konaklama geçmişinden Cari hareketlere geç
+    console.log('🔄 Konaklama → Cari Hareketler geçişi')
+    currentAltTableType.value = 'cari'
+    
+    // 🔥 ÖNEMLİ: Önce tüm alt tabloları gizle, sonra sadece cari hareketleri göster
+    showKonaklamaGecmisi.value = false
+    showCariHareketler.value = true
+    
+    // 🔥 ÖNEMLİ: Cari hareketler listesini temizle
+    cariHareketlerListesi.value = []
+    filteredCariHareketlerListesi.value = []
+    console.log('🔄 Cari hareketler listesi temizlendi')
+    
+    // İlk 6 kart için selectedNormalMusteri, son 3 kart için selectedBorcluMusteri kullan
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      // İlk 6 kart için TC kimlik ile cari hareketler yükle
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 loadCariHareketlerByTC çağrılıyor:', selectedNormalMusteri.value.MstrTCN)
+        void loadCariHareketlerByTC(selectedNormalMusteri.value.MstrTCN)
+      }
+    } else {
+      // Son 3 kart için cari kod ile cari hareketler yükle
+      if (selectedBorcluMusteri.value) {
+        console.log('🔄 loadCariHareketler çağrılıyor:', selectedBorcluMusteri.value.CariKod)
+        void loadCariHareketler(selectedBorcluMusteri.value.CariKod)
+      }
+    }
+  } else {
+    // Cari hareketlerden Konaklama geçmişine geç
+    console.log('🔄 Cari Hareketler → Konaklama geçişi')
+    currentAltTableType.value = 'konaklama'
+    
+    // 🔥 ÖNEMLİ: Önce tüm alt tabloları gizle, sonra sadece konaklama geçmişini göster
+    showCariHareketler.value = false
+    showKonaklamaGecmisi.value = true
+    
+    // 🔥 ÖNEMLİ: Konaklama geçmişi listesini temizle
+    konaklamaGecmisiListesi.value = []
+    console.log('🔄 Konaklama geçmişi listesi temizlendi')
+    
+    // İlk 6 kart için selectedNormalMusteri, son 3 kart için selectedBorcluMusteri kullan
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      // İlk 6 kart için TC kimlik ile konaklama geçmişi yükle
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 loadKonaklamaGecmisi çağrılıyor:', selectedNormalMusteri.value.MstrTCN)
+        void loadKonaklamaGecmisi(selectedNormalMusteri.value.MstrTCN)
+      }
+    } else {
+      // Son 3 kart için TC kimlik ile konaklama geçmişi yükle
+      if (selectedBorcluMusteri.value) {
+        console.log('🔄 Son 3 kart - selectedBorcluMusteri:', selectedBorcluMusteri.value)
+        console.log('🔄 CariVTCN:', selectedBorcluMusteri.value.CariVTCN)
+        
+        if (selectedBorcluMusteri.value.CariVTCN && selectedBorcluMusteri.value.CariVTCN.trim() !== '') {
+          console.log('🔄 loadKonaklamaGecmisi çağrılıyor:', selectedBorcluMusteri.value.CariVTCN)
+          void loadKonaklamaGecmisi(selectedBorcluMusteri.value.CariVTCN)
+        } else {
+          console.log('🔄 CariVTCN boş, konaklama geçmişi yüklenemiyor')
+        }
+      }
+    }
+  }
+  
+  console.log('🔄 toggleAltTable bitti, showKonaklamaGecmisi:', showKonaklamaGecmisi.value, 'showCariHareketler:', showCariHareketler.value)
+}
+
 async function loadFilteredData(filter: string) {
   currentFilter.value = filter  
   // 🔥 Seçilen kartı session storage'a kaydet
@@ -3513,8 +3710,9 @@ async function loadFilteredData(filter: string) {
   filteredBakiyesizHesaplarListesi.value = []
   filteredCariHareketlerListesi.value = []
   
-  // Konaklama geçmişi tablosunu gizle ve seçimi temizle
+  // 🔥 ALT GRID TABLOLARI GİZLE VE SEÇİMLERİ TEMİZLE
   showKonaklamaGecmisi.value = false
+  showCariHareketler.value = false
   selectedNormalMusteri.value = null
   
   // 🔥 Müşteri bakiyesini sıfırla
@@ -3527,6 +3725,23 @@ async function loadFilteredData(filter: string) {
   // 🔥 Firma filtresini temizle
   firmaFiltresiAktif.value = false
   selectedFirmaAdi.value = ''
+  
+  // 🔥 DİNAMİK BUTON AYARLARI
+  const ilk6Kart = ['cikis-yapanlar', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan']
+  const son3Kart = ['borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar']
+  
+  if (ilk6Kart.includes(filter)) {
+    // İlk 6 kart için dinamik buton göster ve default konaklama geçmişi
+    showToggleButton.value = true
+    currentAltTableType.value = 'konaklama'
+  } else if (son3Kart.includes(filter)) {
+    // Son 3 kart için dinamik buton göster ve default cari hareketler
+    showToggleButton.value = true
+    currentAltTableType.value = 'cari'
+  } else {
+    // Diğer durumlar için buton gizle
+    showToggleButton.value = false
+  }
   
   if (filter === 'borclu-musteriler') {
     // Borçlu müşteriler tablosunu göster
@@ -3737,7 +3952,12 @@ function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {
   // 🔥 300ms gecikme ile tek tıklama işlemini başlat
   normalMusteriClickTimeout.value = window.setTimeout(() => {
     selectedNormalMusteri.value = row;
+    
+    // 🔥 ÖNEMLİ: Sadece konaklama geçmişini göster, cari hareketleri gizle
     showKonaklamaGecmisi.value = true;
+    showCariHareketler.value = false;
+    currentAltTableType.value = 'konaklama';
+    
     void loadKonaklamaGecmisi(row.MstrTCN);
     
     // 🔥 Seçilen müşteri bakiyesini hesapla
@@ -4566,6 +4786,339 @@ async function downloadCariHareketlerExcel() {
   }
 }
 
+// 🔥 DİNAMİK RAPOR İNDİRME FONKSİYONLARI
+async function downloadCurrentAltTablePDF() {
+  console.log('🔄 downloadCurrentAltTablePDF başladı, currentAltTableType:', currentAltTableType.value)
+  
+  if (currentAltTableType.value === 'cari') {
+    // İlk 6 kart için TC kimlik ile cari hareketler PDF
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 İlk 6 kart - Cari Hareketler PDF indiriliyor, TC:', selectedNormalMusteri.value.MstrTCN)
+        await downloadCariHareketlerByTCPDF(selectedNormalMusteri.value.MstrTCN)
+      } else {
+        throw new Error('Rapor için seçili müşteri bulunamadı')
+      }
+    } else {
+      // Son 3 kart için cari kod ile cari hareketler PDF
+      console.log('🔄 Son 3 kart - Cari Hareketler PDF indiriliyor')
+      await downloadCariHareketlerPDF()
+    }
+  } else {
+    // Konaklama Geçmişi PDF
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 İlk 6 kart - Konaklama Geçmişi PDF indiriliyor, TC:', selectedNormalMusteri.value.MstrTCN)
+        await downloadKonaklamaGecmisiPDF()
+      } else {
+        throw new Error('Rapor için seçili müşteri bulunamadı')
+      }
+    } else {
+      // Son 3 kart için TC kimlik ile konaklama geçmişi PDF
+      if (selectedBorcluMusteri.value?.CariVTCN) {
+        console.log('🔄 Son 3 kart - Konaklama Geçmişi PDF indiriliyor, TC:', selectedBorcluMusteri.value.CariVTCN)
+        await downloadKonaklamaGecmisiByTCPDF(selectedBorcluMusteri.value.CariVTCN)
+      } else {
+        throw new Error('Rapor için TC kimlik bulunamadı')
+      }
+    }
+  }
+}
+
+async function downloadCurrentAltTableExcel() {
+  console.log('🔄 downloadCurrentAltTableExcel başladı, currentAltTableType:', currentAltTableType.value)
+  
+  if (currentAltTableType.value === 'cari') {
+    // İlk 6 kart için TC kimlik ile cari hareketler Excel
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 İlk 6 kart - Cari Hareketler Excel indiriliyor, TC:', selectedNormalMusteri.value.MstrTCN)
+        await downloadCariHareketlerByTCExcel(selectedNormalMusteri.value.MstrTCN)
+      } else {
+        throw new Error('Rapor için seçili müşteri bulunamadı')
+      }
+    } else {
+      // Son 3 kart için cari kod ile cari hareketler Excel
+      console.log('🔄 Son 3 kart - Cari Hareketler Excel indiriliyor')
+      await downloadCariHareketlerExcel()
+    }
+  } else {
+    // Konaklama Geçmişi Excel
+    if (currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+      if (selectedNormalMusteri.value) {
+        console.log('🔄 İlk 6 kart - Konaklama Geçmişi Excel indiriliyor, TC:', selectedNormalMusteri.value.MstrTCN)
+        await downloadKonaklamaGecmisiExcel()
+      } else {
+        throw new Error('Rapor için seçili müşteri bulunamadı')
+      }
+    } else {
+      // Son 3 kart için TC kimlik ile konaklama geçmişi Excel
+      if (selectedBorcluMusteri.value?.CariVTCN) {
+        console.log('🔄 Son 3 kart - Konaklama Geçmişi Excel indiriliyor, TC:', selectedBorcluMusteri.value.CariVTCN)
+        await downloadKonaklamaGecmisiByTCExcel(selectedBorcluMusteri.value.CariVTCN)
+      } else {
+        throw new Error('Rapor için TC kimlik bulunamadı')
+      }
+    }
+  }
+}
+
+// 🔥 TC KİMLİK İLE CİRİ HAREKETLER PDF İNDİRME
+async function downloadCariHareketlerByTCPDF(tcKimlik: string) {
+  try {
+    cariPdfLoading.value = true
+    const url = `/dashboard/cari-hareketler-tc-pdf?tcKimlik=${encodeURIComponent(tcKimlik)}`
+    console.log('🔄 TC ile Cari Hareketler PDF indiriliyor:', url)
+    
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    const blob = new Blob([response.data], { 
+      type: 'application/pdf' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    
+    let fileName = 'cari-hareketler'
+    if (selectedNormalMusteri.value?.MstrAdi) {
+      fileName = `${selectedNormalMusteri.value.MstrAdi}-cari-hareketler`
+    } else if (tcKimlik) {
+      fileName = `${tcKimlik}-cari-hareketler`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.pdf`
+    
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('🔄 TC ile Cari Hareketler PDF başarıyla indirildi')
+  } catch (error: unknown) {
+    console.error('🔄 TC ile Cari Hareketler PDF indirme hatası:', error)
+    let errorMessage = 'Bilinmeyen hata'
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      }
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    }
+    
+    alert(`TC ile Cari Hareketler PDF indirilemedi: ${errorMessage}`)
+  } finally {
+    cariPdfLoading.value = false
+  }
+}
+
+// 🔥 TC KİMLİK İLE CİRİ HAREKETLER EXCEL İNDİRME
+async function downloadCariHareketlerByTCExcel(tcKimlik: string) {
+  try {
+    cariExcelLoading.value = true
+    const url = `/dashboard/cari-hareketler-tc-excel?tcKimlik=${encodeURIComponent(tcKimlik)}`
+    console.log('🔄 TC ile Cari Hareketler Excel indiriliyor:', url)
+    
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    
+    let fileName = 'cari-hareketler'
+    if (selectedNormalMusteri.value?.MstrAdi) {
+      fileName = `${selectedNormalMusteri.value.MstrAdi}-cari-hareketler`
+    } else if (tcKimlik) {
+      fileName = `${tcKimlik}-cari-hareketler`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.xlsx`
+    
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('🔄 TC ile Cari Hareketler Excel başarıyla indirildi')
+  } catch (error: unknown) {
+    console.error('🔄 TC ile Cari Hareketler Excel indirme hatası:', error)
+    let errorMessage = 'Bilinmeyen hata'
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      }
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    }
+    
+    alert(`TC ile Cari Hareketler Excel indirilemedi: ${errorMessage}`)
+  } finally {
+    cariExcelLoading.value = false
+  }
+}
+
+// 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ PDF İNDİRME
+async function downloadKonaklamaGecmisiByTCPDF(tcKimlik: string) {
+  try {
+    pdfLoading.value = true
+    const url = `/dashboard/konaklama-gecmisi-tc-pdf?tcKimlik=${encodeURIComponent(tcKimlik)}`
+    console.log('🔄 TC ile Konaklama Geçmişi PDF indiriliyor:', url)
+    
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    const blob = new Blob([response.data], { 
+      type: 'application/pdf' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    
+    let fileName = 'konaklama-gecmisi'
+    if (selectedBorcluMusteri.value?.CariAdi) {
+      fileName = `${selectedBorcluMusteri.value.CariAdi}-konaklama-gecmisi`
+    } else if (tcKimlik) {
+      fileName = `${tcKimlik}-konaklama-gecmisi`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.pdf`
+    
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('🔄 TC ile Konaklama Geçmişi PDF başarıyla indirildi')
+  } catch (error: unknown) {
+    console.error('🔄 TC ile Konaklama Geçmişi PDF indirme hatası:', error)
+    let errorMessage = 'Bilinmeyen hata'
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      }
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    }
+    
+    alert(`TC ile Konaklama Geçmişi PDF indirilemedi: ${errorMessage}`)
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+// 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ EXCEL İNDİRME
+async function downloadKonaklamaGecmisiByTCExcel(tcKimlik: string) {
+  try {
+    excelLoading.value = true
+    const url = `/dashboard/konaklama-gecmisi-tc-excel?tcKimlik=${encodeURIComponent(tcKimlik)}`
+    console.log('🔄 TC ile Konaklama Geçmişi Excel indiriliyor:', url)
+    
+    const response = await api.get(url, {
+      responseType: 'blob'
+    })
+    
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    
+    let fileName = 'konaklama-gecmisi'
+    if (selectedBorcluMusteri.value?.CariAdi) {
+      fileName = `${selectedBorcluMusteri.value.CariAdi}-konaklama-gecmisi`
+    } else if (tcKimlik) {
+      fileName = `${tcKimlik}-konaklama-gecmisi`
+    }
+    fileName += `-${new Date().toISOString().split('T')[0]}.xlsx`
+    
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    console.log('🔄 TC ile Konaklama Geçmişi Excel başarıyla indirildi')
+  } catch (error: unknown) {
+    console.error('🔄 TC ile Konaklama Geçmişi Excel indirme hatası:', error)
+    let errorMessage = 'Bilinmeyen hata'
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorObj = error as { 
+        message: string; 
+        response?: { 
+          status: number; 
+          statusText: string; 
+          data?: { message?: string }; 
+        }; 
+      }
+      
+      if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message
+      } else if (errorObj.response?.status) {
+        errorMessage = `HTTP Error ${errorObj.response.status}: ${errorObj.response.statusText}`
+      } else if (errorObj.message) {
+        errorMessage = errorObj.message
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    }
+    
+    alert(`TC ile Konaklama Geçmişi Excel indirilemedi: ${errorMessage}`)
+  } finally {
+    excelLoading.value = false
+  }
+}
+
 // 🔥 KOORDİNELİ ÇALIŞMA İÇİN YENİ DEĞİŞKENLER
 const tumKonaklamaTipleri = ref<string[]>(['TÜMÜ'])
 const tumOdaTipleri = ref<string[]>(['TÜMÜ'])
@@ -4683,6 +5236,31 @@ watch(currentFilter, (val) => {
 watch(selectedNormalMusteri, (val) => {
   window.kartliIslemSelectedNormalMusteri = val ?? null;
   console.log('🔥 selectedNormalMusteri değişti:', val?.MstrAdi || 'BOŞ');
+  
+  // 🔥 Eğer Cari Hareketler tablosu görünüyorsa ve müşteri değiştiyse, tabloyu güncelle
+  if (showCariHareketler.value && val && currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
+    console.log('🔥 Cari Hareketler tablosu güncelleniyor, yeni müşteri:', val.MstrAdi);
+    void loadCariHareketlerByTC(val.MstrTCN);
+  }
+});
+
+// 🔥 selectedBorcluMusteri için watch ekle
+watch(selectedBorcluMusteri, (val) => {
+  console.log('🔥 selectedBorcluMusteri değişti:', val?.CariAdi || 'BOŞ');
+  
+  // 🔥 Eğer Cari Hareketler tablosu görünüyorsa ve müşteri değiştiyse, tabloyu güncelle
+  if (showCariHareketler.value && val && currentFilter.value && ['borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar'].includes(currentFilter.value)) {
+    console.log('🔥 Cari Hareketler tablosu güncelleniyor, yeni müşteri:', val.CariAdi);
+    void loadCariHareketler(val.CariKod);
+  }
+  
+  // 🔥 Eğer Konaklama Geçmişi tablosu görünüyorsa ve müşteri değiştiyse, tabloyu güncelle
+  if (showKonaklamaGecmisi.value && val && currentFilter.value && ['borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar'].includes(currentFilter.value)) {
+    console.log('🔥 Konaklama Geçmişi tablosu güncelleniyor, yeni müşteri:', val.CariAdi);
+    if (val.CariVTCN && val.CariVTCN.trim() !== '') {
+      void loadKonaklamaGecmisi(val.CariVTCN);
+    }
+  }
 });
 
 const showEkHizmetlerModal = ref(false);
@@ -5469,5 +6047,65 @@ body.body--dark .dashboard-table .q-table__bottom-item {
   background: linear-gradient(135deg, #388e3c 0%, #4caf50 50%, #66bb6a 100%) !important;
   box-shadow: 0 2px 6px rgba(56, 142, 60, 0.4) !important;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 🔥 Cari Hareketler tablosu genişlik sabitleme */
+.cari-hareketler-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.cari-hareketler-table .q-table__container {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.cari-hareketler-table .q-table__top {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.cari-hareketler-table .q-table__bottom {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 🔥 TOGGLE BUTON STİLİ */
+.toggle-button {
+  background: linear-gradient(135deg, #ff5722 0%, #ff7043 50%, #ff8a65 100%) !important;
+  border: 6px solid #300c01 !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 4px 8px rgba(255, 87, 34, 0.3) !important;
+  transition: all 0.3s ease !important;
+  min-width: 300px !important;
+  padding: 8px 16px !important;
+  height: 25px !important;
+}
+
+.toggle-button:hover {
+  background: linear-gradient(135deg, #e64a19 0%, #f4511e 50%, #ff5722 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 12px rgba(255, 87, 34, 0.4) !important;
+}
+
+.toggle-button:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 4px rgba(255, 87, 34, 0.3) !important;
+}
+
+/* Dark mode için toggle buton */
+.body--dark .toggle-button {
+  background: linear-gradient(135deg, #d84315 0%, #e64a19 50%, #f4511e 100%) !important;
+  border: 2px solid #bf360c !important;
+  box-shadow: 0 4px 8px rgba(246, 192, 175, 0.4) !important;
+}
+
+.body--dark .toggle-button:hover {
+  background: linear-gradient(135deg, #bf360c 0%, #d84315 50%, #e64a19 100%) !important;
+  box-shadow: 0 6px 12px rgba(243, 139, 139, 0.642) !important;
 }
 </style> 

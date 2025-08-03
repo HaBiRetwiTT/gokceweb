@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Musteri } from '../entities/musteri.entity';
 import { DatabaseConfigService } from '../database/database-config.service';
+import * as ExcelJS from 'exceljs';
+import * as PDFDocument from 'pdfkit';
 
 export interface MusteriKonaklamaData {
   MstrTCN: string;
@@ -1201,7 +1203,7 @@ export class DashboardService {
     }
   }
 
-  // Cari Hareketler - seçilen müşterinin tüm işlemleri
+  // Cari Hareketler - seçilen müşterinin tüm işlemleri (Cari Kod ile)
   async getCariHareketler(cariKod: string): Promise<any[]> {
     try {
       const tables = this.dbConfig.getTables();
@@ -1226,6 +1228,65 @@ export class DashboardService {
       return result;
     } catch (error) {
       console.error('getCariHareketler hatası:', error);
+      throw new Error('Cari hareketler alınamadı');
+    }
+  }
+
+  // Cari Hareketler - seçilen müşterinin tüm işlemleri (TC Kimlik ile)
+  async getCariHareketlerByTC(tcKimlik: string): Promise<any[]> {
+    try {
+      const tables = this.dbConfig.getTables();
+      
+      // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
+      const query = `
+        WITH MusteriCariKod AS (
+          -- TC'den cari kod bulma
+          SELECT 
+            CASE 
+              WHEN m.MstrHspTip = 'Kurumsal' THEN 'MK' + CAST(m.MstrNo AS VARCHAR(10))
+              ELSE 'MB' + CAST(m.MstrNo AS VARCHAR(10))
+            END as CariKod
+          FROM ${tables.musteri} m
+          WHERE m.MstrTCN = @0
+            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+        ),
+        CariHareketler AS (
+          -- Cari hareketleri getir
+          SELECT 
+            i.iKytTarihi,
+            i.islemKllnc,
+            i.islemOzel1,
+            i.islemOzel2,
+            i.islemOzel3,
+            i.islemArac,
+            i.islemTip,
+            i.islemGrup,
+            i.islemBilgi,
+            i.islemTutar,
+            ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
+          FROM ${tables.islem} i
+          INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
+        )
+        SELECT 
+          iKytTarihi,
+          islemKllnc,
+          islemOzel1,
+          islemOzel2,
+          islemOzel3,
+          islemArac,
+          islemTip,
+          islemGrup,
+          islemBilgi,
+          islemTutar
+        FROM CariHareketler
+        ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
+      `;
+      
+      const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
+      console.log(`TC: ${tcKimlik} için ${result.length} cari hareket bulundu`);
+      return result;
+    } catch (error) {
+      console.error('getCariHareketlerByTC hatası:', error);
       throw new Error('Cari hareketler alınamadı');
     }
   }
@@ -2097,5 +2158,221 @@ export class DashboardService {
     }
   }
 
+  // 🔥 TC KİMLİK İLE CİRİ HAREKETLER PDF OLUŞTURMA
+  async generateCariHareketlerByTCPDF(tcKimlik: string): Promise<any> {
+    try {
+      const data = await this.getCariHareketlerByTC(tcKimlik);
+      
+      return new Promise((resolve, reject) => {
+        const doc = new PDFDocument();
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', () => {
+          resolve(Buffer.concat(chunks));
+        });
+        doc.on('error', (error) => {
+          reject(error);
+        });
+
+        // PDF başlığı
+        doc.fontSize(16).text('Cari Hareketler Raporu', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`TC Kimlik: ${tcKimlik}`, { align: 'center' });
+        doc.moveDown();
+
+        // Tablo başlıkları
+        const headers = ['Tarih', 'Kullanıcı', 'İşlem Tipi', 'Grup', 'Bilgi', 'Tutar'];
+        const columnWidths = [80, 60, 60, 60, 200, 80];
+        let y = doc.y;
+
+        // Başlık satırı
+        headers.forEach((header, index) => {
+          doc.fontSize(10).text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+        });
+
+        y += 20;
+
+        // Veri satırları
+        data.forEach((row: any) => {
+          if (y > 700) {
+            doc.addPage();
+            y = 50;
+          }
+
+          const values = [
+            this.formatDate(row.iKytTarihi),
+            row.islemKllnc || '',
+            row.islemTip || '',
+            row.islemGrup || '',
+            row.islemBilgi || '',
+            this.formatCurrency(row.islemTutar)
+          ];
+
+          values.forEach((value, index) => {
+            doc.fontSize(8).text(value, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+          });
+
+          y += 15;
+        });
+
+        doc.end();
+      });
+    } catch (error) {
+      console.error('🔥 TC ile Cari Hareketler PDF oluşturma hatası:', error);
+      throw new Error('PDF oluşturulamadı');
+    }
+  }
+
+  // 🔥 TC KİMLİK İLE CİRİ HAREKETLER EXCEL OLUŞTURMA
+  async generateCariHareketlerByTCExcel(tcKimlik: string): Promise<any> {
+    try {
+      const data = await this.getCariHareketlerByTC(tcKimlik);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Cari Hareketler');
+
+      // Başlık satırı
+      worksheet.addRow(['Tarih', 'Kullanıcı', 'İşlem Tipi', 'Grup', 'Bilgi', 'Tutar']);
+
+      // Veri satırları
+      data.forEach((row: any) => {
+        worksheet.addRow([
+          this.formatDate(row.iKytTarihi),
+          row.islemKllnc || '',
+          row.islemTip || '',
+          row.islemGrup || '',
+          row.islemBilgi || '',
+          row.islemTutar
+        ]);
+      });
+
+      // Sütun genişliklerini ayarla
+      worksheet.columns.forEach((column) => {
+        column.width = 15;
+      });
+
+      return await workbook.xlsx.writeBuffer();
+    } catch (error) {
+      console.error('🔥 TC ile Cari Hareketler Excel oluşturma hatası:', error);
+      throw new Error('Excel oluşturulamadı');
+    }
+  }
+
+  // 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ PDF OLUŞTURMA
+  async generateKonaklamaGecmisiByTCPDF(tcKimlik: string): Promise<any> {
+    try {
+      const data = await this.getMusteriKonaklamaGecmisi(tcKimlik);
+      
+      return new Promise((resolve, reject) => {
+        const doc = new PDFDocument();
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', () => {
+          resolve(Buffer.concat(chunks));
+        });
+        doc.on('error', (error) => {
+          reject(error);
+        });
+
+        // PDF başlığı
+        doc.fontSize(16).text('Konaklama Geçmişi Raporu', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`TC Kimlik: ${tcKimlik}`, { align: 'center' });
+        doc.moveDown();
+
+        // Tablo başlıkları
+        const headers = ['Kayıt Tarihi', 'Oda Tipi', 'Oda-Yatak', 'Konaklama Tipi', 'Tutar'];
+        const columnWidths = [80, 80, 80, 100, 80];
+        let y = doc.y;
+
+        // Başlık satırı
+        headers.forEach((header, index) => {
+          doc.fontSize(10).text(header, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+        });
+
+        y += 20;
+
+        // Veri satırları
+        data.forEach((row: any) => {
+          if (y > 700) {
+            doc.addPage();
+            y = 50;
+          }
+
+          const values = [
+            this.formatDate(row.kKytTarihi),
+            row.KnklmOdaTip || '',
+            `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
+            row.KnklmTip || '',
+            this.formatCurrency(row.KnklmNfyt)
+          ];
+
+          values.forEach((value, index) => {
+            doc.fontSize(8).text(value, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+          });
+
+          y += 15;
+        });
+
+        doc.end();
+      });
+    } catch (error) {
+      console.error('🔥 TC ile Konaklama Geçmişi PDF oluşturma hatası:', error);
+      throw new Error('PDF oluşturulamadı');
+    }
+  }
+
+  // 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ EXCEL OLUŞTURMA
+  async generateKonaklamaGecmisiByTCExcel(tcKimlik: string): Promise<any> {
+    try {
+      const data = await this.getMusteriKonaklamaGecmisi(tcKimlik);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Konaklama Geçmişi');
+
+      // Başlık satırı
+      worksheet.addRow(['Kayıt Tarihi', 'Oda Tipi', 'Oda-Yatak', 'Konaklama Tipi', 'Tutar']);
+
+      // Veri satırları
+      data.forEach((row: any) => {
+        worksheet.addRow([
+          this.formatDate(row.kKytTarihi),
+          row.KnklmOdaTip || '',
+          `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
+          row.KnklmTip || '',
+          row.KnklmNfyt
+        ]);
+      });
+
+      // Sütun genişliklerini ayarla
+      worksheet.columns.forEach((column) => {
+        column.width = 15;
+      });
+
+      return await workbook.xlsx.writeBuffer();
+    } catch (error) {
+      console.error('🔥 TC ile Konaklama Geçmişi Excel oluşturma hatası:', error);
+      throw new Error('Excel oluşturulamadı');
+    }
+  }
+
+  // Yardımcı fonksiyonlar
+  private formatDate(dateString: string): string {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('tr-TR');
+    } catch {
+      return dateString;
+    }
+  }
+
+  private formatCurrency(amount: number): string {
+    if (!amount) return '0,00 ₺';
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY'
+    }).format(amount);
+  }
 
 }
