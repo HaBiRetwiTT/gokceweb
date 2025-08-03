@@ -1153,6 +1153,7 @@ import { api } from '../boot/axios'
 import DonemYenilemeModal from '../components/DonemYenilemeModal.vue'
 import { selectedCustomer } from '../stores/selected-customer';
 import OdemeIslemForm from '../components/OdemeIslemForm.vue';
+import { versionChecker } from '../services/version-checker.service';
 //import EkHizmetlerForm from '../components/EkHizmetlerForm.vue';
 
 // Tip tanımları
@@ -2629,6 +2630,17 @@ async function refreshData() {
   window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
   
   sortingInProgress = false  // Manuel yenileme için API çağrısına izin ver
+  
+  // 🔥 VERSİYON KONTROLÜ: Yenile butonuna basıldığında sürüm kontrolü yap
+  try {
+    const hasUpdate = await versionChecker.manualCheck()
+    if (hasUpdate) {
+      console.log('🔄 Yeni sürüm bulundu - Kullanıcıya bildirim gösteriliyor')
+      // Version checker servisi otomatik olarak popup gösterecek
+    }
+  } catch (error) {
+    console.warn('Sürüm kontrolü sırasında hata:', error)
+  }
   
   // 🔥 PERFORMANS İYİLEŞTİRMESİ: Tüm API çağrılarını paralel yap
   loading.value = true
