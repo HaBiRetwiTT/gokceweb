@@ -618,9 +618,8 @@ if (typeof window !== 'undefined') {
   });
 }
 
-function refreshPage() {
-  // 🔥 VERSİYON KONTROLÜ: Header'daki yenile butonuna basıldığında sürüm kontrolü yap
-  void checkForUpdates()
+async function refreshPage() {
+  // 🔥 DİREKT YENİLEME: Header'daki yenile butonu sürüm kontrolü yapmadan direkt yeniler
   
   // Kartlı işlem sayfasındaysa stats verilerini yenile
   if (router.currentRoute.value.path === '/kartli-islem') {
@@ -633,7 +632,7 @@ function refreshPage() {
       message: 'Kart Sayım ve Liste Verileri Yenileniyor...',
       icon: 'refresh',
       position: 'top',
-      timeout: 10000
+      timeout: 3000
     });
   } else {
     // Diğer sayfalarda normal sayfa yenileme
@@ -643,6 +642,41 @@ function refreshPage() {
     } else {
       localStorage.removeItem('restoreFullScreen');
     }
+    
+    // Sürüm yenilendi mi kontrol et ve popup göster
+    try {
+      const currentVersion = localStorage.getItem('appVersion') || versionChecker.getCurrentVersion();
+      const response = await fetch('/version.json', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (response.ok) {
+        const versionInfo = await response.json();
+        const newVersion = versionInfo.version;
+        
+        if (currentVersion && newVersion && currentVersion !== newVersion) {
+          // Sürüm yenilendi
+          Notify.create({
+            type: 'positive',
+            message: 'Uygulama Güncellendi!',
+            caption: `Sürüm ${currentVersion} → ${newVersion}`,
+            icon: 'system_update_alt',
+            position: 'top',
+            timeout: 5000
+          });
+          
+          // Yeni sürümü localStorage'a kaydet
+          localStorage.setItem('appVersion', newVersion);
+        }
+      }
+    } catch (error) {
+      console.warn('Sürüm kontrolü sırasında hata:', error);
+    }
+    
     window.location.reload();
   }
 }

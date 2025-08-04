@@ -2163,6 +2163,20 @@ export class DashboardService {
     try {
       const data = await this.getCariHareketlerByTC(tcKimlik);
       
+      // Müşteri adını al
+      let musteriAdi = '';
+      if (data.length > 0) {
+        try {
+          const musteriQuery = `SELECT MstrAdi FROM [harunta].[tblMusteri] WHERE MstrTCN = @0`;
+          const musteriResult = await this.musteriRepository.query(musteriQuery, [tcKimlik]);
+          if (musteriResult.length > 0) {
+            musteriAdi = musteriResult[0].MstrAdi;
+          }
+        } catch (error) {
+          console.warn('Müşteri adı alınamadı:', error);
+        }
+      }
+      
       return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         const chunks: Buffer[] = [];
@@ -2175,15 +2189,23 @@ export class DashboardService {
           reject(error);
         });
 
+        // Türkçe karakter desteği için font yükle
+        try {
+          doc.font('./fonts/DejaVuSans.ttf');
+        } catch (error) {
+          console.warn('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
+        }
+
         // PDF başlığı
-        doc.fontSize(16).text('Cari Hareketler Raporu', { align: 'center' });
+        const baslik = musteriAdi ? `${musteriAdi} - Cari Hareketler` : 'Cari Hareketler Raporu';
+        doc.fontSize(16).text(baslik, { align: 'center' });
         doc.moveDown();
         doc.fontSize(12).text(`TC Kimlik: ${tcKimlik}`, { align: 'center' });
         doc.moveDown();
 
         // Tablo başlıkları
-        const headers = ['Tarih', 'Kullanıcı', 'İşlem Tipi', 'Grup', 'Bilgi', 'Tutar'];
-        const columnWidths = [80, 60, 60, 60, 200, 80];
+        const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar'];
+        const columnWidths = [80, 80, 280, 80];
         let y = doc.y;
 
         // Başlık satırı
@@ -2202,18 +2224,21 @@ export class DashboardService {
 
           const values = [
             this.formatDate(row.iKytTarihi),
-            row.islemKllnc || '',
             row.islemTip || '',
-            row.islemGrup || '',
             row.islemBilgi || '',
             this.formatCurrency(row.islemTutar)
           ];
 
           values.forEach((value, index) => {
-            doc.fontSize(8).text(value, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+            const x = 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0);
+            const width = columnWidths[index];
+            
+            // Tutar sütunu için sağa dayalı hizalama
+            const align = index === 3 ? 'right' : 'left';
+            doc.fontSize(8).text(value, x, y, { width: width, align: align });
           });
 
-          y += 15;
+          y += 18; // Satır aralığını artırdık (12'den 18'e)
         });
 
         doc.end();
@@ -2232,15 +2257,13 @@ export class DashboardService {
       const worksheet = workbook.addWorksheet('Cari Hareketler');
 
       // Başlık satırı
-      worksheet.addRow(['Tarih', 'Kullanıcı', 'İşlem Tipi', 'Grup', 'Bilgi', 'Tutar']);
+      worksheet.addRow(['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar']);
 
       // Veri satırları
       data.forEach((row: any) => {
         worksheet.addRow([
           this.formatDate(row.iKytTarihi),
-          row.islemKllnc || '',
           row.islemTip || '',
-          row.islemGrup || '',
           row.islemBilgi || '',
           row.islemTutar
         ]);
@@ -2263,6 +2286,20 @@ export class DashboardService {
     try {
       const data = await this.getMusteriKonaklamaGecmisi(tcKimlik);
       
+      // Müşteri adını al
+      let musteriAdi = '';
+      if (data.length > 0) {
+        try {
+          const musteriQuery = `SELECT MstrAdi FROM [harunta].[tblMusteri] WHERE MstrTCN = @0`;
+          const musteriResult = await this.musteriRepository.query(musteriQuery, [tcKimlik]);
+          if (musteriResult.length > 0) {
+            musteriAdi = musteriResult[0].MstrAdi;
+          }
+        } catch (error) {
+          console.warn('Müşteri adı alınamadı:', error);
+        }
+      }
+      
       return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         const chunks: Buffer[] = [];
@@ -2275,15 +2312,23 @@ export class DashboardService {
           reject(error);
         });
 
+        // Türkçe karakter desteği için font yükle
+        try {
+          doc.font('./fonts/DejaVuSans.ttf');
+        } catch (error) {
+          console.warn('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
+        }
+
         // PDF başlığı
-        doc.fontSize(16).text('Konaklama Geçmişi Raporu', { align: 'center' });
+        const baslik = musteriAdi ? `${musteriAdi} - Konaklama Geçmişi` : 'Konaklama Geçmişi Raporu';
+        doc.fontSize(16).text(baslik, { align: 'center' });
         doc.moveDown();
         doc.fontSize(12).text(`TC Kimlik: ${tcKimlik}`, { align: 'center' });
         doc.moveDown();
 
         // Tablo başlıkları
-        const headers = ['Kayıt Tarihi', 'Oda Tipi', 'Oda-Yatak', 'Konaklama Tipi', 'Tutar'];
-        const columnWidths = [80, 80, 80, 100, 80];
+        const headers = ['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar'];
+        const columnWidths = [80, 80, 280, 80];
         let y = doc.y;
 
         // Başlık satırı
@@ -2302,17 +2347,21 @@ export class DashboardService {
 
           const values = [
             this.formatDate(row.kKytTarihi),
-            row.KnklmOdaTip || '',
-            `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
             row.KnklmTip || '',
+            `${row.KnklmOdaTip} - ${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
             this.formatCurrency(row.KnklmNfyt)
           ];
 
           values.forEach((value, index) => {
-            doc.fontSize(8).text(value, 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0), y);
+            const x = 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0);
+            const width = columnWidths[index];
+            
+            // Tutar sütunu için sağa dayalı hizalama
+            const align = index === 3 ? 'right' : 'left';
+            doc.fontSize(8).text(value, x, y, { width: width, align: align });
           });
 
-          y += 15;
+          y += 12; // Satır aralığını azalttık
         });
 
         doc.end();
@@ -2359,10 +2408,27 @@ export class DashboardService {
   // Yardımcı fonksiyonlar
   private formatDate(dateString: string): string {
     if (!dateString) return '';
+    
     try {
+      // SQL Server'dan gelen tarih formatını kontrol et
+      // nchar(10) formatında DD.MM.YYYY geliyor olabilir
+      if (typeof dateString === 'string' && dateString.includes('.')) {
+        // DD.MM.YYYY formatında ise direkt kullan
+        const parts = dateString.split('.');
+        if (parts.length === 3) {
+          return dateString; // Zaten doğru formatta
+        }
+      }
+      
+      // ISO format veya diğer formatlar için
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // Geçersiz tarih ise orijinal string'i döndür
+        return dateString;
+      }
       return date.toLocaleDateString('tr-TR');
     } catch {
+      // Hata durumunda orijinal string'i döndür
       return dateString;
     }
   }

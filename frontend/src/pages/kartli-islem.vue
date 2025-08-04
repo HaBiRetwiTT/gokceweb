@@ -4648,7 +4648,7 @@ async function downloadCariHareketlerPDF() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/musteri/cari-hareketler-pdf?${queryString}`;
+    const url = `/dashboard/cari-hareketler-pdf?${queryString}`;
     console.log('PDF için gönderilen cariKod:', selectedBorcluMusteri.value?.CariKod);
     // Axios ile indir (authentication için)
     const response = await api.get(url, {
@@ -4723,7 +4723,7 @@ async function downloadCariHareketlerExcel() {
       throw new Error('Rapor için gerekli bilgiler bulunamadı');
     }
     const queryString = params.join('&');
-    const url = `/musteri/cari-hareketler-excel?${queryString}`;
+    const url = `/dashboard/cari-hareketler-tc-excel?${queryString}`;
     
     // Axios ile indir (authentication için)
     const response = await api.get(url, {

@@ -460,6 +460,36 @@ export class DashboardController {
     }
   }
 
+  // 🔥 Eski Endpoint - Geriye Uyumluluk için (Frontend hala bu endpointi çağırıyor)
+  @Get('cari-hareketler-pdf')
+  async getCariHareketlerPDF(@Query('tcNo') tcNo: string, @Res() res: any) {
+    try {
+      if (!tcNo) {
+        throw new HttpException({
+          success: false,
+          message: 'TC kimlik parametresi gereklidir'
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      // Yeni güncellenmiş fonksiyonu çağır
+      const pdfBuffer = await this.dashboardService.generateCariHareketlerByTCPDF(tcNo);
+      
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="cari-hareketler-${tcNo}-${new Date().toISOString().split('T')[0]}.pdf"`,
+        'Content-Length': pdfBuffer.length,
+      });
+      
+      res.send(pdfBuffer);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Cari hareketler PDF oluşturulamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // 🔥 TC Kimlik ile Cari Hareketler PDF
   @Get('cari-hareketler-tc-pdf')
   async getCariHareketlerByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
