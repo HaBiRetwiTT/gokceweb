@@ -1,9 +1,9 @@
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file
 
-import { defineConfig } from '#q-app/wrappers';
+// Quasar CLI Vite yapılandırma dosyasında, 'defineConfig' fonksiyonu aslında '@quasar/app-vite' paketinden değil, doğrudan bir fonksiyon olarak kullanılmaz. Bunun yerine, Quasar'ın önerdiği şekilde doğrudan bir nesne döndürmeliyiz. Ayrıca, import satırını kaldırmamız gerekiyor.
 
-export default defineConfig((/* ctx */) => {
+export default (/* ctx */) => {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -245,4 +245,4 @@ export default defineConfig((/* ctx */) => {
       extraScripts: []
     }
   }
-});
+};
