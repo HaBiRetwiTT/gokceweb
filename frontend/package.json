@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.96",
+  "version": "1.0.97",
   "description": "GÖKÇE Pansiyon Yönetim Sistemi",
   "productName": "GÖKÇE Pansiyon",
   "author": "HaBiRetwiTT <habiretwitt@gmail.com>",
@@ -15,13 +15,14 @@
     "dev": "npm run kill-port && quasar dev",
     "dev:clean": "npm run kill-port && quasar dev",
     "prebuild": "node scripts/update-version.js",
-    "build": "node node_modules/@quasar/app-vite/bin/quasar build",
+    "build": "quasar build",
     "build:vercel": "quasar build",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },
   "dependencies": {
     "@eslint/js": "^9.14.0",
+    "@quasar/app-vite": "^2.3.0",
     "@quasar/cli": "^2.5.0",
     "@quasar/extras": "^1.16.4",
     "@types/chrome": "^0.1.1",
@@ -42,7 +43,6 @@
     "vue-tsc": "^2.0.29"
   },
   "devDependencies": {
-    "@quasar/app-vite": "^2.3.0",
     "@types/node": "^20.5.9",
     "electron-builder": "^26.0.12",
     "prettier": "^3.3.3",
