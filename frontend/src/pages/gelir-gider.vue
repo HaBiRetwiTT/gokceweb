@@ -1065,12 +1065,23 @@ async function loadTedarikciListesi() {
     console.log('Tedarikçi listesi yükleniyor...')
 
     const response = await fetch('/cari/tedarikci')
+    console.log('Tedarikçi response status:', response.status)
+    console.log('Tedarikçi response headers:', response.headers)
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      const errorText = await response.text()
+      console.error('Tedarikçi response error text:', errorText)
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('API response:', data)
+    console.log('Tedarikçi API response:', data)
+    console.log('Tedarikçi data type:', typeof data)
+    console.log('Tedarikçi data length:', Array.isArray(data) ? data.length : 'Not an array')
+
+    if (!Array.isArray(data)) {
+      throw new Error('Tedarikçi API response is not an array')
+    }
 
     tedarikciListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
@@ -1083,6 +1094,9 @@ async function loadTedarikciListesi() {
 
   } catch (error) {
     console.error('Tedarikçi listesi yüklenirken hata:', error)
+    console.error('Hata detayı:', error instanceof Error ? error.message : String(error))
+    console.error('Hata stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
     // Hata durumunda test verilerini kullan
     const testData = [
       { CariKod: 'CT10001', CariAdi: 'TEST TEDARİKÇİ 1' },
@@ -1107,12 +1121,23 @@ async function loadMusteriListesi() {
     console.log('Müşteri listesi yükleniyor...')
 
     const response = await fetch('/cari/musteri')
+    console.log('Müşteri response status:', response.status)
+    console.log('Müşteri response headers:', response.headers)
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      const errorText = await response.text()
+      console.error('Müşteri response error text:', errorText)
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('API response:', data)
+    console.log('Müşteri API response:', data)
+    console.log('Müşteri data type:', typeof data)
+    console.log('Müşteri data length:', Array.isArray(data) ? data.length : 'Not an array')
+
+    if (!Array.isArray(data)) {
+      throw new Error('Müşteri API response is not an array')
+    }
 
     musteriListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
@@ -1123,6 +1148,9 @@ async function loadMusteriListesi() {
 
   } catch (error) {
     console.error('Müşteri listesi yüklenirken hata:', error)
+    console.error('Hata detayı:', error instanceof Error ? error.message : String(error))
+    console.error('Hata stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
     // Hata durumunda test verilerini kullan
     const testData = [
       { CariKod: 'M10001', CariAdi: 'TEST MÜŞTERİ 1' },
