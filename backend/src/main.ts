@@ -19,7 +19,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:9000', // Development
     'https://gokceweb.vercel.app', // Production - Vercel URL'inizi buraya ekleyin
-    'https://gokcepansiyon-bzyq5q6br-habiretwitt-6937s-projects.vercel.app', // Mevcut Vercel URL'iniz
+    'https://gokcepansiyon-pyxgdccln-habiretwitt-6937s-projects.vercel.app', // Mevcut Vercel URL'iniz
     'https://*.vercel.app', // Tüm Vercel subdomain'leri
   ];
   

@@ -18,7 +18,7 @@ export class CariService {
       
       const result = await this.cariRepository
         .createQueryBuilder('cari')
-        .select(['cari.CariKod', 'cari.CariAdi'])
+        .select(['cari.CariKod as CariKod', 'cari.CariAdi as CariAdi'])
         .where('cari.CariKod LIKE :prefix1 OR cari.CariKod LIKE :prefix2', {
           prefix1: 'A%',
           prefix2: 'CT%'
@@ -44,7 +44,7 @@ export class CariService {
       
       const result = await this.cariRepository
         .createQueryBuilder('cari')
-        .select(['cari.CariKod', 'cari.CariAdi'])
+        .select(['cari.CariKod as CariKod', 'cari.CariAdi as CariAdi'])
         .where('cari.CariKod LIKE :prefix', { prefix: 'M%' })
         .orderBy('cari.CariAdi', 'ASC')
         .getRawMany();
