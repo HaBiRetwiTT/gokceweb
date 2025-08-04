@@ -2,6 +2,18 @@
   <q-layout view="lHh Lpr lFf">
     <q-header elevated>
       <q-toolbar>
+        <!-- Mobil menü toggle butonu -->
+        <q-btn
+          v-if="$q.screen.lt.md"
+          flat
+          dense
+          round
+          icon="menu"
+          aria-label="Ana Menü"
+          @click="toggleLeftDrawer"
+          class="mobile-menu-toggle"
+        />
+        
         <q-toolbar-title class="logo-container">
           <img 
             :src="logoSrc" 
@@ -88,10 +100,13 @@
 
     <q-drawer
       v-model="leftDrawerOpen"
-      show-if-above
+      :show-if-above="showIfAbove"
       bordered
       :width="222"
       :mini="miniMenu"
+      :breakpoint="600"
+      :persistent="$q.screen.lt.md"
+      :overlay="$q.screen.lt.md"
     >
       <q-list>
         <q-item-label
@@ -339,6 +354,9 @@ const linksList = computed(() => {
 
 const leftDrawerOpen = ref(false);
 const miniMenu = ref(true);
+
+// Mobil cihazlarda show-if-above'ı devre dışı bırak
+const showIfAbove = computed(() => !$q.screen.lt.md);
 const username = ref('');
 const fullName = ref('');
 const isAdmin = ref(false);
@@ -512,6 +530,10 @@ async function loadEkHizmetler() {
 watch(showEkHizmetlerModal, (val) => {
   if (val) void loadEkHizmetler();
 });
+
+function toggleLeftDrawer() {
+  leftDrawerOpen.value = !leftDrawerOpen.value;
+}
 
 function toggleMiniMenu() {
   // Ana menü mini/maxi toggle işlevi
@@ -850,6 +872,13 @@ async function onKaydet() {
 onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
+  
+  // Desktop'ta drawer'ı açık tut, mobilde kapalı tut
+  if ($q.screen.lt.md) {
+    leftDrawerOpen.value = false;
+  } else {
+    leftDrawerOpen.value = true;
+  }
   
   // 🔥 window.kartliIslemCurrentFilter değişikliklerini izle
   const checkKartliIslemFilter = () => {
@@ -1241,5 +1270,53 @@ body.body--dark .genel-toplam-row {
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+}
+
+/* Mobil menü toggle butonu - sadece mobil cihazlarda görünür */
+.mobile-menu-toggle {
+  /* Desktop'ta gizli, mobilde v-if ile kontrol ediliyor */
+}
+
+/* Mobil cihazlarda drawer overlay */
+@media (max-width: 1023px) {
+  .q-drawer {
+    z-index: 2000;
+  }
+  
+  .q-drawer--on-top {
+    z-index: 2001;
+  }
+}
+
+/* Mobil cihazlarda drawer genişliği */
+@media (max-width: 600px) {
+  .q-drawer {
+    width: 280px !important;
+  }
+  
+  .q-drawer--mini {
+    width: 60px !important;
+  }
+}
+
+/* Mobil cihazlarda drawer içeriği */
+@media (max-width: 1023px) {
+  .q-drawer .q-list {
+    padding: 8px;
+  }
+  
+  .q-drawer .q-item {
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  
+  .q-drawer .q-item:hover {
+    background-color: rgba(25, 118, 210, 0.1);
+  }
+}
+
+/* Dark mode için mobil drawer */
+.body--dark .q-drawer .q-item:hover {
+  background-color: rgba(144, 202, 249, 0.1);
 }
 </style>
