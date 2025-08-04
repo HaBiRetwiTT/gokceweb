@@ -1064,7 +1064,11 @@ async function loadTedarikciListesi() {
   try {
     console.log('Tedarikçi listesi yükleniyor...')
 
-    const response = await fetch('/cari/tedarikci')
+    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://gokceweb-backend-production.up.railway.app'
+      : ''
+    const response = await fetch(`${baseUrl}/cari/tedarikci`)
     console.log('Tedarikçi response status:', response.status)
     console.log('Tedarikçi response headers:', response.headers)
     
@@ -1120,7 +1124,11 @@ async function loadMusteriListesi() {
   try {
     console.log('Müşteri listesi yükleniyor...')
 
-    const response = await fetch('/cari/musteri')
+    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://gokceweb-backend-production.up.railway.app'
+      : ''
+    const response = await fetch(`${baseUrl}/cari/musteri`)
     console.log('Müşteri response status:', response.status)
     console.log('Müşteri response headers:', response.headers)
     
@@ -1173,8 +1181,13 @@ async function testApiConnection() {
   try {
     console.log('API bağlantısı test ediliyor...')
     
+    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://gokceweb-backend-production.up.railway.app'
+      : ''
+    
     // Health check endpoint'ini test et
-    const healthResponse = await fetch('/cari/health')
+    const healthResponse = await fetch(`${baseUrl}/cari/health`)
     console.log('Health check response status:', healthResponse.status)
     
     if (healthResponse.ok) {
@@ -1183,7 +1196,7 @@ async function testApiConnection() {
     }
     
     // Tedarikçi endpoint'ini test et
-    const tedarikciResponse = await fetch('/cari/tedarikci')
+    const tedarikciResponse = await fetch(`${baseUrl}/cari/tedarikci`)
     console.log('Tedarikçi endpoint response status:', tedarikciResponse.status)
     
     if (tedarikciResponse.ok) {
