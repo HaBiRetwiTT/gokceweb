@@ -2238,7 +2238,7 @@ export class DashboardService {
             doc.fontSize(8).text(value, x, y, { width: width, align: align });
           });
 
-          y += 18; // Satır aralığını artırdık (12'den 18'e)
+          y += 25; // Satır aralığını artırdık (12'den 18'e)
         });
 
         doc.end();
@@ -2252,7 +2252,11 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE CİRİ HAREKETLER EXCEL OLUŞTURMA
   async generateCariHareketlerByTCExcel(tcKimlik: string): Promise<any> {
     try {
+      console.log('🔥 Excel oluşturma başladı, TC:', tcKimlik);
+      
       const data = await this.getCariHareketlerByTC(tcKimlik);
+      console.log('🔥 Veri alındı, satır sayısı:', data.length);
+      
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Cari Hareketler');
 
@@ -2260,13 +2264,17 @@ export class DashboardService {
       worksheet.addRow(['Tarih', 'İşlem Tipi', 'Açıklama', 'Tutar']);
 
       // Veri satırları
-      data.forEach((row: any) => {
-        worksheet.addRow([
-          this.formatDate(row.iKytTarihi),
-          row.islemTip || '',
-          row.islemBilgi || '',
-          row.islemTutar
-        ]);
+      data.forEach((row: any, index: number) => {
+        try {
+          worksheet.addRow([
+            this.formatDate(row.iKytTarihi),
+            row.islemTip || '',
+            row.islemBilgi || '',
+            row.islemTutar || 0
+          ]);
+        } catch (rowError) {
+          console.error(`🔥 Satır ${index} hatası:`, rowError, row);
+        }
       });
 
       // Sütun genişliklerini ayarla
@@ -2274,10 +2282,14 @@ export class DashboardService {
         column.width = 15;
       });
 
-      return await workbook.xlsx.writeBuffer();
+      console.log('🔥 Excel buffer oluşturuluyor...');
+      const buffer = await workbook.xlsx.writeBuffer();
+      console.log('🔥 Excel buffer oluşturuldu, boyut:', buffer.byteLength);
+      
+      return buffer;
     } catch (error) {
       console.error('🔥 TC ile Cari Hareketler Excel oluşturma hatası:', error);
-      throw new Error('Excel oluşturulamadı');
+      throw new Error(`Excel oluşturulamadı: ${error.message}`);
     }
   }
 

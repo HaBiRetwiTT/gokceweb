@@ -521,20 +521,23 @@ export class DashboardController {
 
   // 🔥 TC Kimlik ile Cari Hareketler Excel
   @Get('cari-hareketler-tc-excel')
-  async getCariHareketlerByTCExcel(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+  async getCariHareketlerByTCExcel(@Query('tcKimlik') tcKimlik: string, @Query('tcNo') tcNo: string, @Res() res: any) {
     try {
-      if (!tcKimlik) {
+      // tcNo parametresi öncelikli, yoksa tcKimlik kullan
+      const tcParam = tcNo || tcKimlik;
+      
+      if (!tcParam) {
         throw new HttpException({
           success: false,
           message: 'TC kimlik parametresi gereklidir'
         }, HttpStatus.BAD_REQUEST);
       }
 
-      const excelBuffer = await this.dashboardService.generateCariHareketlerByTCExcel(tcKimlik);
+      const excelBuffer = await this.dashboardService.generateCariHareketlerByTCExcel(tcParam);
       
       res.set({
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="cari-hareketler-${tcKimlik}-${new Date().toISOString().split('T')[0]}.xlsx"`,
+        'Content-Disposition': `attachment; filename="cari-hareketler-${tcParam}-${new Date().toISOString().split('T')[0]}.xlsx"`,
         'Content-Length': excelBuffer.length,
       });
       
