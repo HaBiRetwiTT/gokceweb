@@ -16,19 +16,16 @@ export class CariService {
     try {
       console.log('Tedarikçi listesi isteniyor...');
       
-      const tables = this.dbConfig.getTables();
-      console.log('Tablo adı:', tables.cari);
+      const result = await this.cariRepository
+        .createQueryBuilder('cari')
+        .select(['cari.CariKod', 'cari.CariAdi'])
+        .where('cari.CariKod LIKE :prefix1 OR cari.CariKod LIKE :prefix2', {
+          prefix1: 'A%',
+          prefix2: 'CT%'
+        })
+        .orderBy('cari.CariAdi', 'ASC')
+        .getRawMany();
       
-      const query = `
-        SELECT CariKod, CariAdi
-        FROM ${tables.cari}
-        WHERE CariKod LIKE 'A%' OR CariKod LIKE 'CT%'
-        ORDER BY CariAdi
-      `;
-      
-      console.log('SQL Query:', query);
-      
-      const result = await this.cariRepository.query(query);
       console.log('Tedarikçi listesi sonucu:', result);
       console.log('Tedarikçi sayısı:', result.length);
       
@@ -45,19 +42,13 @@ export class CariService {
     try {
       console.log('Müşteri listesi isteniyor...');
       
-      const tables = this.dbConfig.getTables();
-      console.log('Tablo adı:', tables.cari);
+      const result = await this.cariRepository
+        .createQueryBuilder('cari')
+        .select(['cari.CariKod', 'cari.CariAdi'])
+        .where('cari.CariKod LIKE :prefix', { prefix: 'M%' })
+        .orderBy('cari.CariAdi', 'ASC')
+        .getRawMany();
       
-      const query = `
-        SELECT CariKod, CariAdi
-        FROM ${tables.cari}
-        WHERE CariKod LIKE 'M%'
-        ORDER BY CariAdi
-      `;
-      
-      console.log('SQL Query:', query);
-      
-      const result = await this.cariRepository.query(query);
       console.log('Müşteri listesi sonucu:', result);
       console.log('Müşteri sayısı:', result.length);
       
