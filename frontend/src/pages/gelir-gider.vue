@@ -1140,10 +1140,42 @@ async function loadMusteriListesi() {
   }
 }
 
+// API bağlantısını test eden fonksiyon
+async function testApiConnection() {
+  try {
+    console.log('API bağlantısı test ediliyor...')
+    
+    // Health check endpoint'ini test et
+    const healthResponse = await fetch('/cari/health')
+    console.log('Health check response status:', healthResponse.status)
+    
+    if (healthResponse.ok) {
+      const healthData = await healthResponse.json()
+      console.log('Health check data:', healthData)
+    }
+    
+    // Tedarikçi endpoint'ini test et
+    const tedarikciResponse = await fetch('/cari/tedarikci')
+    console.log('Tedarikçi endpoint response status:', tedarikciResponse.status)
+    
+    if (tedarikciResponse.ok) {
+      const tedarikciData = await tedarikciResponse.json()
+      console.log('Tedarikçi endpoint data length:', tedarikciData.length)
+    }
+    
+  } catch (error) {
+    console.error('API bağlantı testi hatası:', error)
+  }
+}
+
 // Component mount olduğunda gider kategorilerini yükle
 onMounted(async () => {
   loadGiderKategorileri()
   loadGelirKategorileri()
+  
+  // API bağlantısını test et
+  await testApiConnection()
+  
   await loadTedarikciListesi()
   await loadMusteriListesi()
 

@@ -5,6 +5,11 @@ import { CariService } from './cari.service';
 export class CariController {
   constructor(private readonly cariService: CariService) {}
 
+  @Get('health')
+  async healthCheck() {
+    return { status: 'OK', message: 'Cari API is running', timestamp: new Date().toISOString() };
+  }
+
   @Get('tedarikci')
   async getTedarikciListesi() {
     return await this.cariService.getTedarikciListesi();
