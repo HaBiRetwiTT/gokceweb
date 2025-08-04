@@ -102,7 +102,14 @@ export default defineConfig((/* ctx */) => {
       host: 'localhost',
       port: 9000, // Sabit port ayarı
       strictPort: true, // Port meşgulse hata ver, otomatik değiştirme
-      open: true // opens browser window automatically
+      open: true, // opens browser window automatically
+      proxy: {
+        '/cari': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false
+        }
+      }
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
