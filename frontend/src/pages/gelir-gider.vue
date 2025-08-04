@@ -1066,7 +1066,7 @@ async function loadTedarikciListesi() {
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-backend-production.up.railway.app'
+      ? 'https://gokceweb-production.up.railway.app'
       : ''
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
     console.log('Tedarikçi response status:', response.status)
@@ -1126,7 +1126,7 @@ async function loadMusteriListesi() {
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-backend-production.up.railway.app'
+      ? 'https://gokceweb-production.up.railway.app'
       : ''
     const response = await fetch(`${baseUrl}/cari/musteri`)
     console.log('Müşteri response status:', response.status)
@@ -1183,7 +1183,7 @@ async function testApiConnection() {
     
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-backend-production.up.railway.app'
+      ? 'https://gokceweb-production.up.railway.app'
       : ''
     
     // Health check endpoint'ini test et
