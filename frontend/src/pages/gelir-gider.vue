@@ -1018,8 +1018,8 @@ function temizleForm() {
    // Combobox değerini temizle
    selectedComboboxValue.value = ''
    
-     // Varsayılan olarak tedarikçi listesini yükle
-  comboboxOptions.value = tedarikciListesi.value
+   // Combobox seçeneklerini temizle
+   comboboxOptions.value = []
   
   // Ödeme araçlarını temizle
   odemeAraclari.value = {
