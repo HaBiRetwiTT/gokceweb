@@ -579,15 +579,18 @@ function onIslemTipiChange() {
   }
 }
 
-// İşlem türü (TEDARİKÇİ/MÜŞTERİ)
-const islemTuru = ref<'tedarikci' | 'musteri'>('tedarikci')
+// İşlem türü (TEDARİKÇİ/MÜŞTERİ) - Default seçimsiz
+const islemTuru = ref<'tedarikci' | 'musteri' | null>(null)
 
 // İşlem türü değiştiğinde combobox listesini güncelle
 function onIslemTuruChange() {
   if (islemTuru.value === 'tedarikci') {
     comboboxOptions.value = tedarikciListesi.value
-  } else {
+  } else if (islemTuru.value === 'musteri') {
     comboboxOptions.value = musteriListesi.value
+  } else {
+    // Hiçbir seçim yoksa combobox'ı temizle
+    comboboxOptions.value = []
   }
   // Seçili değeri temizle
   selectedComboboxValue.value = ''
@@ -1009,8 +1012,8 @@ function temizleForm() {
      // İşlem tipini varsayılan değere sıfırla
    islemTipi.value = 'gider'
    
-   // İşlem türünü varsayılan değere sıfırla
-   islemTuru.value = 'tedarikci'
+   // İşlem türünü seçimsiz yap
+   islemTuru.value = null
    
    // Combobox değerini temizle
    selectedComboboxValue.value = ''
@@ -1213,6 +1216,9 @@ async function testApiConnection() {
 onMounted(async () => {
   loadGiderKategorileri()
   loadGelirKategorileri()
+  
+  // İşlem türünü başlangıçta seçimsiz yap
+  islemTuru.value = null
   
   // API bağlantısını test et
   await testApiConnection()
