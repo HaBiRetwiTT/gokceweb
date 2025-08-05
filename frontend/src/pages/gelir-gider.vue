@@ -1095,8 +1095,6 @@ async function loadTedarikciListesi() {
       value: item.CariKod
     }))
 
-    // Varsayılan olarak tedarikçi listesini yükle
-    comboboxOptions.value = tedarikciListesi.value
     console.log('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
 
   } catch (error) {
@@ -1117,7 +1115,6 @@ async function loadTedarikciListesi() {
       value: item.CariKod
     }))
 
-    comboboxOptions.value = tedarikciListesi.value
     console.log('Test verileri kullanılıyor:', tedarikciListesi.value)
   }
 }
@@ -1219,6 +1216,9 @@ onMounted(async () => {
   
   // İşlem türünü başlangıçta seçimsiz yap
   islemTuru.value = null
+  
+  // Combobox'ı başlangıçta boş yap
+  comboboxOptions.value = []
   
   // API bağlantısını test et
   await testApiConnection()
