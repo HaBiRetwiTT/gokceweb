@@ -1,13 +1,13 @@
 <template>
   <q-page class="q-pa-md light-page-background">
-    <div class="text-h6 q-mb-sm text-center">Gelir/Gider Kayıt İşlemi</div>
+    <div class="text-h6 q-mb-sm text-center">Gelir/Gider - Tahsilat/Tediye Kayıt İşlemi</div>
     
     <!-- Ana Form Container -->
     <div class="ana-form-container">
       <!-- Ana Gider/Gelir/Ödeme Satırı -->
       <div class="gider-tables-row">
       <!-- Giderler Sol -->
-      <div class="gider-table-container" :class="{ 'container-disabled': islemTipi === 'gelir' }">
+      <div class="gider-table-container" :class="{ 'container-disabled': islemTipi === 'gelir' || islemTipi === null }">
         <div class="gider-section-card">
           <!-- Giderler Sol Tablo -->
           <q-table
@@ -85,7 +85,7 @@
       </div>
       
       <!-- Giderler Sağ -->
-      <div class="gider-table-container" :class="{ 'container-disabled': islemTipi === 'gelir' }">
+      <div class="gider-table-container" :class="{ 'container-disabled': islemTipi === 'gelir' || islemTipi === null }">
         <div class="gider-section-card">
           <!-- Giderler Sağ Tablo -->
           <q-table
@@ -127,7 +127,7 @@
                     input-class="text-center"
                     @update:model-value="onMiktarChange(props.row)"
                   />
-                    </div>
+        </div>
               </q-td>
             </template>
 
@@ -146,7 +146,7 @@
                     @blur="formatTutar(props.row)"
                     @focus="unformatTutar(props.row)"
                   />
-                    </div>
+      </div>
               </q-td>
             </template>
 
@@ -159,12 +159,12 @@
               </q-td>
             </template>
           </q-table>
-        </div>
-      </div>
+                    </div>
+                    </div>
 
       <!-- GELİRLER + ÖDEME ARACI dış container -->
       <div class="gelir-odeme-outer-container">
-        <div class="gelir-table-container" :class="{ 'container-disabled': islemTipi === 'gider' }">
+        <div class="gelir-table-container" :class="{ 'container-disabled': islemTipi === 'gider' || islemTipi === null }">
           <div class="gelir-section-card">
             <!-- Gelirler Tablo -->
             <q-table
@@ -206,7 +206,7 @@
                       input-class="text-center"
                       @update:model-value="onGelirMiktarChange(props.row)"
                     />
-                  </div>
+                    </div>
                 </q-td>
               </template>
 
@@ -238,8 +238,8 @@
                 </q-td>
               </template>
             </q-table>
-          </div>
-        </div>
+                    </div>
+                    </div>
         <!-- ÖDEME ARACI Container -->
         <div class="odeme-araci-container">
           <div class="odeme-araci-card">
@@ -248,8 +248,10 @@
                 <q-checkbox
                   v-model="odemeAraclari.nakitKasa"
                   label="Nakit Kasa(TL)"
-                  :disable="genelToplam === 0"
+                  :disable="!odemeContainerKullanilabilir"
+                  :key="`nakit-kasa-${odemeContainerKullanilabilir}-${odemeAraclari.nakitKasa}`"
                   @update:model-value="onNakitKasaChange"
+                  @click="console.log('Nakit Kasa checkbox clicked, disable:', !odemeContainerKullanilabilir, 'odemeContainerKullanilabilir:', odemeContainerKullanilabilir)"
                 />
                 <q-input
                   v-model="odemeAraclari.nakitKasaTutar"
@@ -262,13 +264,14 @@
                   @blur="formatOdemeTutar('nakitKasaTutar')"
                   @focus="unformatOdemeTutar('nakitKasaTutar')"
                 />
-              </div>
+                    </div>
               
               <div class="odeme-araci-item">
                 <q-checkbox
                   v-model="odemeAraclari.krediKartlari"
                   label="Kredi Kartları"
-                  :disable="genelToplam === 0"
+                  :disable="!odemeContainerKullanilabilir"
+                  :key="`kredi-kartlari-${odemeContainerKullanilabilir}-${odemeAraclari.krediKartlari}`"
                   @update:model-value="onKrediKartlariChange"
                 />
                 <q-input
@@ -282,13 +285,14 @@
                   @blur="formatOdemeTutar('krediKartlariTutar')"
                   @focus="unformatOdemeTutar('krediKartlariTutar')"
                 />
-              </div>
+                  </div>
               
               <div class="odeme-araci-item">
                 <q-checkbox
                   v-model="odemeAraclari.bankaEft"
                   label="Banka EFT"
-                  :disable="genelToplam === 0"
+                  :disable="!odemeContainerKullanilabilir"
+                  :key="`banka-eft-${odemeContainerKullanilabilir}-${odemeAraclari.bankaEft}`"
                   @update:model-value="onBankaEftChange"
                 />
                 <q-input
@@ -302,12 +306,12 @@
                   @blur="formatOdemeTutar('bankaEftTutar')"
                   @focus="unformatOdemeTutar('bankaEftTutar')"
                 />
-              </div>
+                </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
-    </div>
 
     <!-- Not ve Ortak Container Yan Yana -->
     <div class="not-ortak-row q-mt-md">
@@ -318,11 +322,12 @@
           type="textarea"
           dense
           outlined
-          placeholder="Gider kaydı için not ekleyebilirsiniz..."
+          placeholder="Yapılan Kayıt(lar) için Detaylı Not Ekleyebilirsiniz..."
           class="not-textarea"
+          :rows="8"
         />
-      </div>
-      
+        </div>
+        
       <!-- Ortak Container - Genel Toplam ve Form Butonları -->
       <div class="ortak-container">
       <!-- Genel Toplam -->
@@ -366,7 +371,7 @@
                     <div v-if="!selectedComboboxValue" class="odeme-kontrol-label">
                       <span class="kontrol-text" :class="`kontrol-${odemeKontrolDurumu}`">{{ odemeKontrolText }}</span>
                     </div>
-                    {{ islemTipi === 'gider' ? 'GİDER TOPLAM' : 'GELİR TOPLAM' }}
+                    {{ getToplamLabel() }}
                   </q-td>
                   <q-td class="text-bold genel-toplam-cell">
                     <span class="toplam-deger">{{ genelToplamDisplay }}</span>
@@ -381,56 +386,75 @@
       <!-- Form Butonları -->
       <div class="form-buttons-container q-mt-md">
         <div class="row justify-center q-gutter-md items-center">
-          <!-- Radio Buton Grupları -->
-          <div class="radio-group-container">
-            <q-option-group
-              v-model="islemTipi"
-              inline
-              dense
-              class="radio-group"
-              :options="[
-                { label: 'GİDER', value: 'gider', color: 'negative' },
-                { label: 'GELİR', value: 'gelir', color: 'positive' }
-              ]"
-              @update:model-value="onIslemTipiChange"
-            />
+          <!-- Sol Container - Radio Buton Grupları -->
+          <div class="radio-groups-left-container">
+            <div class="radio-group-container">
+              <q-option-group
+                v-model="islemTipi"
+                inline
+                dense
+                class="radio-group"
+                :options="[
+                  { label: 'GİDER', value: 'gider', color: 'negative' },
+                  { label: 'GELİR', value: 'gelir', color: 'positive' }
+                ]"
+                @update:model-value="onIslemTipiChange"
+              />
+            </div>
+            
+            <div class="radio-group-container q-mt-sm">
+              <q-option-group
+                v-model="cikanGiren"
+                inline
+                dense
+                class="radio-group"
+                :options="[
+                  { label: 'Çıkan', value: 'cikan', color: 'negative' },
+                  { label: 'Giren', value: 'giren', color: 'positive' }
+                ]"
+                @update:model-value="onCikanGirenChange"
+              />
+            </div>
           </div>
           
-          <div class="radio-group-container">
-            <q-option-group
-              v-model="islemTuru"
-              inline
-              dense
-              class="radio-group"
-              :options="[
-                { label: 'TEDARİKÇİ', value: 'tedarikci', color: 'primary' },
-                { label: 'MÜŞTERİ', value: 'musteri', color: 'secondary' }
-              ]"
-              @update:model-value="onIslemTuruChange"
+          <!-- Sağ Container - Diğer Radio Buton ve Butonlar -->
+          <div class="right-controls-container">
+            <div class="radio-group-container">
+              <q-option-group
+                v-model="islemTuru"
+                inline
+                dense
+                class="radio-group"
+                :options="[
+                  { label: 'TEDARİKÇİ', value: 'tedarikci', color: 'primary' },
+                  { label: 'MÜŞTERİ', value: 'musteri', color: 'secondary' }
+                ]"
+                @update:model-value="onIslemTuruChange"
+              />
+            </div>
+            
+            <q-btn 
+              color="negative" 
+              icon="clear" 
+              label="Temizle" 
+              @click="temizleForm"
+              outline
+              size="md"
+              class="temizle-btn"
+            />
+            <q-btn 
+              color="primary" 
+              icon="save" 
+              label="Kaydet" 
+              @click="onKaydet"
+              :disable="seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
+              unelevated
+              size="md"
             />
           </div>
-          
-          <q-btn 
-            color="negative" 
-            icon="clear" 
-            label="Temizle" 
-            @click="temizleForm"
-            outline
-            size="md"
-            class="temizle-btn"
-          />
-          <q-btn 
-            color="primary" 
-            icon="save" 
-            label="Kaydet" 
-            @click="onKaydet"
-            :disable="seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
-            unelevated
-            size="md"
-          />
         </div>
       </div>
-    </div>
+        </div>
       </div>
     </div>
   </q-page>
@@ -439,6 +463,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { api } from '../boot/axios'
 
 const $q = useQuasar()
 
@@ -541,10 +566,15 @@ const odemeAraclari = ref<OdemeAraclari>({
 })
 
 // İşlem tipi (GELİR/GİDER)
-const islemTipi = ref<'gelir' | 'gider'>('gider')
+const islemTipi = ref<'gelir' | 'gider' | null>(null)
 
 // İşlem tipi değiştiğinde seçili checkbox'ları temizle
 function onIslemTipiChange() {
+  // Eğer GİDER/GELİR seçildiyse Çıkan/Giren seçimini temizle
+  if (islemTipi.value) {
+    cikanGiren.value = null
+  }
+  
   // Gider checkbox'larını temizle
   giderRowsSol.value.forEach(row => {
     row.selected = false
@@ -579,8 +609,52 @@ function onIslemTipiChange() {
   }
 }
 
+// Çıkan/Giren değiştiğinde
+function onCikanGirenChange() {
+  // Eğer Çıkan/Giren seçildiyse GİDER/GELİR seçimini temizle
+  if (cikanGiren.value) {
+    islemTipi.value = null
+  }
+  
+  // Gider checkbox'larını temizle
+  giderRowsSol.value.forEach(row => {
+    row.selected = false
+    row.miktar = 1
+    row.tutar = null
+  })
+  
+  giderRowsSag.value.forEach(row => {
+    row.selected = false
+    row.miktar = 1
+    row.tutar = null
+  })
+  
+  // Gelir checkbox'larını temizle
+  gelirRows.value.forEach(row => {
+    row.selected = false
+    row.miktar = 1
+    row.tutar = null
+  })
+  
+  // Not alanını temizle
+  giderNotu.value = ''
+  
+  // Ödeme araçlarını temizleme - Çıkan/Giren seçiminde temizleme
+  // odemeAraclari.value = {
+  //   nakitKasa: false,
+  //   nakitKasaTutar: '',
+  //   krediKartlari: false,
+  //   krediKartlariTutar: '',
+  //   bankaEft: false,
+  //   bankaEftTutar: ''
+  // }
+}
+
 // İşlem türü (TEDARİKÇİ/MÜŞTERİ) - Default seçimsiz
 const islemTuru = ref<'tedarikci' | 'musteri' | null>(null)
+
+// Çıkan/Giren seçimi
+const cikanGiren = ref<'cikan' | 'giren' | null>(null)
 
 // İşlem türü değiştiğinde combobox listesini güncelle
 function onIslemTuruChange() {
@@ -638,6 +712,12 @@ function onComboboxClear() {
 // Ödeme aracı değiştiğinde
 function onOdemeAraciChange() {
   console.log('Ödeme aracı değişti:', odemeAraclari.value)
+  
+  // Çıkan/Giren seçili ve combobox dolu ise ödeme araçlarını temizleme
+  if (cikanGiren.value && selectedComboboxValue.value) {
+    console.log('Primer koşul sağlandı, ödeme araçları temizlenmeyecek')
+    return
+  }
   
   // Eğer toplam tutar 0 ise ödeme araçlarını temizle
   if (genelToplam.value === 0) {
@@ -702,7 +782,7 @@ function unformatOdemeTutar(fieldName: keyof OdemeAraclari) {
 const comboboxOptions = ref<Array<{ label: string; value: string }>>([])
 
 // Seçili combobox değeri
-const selectedComboboxValue = ref<string>('')
+const selectedComboboxValue = ref<{ label: string; value: string } | string>('')
 
 // Tedarikçi listesi
 const tedarikciListesi = ref<Array<{ label: string; value: string }>>([])
@@ -723,6 +803,11 @@ const tumGiderRows = computed(() => [...giderRowsSol.value, ...giderRowsSag.valu
 
 // Computed değerler
 const genelToplam = computed<number>(() => {
+  // Çıkan/Giren seçili ve combobox dolu ise ödeme araçları toplamını göster
+  if (cikanGiren.value && selectedComboboxValue.value) {
+    return odemeAraclariToplam.value
+  }
+  
   if (islemTipi.value === 'gider') {
     // GİDER seçili ise gider satırlarını hesapla
     return tumGiderRows.value
@@ -745,6 +830,11 @@ const genelToplamDisplay = computed(() =>
 )
 
 const seciliGiderAdedi = computed(() => {
+  // Çıkan/Giren seçili ve combobox dolu ise primer koşul - en az bir seçim var gibi davran
+  if (cikanGiren.value && selectedComboboxValue.value) {
+    return 1
+  }
+  
   if (islemTipi.value === 'gider') {
     return tumGiderRows.value.filter(row => row.selected).length
   } else {
@@ -824,6 +914,51 @@ const odemeKontrolDurumu = computed(() => {
     return 'error'
   }
 })
+
+// TOPLAM label'ını döndüren fonksiyon
+function getToplamLabel() {
+  // Çıkan/Giren seçili ve combobox dolu ise Çıkan/Giren label'ını göster
+  if (cikanGiren.value && selectedComboboxValue.value) {
+    return cikanGiren.value === 'cikan' ? 'ÇIKAN TOPLAM' : 'GİREN TOPLAM'
+  }
+  
+  // Diğer durumlarda normal label'ları göster
+  if (islemTipi.value === 'gider') {
+    return 'GİDER TOPLAM'
+  } else if (islemTipi.value === 'gelir') {
+    return 'GELİR TOPLAM'
+  } else {
+    return 'TOPLAM'
+  }
+}
+
+// Ödeme container'ının kullanılabilir olması için computed
+const odemeContainerKullanilabilir = computed(() => {
+  // Çıkan/Giren seçili ve combobox dolu ise primer koşul - kullanılabilir
+  if (cikanGiren.value && selectedComboboxValue.value) {
+    console.log('Ödeme container kullanılabilir: Primer koşul sağlandı', {
+      cikanGiren: cikanGiren.value,
+      selectedComboboxValue: selectedComboboxValue.value,
+      genelToplam: genelToplam.value
+    })
+    return true
+  }
+  
+  // Diğer durumlarda genel toplam > 0 ise kullanılabilir
+  const result = genelToplam.value > 0
+  console.log('Ödeme container kullanılabilir:', result, 'Genel toplam:', genelToplam.value)
+  return result
+})
+
+// GİDER/GELİR radio buton grubunun disable durumu - artık disable etmiyoruz
+// const islemTipiDisabled = computed(() => {
+//   return cikanGiren.value !== null
+// })
+
+// Çıkan/Giren radio buton grubunun disable durumu - artık disable etmiyoruz
+// const cikanGirenDisabled = computed(() => {
+//   return islemTipi.value !== null
+// })
 
 // Gider verilerini yükle
 function loadGiderKategorileri() {
@@ -1009,11 +1144,14 @@ function temizleForm() {
   // Not alanını temizle
   giderNotu.value = ''
   
-     // İşlem tipini varsayılan değere sıfırla
-   islemTipi.value = 'gider'
+     // İşlem tipini seçimsiz yap
+   islemTipi.value = null
    
    // İşlem türünü seçimsiz yap
    islemTuru.value = null
+   
+   // Çıkan/Giren seçimini temizle
+   cikanGiren.value = null
    
    // Combobox değerini temizle
    selectedComboboxValue.value = ''
@@ -1037,27 +1175,304 @@ function temizleForm() {
   })
 }
 
-function onKaydet() {
-  if (seciliGiderAdedi.value === 0) {
+async function onKaydet() {
+  try {
+    // GELİR/GİDER seçimi kontrolü - GİREN/ÇIKAN seçildiğinde bu kontrol yapılmayacak
+    if (!islemTipi.value && !cikanGiren.value) {
+      $q.notify({
+        type: 'warning',
+        message: 'Lütfen önce GELİR/GİDER veya GİREN/ÇIKAN seçimi yapın'
+      })
+      return
+    }
+
+    // GİREN/ÇIKAN seçimi kontrolü - GELİR/GİDER seçimine göre otomatik belirlenir
+    if (!cikanGiren.value) {
+      // GELİR/GİDER seçimine göre otomatik GİREN/ÇIKAN seçimi yap
+      if (islemTipi.value === 'gelir') {
+        cikanGiren.value = 'giren'
+      } else if (islemTipi.value === 'gider') {
+        cikanGiren.value = 'cikan'
+      }
+    } else {
+      // GİREN/ÇIKAN seçildiğinde GELİR/GİDER seçimini temizle
+      islemTipi.value = null
+    }
+
+    // GELİR/GİDER seçimi durumu
+    if (islemTipi.value === 'gider' || islemTipi.value === 'gelir') {
+      await handleGelirGiderKaydet()
+    }
+    // GİREN/ÇIKAN seçimi durumu
+    else if (cikanGiren.value === 'giren' || cikanGiren.value === 'cikan') {
+      await handleGirenCikanKaydet()
+    }
+    // Hiçbiri seçilmemiş
+    else {
+      $q.notify({
+        type: 'warning',
+        message: 'Lütfen GELİR/GİDER veya GİREN/ÇIKAN seçimi yapın'
+      })
+    }
+
+  } catch (error) {
+    console.error('Kaydetme hatası:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Kaydetme işlemi sırasında hata oluştu',
+      timeout: 3000
+    })
+  }
+}
+
+// GELİR/GİDER kayıt işlemi
+async function handleGelirGiderKaydet() {
+  const kayitlar = []
+  const bugun = new Date().toLocaleDateString('tr-TR') // DD.MM.YYYY formatında
+  // Aktif kullanıcı bilgisi - login sayfasından alınacak
+  const aktifKullanici = sessionStorage.getItem('username') || localStorage.getItem('username') || 'admin'
+  console.log('Aktif kullanıcı bilgisi:', {
+    sessionStorage: sessionStorage.getItem('username'),
+    localStorage: localStorage.getItem('username'),
+    final: aktifKullanici
+  })
+
+  // Ortak parametreler
+  const ortakParametreler = {
+    iKytTarihi: bugun,
+    islemKllnc: aktifKullanici,
+    islemOzel1: '',
+    islemOzel2: '',
+    islemOzel3: '',
+    islemOzel4: '',
+    islemBirim: 'Adet',
+    islemDoviz: 'TL',
+    islemKur: 1.00,
+    islemBilgi: giderNotu.value
+  }
+
+  // 1. GELİR/GİDER kayıtları - GİREN/ÇIKAN seçildiğinde bu kısım çalışmayacak
+  let seciliGelirGiderler: (GiderKategori | GelirKategori)[] = []
+  
+  if (selectedComboboxValue.value) {
+    // Combobox dolu - sadece 1 gelir/gider kaydı
+    const seciliGelirGider = islemTipi.value === 'gider' 
+      ? tumGiderRows.value.find(row => row.selected)
+      : gelirRows.value.find(row => row.selected)
+
+    if (seciliGelirGider) {
+      kayitlar.push({
+        ...ortakParametreler,
+        islemCrKod: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.value : selectedComboboxValue.value,
+        islemArac: 'Cari İşlem',
+        islemTip: islemTipi.value!.toUpperCase(),
+        islemGrup: islemTipi.value === 'gider' ? (seciliGelirGider as GiderKategori).giderAdi : (seciliGelirGider as GelirKategori).gelirAdi,
+        islemAltG: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.label : selectedComboboxValue.value,
+        islemMiktar: seciliGelirGider.miktar,
+        islemTutar: seciliGelirGider.miktar * parseTutarDeger(seciliGelirGider.tutar)
+      })
+    }
+  } else {
+    // Combobox boş - birden fazla gelir/gider kaydı
+    seciliGelirGiderler = islemTipi.value === 'gider'
+      ? tumGiderRows.value.filter(row => row.selected)
+      : gelirRows.value.filter(row => row.selected)
+
+    seciliGelirGiderler.forEach(row => {
+      kayitlar.push({
+        ...ortakParametreler,
+        islemCrKod: 'PC10000',
+        islemArac: 'Cari İşlem',
+        islemTip: islemTipi.value!.toUpperCase(),
+        islemGrup: islemTipi.value === 'gider' ? (row as GiderKategori).giderAdi : (row as GelirKategori).gelirAdi,
+        islemAltG: '',
+        islemMiktar: row.miktar,
+        islemTutar: row.miktar * parseTutarDeger(row.tutar)
+      })
+    })
+  }
+
+  // 2. Ödeme kayıtları
+  const seciliOdemeAraclari = []
+  if (odemeAraclari.value.nakitKasa && odemeAraclari.value.nakitKasaTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PN10000',
+      islemArac: 'Nakit Kasa(TL)',
+      islemTutar: parseTutarDeger(odemeAraclari.value.nakitKasaTutar)
+    })
+  }
+  if (odemeAraclari.value.krediKartlari && odemeAraclari.value.krediKartlariTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PK10000',
+      islemArac: 'Kredi Kartları',
+      islemTutar: parseTutarDeger(odemeAraclari.value.krediKartlariTutar)
+    })
+  }
+  if (odemeAraclari.value.bankaEft && odemeAraclari.value.bankaEftTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PB10000',
+      islemArac: 'Banka EFT',
+      islemTutar: parseTutarDeger(odemeAraclari.value.bankaEftTutar)
+    })
+  }
+
+  // Ödeme kayıtlarını ekle
+  seciliOdemeAraclari.forEach(odeme => {
+    kayitlar.push({
+      ...ortakParametreler,
+      islemCrKod: odeme.islemCrKod,
+      islemArac: odeme.islemArac,
+      islemTip: islemTipi.value === 'gelir' ? 'Giren' : 'Çıkan',
+      islemGrup: seciliGelirGiderler && seciliGelirGiderler.length > 1 
+        ? (islemTipi.value === 'gider' ? 'Sair Giderler' : 'Sair Gelirler')
+        : (seciliGelirGiderler?.[0] ? (islemTipi.value === 'gider' ? (seciliGelirGiderler[0] as GiderKategori).giderAdi : (seciliGelirGiderler[0] as GelirKategori).gelirAdi) : 'Sair Giderler') || 'Sair Giderler',
+      islemAltG: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.label : selectedComboboxValue.value || '',
+      islemMiktar: 1,
+      islemTutar: odeme.islemTutar
+    })
+  })
+
+  // Kayıtları backend'e gönder
+  console.log('Kaydedilecek kayıtlar:', kayitlar)
+  
+  try {
+    const response = await api.post('/islem/kaydet', { kayitlar })
+    console.log('Backend yanıtı:', response.data)
+  } catch (error) {
+    console.error('Backend kayıt hatası:', error)
+    throw new Error('Kayıt işlemi başarısız')
+  }
+  
+  $q.notify({
+    type: 'positive',
+    message: `${kayitlar.length} kayıt başarıyla kaydedildi`,
+    timeout: 3000
+  })
+
+  // Formu temizle
+  temizleForm()
+}
+
+// GİREN/ÇIKAN kayıt işlemi
+async function handleGirenCikanKaydet() {
+  const kayitlar: Array<{
+    iKytTarihi: string
+    islemKllnc: string
+    islemOzel1: string
+    islemOzel2: string
+    islemOzel3: string
+    islemOzel4: string
+    islemBirim: string
+    islemDoviz: string
+    islemKur: number
+    islemBilgi: string
+    islemCrKod: string
+    islemArac: string
+    islemTip: string
+    islemGrup: string
+    islemAltG: string
+    islemMiktar: number
+    islemTutar: number
+  }> = []
+  const bugun = new Date().toLocaleDateString('tr-TR') // DD.MM.YYYY formatında
+  
+  // Aktif kullanıcı bilgisi - login sayfasından alınacak
+  const aktifKullanici = sessionStorage.getItem('username') || localStorage.getItem('username') || 'admin'
+  console.log('Aktif kullanıcı bilgisi:', {
+    sessionStorage: sessionStorage.getItem('username'),
+    localStorage: localStorage.getItem('username'),
+    final: aktifKullanici
+  })
+
+  // Ortak parametreler
+  const ortakParametreler = {
+    iKytTarihi: bugun,
+    islemKllnc: aktifKullanici,
+    islemOzel1: '',
+    islemOzel2: '',
+    islemOzel3: '',
+    islemOzel4: '',
+    islemBirim: 'Adet',
+    islemDoviz: 'TL',
+    islemKur: 1.00,
+    islemBilgi: giderNotu.value
+  }
+
+  // Combobox kontrolü
+  if (!selectedComboboxValue.value) {
     $q.notify({
       type: 'warning',
-      message: islemTipi.value === 'gider' ? 'Lütfen en az bir gider kategorisi seçin' : 'Lütfen en az bir gelir kategorisi seçin'
+      message: 'GİREN/ÇIKAN işlemi için cari seçimi zorunludur'
     })
     return
   }
 
-     // HENÜZ GELİR/GİDER KAYDI YAPILAMIYOR...1 uyarısı
-   $q.notify({
-     type: 'warning',
-     message: 'HENÜZ GELİR/GİDER KAYDI YAPILAMIYOR...',
-     icon: 'warning',
-     position: 'top',
-     timeout: 3000
-   })
+  // Seçili ödeme araçlarını bul
+  const seciliOdemeAraclari = []
+  if (odemeAraclari.value.nakitKasa && odemeAraclari.value.nakitKasaTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PN10000',
+      islemArac: 'Nakit Kasa(TL)',
+      islemTutar: parseTutarDeger(odemeAraclari.value.nakitKasaTutar)
+    })
+  }
+  if (odemeAraclari.value.krediKartlari && odemeAraclari.value.krediKartlariTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PK10000',
+      islemArac: 'Kredi Kartları',
+      islemTutar: parseTutarDeger(odemeAraclari.value.krediKartlariTutar)
+    })
+  }
+  if (odemeAraclari.value.bankaEft && odemeAraclari.value.bankaEftTutar) {
+    seciliOdemeAraclari.push({
+      islemCrKod: 'PB10000',
+      islemArac: 'Banka EFT',
+      islemTutar: parseTutarDeger(odemeAraclari.value.bankaEftTutar)
+    })
+  }
 
-  // Backend kaydetme işlemi şimdilik devre dışı
-  console.log('Kaydedilecek veriler:', islemTipi.value === 'gider' ? tumGiderRows.value.filter(r => r.selected) : gelirRows.value.filter(r => r.selected))
-  console.log('Genel toplam:', genelToplam.value)
+  // En az bir ödeme aracı seçili olmalı
+  if (seciliOdemeAraclari.length === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'En az bir ödeme aracı seçilmelidir'
+    })
+    return
+  }
+
+  // Ödeme kayıtlarını oluştur - GİREN/ÇIKAN seçildiğinde sadece bu kayıtlar yapılacak
+  seciliOdemeAraclari.forEach(odeme => {
+    kayitlar.push({
+      ...ortakParametreler,
+      islemCrKod: odeme.islemCrKod,
+      islemArac: odeme.islemArac,
+      islemTip: cikanGiren.value === 'giren' ? 'Giren' : 'Çıkan',
+      islemGrup: cikanGiren.value === 'giren' ? 'Sair Gelirler' : 'Sair Giderler',
+      islemAltG: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.label : selectedComboboxValue.value,
+      islemMiktar: 1,
+      islemTutar: odeme.islemTutar
+    })
+  })
+
+  // Kayıtları backend'e gönder
+  console.log('GİREN/ÇIKAN kaydedilecek kayıtlar:', kayitlar)
+  
+  try {
+    const response = await api.post('/islem/kaydet', { kayitlar })
+    console.log('Backend yanıtı:', response.data)
+  } catch (error) {
+    console.error('Backend kayıt hatası:', error)
+    throw new Error('Kayıt işlemi başarısız')
+  }
+  
+  $q.notify({
+    type: 'positive',
+    message: `${kayitlar.length} GİREN/ÇIKAN kayıt başarıyla kaydedildi`,
+    timeout: 3000
+  })
+
+  // Formu temizle
+  temizleForm()
 }
 
 
@@ -1214,8 +1629,14 @@ onMounted(async () => {
   loadGiderKategorileri()
   loadGelirKategorileri()
   
+  // İşlem tipini başlangıçta seçimsiz yap
+  islemTipi.value = null
+  
   // İşlem türünü başlangıçta seçimsiz yap
   islemTuru.value = null
+  
+  // Çıkan/Giren seçimini başlangıçta seçimsiz yap
+  cikanGiren.value = null
   
   // Combobox'ı başlangıçta boş yap
   comboboxOptions.value = []
@@ -1362,14 +1783,17 @@ onMounted(async () => {
 
 .not-textarea .q-field__control {
   height: 100%;
+  min-height: 80px;
 }
 
 .not-textarea .q-field__control-container {
   height: 100%;
+  min-height: 80px;
 }
 
 .not-textarea .q-field__native {
   height: 100%;
+  min-height: 80px;
   resize: none;
 }
 
@@ -1425,6 +1849,19 @@ onMounted(async () => {
    pointer-events: none;
    filter: grayscale(50%);
    transition: all 0.3s ease;
+ }
+ 
+ /* Ödeme Container Disabled State - pointer-events olmadan */
+ .odeme-container-disabled {
+   opacity: 0.4;
+   filter: grayscale(50%);
+   transition: all 0.3s ease;
+ }
+ 
+ /* Ödeme container içindeki checkbox'ları her zaman tıklanabilir yap */
+ .odeme-container-disabled .q-checkbox {
+   pointer-events: auto !important;
+   opacity: 1 !important;
  }
  
  .container-disabled .gider-section-card,
@@ -1663,6 +2100,24 @@ onMounted(async () => {
   width: 130px;
   min-width: 90px;
   font-size: 0.8rem;
+}
+
+/* Sol Container - Radio Buton Grupları */
+.radio-groups-left-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+  max-width: 250px;
+}
+
+/* Sağ Container - Diğer Kontroller */
+.right-controls-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 /* Ödeme kontrol label stilleri */

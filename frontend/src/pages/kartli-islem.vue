@@ -2840,6 +2840,18 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
     OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
     KonaklamaTipi: row.KnklmTip
   };
+  
+  // 🔥 Seçili müşteri bilgilerini localStorage'a kaydet (musteri-islem sayfası için)
+  const musteriDataForIslem = {
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip,
+    currentFilter: currentFilter.value,
+    musteriDurumu: 'KALIYOR' // Güncelleme modu için
+  };
+  console.log('🔥 localStorage\'a kaydedilecek müşteri verisi:', musteriDataForIslem);
+  localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
+  console.log('🔥 localStorage\'a kaydedildi. currentFilter:', currentFilter.value);
   selectedCustomer.value = {
     id: row.MstrTCN,
     name: row.MstrAdi,
@@ -3936,6 +3948,20 @@ function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {
     OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
     KonaklamaTipi: row.KnklmTip
   };
+  
+  // 🔥 Seçili müşteri bilgilerini localStorage'a kaydet (musteri-islem sayfası için)
+  const musteriDataForIslem = {
+    ...row,
+    OdaYatak: (row.KnklmOdaNo && row.KnklmYtkNo) ? `${row.KnklmOdaNo}-${row.KnklmYtkNo}` : '',
+    KonaklamaTipi: row.KnklmTip,
+    currentFilter: currentFilter.value,
+    musteriDurumu: 'KALIYOR' // Güncelleme modu için
+  };
+  console.log('🔥 localStorage\'a kaydedilecek müşteri verisi:', musteriDataForIslem);
+  console.log('🔥 MstrHspTip değeri:', musteriDataForIslem.MstrHspTip);
+  localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
+  console.log('🔥 localStorage\'a kaydedildi. currentFilter:', currentFilter.value);
+  
   selectedCustomer.value = {
     id: row.MstrTCN,
     name: row.MstrAdi,

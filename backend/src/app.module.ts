@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { ParametreModule } from './parametre.module';
 import { KonaklamaTakvimModule } from './konaklama-takvim/konaklama-takvim.module';
 import { CariModule } from './cari/cari.module';
+import { IslemModule } from './islem/islem.module';
 import { DatabaseConfigService } from './database/database-config.service';
 import { JwtMiddleware } from './auth/jwt.middleware';
 import * as dotenv from 'dotenv';
@@ -35,6 +36,7 @@ dotenv.config({
     ParametreModule,
     KonaklamaTakvimModule,
     CariModule,
+    IslemModule,
   ],
   controllers: [AppController, OdemeIslemController],
   providers: [AppService, DatabaseConfigService, OdemeIslemService, DatabaseTransactionService],

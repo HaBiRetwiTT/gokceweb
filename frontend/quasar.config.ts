@@ -109,6 +109,11 @@ export default (/* ctx */) => {
           target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false
+        },
+        '/islem': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false
         }
       }
     },

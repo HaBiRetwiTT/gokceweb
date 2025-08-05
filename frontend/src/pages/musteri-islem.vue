@@ -166,6 +166,8 @@
                     color="primary"
                     label-color="primary"
                     class="kurumsal-responsive"
+                    :readonly="guncellemeModuAktif"
+                    :disable="guncellemeModuAktif"
                     @focus="onTCNFocus"
                     @input="onTCNInput"
                     @blur="onTCNBlur"
@@ -406,7 +408,7 @@
                       label="Ö.T.G."
                       color="green-6"
                       dense
-                      :disable="!isOtgCheckboxEnabled"
+                      :disable="!isOtgCheckboxEnabled || guncellemeModuAktif"
                       class="otg-checkbox"
                       @update:model-value="onOtgCheckboxChanged"
                     />
@@ -421,6 +423,7 @@
                       dense
                       readonly
                       required
+                      :disable="guncellemeModuAktif"
                       class="kurumsal-responsive odeme-vadesi-field"
                     >
                       <template v-slot:append>
@@ -496,6 +499,7 @@
                   class="kurumsal-responsive"
                   :class="{ 'konaklama-readonly': guncellemeModuAktif }"
                   :readonly="guncellemeModuAktif"
+                  :disable="guncellemeModuAktif"
                 />
               </div>
             </div> <!-- Ana Container Kapanış -->
@@ -1368,6 +1372,9 @@ onMounted(async () => {
   // SessionStorage'dan TC kimlik auto-fill kontrolü
   await checkAndApplyAutoFillTCKimlik()
   
+  // 🔥 localStorage'dan kartli-islem sayfasından gelen seçili müşteri bilgilerini kontrol et
+  await checkAndApplySelectedMusteriFromKartliIslem()
+  
   await loadOdaTipleri()
   void loadFirmaList()
   
@@ -1896,6 +1903,118 @@ function onTCNInput() {
     setTimeout(() => {
       notify.value = ''
     }, 2500)
+  }
+}
+
+// 🔥 localStorage'dan kartli-islem sayfasından gelen seçili müşteri bilgilerini kontrol et ve yükle
+async function checkAndApplySelectedMusteriFromKartliIslem() {
+  try {
+    console.log('🔥 checkAndApplySelectedMusteriFromKartliIslem fonksiyonu çağrıldı')
+    const selectedMusteriData = localStorage.getItem('selectedMusteriForIslem')
+    console.log('🔥 localStorage\'dan alınan veri:', selectedMusteriData)
+    
+    if (selectedMusteriData) {
+      const musteriData = JSON.parse(selectedMusteriData)
+      console.log('🔥 Parse edilen müşteri verisi:', musteriData)
+      
+      // Sadece belirli kartlardan gelen müşteriler için işlem yap
+      const allowedFilters = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan']
+      console.log('🔥 Müşteri kartı:', musteriData.currentFilter, 'İzin verilen kartlar:', allowedFilters)
+      
+      if (allowedFilters.includes(musteriData.currentFilter)) {
+        console.log('🔥 kartli-islem sayfasından seçili müşteri bulundu:', musteriData)
+        
+        // Sadece müşteri bilgilerini doldur (tblMusteri tablosundaki bilgiler)
+        form.value.MstrTCN = musteriData.MstrTCN || ''
+        form.value.MstrAdi = musteriData.MstrAdi || ''
+        form.value.MstrTelNo = musteriData.MstrTelNo || ''
+        form.value.MstrHspTip = musteriData.MstrHspTip || 'Bireysel'
+        console.log('🔥 Hesap Tipi set edildi:', form.value.MstrHspTip, 'Orijinal veri:', musteriData.MstrHspTip)
+        
+        // Konaklama bilgilerini readonly olarak göster (değiştirilemez)
+        form.value.OdaTipi = musteriData.KnklmOdaTip || ''
+        form.value.OdaYatak = musteriData.OdaYatak || ''
+        form.value.KonaklamaTipi = musteriData.KonaklamaTipi || 'GÜNLÜK'
+        form.value.ToplamBedel = parseFloat(musteriData.KnklmNfyt) || 0
+        form.value.HesaplananBedel = parseFloat(musteriData.KnklmLfyt) || 0
+        
+        // Konaklama süresini hesapla (readonly)
+        if (musteriData.KnklmGrsTrh && musteriData.KnklmPlnTrh) {
+          const giris = new Date(musteriData.KnklmGrsTrh.split('.').reverse().join('-'))
+          const cikis = new Date(musteriData.KnklmPlnTrh.split('.').reverse().join('-'))
+          const diffTime = Math.abs(cikis.getTime() - giris.getTime())
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+          form.value.KonaklamaSuresi = diffDays > 0 ? diffDays : 1
+        } else {
+          form.value.KonaklamaSuresi = 1
+        }
+        
+        // Ek form alanlarını doldur
+        extraForm.value.MstrDgmTarihi = musteriData.MstrDgmTarihi || ''
+        extraForm.value.MstrTel2 = musteriData.MstrTel2 || ''
+        extraForm.value.MstrEposta = musteriData.MstrEposta || ''
+        extraForm.value.MstrMeslek = musteriData.MstrMeslek || ''
+        extraForm.value.MstrYakini = musteriData.MstrYakini || ''
+        extraForm.value.MstrYknTel = musteriData.MstrYknTel || ''
+        extraForm.value.MstrAdres = musteriData.MstrAdres || ''
+        extraForm.value.MstrNot = musteriData.MstrNot || ''
+        
+        // Kurumsal alanları doldur
+        if (musteriData.MstrHspTip === 'Kurumsal') {
+          extraForm.value.MstrFirma = musteriData.MstrFirma || ''
+          extraForm.value.MstrVD = musteriData.MstrVD || ''
+          extraForm.value.MstrVno = musteriData.MstrVno || ''
+          extraForm.value.MstrFrmTel = musteriData.MstrFrmTel || ''
+          extraForm.value.MstrFrmMdr = musteriData.MstrFrmMdr || ''
+          extraForm.value.MstrMdrTel = musteriData.MstrMdrTel || ''
+          
+          // Kurumsal alanları görünür yap
+          showExtraFields.value = true
+        } else {
+          // Bireysel müşteri için kurumsal alanları temizle
+          extraForm.value.MstrFirma = ''
+          extraForm.value.MstrVD = ''
+          extraForm.value.MstrVno = ''
+          extraForm.value.MstrFrmTel = ''
+          extraForm.value.MstrFrmMdr = ''
+          extraForm.value.MstrMdrTel = ''
+        }
+        
+        // Ek notları yükle
+        ekNotlar.value = musteriData.KnklmNot || ''
+        
+        // Güncelleme modunu aktif et
+        musteriDurumu.value = musteriData.musteriDurumu || 'KALIYOR'
+        guncellemeModuAktif.value = true
+        
+        // Ek bilgiler formunu aç
+        showExtraFields.value = true
+        
+        // Orijinal TC değerini güncelle
+        originalTCN.value = musteriData.MstrTCN || ''
+        
+        // Ödeme vadesini yükle
+        try {
+          const vadeResponse = await api.get(`/musteri/musteri-odeme-vadesi/${musteriData.MstrTCN}`)
+          if (vadeResponse.data.success && vadeResponse.data.odemeVadesi) {
+            form.value.OdemeVadesi = vadeResponse.data.odemeVadesi
+          }
+        } catch (error) {
+          console.error('Ödeme vadesi yüklenirken hata:', error)
+        }
+        
+        notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Güncelleme modu aktif'
+        
+        // localStorage'dan temizle
+        localStorage.removeItem('selectedMusteriForIslem')
+        
+        setTimeout(() => {
+          notify.value = ''
+        }, 3000)
+      }
+    }
+  } catch (error) {
+    console.error('Kartlı işlem sayfasından müşteri bilgileri yüklenirken hata:', error)
   }
 }
 
