@@ -180,8 +180,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
 import type { QTableColumn } from 'quasar'
+
+// Axios instance'ını al
+const instance = getCurrentInstance()
+const $api = instance?.proxy?.$api
+
+// $api undefined ise hata fırlat
+if (!$api) {
+  throw new Error('API instance bulunamadı')
+}
 
 // Reactive state
 const selectedIslemTuru = ref('cari')
@@ -429,21 +438,23 @@ const loadDetailTableData = async (tarih: string) => {
     console.log('Seçilen işlem türü:', selectedIslemTuru.value)
     console.log('Seçilen işlem yönü:', islemYonuForApi.value)
     
-                   // Client-side pagination için tüm veriyi al - geçici olarak localhost'a yönlendir
-      const detailApiUrl = `http://localhost:3000/islem/detay-islemler?tarih=${tarih}&islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&selectedYonu=${selectedIslemYonu.value}&page=1&rowsPerPage=1000`
-     console.log('Detay API URL:', detailApiUrl)
-    
-    const response = await fetch(detailApiUrl)
+    // Axios instance kullanarak API çağrısı yap
+    const response = await $api.get('/islem/detay-islemler', {
+      params: {
+        tarih: tarih,
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value,
+        selectedYonu: selectedIslemYonu.value,
+        page: 1,
+        rowsPerPage: 1000
+      }
+    })
     console.log('Detay Response status:', response.status)
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const result = await response.json()
+    const result = response.data
     console.log('Detay API Response:', result)
     
-         if (result.success) {
+    if (result.success) {
        console.log('Detay veri sayısı:', result.data?.length || 0)
        console.log('Detay toplam kayıt sayısı:', result.totalRecords)
        // Backend'den gelen veriyi kullan
@@ -503,39 +514,31 @@ const loadTableData = async () => {
     console.log('API çağrısı başlatılıyor...')
     console.log('Seçilen işlem türü:', selectedIslemTuru.value)
     
-    // Test endpoint'i deneyelim - geçici olarak localhost'a yönlendir
-    const testApiUrl = `http://localhost:3000/islem/test`
-    console.log('Test API URL:', testApiUrl)
-    
-    const testResponse = await fetch(testApiUrl)
+    // Test endpoint'i deneyelim
+    const testResponse = await $api.get('/islem/test')
     console.log('Test Response status:', testResponse.status)
-    console.log('Test Response ok:', testResponse.ok)
     
-    if (!testResponse.ok) {
-      throw new Error(`HTTP error! status: ${testResponse.status}`)
-    }
-    
-    const testResult = await testResponse.json()
+    const testResult = testResponse.data
     console.log('Test API Response:', testResult)
     
-           // Test başarılıysa gerçek API'yi çağır
-       if (testResult.success) {
-         console.log('Test başarılı, gerçek API çağrılıyor...')
-         // Client-side pagination için tüm veriyi al - geçici olarak localhost'a yönlendir
-         const realApiUrl = `http://localhost:3000/islem/kasa-islemleri?islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&page=1&rowsPerPage=1000`
-         console.log('Gerçek API URL:', realApiUrl)
+    // Test başarılıysa gerçek API'yi çağır
+    if (testResult.success) {
+      console.log('Test başarılı, gerçek API çağrılıyor...')
       
-      const realResponse = await fetch(realApiUrl)
+      const realResponse = await $api.get('/islem/kasa-islemleri', {
+        params: {
+          islemTuru: selectedIslemTuru.value,
+          islemYonu: islemYonuForApi.value,
+          page: 1,
+          rowsPerPage: 1000
+        }
+      })
       console.log('Real Response status:', realResponse.status)
       
-      if (!realResponse.ok) {
-        throw new Error(`HTTP error! status: ${realResponse.status}`)
-      }
-      
-      const realResult = await realResponse.json()
+      const realResult = realResponse.data
       console.log('Real API Response:', realResult)
       
-             if (realResult.success) {
+      if (realResult.success) {
          console.log('Gelen veri sayısı:', realResult.data?.length || 0)
          console.log('Toplam kayıt sayısı:', realResult.totalRecords)
          // Backend'den gelen veriyi kullan
