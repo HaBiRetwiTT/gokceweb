@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpModule } from '@nestjs/axios';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MusteriModule } from './musteri/musteri.module';
@@ -10,6 +11,7 @@ import { ParametreModule } from './parametre.module';
 import { KonaklamaTakvimModule } from './konaklama-takvim/konaklama-takvim.module';
 import { CariModule } from './cari/cari.module';
 import { IslemModule } from './islem/islem.module';
+import { AgentModule } from './agent/agent.module';
 import { DatabaseConfigService } from './database/database-config.service';
 import { JwtMiddleware } from './auth/jwt.middleware';
 import * as dotenv from 'dotenv';
@@ -30,6 +32,7 @@ dotenv.config({
         return dbConfigService.getDatabaseConfig();
       },
     }),
+    HttpModule,
     MusteriModule,
     DashboardModule,
     AuthModule,
@@ -37,6 +40,7 @@ dotenv.config({
     KonaklamaTakvimModule,
     CariModule,
     IslemModule,
+    AgentModule,
   ],
   controllers: [AppController, OdemeIslemController],
   providers: [AppService, DatabaseConfigService, OdemeIslemService, DatabaseTransactionService],

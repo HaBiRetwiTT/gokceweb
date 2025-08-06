@@ -318,6 +318,13 @@ const allLinksList: EssentialLinkProps[] = [
     caption: 'Mevcut - Rezerve',
     icon: 'calendar_month',
     link: '/mevcut-rezerve'
+  },
+  {
+    title: 'AI Asistan',
+    caption: 'Akıllı Öneriler',
+    icon: 'smart_toy',
+    link: '/ai-agent',
+    iconColor: '#9C27B0'
   }
 ];
 

@@ -69,7 +69,8 @@ export class CariService {
         FROM tblCari c
         LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
         WHERE c.CariKod LIKE 'M%'
-          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
+          AND c.CariAdi IS NOT NULL
+          AND c.CariAdi <> ''
         GROUP BY c.CariKod, c.CariAdi
         ORDER BY c.CariAdi ASC
       `;

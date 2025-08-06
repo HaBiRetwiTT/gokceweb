@@ -15,7 +15,8 @@ const routes: RouteRecordRaw[] = [
       { path: '/kartli-islem', component: () => import('../pages/kartli-islem.vue') },
       { path: '/mevcut-rezerve', component: () => import('../pages/mevcut-rezerve.vue') },
       { path: '/gelir-gider', component: () => import('../pages/gelir-gider.vue') },
-      { path: '/kasa-islem', component: () => import('../pages/kasa-islem.vue') }
+      { path: '/kasa-islem', component: () => import('../pages/kasa-islem.vue') },
+      { path: '/ai-agent', component: () => import('../pages/ai-agent.vue') }
       //{ path: '/odeme-islem', component: () => import('../pages/odeme-islem.vue') },
     ],
     meta: { requiresAuth: true }
