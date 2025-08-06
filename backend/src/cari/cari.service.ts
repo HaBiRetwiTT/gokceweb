@@ -54,27 +54,48 @@ export class CariService {
     try {
       console.log('Müşteri listesi isteniyor...');
       
-      // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
-      const bakiyeQuery = `
+      // Müşteri listesini tblMusteri tablosundan al ve cari kodları oluştur
+      const musteriQuery = `
         SELECT 
-          c.CariKod,
-          c.CariAdi,
-          ISNULL(SUM(
-            CASE 
-              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
-              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
-              ELSE 0
-            END
-          ), 0) as CariBakiye
-        FROM tblCari c
-        LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
-        WHERE c.CariKod LIKE 'M%'
-          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
-        GROUP BY c.CariKod, c.CariAdi
-        ORDER BY c.CariAdi ASC
+          IIF(MstrHspTip = 'Kurumsal', 'MK' + CAST(MstrNo AS VARCHAR(10)), 'MB' + CAST(MstrNo AS VARCHAR(10))) as CariKod,
+          MstrAdi as CariAdi,
+          MstrNo,
+          MstrHspTip
+        FROM tblMusteri
+        WHERE MstrAdi IS NOT NULL 
+          AND MstrAdi <> ''
+          AND LEFT(MstrAdi, 9) <> 'PERSONEL '
+        ORDER BY MstrAdi ASC
       `;
       
-      const result = await this.cariRepository.query(bakiyeQuery);
+      const musteriler = await this.cariRepository.query(musteriQuery);
+      
+      // Her müşteri için bakiye hesapla
+      const result: Array<{ CariKod: string; CariAdi: string; CariBakiye: number }> = [];
+      for (const musteri of musteriler) {
+        const bakiyeQuery = `
+          SELECT 
+            ISNULL(SUM(
+              CASE 
+                WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar 
+                WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -islemTutar
+                ELSE 0
+              END
+            ), 0) as CariBakiye
+          FROM tblislem
+          WHERE islemCrKod = @0
+            AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
+        `;
+        
+        const bakiyeResult = await this.cariRepository.query(bakiyeQuery, [musteri.CariKod]);
+        const bakiye = Number(bakiyeResult[0]?.CariBakiye || 0);
+        
+        result.push({
+          CariKod: musteri.CariKod,
+          CariAdi: musteri.CariAdi,
+          CariBakiye: bakiye
+        });
+      }
       
       console.log('Müşteri listesi sonucu:', result);
       console.log('Müşteri sayısı:', result.length);
