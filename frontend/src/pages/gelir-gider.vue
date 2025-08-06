@@ -1534,7 +1534,7 @@ async function loadTedarikciListesi() {
     tedarikciListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: item.CariBakiye || (Math.random() * 10000 - 5000).toFixed(2) // Eğer bakiye yoksa test değeri ekle
+      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
     }))
 
     console.log('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
@@ -1552,10 +1552,10 @@ async function loadTedarikciListesi() {
       { CariKod: 'AF10000', CariAdi: 'TEST TEDARİKÇİ 4' }
     ]
 
-    tedarikciListesi.value = testData.map((item) => ({
+    tedarikciListesi.value = testData.map((item, index) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: (Math.random() * 10000 - 5000).toFixed(2)
+      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
     }))
 
     console.log('Test verileri kullanılıyor:', tedarikciListesi.value)
@@ -1593,7 +1593,7 @@ async function loadMusteriListesi() {
     musteriListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: item.CariBakiye || (Math.random() * 10000 - 5000).toFixed(2) // Eğer bakiye yoksa test değeri ekle
+      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
     }))
 
     console.log('Müşteri listesi yüklendi:', musteriListesi.value)
@@ -1611,10 +1611,10 @@ async function loadMusteriListesi() {
       { CariKod: 'M10004', CariAdi: 'TEST MÜŞTERİ 4' }
     ]
 
-    musteriListesi.value = testData.map((item) => ({
+    musteriListesi.value = testData.map((item, index) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: (Math.random() * 10000 - 5000).toFixed(2)
+      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
     }))
 
     console.log('Test verileri kullanılıyor:', musteriListesi.value)

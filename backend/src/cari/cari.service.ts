@@ -16,26 +16,32 @@ export class CariService {
     try {
       console.log('Tedarikçi listesi isteniyor...');
       
-      const result = await this.cariRepository
-        .createQueryBuilder('cari')
-        .select(['cari.CariKod as CariKod', 'cari.CariAdi as CariAdi'])
-        .where('cari.CariKod LIKE :prefix1 OR cari.CariKod LIKE :prefix2', {
-          prefix1: 'A%',
-          prefix2: 'CT%'
-        })
-        .orderBy('cari.CariAdi', 'ASC')
-        .getRawMany();
+      // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
+      const bakiyeQuery = `
+        SELECT 
+          c.CariKod,
+          c.CariAdi,
+          ISNULL(SUM(
+            CASE 
+              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
+              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              ELSE 0
+            END
+          ), 0) as CariBakiye
+        FROM tblCari c
+        LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
+        WHERE (c.CariKod LIKE 'A%' OR c.CariKod LIKE 'CT%')
+          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
+        GROUP BY c.CariKod, c.CariAdi
+        ORDER BY c.CariAdi ASC
+      `;
       
-      // Test amaçlı bakiye bilgisi ekle
-      const resultWithBakiye = result.map(item => ({
-        ...item,
-        CariBakiye: (Math.random() * 10000 - 5000).toFixed(2) // -5000 ile +5000 arası rastgele bakiye
-      }));
+      const result = await this.cariRepository.query(bakiyeQuery);
       
-      console.log('Tedarikçi listesi sonucu:', resultWithBakiye);
-      console.log('Tedarikçi sayısı:', resultWithBakiye.length);
+      console.log('Tedarikçi listesi sonucu:', result);
+      console.log('Tedarikçi sayısı:', result.length);
       
-      return resultWithBakiye;
+      return result;
     } catch (error) {
       console.error('Tedarikçi listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);
@@ -48,23 +54,32 @@ export class CariService {
     try {
       console.log('Müşteri listesi isteniyor...');
       
-      const result = await this.cariRepository
-        .createQueryBuilder('cari')
-        .select(['cari.CariKod as CariKod', 'cari.CariAdi as CariAdi'])
-        .where('cari.CariKod LIKE :prefix', { prefix: 'M%' })
-        .orderBy('cari.CariAdi', 'ASC')
-        .getRawMany();
+      // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
+      const bakiyeQuery = `
+        SELECT 
+          c.CariKod,
+          c.CariAdi,
+          ISNULL(SUM(
+            CASE 
+              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
+              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              ELSE 0
+            END
+          ), 0) as CariBakiye
+        FROM tblCari c
+        LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
+        WHERE c.CariKod LIKE 'M%'
+          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
+        GROUP BY c.CariKod, c.CariAdi
+        ORDER BY c.CariAdi ASC
+      `;
       
-      // Test amaçlı bakiye bilgisi ekle
-      const resultWithBakiye = result.map(item => ({
-        ...item,
-        CariBakiye: (Math.random() * 10000 - 5000).toFixed(2) // -5000 ile +5000 arası rastgele bakiye
-      }));
+      const result = await this.cariRepository.query(bakiyeQuery);
       
-      console.log('Müşteri listesi sonucu:', resultWithBakiye);
-      console.log('Müşteri sayısı:', resultWithBakiye.length);
+      console.log('Müşteri listesi sonucu:', result);
+      console.log('Müşteri sayısı:', result.length);
       
-      return resultWithBakiye;
+      return result;
     } catch (error) {
       console.error('Müşteri listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);
