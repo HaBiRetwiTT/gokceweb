@@ -26,10 +26,16 @@ export class CariService {
         .orderBy('cari.CariAdi', 'ASC')
         .getRawMany();
       
-      console.log('Tedarikçi listesi sonucu:', result);
-      console.log('Tedarikçi sayısı:', result.length);
+      // Test amaçlı bakiye bilgisi ekle
+      const resultWithBakiye = result.map(item => ({
+        ...item,
+        CariBakiye: (Math.random() * 10000 - 5000).toFixed(2) // -5000 ile +5000 arası rastgele bakiye
+      }));
       
-      return result;
+      console.log('Tedarikçi listesi sonucu:', resultWithBakiye);
+      console.log('Tedarikçi sayısı:', resultWithBakiye.length);
+      
+      return resultWithBakiye;
     } catch (error) {
       console.error('Tedarikçi listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);
@@ -49,10 +55,16 @@ export class CariService {
         .orderBy('cari.CariAdi', 'ASC')
         .getRawMany();
       
-      console.log('Müşteri listesi sonucu:', result);
-      console.log('Müşteri sayısı:', result.length);
+      // Test amaçlı bakiye bilgisi ekle
+      const resultWithBakiye = result.map(item => ({
+        ...item,
+        CariBakiye: (Math.random() * 10000 - 5000).toFixed(2) // -5000 ile +5000 arası rastgele bakiye
+      }));
       
-      return result;
+      console.log('Müşteri listesi sonucu:', resultWithBakiye);
+      console.log('Müşteri sayısı:', resultWithBakiye.length);
+      
+      return resultWithBakiye;
     } catch (error) {
       console.error('Müşteri listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);

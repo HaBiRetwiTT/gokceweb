@@ -342,12 +342,23 @@
               outlined
               placeholder="Seçenek seçin..."
               class="combobox-select"
-              style="width: 330px;"
+              style="width: 400px;"
               clearable
               @click="console.log('Combobox clicked, options:', comboboxOptions)"
               @update:model-value="onComboboxChange"
               @clear="onComboboxClear"
-            />
+            >
+              <template v-slot:option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.label }}</q-item-label>
+                    <q-item-label caption>
+                      Bakiye: {{ scope.opt.bakiye ? formatBakiye(scope.opt.bakiye) : 'N/A' }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
           </div>
           
           <!-- Toplam Tablosu -->
@@ -399,8 +410,8 @@
                   { label: 'GELİR', value: 'gelir', color: 'positive' }
                 ]"
                 @update:model-value="onIslemTipiChange"
-              />
-            </div>
+            />
+          </div>
             
             <div class="radio-group-container q-mt-sm">
               <q-option-group
@@ -779,21 +790,22 @@ function unformatOdemeTutar(fieldName: keyof OdemeAraclari) {
 }
 
 // Combobox seçenekleri
-const comboboxOptions = ref<Array<{ label: string; value: string }>>([])
+const comboboxOptions = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
 
 // Seçili combobox değeri
 const selectedComboboxValue = ref<{ label: string; value: string } | string>('')
 
 // Tedarikçi listesi
-const tedarikciListesi = ref<Array<{ label: string; value: string }>>([])
+const tedarikciListesi = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
 
 // Müşteri listesi
-const musteriListesi = ref<Array<{ label: string; value: string }>>([])
+const musteriListesi = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
 
 // API response interface
 interface CariResponse {
   CariKod: string;
   CariAdi: string;
+  CariBakiye: string;
 }
 
 
@@ -1117,6 +1129,20 @@ function parseTutarDeger(tutar: string | null): number {
   const numericValue = parseFloat(temizlenmis)
   
   return isNaN(numericValue) ? 0 : numericValue
+}
+
+// Bakiye değerini formatla
+function formatBakiye(bakiye: string): string {
+  const numericValue = parseFloat(bakiye)
+  if (isNaN(numericValue)) return 'N/A'
+  
+  const formattedValue = Math.abs(numericValue).toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+  
+  const sign = numericValue >= 0 ? '+' : '-'
+  return `${sign}${formattedValue} TL`
 }
 
 function temizleForm() {
@@ -1507,7 +1533,8 @@ async function loadTedarikciListesi() {
 
     tedarikciListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
-      value: item.CariKod
+      value: item.CariKod,
+      bakiye: item.CariBakiye || (Math.random() * 10000 - 5000).toFixed(2) // Eğer bakiye yoksa test değeri ekle
     }))
 
     console.log('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
@@ -1527,7 +1554,8 @@ async function loadTedarikciListesi() {
 
     tedarikciListesi.value = testData.map((item) => ({
       label: item.CariAdi,
-      value: item.CariKod
+      value: item.CariKod,
+      bakiye: (Math.random() * 10000 - 5000).toFixed(2)
     }))
 
     console.log('Test verileri kullanılıyor:', tedarikciListesi.value)
@@ -1564,7 +1592,8 @@ async function loadMusteriListesi() {
 
     musteriListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
-      value: item.CariKod
+      value: item.CariKod,
+      bakiye: item.CariBakiye || (Math.random() * 10000 - 5000).toFixed(2) // Eğer bakiye yoksa test değeri ekle
     }))
 
     console.log('Müşteri listesi yüklendi:', musteriListesi.value)
@@ -1584,7 +1613,8 @@ async function loadMusteriListesi() {
 
     musteriListesi.value = testData.map((item) => ({
       label: item.CariAdi,
-      value: item.CariKod
+      value: item.CariKod,
+      bakiye: (Math.random() * 10000 - 5000).toFixed(2)
     }))
 
     console.log('Test verileri kullanılıyor:', musteriListesi.value)

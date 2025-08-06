@@ -129,6 +129,17 @@
             class="q-mb-sm"
             />
           </div>
+          <div class="col-auto">
+          <q-btn 
+            color="deep-purple"
+            icon="account_balance"
+            label="Kasa Kayıtları"
+            @click="goToKasaIslem"
+            outline
+              size="lg"
+            class="q-mb-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -171,6 +182,10 @@ function goToMevcutRezerve() {
 
 function goToGelirGider() {
   void router.push('/gelir-gider')
+}
+
+function goToKasaIslem() {
+  void router.push('/kasa-islem')
 }
 
 

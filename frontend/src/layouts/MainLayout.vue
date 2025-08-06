@@ -308,6 +308,12 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/gelir-gider'
   },
   {
+    title: 'Kasa Kayıtları',
+    caption: 'Raporlar - Devirler',
+    icon: 'account_balance',
+    link: '/kasa-islem'
+  },
+  {
     title: 'Oda Tip Takvim',
     caption: 'Mevcut - Rezerve',
     icon: 'calendar_month',
