@@ -73,7 +73,7 @@ export class DatabaseConfigService {
    * Tam tablo adını döndürür (schema + tablo)
    */
   getTableName(tableName: string): string {
-    return `[${this.tableSchema}].[${tableName}]`;
+    return tableName; // Sadece tablo adını döndür, schema ayrı olarak kullanılacak
   }
 
   /**

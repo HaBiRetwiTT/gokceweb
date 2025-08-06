@@ -931,7 +931,7 @@ const odemeKontrolDurumu = computed(() => {
 function getToplamLabel() {
   // Çıkan/Giren seçili ve combobox dolu ise Çıkan/Giren label'ını göster
   if (cikanGiren.value && selectedComboboxValue.value) {
-    return cikanGiren.value === 'cikan' ? 'ÇIKAN TOPLAM' : 'GİREN TOPLAM'
+    return cikanGiren.value === 'cikan' ? 'Çıkan TOPLAM' : 'Giren TOPLAM'
   }
   
   // Diğer durumlarda normal label'ları göster
@@ -1203,25 +1203,25 @@ function temizleForm() {
 
 async function onKaydet() {
   try {
-    // GELİR/GİDER seçimi kontrolü - GİREN/ÇIKAN seçildiğinde bu kontrol yapılmayacak
+    // GELİR/GİDER seçimi kontrolü - Giren/Çıkan seçildiğinde bu kontrol yapılmayacak
     if (!islemTipi.value && !cikanGiren.value) {
       $q.notify({
         type: 'warning',
-        message: 'Lütfen önce GELİR/GİDER veya GİREN/ÇIKAN seçimi yapın'
+        message: 'Lütfen önce GELİR/GİDER veya Giren/Çıkan seçimi yapın'
       })
       return
     }
 
-    // GİREN/ÇIKAN seçimi kontrolü - GELİR/GİDER seçimine göre otomatik belirlenir
+    // Giren/Çıkan seçimi kontrolü - GELİR/GİDER seçimine göre otomatik belirlenir
     if (!cikanGiren.value) {
-      // GELİR/GİDER seçimine göre otomatik GİREN/ÇIKAN seçimi yap
+      // GELİR/GİDER seçimine göre otomatik Giren/Çıkan seçimi yap
       if (islemTipi.value === 'gelir') {
         cikanGiren.value = 'giren'
       } else if (islemTipi.value === 'gider') {
         cikanGiren.value = 'cikan'
       }
     } else {
-      // GİREN/ÇIKAN seçildiğinde GELİR/GİDER seçimini temizle
+      // Giren/Çıkan seçildiğinde GELİR/GİDER seçimini temizle
       islemTipi.value = null
     }
 
@@ -1229,7 +1229,7 @@ async function onKaydet() {
     if (islemTipi.value === 'gider' || islemTipi.value === 'gelir') {
       await handleGelirGiderKaydet()
     }
-    // GİREN/ÇIKAN seçimi durumu
+    // Giren/Çıkan seçimi durumu
     else if (cikanGiren.value === 'giren' || cikanGiren.value === 'cikan') {
       await handleGirenCikanKaydet()
     }
@@ -1237,7 +1237,7 @@ async function onKaydet() {
     else {
       $q.notify({
         type: 'warning',
-        message: 'Lütfen GELİR/GİDER veya GİREN/ÇIKAN seçimi yapın'
+        message: 'Lütfen GELİR/GİDER veya Giren/Çıkan seçimi yapın'
       })
     }
 
@@ -1277,7 +1277,7 @@ async function handleGelirGiderKaydet() {
     islemBilgi: giderNotu.value
   }
 
-  // 1. GELİR/GİDER kayıtları - GİREN/ÇIKAN seçildiğinde bu kısım çalışmayacak
+  // 1. GELİR/GİDER kayıtları - Giren/Çıkan seçildiğinde bu kısım çalışmayacak
   let seciliGelirGiderler: (GiderKategori | GelirKategori)[] = []
   
   if (selectedComboboxValue.value) {
@@ -1291,7 +1291,7 @@ async function handleGelirGiderKaydet() {
         ...ortakParametreler,
         islemCrKod: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.value : selectedComboboxValue.value,
         islemArac: 'Cari İşlem',
-        islemTip: islemTipi.value!.toUpperCase(),
+        islemTip: islemTipi.value === 'gelir' ? 'GELİR' : 'GİDER',
         islemGrup: islemTipi.value === 'gider' ? (seciliGelirGider as GiderKategori).giderAdi : (seciliGelirGider as GelirKategori).gelirAdi,
         islemAltG: typeof selectedComboboxValue.value === 'object' ? selectedComboboxValue.value.label : selectedComboboxValue.value,
         islemMiktar: seciliGelirGider.miktar,
@@ -1309,7 +1309,7 @@ async function handleGelirGiderKaydet() {
         ...ortakParametreler,
         islemCrKod: 'PC10000',
         islemArac: 'Cari İşlem',
-        islemTip: islemTipi.value!.toUpperCase(),
+        islemTip: islemTipi.value === 'gelir' ? 'GELİR' : 'GİDER',
         islemGrup: islemTipi.value === 'gider' ? (row as GiderKategori).giderAdi : (row as GelirKategori).gelirAdi,
         islemAltG: '',
         islemMiktar: row.miktar,
@@ -1379,7 +1379,7 @@ async function handleGelirGiderKaydet() {
   temizleForm()
 }
 
-// GİREN/ÇIKAN kayıt işlemi
+// Giren/Çıkan kayıt işlemi
 async function handleGirenCikanKaydet() {
   const kayitlar: Array<{
     iKytTarihi: string
@@ -1428,7 +1428,7 @@ async function handleGirenCikanKaydet() {
   if (!selectedComboboxValue.value) {
     $q.notify({
       type: 'warning',
-      message: 'GİREN/ÇIKAN işlemi için cari seçimi zorunludur'
+      message: 'Giren/Çıkan işlemi için cari seçimi zorunludur'
     })
     return
   }
@@ -1466,7 +1466,7 @@ async function handleGirenCikanKaydet() {
     return
   }
 
-  // Ödeme kayıtlarını oluştur - GİREN/ÇIKAN seçildiğinde sadece bu kayıtlar yapılacak
+  // Ödeme kayıtlarını oluştur - Giren/Çıkan seçildiğinde sadece bu kayıtlar yapılacak
   seciliOdemeAraclari.forEach(odeme => {
     kayitlar.push({
       ...ortakParametreler,
@@ -1481,7 +1481,7 @@ async function handleGirenCikanKaydet() {
   })
 
   // Kayıtları backend'e gönder
-  console.log('GİREN/ÇIKAN kaydedilecek kayıtlar:', kayitlar)
+  console.log('Giren/Çıkan kaydedilecek kayıtlar:', kayitlar)
   
   try {
     const response = await api.post('/islem/kaydet', { kayitlar })
@@ -1493,7 +1493,7 @@ async function handleGirenCikanKaydet() {
   
   $q.notify({
     type: 'positive',
-    message: `${kayitlar.length} GİREN/ÇIKAN kayıt başarıyla kaydedildi`,
+    message: `${kayitlar.length} Giren/Çıkan kayıt başarıyla kaydedildi`,
     timeout: 3000
   })
 
