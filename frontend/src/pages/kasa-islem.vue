@@ -429,8 +429,8 @@ const loadDetailTableData = async (tarih: string) => {
     console.log('Seçilen işlem türü:', selectedIslemTuru.value)
     console.log('Seçilen işlem yönü:', islemYonuForApi.value)
     
-         // Client-side pagination için tüm veriyi al
-     const detailApiUrl = `/islem/detay-islemler?tarih=${tarih}&islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&selectedYonu=${selectedIslemYonu.value}&page=1&rowsPerPage=1000`
+                   // Client-side pagination için tüm veriyi al - geçici olarak localhost'a yönlendir
+      const detailApiUrl = `http://localhost:3000/islem/detay-islemler?tarih=${tarih}&islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&selectedYonu=${selectedIslemYonu.value}&page=1&rowsPerPage=1000`
      console.log('Detay API URL:', detailApiUrl)
     
     const response = await fetch(detailApiUrl)
@@ -503,8 +503,8 @@ const loadTableData = async () => {
     console.log('API çağrısı başlatılıyor...')
     console.log('Seçilen işlem türü:', selectedIslemTuru.value)
     
-    // Test endpoint'i deneyelim
-    const testApiUrl = `/islem/test`
+    // Test endpoint'i deneyelim - geçici olarak localhost'a yönlendir
+    const testApiUrl = `http://localhost:3000/islem/test`
     console.log('Test API URL:', testApiUrl)
     
     const testResponse = await fetch(testApiUrl)
@@ -521,8 +521,8 @@ const loadTableData = async () => {
            // Test başarılıysa gerçek API'yi çağır
        if (testResult.success) {
          console.log('Test başarılı, gerçek API çağrılıyor...')
-         // Client-side pagination için tüm veriyi al
-         const realApiUrl = `/islem/kasa-islemleri?islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&page=1&rowsPerPage=1000`
+         // Client-side pagination için tüm veriyi al - geçici olarak localhost'a yönlendir
+         const realApiUrl = `http://localhost:3000/islem/kasa-islemleri?islemTuru=${selectedIslemTuru.value}&islemYonu=${islemYonuForApi.value}&page=1&rowsPerPage=1000`
          console.log('Gerçek API URL:', realApiUrl)
       
       const realResponse = await fetch(realApiUrl)
