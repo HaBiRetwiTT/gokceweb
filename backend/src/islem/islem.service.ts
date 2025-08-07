@@ -71,7 +71,7 @@ export class IslemService {
           whereCondition = `WHERE i.islemArac = 'Banka EFT'`;
           break;
         case 'acenta':
-          whereCondition = `WHERE i.islemArac = 'Acenta Kasası'`;
+          whereCondition = `WHERE i.islemArac = 'Acenta Tahsilat'`;
           break;
         case 'depozito':
           whereCondition = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
@@ -137,32 +137,15 @@ export class IslemService {
       
       const result = await this.dataSource.query(query, params);
       
-      // Bakiye hesaplama
-      const baslangicBakiyeleri: Record<string, number> = {
-        cari: 28738.901,
-        nakit: 87800,
-        kart: 8008.546,
-        eft: 0,
-        acenta: 0,
-        depozito: 107695
-      };
-      
-      const baslangicBakiye = baslangicBakiyeleri[islemTuru] || 0;
-      let currentBakiye = baslangicBakiye;
-      
-      // DESC sıralama ile bakiye hesaplama
+      // Sadece 3 sütun döndür (bakiye hesaplama kaldırıldı)
       const processedData = result.map((row: any) => {
         const gelir = parseFloat(row.gelir) || 0;
         const gider = parseFloat(row.gider) || 0;
         
-        // DESC sıralama için bakiye hesaplama
-        currentBakiye = currentBakiye + gelir - gider;
-        
         return {
           tarih: row.tarih,
           gelir: gelir,
-          gider: gider,
-          bakiye: currentBakiye
+          gider: gider
         };
       });
       
@@ -209,7 +192,7 @@ export class IslemService {
           islemAracFilter = "i.islemArac = 'Banka EFT'"
           break
         case 'acenta':
-          islemAracFilter = "i.islemArac = 'Acenta Kasası'"
+          islemAracFilter = "i.islemArac = 'Acenta Tahsilat'"
           break
         case 'depozito':
           islemAracFilter = "(i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')"
@@ -364,6 +347,151 @@ export class IslemService {
     } catch (error) {
       console.error('İşlem kaydetme hatası:', error);
       throw new Error('İşlem kayıtları kaydedilemedi');
+    }
+  }
+
+  /**
+   * Güncel bakiye hesaplar (tüm günlerin toplamı)
+   */
+  async getGuncelBakiye(islemTuru: string, islemYonu?: string): Promise<number> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+      
+      let whereCondition = '';
+      
+      // İşlem türüne göre filtreleme
+      switch (islemTuru) {
+        case 'cari':
+          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          break;
+        case 'nakit':
+          whereCondition = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
+          break;
+        case 'kart':
+          whereCondition = `WHERE i.islemArac = 'Kredi Kartları'`;
+          break;
+        case 'eft':
+          whereCondition = `WHERE i.islemArac = 'Banka EFT'`;
+          break;
+        case 'acenta':
+          whereCondition = `WHERE i.islemArac = 'Acenta Tahsilat'`;
+          break;
+        case 'depozito':
+          whereCondition = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
+          break;
+        default:
+          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+      }
+      
+      // İşlem yönüne göre dinamik sorgu
+      let gelirCondition = '';
+      let giderCondition = '';
+      
+      if (islemYonu === 'gelir-gider') {
+        gelirCondition = "i.islemTip = 'GELİR'";
+        giderCondition = "i.islemTip = 'GİDER'";
+      } else {
+        gelirCondition = "i.islemTip = 'Giren'";
+        giderCondition = "i.islemTip = 'Çıkan'";
+      }
+      
+      const bakiyeQuery = `
+        SELECT 
+          SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
+        FROM ${schemaName}.${tableName} i
+        ${whereCondition}
+      `;
+      
+      const result = await this.dataSource.query(bakiyeQuery);
+      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
+      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+      const guncelBakiye = toplamGelir - toplamGider;
+      
+      console.log(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
+        toplamGelir,
+        toplamGider,
+        guncelBakiye
+      });
+      
+      return guncelBakiye;
+    } catch (error) {
+      console.error('❌ Güncel bakiye hesaplama hatası:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Seçilen güne kadar olan bakiye hesaplar
+   */
+  async getSecilenGunBakiyesi(islemTuru: string, islemYonu: string, secilenTarih: string): Promise<number> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+      
+      let whereCondition = '';
+      
+      // İşlem türüne göre filtreleme
+      switch (islemTuru) {
+        case 'cari':
+          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          break;
+        case 'nakit':
+          whereCondition = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
+          break;
+        case 'kart':
+          whereCondition = `WHERE i.islemArac = 'Kredi Kartları'`;
+          break;
+        case 'eft':
+          whereCondition = `WHERE i.islemArac = 'Banka EFT'`;
+          break;
+        case 'acenta':
+          whereCondition = `WHERE i.islemArac = 'Acenta Tahsilat'`;
+          break;
+        case 'depozito':
+          whereCondition = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
+          break;
+        default:
+          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+      }
+      
+      // İşlem yönüne göre dinamik sorgu
+      let gelirCondition = '';
+      let giderCondition = '';
+      
+      if (islemYonu === 'gelir-gider') {
+        gelirCondition = "i.islemTip = 'GELİR'";
+        giderCondition = "i.islemTip = 'GİDER'";
+      } else {
+        gelirCondition = "i.islemTip = 'Giren'";
+        giderCondition = "i.islemTip = 'Çıkan'";
+      }
+      
+      const bakiyeQuery = `
+        SELECT 
+          SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
+        FROM ${schemaName}.${tableName} i
+        ${whereCondition}
+        AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
+      `;
+      
+      const result = await this.dataSource.query(bakiyeQuery, [secilenTarih]);
+      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
+      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+      const secilenGunBakiyesi = toplamGelir - toplamGider;
+      
+      console.log(`💰 Seçilen gün bakiyesi hesaplandı (${islemTuru}, ${secilenTarih}):`, {
+        toplamGelir,
+        toplamGider,
+        secilenGunBakiyesi
+      });
+      
+      return secilenGunBakiyesi;
+    } catch (error) {
+      console.error('❌ Seçilen gün bakiyesi hesaplama hatası:', error);
+      return 0;
     }
   }
 } 

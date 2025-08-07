@@ -6,11 +6,25 @@
         
                  <!-- Sol Sütun - Radio Button Grupları -->
          <div class="left-column">
-           <q-card class="main-card">
-             <q-card-section>
-               <div class="text-h6 q-mb-md text-center">Kasa İşlemleri</div>
-               <!-- Dış Container -->
-               <div class="radio-groups-container">
+                        <q-card class="main-card">
+               <q-card-section>
+                 <div class="text-h6 q-mb-md text-center">Kasa İşlemleri</div>
+                 
+                 <!-- Veriyi Yenile Butonu -->
+                 <div class="text-center q-mb-md">
+                   <q-btn 
+                     color="warning" 
+                     icon="refresh" 
+                     label="VERİYİ YENİLE" 
+                     size="md"
+                     class="refresh-btn"
+                     style="font-size: 12px !important;"
+                     @click="refreshData"
+                   />
+                 </div>
+                 
+                 <!-- Dış Container -->
+                 <div class="radio-groups-container">
                 
                 <!-- İlk Radio Button Grubu - İşlem Türü -->
                 <div class="radio-group-container">
@@ -27,7 +41,7 @@
                 </div>
 
                 <!-- İkinci Radio Button Grubu - Gelir/Gider veya Giren/Çıkan -->
-                <div class="radio-group-container">
+                <div class="radio-group-container second-radio-group">
                   <div class="radio-group">
                     <div class="radio-options">
                       <q-radio v-model="selectedIslemYonu" val="gelir" :label="firstOptionLabel" />
@@ -47,6 +61,16 @@
              <!-- Sol Tablo - Günlük Toplamlar -->
              <q-card class="main-card">
                <q-card-section>
+                 <!-- Bakiye Label -->
+                 <div class="bakiye-label q-mb-md">
+                   <q-chip 
+                     :color="bakiyeLabelText.includes('Güncel Bakiye') ? 'green' : 'orange'" 
+                     text-color="white"
+                     :label="bakiyeLabelText"
+                     class="text-weight-medium"
+                   />
+                 </div>
+                 
                  <div class="table-container">
                                                                                <q-table
                        :rows="tableData"
@@ -80,9 +104,6 @@
                           </q-td>
                           <q-td key="gider" :props="props" class="text-negative">
                             {{ formatCurrency(props.row.gider) }}
-                          </q-td>
-                          <q-td key="bakiye" :props="props" class="text-weight-medium">
-                            {{ formatCurrency(props.row.bakiye) }}
                           </q-td>
                         </q-tr>
                                              </template>
@@ -128,7 +149,7 @@
                                              :rows-per-page-options="[15]"
                        :rows-per-page-label="''"
                        :pagination-label="() => ''"
-                       :server-side="false"
+                       :server-side="true"
                        :hide-pagination="true"
                        :rows-per-page="15"
                        @request="onDetailRequest"
@@ -259,14 +280,7 @@ const columns = computed((): QTableColumn[] => [
     sortable: false,
     style: 'width: 100px'
   },
-  {
-    name: 'bakiye',
-    label: 'Bakiye',
-    field: 'bakiye',
-    align: 'right',
-    sortable: false,
-    style: 'width: 120px'
-  }
+
 ])
 
 // Pagination ayarları
@@ -280,8 +294,8 @@ const pagination = ref({
 
 // Detay tablo pagination ayarları
 const detailPagination = ref({
-  sortBy: 'islemAltG',
-  descending: false,
+  sortBy: 'islemTutar',
+  descending: true,
   page: 1,
   rowsPerPage: 15,
   rowsNumber: 100
@@ -306,6 +320,35 @@ const onDetailRequest = (props: any) => {
   
   // Pagination değişikliklerini uygula
   detailPagination.value = props.pagination
+  
+  // Sıralama varsa verileri sırala
+  if (props.pagination.sortBy) {
+    const sortBy = props.pagination.sortBy
+    const descending = props.pagination.descending
+    
+    // Verileri sırala
+    allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
+      let aValue: string | number = a[sortBy as keyof DetailTableRow]
+      let bValue: string | number = b[sortBy as keyof DetailTableRow]
+      
+      // Tutar sütunu için sayısal karşılaştırma
+      if (sortBy === 'islemTutar') {
+        aValue = parseFloat(String(aValue)) || 0
+        bValue = parseFloat(String(bValue)) || 0
+      } else {
+        // Diğer sütunlar için string karşılaştırma
+        aValue = String(aValue || '').toLowerCase()
+        bValue = String(bValue || '').toLowerCase()
+      }
+      
+      if (aValue < bValue) return descending ? 1 : -1
+      if (aValue > bValue) return descending ? -1 : 1
+      return 0
+    })
+  }
+  
+  // Sıralanmış verileri güncelle
+  updateDetailTableData()
 }
 
 // Ana tablo sayfa değiştirme fonksiyonu
@@ -404,6 +447,14 @@ const onRowClick = (evt: Event, row: TableRow) => {
   console.log('🔍 Seçilen tarih:', row.tarih)
   selectedDate.value = row.tarih
   void loadDetailTableData(row.tarih)
+  
+  // En üst satır (en yeni tarih) seçildiğinde güncel bakiyeyi hesapla
+  const isEnUstSatir = tableData.value.length > 0 && row.tarih === tableData.value[0].tarih
+  if (isEnUstSatir) {
+    void loadGuncelBakiye()
+  } else {
+    void loadSecilenGunBakiyesi(row.tarih)
+  }
 }
 
 // Event handler for radio group change
@@ -459,6 +510,14 @@ const loadDetailTableData = async (tarih: string) => {
        console.log('Detay toplam kayıt sayısı:', result.totalRecords)
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
+       
+       // Verileri tutar sütununa göre azalan sırala
+       allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
+         const aValue = parseFloat(String(a.islemTutar)) || 0
+         const bValue = parseFloat(String(b.islemTutar)) || 0
+         return bValue - aValue // Azalan sıralama (büyükten küçüğe)
+       })
+       
        // Detay tablo pagination için toplam kayıt sayısını ayarla
        detailPagination.value.rowsNumber = allDetailTableData.value.length
        // İlk sayfayı göster
@@ -475,6 +534,85 @@ const loadDetailTableData = async (tarih: string) => {
     detailTableData.value = []
   } finally {
     detailLoading.value = false
+  }
+}
+
+// Bakiye hesaplama fonksiyonları
+const currentBakiye = ref(0)
+const bakiyeLabelText = computed(() => {
+  if (selectedDate.value) {
+    // En üst satır (en yeni tarih) seçildiğinde güncel bakiye göster
+    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
+    if (isEnUstSatir) {
+      return `Güncel Bakiye: ${formatCurrency(currentBakiye.value)}`
+    } else {
+      return `Seçilen Gün Bakiye: ${formatCurrency(currentBakiye.value)}`
+    }
+  } else {
+    return `Güncel Bakiye: ${formatCurrency(currentBakiye.value)}`
+  }
+})
+
+// Veriyi yenile fonksiyonu
+const refreshData = () => {
+  console.log('🔄 Veri yenileniyor...')
+  
+  // Seçili tarihi temizle
+  selectedDate.value = ''
+  
+  // Detay tablo verilerini temizle
+  allDetailTableData.value = []
+  detailTableData.value = []
+  detailPagination.value.page = 1
+  detailPagination.value.rowsNumber = 0
+  
+  // Ana tablo verilerini yeniden yükle
+  void loadTableData()
+  
+  // Güncel bakiyeyi hesapla
+  void loadGuncelBakiye()
+  
+  console.log('✅ Veri yenileme tamamlandı')
+}
+
+// Güncel bakiye hesapla
+const loadGuncelBakiye = async () => {
+  try {
+    const response = await $api.get('/islem/guncel-bakiye', {
+      params: {
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value
+      }
+    })
+    
+    if (response.data.success) {
+      currentBakiye.value = response.data.bakiye
+      console.log('💰 Güncel bakiye yüklendi:', currentBakiye.value)
+    }
+  } catch (error) {
+    console.error('❌ Güncel bakiye yükleme hatası:', error)
+    currentBakiye.value = 0
+  }
+}
+
+// Seçilen gün bakiyesi hesapla
+const loadSecilenGunBakiyesi = async (tarih: string) => {
+  try {
+    const response = await $api.get('/islem/secilen-gun-bakiyesi', {
+      params: {
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value,
+        secilenTarih: tarih
+      }
+    })
+    
+    if (response.data.success) {
+      currentBakiye.value = response.data.bakiye
+      console.log('💰 Seçilen gün bakiyesi yüklendi:', currentBakiye.value)
+    }
+  } catch (error) {
+    console.error('❌ Seçilen gün bakiyesi yükleme hatası:', error)
+    currentBakiye.value = 0
   }
 }
 
@@ -569,11 +707,25 @@ const loadTableData = async () => {
 // Sayfa yüklendiğinde veriyi yükle
 onMounted(() => {
   void loadTableData()
+  // Sayfa ilk yüklendiğinde güncel bakiyeyi hesapla
+  void loadGuncelBakiye()
 })
 
 // İşlem türü değiştiğinde tabloyu yeniden yükle
 watch(selectedIslemTuru, () => {
   void loadTableData()
+  // İşlem türü değiştiğinde bakiye hesaplaması yap
+  if (selectedDate.value) {
+    // En üst satır seçildiğinde güncel bakiyeyi hesapla
+    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
+    if (isEnUstSatir) {
+      void loadGuncelBakiye()
+    } else {
+      void loadSecilenGunBakiyesi(selectedDate.value)
+    }
+  } else {
+    void loadGuncelBakiye()
+  }
 })
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
@@ -586,18 +738,46 @@ watch(selectedIslemYonu, () => {
   } else {
     console.log('🔍 Seçili tarih yok, detay tablo güncellenmiyor')
   }
+  
+  // İşlem yönü değiştiğinde bakiye hesaplaması yap
+  if (selectedDate.value) {
+    // En üst satır seçildiğinde güncel bakiyeyi hesapla
+    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
+    if (isEnUstSatir) {
+      void loadGuncelBakiye()
+    } else {
+      void loadSecilenGunBakiyesi(selectedDate.value)
+    }
+  } else {
+    void loadGuncelBakiye()
+  }
 })
 </script>
 
 <style scoped>
 .light-page-background {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f5f5;
   min-height: 100vh;
 }
 
 /* Dark mode için sayfa zemin rengi */
 .body--dark .light-page-background {
   background: #121212;
+}
+
+/* Veriyi Yenile butonu font boyutu */
+.refresh-btn {
+  font-size: 12px !important;
+}
+
+/* Daha spesifik seçici */
+.q-btn.refresh-btn {
+  font-size: 12px !important;
+}
+
+/* İkinci radio grup aralığı */
+.second-radio-group {
+  margin-top: 6px;
 }
 
 .ana-container {

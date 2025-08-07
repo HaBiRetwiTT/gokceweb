@@ -1304,8 +1304,6 @@ export class DashboardService {
             k.knklmMstrNo,
             MAX(k.knklmNo) as SonKnklmNo
           FROM ${tables.konaklama} k
-          WHERE k.knklmCksTrh IS NOT NULL 
-            AND k.knklmCksTrh != ''
           GROUP BY k.knklmMstrNo
         ) SonKayitlar
         INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 
@@ -1420,8 +1418,6 @@ export class DashboardService {
             k.knklmMstrNo,
             MAX(k.knklmNo) as SonKnklmNo
           FROM ${tables.konaklama} k
-          WHERE k.knklmCksTrh IS NOT NULL 
-            AND k.knklmCksTrh != ''
           GROUP BY k.knklmMstrNo
         ) SonKayitlar
         INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 

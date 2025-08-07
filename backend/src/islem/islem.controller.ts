@@ -147,4 +147,55 @@ export class IslemController {
       timestamp: new Date().toISOString()
     }
   }
+
+
+
+  /**
+   * Güncel bakiye getirir
+   */
+  @Get('guncel-bakiye')
+  async getGuncelBakiye(
+    @Query('islemTuru') islemTuru: string,
+    @Query('islemYonu') islemYonu: string
+  ) {
+    try {
+      const bakiye = await this.islemService.getGuncelBakiye(islemTuru, islemYonu);
+      return {
+        success: true,
+        bakiye: bakiye,
+        message: 'Güncel bakiye başarıyla hesaplandı'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Güncel bakiye hesaplanamadı',
+        error: error
+      };
+    }
+  }
+
+  /**
+   * Seçilen gün bakiyesi getirir
+   */
+  @Get('secilen-gun-bakiyesi')
+  async getSecilenGunBakiyesi(
+    @Query('islemTuru') islemTuru: string,
+    @Query('islemYonu') islemYonu: string,
+    @Query('secilenTarih') secilenTarih: string
+  ) {
+    try {
+      const bakiye = await this.islemService.getSecilenGunBakiyesi(islemTuru, islemYonu, secilenTarih);
+      return {
+        success: true,
+        bakiye: bakiye,
+        message: 'Seçilen gün bakiyesi başarıyla hesaplandı'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Seçilen gün bakiyesi hesaplanamadı',
+        error: error
+      };
+    }
+  }
 } 
