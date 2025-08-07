@@ -50,6 +50,61 @@
                   </div>
                 </div>
 
+                <!-- Kasalar Arası Aktarım Bölümü -->
+                <div class="transfer-container">
+                  <div class="transfer-header">
+                    <div class="transfer-title">Kasalar Arası Aktarım</div>
+                  </div>
+                  <div class="transfer-form">
+                    <div class="form-row">
+                      <div class="form-label">Veren</div>
+                      <q-select 
+                        v-model="transferForm.veren" 
+                        :options="kasaOptions"
+                        outlined 
+                        dense 
+                        placeholder="Veren kasa seçin"
+                        class="transfer-input"
+                        emit-value
+                        map-options
+                      />
+                    </div>
+                    <div class="form-row">
+                      <div class="form-label">Alan</div>
+                      <q-select 
+                        v-model="transferForm.alan" 
+                        :options="kasaOptions"
+                        outlined 
+                        dense 
+                        placeholder="Alan kasa seçin"
+                        class="transfer-input"
+                        emit-value
+                        map-options
+                      />
+                    </div>
+                    <div class="form-row">
+                      <div class="form-label">Tutar</div>
+                      <q-input 
+                        v-model="transferForm.tutar" 
+                        outlined 
+                        dense 
+                        placeholder="0.00"
+                        type="number"
+                        class="transfer-input"
+                      />
+                    </div>
+                    <div class="form-row">
+                      <q-btn 
+                        color="primary" 
+                        label="AKTAR" 
+                        @click="performTransfer"
+                        class="transfer-button"
+                        size="md"
+                      />
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </q-card-section>
           </q-card>
@@ -62,7 +117,7 @@
              <q-card class="main-card">
                <q-card-section>
                  <!-- Bakiye Label -->
-                 <div class="bakiye-label q-mb-md">
+                 <div class="bakiye-label q-mb-sm">
                    <q-chip 
                      :color="bakiyeLabelText.includes('Güncel Bakiye') ? 'green' : 'orange'" 
                      text-color="white"
@@ -71,8 +126,10 @@
                    />
                  </div>
                  
-                 <div class="table-container">
-                                                                               <q-table
+                 <!-- Ana Grid Tablo Container -->
+                 <div class="main-table-container">
+                   <div class="table-container">
+                     <q-table
                        :rows="tableData"
                        :columns="columns"
                        :loading="loading"
@@ -81,32 +138,32 @@
                        flat
                        bordered
                        class="kasa-table"
-                                              :rows-per-page-options="[7]"
-                        :rows-per-page-label="''"
-                        :pagination-label="() => ''"
-                        :server-side="false"
-                        :hide-pagination="true"
-                        :rows-per-page="7"
-                        @request="onRequest"
+                       :rows-per-page-options="[7]"
+                       :rows-per-page-label="''"
+                       :pagination-label="() => ''"
+                       :server-side="false"
+                       :hide-pagination="true"
+                       :rows-per-page="7"
+                       @request="onRequest"
                      >
-                                            <!-- Satır template'i -->
-                      <template v-slot:body="props">
-                        <q-tr 
-                          :props="props" 
-                          :class="{ 'selected-row': props.row.tarih === selectedDate }"
-                          @click="onRowClick($event, props.row)"
-                        >
-                          <q-td key="tarih" :props="props" class="cursor-pointer">
-                            {{ formatDate(props.row.tarih) }}
-                          </q-td>
-                          <q-td key="gelir" :props="props" class="text-positive">
-                            {{ formatCurrency(props.row.gelir) }}
-                          </q-td>
-                          <q-td key="gider" :props="props" class="text-negative">
-                            {{ formatCurrency(props.row.gider) }}
-                          </q-td>
-                        </q-tr>
-                                             </template>
+                       <!-- Satır template'i -->
+                       <template v-slot:body="props">
+                         <q-tr 
+                           :props="props" 
+                           :class="{ 'selected-row': props.row.tarih === selectedDate }"
+                           @click="onRowClick($event, props.row)"
+                         >
+                           <q-td key="tarih" :props="props" class="cursor-pointer">
+                             {{ formatDate(props.row.tarih) }}
+                           </q-td>
+                           <q-td key="gelir" :props="props" class="text-positive">
+                             {{ formatCurrency(props.row.gelir) }}
+                           </q-td>
+                           <q-td key="gider" :props="props" class="text-negative">
+                             {{ formatCurrency(props.row.gider) }}
+                           </q-td>
+                         </q-tr>
+                       </template>
                      </q-table>
                      
                      <!-- Özel Pagination Butonları -->
@@ -129,6 +186,78 @@
                          size="sm"
                        />
                      </div>
+                   </div>
+                   
+                   <!-- Kasa Devir Tablo Container -->
+                   <div class="kasa-devir-container">
+                     <div class="kasa-devir-header">
+                       <q-btn 
+                         color="primary" 
+                         icon="account_balance_wallet" 
+                         label="KASA DEVRET" 
+                         size="md"
+                         class="kasa-devir-btn"
+                         @click="loadKasaDevirVerileri"
+                       />
+                     </div>
+                     
+                     <div class="kasa-devir-table-container">
+                       <q-table
+                         :rows="kasaDevirData"
+                         :columns="kasaDevirColumns"
+                         :loading="kasaDevirLoading"
+                         :pagination="kasaDevirPagination"
+                         row-key="DevirTarihi"
+                         flat
+                         bordered
+                         class="kasa-devir-table"
+                         :rows-per-page-options="[3]"
+                         :rows-per-page-label="''"
+                         :pagination-label="() => ''"
+                         :server-side="true"
+                         :hide-pagination="true"
+                         :rows-per-page="3"
+                         @request="onKasaDevirRequest"
+                       >
+                         <template v-slot:body-cell-DevirTarihi="props">
+                           <q-td :props="props">
+                             <span class="text-weight-medium">
+                               {{ formatDate(props.value) }}
+                             </span>
+                           </q-td>
+                         </template>
+                         
+                         <template v-slot:body-cell-KasaYekun="props">
+                           <q-td :props="props">
+                             <span class="text-weight-medium">
+                               {{ formatCurrency(props.value) }}
+                             </span>
+                           </q-td>
+                         </template>
+                       </q-table>
+                       
+                       <!-- Kasa Devir Özel Pagination Butonları -->
+                       <div class="custom-pagination">
+                         <q-btn 
+                           :disable="kasaDevirPagination.page <= 1" 
+                           @click="changeKasaDevirPage(kasaDevirPagination.page - 1)"
+                           color="primary"
+                           icon="chevron_left"
+                           size="sm"
+                         />
+                         <span class="pagination-info">
+                           Sayfa {{ kasaDevirPagination.page }} / {{ Math.ceil(kasaDevirPagination.rowsNumber / kasaDevirPagination.rowsPerPage) }}
+                         </span>
+                         <q-btn 
+                           :disable="kasaDevirPagination.page >= Math.ceil(kasaDevirPagination.rowsNumber / kasaDevirPagination.rowsPerPage)" 
+                           @click="changeKasaDevirPage(kasaDevirPagination.page + 1)"
+                           color="primary"
+                           icon="chevron_right"
+                           size="sm"
+                         />
+                       </div>
+                     </div>
+                   </div>
                  </div>
                </q-card-section>
              </q-card>
@@ -202,7 +331,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
+import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
+
+const $q = useQuasar()
 
 // Axios instance'ını al
 const instance = getCurrentInstance()
@@ -236,12 +368,47 @@ interface DetailTableRow {
   islemBilgi: string
 }
 
+interface KasaDevirRow {
+  DevirTarihi: string
+  DevirEden: string
+  KasaYekun: number
+}
+
 const tableData = ref<TableRow[]>([])
 const detailTableData = ref<DetailTableRow[]>([])
 
 // Tüm veriyi saklamak için
 const allTableData = ref<TableRow[]>([])
 const allDetailTableData = ref<DetailTableRow[]>([])
+
+// Kasa devir verileri
+const kasaDevirData = ref<KasaDevirRow[]>([])
+const kasaDevirLoading = ref(false)
+
+// Kasa devir pagination ayarları
+const kasaDevirPagination = ref({
+  sortBy: 'DevirTarihi',
+  descending: true,
+  page: 1,
+  rowsPerPage: 3,
+  rowsNumber: 0
+})
+
+// Kasalar arası aktarım formu
+const transferForm = ref({
+  veren: '',
+  alan: '',
+  tutar: ''
+})
+
+// Kasa seçenekleri
+const kasaOptions = [
+  { label: 'Nakit', value: 'nakit' },
+  { label: 'Kart', value: 'kart' },
+  { label: 'EFT', value: 'eft' },
+  { label: 'Acenta', value: 'acenta' }
+  // { label: 'Depozito', value: 'depozito' } // Şimdilik gizli
+]
 
 // Başlangıç bakiye değerleri (backend'de kullanılıyor)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -281,6 +448,34 @@ const columns = computed((): QTableColumn[] => [
     style: 'width: 100px'
   },
 
+])
+
+// Kasa devir tablo sütunları
+const kasaDevirColumns = computed((): QTableColumn[] => [
+  {
+    name: 'DevirTarihi',
+    label: 'Tarih',
+    field: 'DevirTarihi',
+    align: 'left',
+    sortable: true,
+    style: 'width: 120px'
+  },
+  {
+    name: 'DevirEden',
+    label: 'Devir E.',
+    field: 'DevirEden',
+    align: 'left',
+    sortable: true,
+    style: 'width: 150px'
+  },
+  {
+    name: 'KasaYekun',
+    label: 'Kasa Yekün',
+    field: 'KasaYekun',
+    align: 'right',
+    sortable: true,
+    style: 'width: 150px'
+  }
 ])
 
 // Pagination ayarları
@@ -553,12 +748,145 @@ const bakiyeLabelText = computed(() => {
   }
 })
 
+// Kasalar arası aktarım fonksiyonu
+const performTransfer = async () => {
+  console.log('🔄 Kasalar arası aktarım başlatılıyor...')
+  
+  // Form validasyonu
+  if (!transferForm.value.veren || !transferForm.value.alan || !transferForm.value.tutar) {
+    console.error('❌ Form alanları eksik')
+    return
+  }
+  
+  const tutar = parseFloat(transferForm.value.tutar)
+  if (isNaN(tutar) || tutar <= 0) {
+    console.error('❌ Geçersiz tutar')
+    return
+  }
+  
+  if (transferForm.value.veren === transferForm.value.alan) {
+    console.error('❌ Aynı kasa seçilemez')
+    return
+  }
+  
+  try {
+    console.log('📤 Aktarım verileri:', {
+      veren: transferForm.value.veren,
+      alan: transferForm.value.alan,
+      tutar: tutar
+    })
+    
+    // Backend API çağrısı
+    const response = await $api.post('/islem/kasa-aktarimi', {
+      veren: transferForm.value.veren,
+      alan: transferForm.value.alan,
+      tutar: tutar
+    })
+    
+    if (response.data.success) {
+      console.log('✅ Aktarım başarılı:', response.data.message)
+      
+      // Form temizle
+      transferForm.value.veren = ''
+      transferForm.value.alan = ''
+      transferForm.value.tutar = ''
+      
+      // Verileri yenile
+      await refreshData()
+      
+      // Başarı mesajı göster
+      $q.notify({
+        type: 'positive',
+        message: response.data.message,
+        position: 'top',
+        timeout: 5000,
+        html: true
+      })
+    } else {
+      console.error('❌ Aktarım başarısız:', response.data.message)
+      
+      // Hata mesajı göster
+      $q.notify({
+        type: 'negative',
+        message: response.data.message || 'Kasa aktarımı başarısız!',
+        position: 'top',
+        timeout: 8000,
+        html: true
+      })
+    }
+    
+  } catch (error) {
+    console.error('❌ Aktarım hatası:', error)
+  }
+}
+
+// Kasa devir verilerini yükle
+const loadKasaDevirVerileri = async () => {
+  try {
+    console.log('🔄 Kasa devir verileri yükleniyor...')
+    kasaDevirLoading.value = true
+    
+    const response = await $api.get('/islem/kasa-devir-verileri', {
+      params: {
+        page: kasaDevirPagination.value.page,
+        rowsPerPage: kasaDevirPagination.value.rowsPerPage
+      }
+    })
+    
+    if (response.data.success) {
+      kasaDevirData.value = response.data.data
+      kasaDevirPagination.value.rowsNumber = response.data.totalRecords
+      console.log('✅ Kasa devir verileri yüklendi:', kasaDevirData.value.length, 'kayıt')
+    } else {
+      console.error('❌ Kasa devir verileri yüklenemedi:', response.data.message)
+      $q.notify({
+        type: 'negative',
+        message: response.data.message || 'Kasa devir verileri yüklenemedi!',
+        position: 'top',
+        timeout: 5000
+      })
+    }
+  } catch (error) {
+    console.error('❌ Kasa devir verileri yükleme hatası:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Kasa devir verileri yüklenirken hata oluştu!',
+      position: 'top',
+      timeout: 5000
+    })
+  } finally {
+    kasaDevirLoading.value = false
+  }
+}
+
+// Kasa devir tablo pagination request handler
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const onKasaDevirRequest = (props: any) => {
+  console.log('🔍 Kasa devir tablo pagination request:', props)
+  
+  // Pagination değişikliklerini uygula
+  kasaDevirPagination.value = props.pagination
+  // Sadece tarih sütunu DESC olarak kalacak
+  kasaDevirPagination.value.sortBy = 'DevirTarihi'
+  kasaDevirPagination.value.descending = true
+  
+  // Verileri yeniden yükle
+  void loadKasaDevirVerileri()
+}
+
+// Kasa devir sayfa değiştirme fonksiyonu
+const changeKasaDevirPage = async (newPage: number) => {
+  console.log('🔄 Kasa devir sayfa değiştiriliyor:', newPage)
+  kasaDevirPagination.value.page = newPage
+  await loadKasaDevirVerileri()
+}
+
 // Veriyi yenile fonksiyonu
-const refreshData = () => {
+const refreshData = async () => {
   console.log('🔄 Veri yenileniyor...')
   
-  // Seçili tarihi temizle
-  selectedDate.value = ''
+  // Mevcut seçili tarihi sakla
+  const mevcutSeciliTarih = selectedDate.value
   
   // Detay tablo verilerini temizle
   allDetailTableData.value = []
@@ -567,10 +895,22 @@ const refreshData = () => {
   detailPagination.value.rowsNumber = 0
   
   // Ana tablo verilerini yeniden yükle
-  void loadTableData()
+  await loadTableData()
+  
+  // Tarih seçili ise o tarih için detay tablo, değilse ilk tarih seçilsin
+  if (mevcutSeciliTarih && tableData.value.some(row => row.tarih === mevcutSeciliTarih)) {
+    // Mevcut seçili tarih hala geçerliyse onu kullan
+    selectedDate.value = mevcutSeciliTarih
+    await loadDetailTableData(mevcutSeciliTarih)
+  } else if (tableData.value.length > 0) {
+    // İlk tarih seçilsin ve detay tablo sorgulansın
+    const ilkTarih = tableData.value[0].tarih
+    selectedDate.value = ilkTarih
+    await loadDetailTableData(ilkTarih)
+  }
   
   // Güncel bakiyeyi hesapla
-  void loadGuncelBakiye()
+  await loadGuncelBakiye()
   
   console.log('✅ Veri yenileme tamamlandı')
 }
@@ -705,10 +1045,21 @@ const loadTableData = async () => {
 }
 
 // Sayfa yüklendiğinde veriyi yükle
-onMounted(() => {
-  void loadTableData()
+onMounted(async () => {
+  await loadTableData()
   // Sayfa ilk yüklendiğinde güncel bakiyeyi hesapla
-  void loadGuncelBakiye()
+  await loadGuncelBakiye()
+  
+  // Kasa devir verilerini otomatik olarak yükle
+  await loadKasaDevirVerileri()
+  
+  // İlk tarih seçili olsun ve detay tablo sorgulansın
+  if (tableData.value.length > 0) {
+    const ilkTarih = tableData.value[0].tarih
+    selectedDate.value = ilkTarih
+    await loadDetailTableData(ilkTarih)
+    await loadGuncelBakiye()
+  }
 })
 
 // İşlem türü değiştiğinde tabloyu yeniden yükle
@@ -778,6 +1129,150 @@ watch(selectedIslemYonu, () => {
 /* İkinci radio grup aralığı */
 .second-radio-group {
   margin-top: 6px;
+}
+
+/* Kasalar Arası Aktarım Container */
+.transfer-container {
+  margin-top: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode için transfer container */
+.body--dark .transfer-container {
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.transfer-header {
+  margin-bottom: 15px;
+}
+
+.transfer-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  word-wrap: break-word;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* Dark mode için transfer başlık rengi */
+.body--dark .transfer-title {
+  color: #ffffff;
+}
+
+.transfer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 2px;
+}
+
+/* Dark mode için form label rengi */
+.body--dark .form-label {
+  color: #e0e0e0;
+}
+
+.transfer-input {
+  width: 100%;
+}
+
+.transfer-button {
+  margin-top: 8px;
+  width: 100%;
+}
+
+/* Combobox seçenek font boyutu */
+.transfer-input .q-field__native {
+  font-size: 8px;
+}
+
+/* Ana Grid Tablo Container */
+.main-table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Kasa Devir Container */
+.kasa-devir-container {
+  background: rgba(222, 232, 222, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(70, 130, 180, 0.2);
+  box-shadow: 0 2px 8px rgba(70, 130, 180, 0.15);
+}
+
+/* Dark mode için kasa devir container */
+.body--dark .kasa-devir-container {
+  background: rgba(20, 30, 40, 0.95);
+  border: 1px solid rgba(100, 150, 200, 0.3);
+  box-shadow: 0 2px 8px rgba(100, 150, 200, 0.2);
+}
+
+.kasa-devir-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.kasa-devir-btn {
+  font-weight: 600;
+  font-size: 14px;
+  padding: 2px 16px;
+  min-height: 28px;
+  height: 28px;
+}
+
+.kasa-devir-table-container {
+  margin-top: 15px;
+}
+
+.kasa-devir-table {
+  background: transparent;
+}
+
+.kasa-devir-table .q-table__top {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Dark mode için tablo başlık */
+.body--dark .kasa-devir-table .q-table__top {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Kasa devir tablosu satır aralıklarını azalt */
+.kasa-devir-table .q-table__tbody tr {
+  height: 24px;
+}
+
+.kasa-devir-table .q-table__tbody td {
+  padding: 2px 4px;
+}
+
+.kasa-devir-table .q-table__thead th {
+  padding: 3px 4px;
+  height: 24px;
+}
+
+.transfer-input .q-item {
+  font-size: 8px;
+  min-height: 24px;
 }
 
 .ana-container {

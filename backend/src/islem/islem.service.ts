@@ -494,4 +494,240 @@ export class IslemService {
       return 0;
     }
   }
+
+  /**
+   * tblKasaDevir tablosundan sayfalanmış verileri getirir
+   */
+  async getKasaDevirVerileri(page: number = 1, rowsPerPage: number = 3): Promise<{data: any[], totalRecords: number}> {
+    try {
+      const offset = (page - 1) * rowsPerPage;
+      
+      // Toplam kayıt sayısını al
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir
+      `;
+      
+      const countResult = await this.dataSource.query(countQuery);
+      const totalRecords = countResult[0]?.total || 0;
+      
+      // Sayfalanmış verileri al
+      const query = `
+        SELECT 
+          kd.nKytTarihi as DevirTarihi,
+          kd.nKasaDvrAln as DevirEden,
+          kd.nKasaYekun as KasaYekun
+        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir kd
+        ORDER BY CONVERT(DATE, kd.nKytTarihi, 104) DESC
+        OFFSET ${offset} ROWS
+        FETCH NEXT ${rowsPerPage} ROWS ONLY
+      `;
+      
+      const result = await this.dataSource.query(query);
+      console.log('📊 Kasa devir verileri alındı:', result.length, 'kayıt (sayfa:', page, ')');
+      
+      return {
+        data: result,
+        totalRecords: totalRecords
+      };
+    } catch (error) {
+      console.error('❌ Kasa devir verileri alma hatası:', error);
+      return {
+        data: [],
+        totalRecords: 0
+      };
+    }
+  }
+
+  /**
+   * Aktif kullanıcının PrsnUsrNm bilgisini tblPersonel tablosundan alır
+   */
+  private async getAktifKullaniciAdi(): Promise<string> {
+    try {
+      // Şimdilik varsayılan kullanıcı olarak SAadmin kullanıyoruz
+      // TODO: Gerçek authentication sistemi entegre edildiğinde bu kısım güncellenecek
+      const query = `
+        SELECT TOP 1 PrsnUsrNm 
+        FROM ${this.dbConfig.getTableSchema()}.tblPersonel 
+        WHERE PrsnUsrNm = 'SAadmin'
+      `;
+      
+      const result = await this.dataSource.query(query);
+      const kullaniciAdi = result[0]?.PrsnUsrNm || 'SAadmin';
+      
+      console.log('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
+      return kullaniciAdi;
+    } catch (error) {
+      console.error('❌ Kullanıcı bilgisi alma hatası:', error);
+      return 'SAadmin'; // Fallback değer
+    }
+  }
+
+  /**
+   * Kasalar arası aktarım işlemi - islemEKLE stored procedure kullanarak
+   */
+  async kasaAktarimi(veren: string, alan: string, tutar: number): Promise<any> {
+    try {
+      console.log('🔄 Kasa aktarımı başlatılıyor:', { veren, alan, tutar });
+      
+      // Bugünün tarihini DD.MM.YYYY formatında al
+      const bugun = new Date();
+      const iKytTarihi = bugun.getDate().toString().padStart(2, '0') + '.' + 
+                         (bugun.getMonth() + 1).toString().padStart(2, '0') + '.' + 
+                         bugun.getFullYear();
+      
+      // Kasa parametrelerini belirle
+      const kasaParametreleri = {
+        nakit: {
+          islemCrKod: 'PN10000',
+          islemArac: 'Nakit Kasa(TL)',
+          islemAltG: 'PANSİYON NAKİT GİDERLERİ'
+        },
+        kart: {
+          islemCrKod: 'PK10000',
+          islemArac: 'Kredi Kartları',
+          islemAltG: 'PANSİYON KREDİ KARTI GİDERLERİ'
+        },
+        eft: {
+          islemCrKod: 'PB10000',
+          islemArac: 'Banka EFT',
+          islemAltG: 'PANSİYON BANKA GİDERLERİ'
+        },
+        acenta: {
+          islemCrKod: 'PA10000',
+          islemArac: 'Acenta Tahsilat',
+          islemAltG: 'PANSİYON ACENTA KASASI'
+        },
+        depozito: {
+          islemCrKod: 'PD10000',
+          islemArac: 'Depozito Kasası',
+          islemAltG: 'PANSİYON DEPOZİTO KASASI'
+        }
+      };
+
+      const verenParametreleri = kasaParametreleri[veren];
+      const alanParametreleri = kasaParametreleri[alan];
+
+      if (!verenParametreleri || !alanParametreleri) {
+        throw new Error('Geçersiz kasa türü seçildi');
+      }
+
+      // Aktif kullanıcı bilgisini al
+      const islemKllnc = await this.getAktifKullaniciAdi();
+
+      // Transaction başlat
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // 1. Veren kasadan çıkış işlemi
+        const verenIslemQuery = `
+          EXEC ${this.dbConfig.getSpName('spr_islemEkleYn')} 
+            @iKytTarihi = @0,
+            @islemKllnc = @1,
+            @islemCrKod = @2,
+            @islemOzel1 = @3,
+            @islemOzel2 = @4,
+            @islemOzel3 = @5,
+            @islemOzel4 = @6,
+            @islemArac = @7,
+            @islemTip = @8,
+            @islemGrup = @9,
+            @islemAltG = @10,
+            @islemBilgi = @11,
+            @islemMiktar = @12,
+            @islemBirim = @13,
+            @islemTutar = @14,
+            @islemDoviz = @15,
+            @islemKur = @16
+        `;
+
+        const verenIslemParams = [
+          iKytTarihi,           // @0 iKytTarihi
+          islemKllnc,           // @1 islemKllnc
+          verenParametreleri.islemCrKod, // @2 islemCrKod
+          '',                   // @3 islemOzel1
+          '',                   // @4 islemOzel2
+          '',                   // @5 islemOzel3
+          '',                   // @6 islemOzel4
+          verenParametreleri.islemArac,  // @7 islemArac
+          'Çıkan',              // @8 islemTip
+          'Kasaya Verilen',     // @9 islemGrup
+          verenParametreleri.islemAltG,  // @10 islemAltG
+          `${verenParametreleri.islemArac} Kasasına Verilen Tutar`, // @11 islemBilgi
+          1,                    // @12 islemMiktar
+          'ADET',               // @13 islemBirim
+          tutar,                // @14 islemTutar
+          'TL',                 // @15 islemDoviz
+          1                     // @16 islemKur
+        ];
+
+        console.log('📤 Veren kasadan çıkış işlemi gerçekleştiriliyor...');
+        await queryRunner.query(verenIslemQuery, verenIslemParams);
+        console.log('✅ Veren kasadan çıkış işlemi kaydedildi');
+
+        // 2. Alan kasaya giriş işlemi
+        const alanIslemParams = [
+          iKytTarihi,           // @0 iKytTarihi
+          islemKllnc,           // @1 islemKllnc
+          alanParametreleri.islemCrKod, // @2 islemCrKod
+          '',                   // @3 islemOzel1
+          '',                   // @4 islemOzel2
+          '',                   // @5 islemOzel3
+          '',                   // @6 islemOzel4
+          alanParametreleri.islemArac,  // @7 islemArac
+          'Giren',              // @8 islemTip
+          'Kasadan Alınan',     // @9 islemGrup
+          alanParametreleri.islemAltG,  // @10 islemAltG
+          `${alanParametreleri.islemArac} Kasasından Alınan Tutar`, // @11 islemBilgi
+          1,                    // @12 islemMiktar
+          'ADET',               // @13 islemBirim
+          tutar,                // @14 islemTutar
+          'TL',                 // @15 islemDoviz
+          1                     // @16 islemKur
+        ];
+
+        console.log('📥 Alan kasaya giriş işlemi gerçekleştiriliyor...');
+        await queryRunner.query(verenIslemQuery, alanIslemParams);
+        console.log('✅ Alan kasaya giriş işlemi kaydedildi');
+
+        // Transaction'ı commit et
+        await queryRunner.commitTransaction();
+        
+        const basariliMesaj = `✅ Kasa aktarımı başarıyla tamamlandı!\n\n💰 ${verenParametreleri.islemArac} → ${alanParametreleri.islemArac}\n💵 Tutar: ${tutar.toLocaleString('tr-TR')} TL\n👤 İşlemi Yapan: ${islemKllnc}\n📅 Tarih: ${iKytTarihi}`;
+        
+        console.log('✅ Kasa aktarımı başarıyla tamamlandı');
+        
+        return {
+          success: true,
+          message: basariliMesaj,
+          details: {
+            veren: verenParametreleri.islemArac,
+            alan: alanParametreleri.islemArac,
+            tutar: tutar,
+            kullanici: islemKllnc,
+            tarih: iKytTarihi
+          }
+        };
+
+      } catch (error) {
+        // Hata durumunda rollback
+        await queryRunner.rollbackTransaction();
+        
+        const hataMesaj = `❌ Kasa aktarımı başarısız!\n\n🔍 Hata Detayı: ${error.message}\n💰 İşlem: ${verenParametreleri.islemArac} → ${alanParametreleri.islemArac}\n💵 Tutar: ${tutar.toLocaleString('tr-TR')} TL\n📅 Tarih: ${iKytTarihi}`;
+        
+        console.error('❌ Kasa aktarımı hatası, rollback yapıldı:', error);
+        throw new Error(hataMesaj);
+      } finally {
+        // Query runner'ı serbest bırak
+        await queryRunner.release();
+        console.log('🔒 Transaction kaynakları serbest bırakıldı');
+      }
+
+    } catch (error) {
+      console.error('❌ Kasa aktarımı genel hatası:', error);
+      throw error; // Zaten formatlanmış hata mesajını tekrar formatlamaya gerek yok
+    }
+  }
 } 

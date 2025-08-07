@@ -198,4 +198,66 @@ export class IslemController {
       };
     }
   }
+
+  /**
+   * Kasa devir verileri getirir
+   */
+  @Get('kasa-devir-verileri')
+  async getKasaDevirVerileri(
+    @Query('page') page: string = '1',
+    @Query('rowsPerPage') rowsPerPage: string = '3'
+  ) {
+    try {
+      const pageNum = parseInt(page, 10) || 1;
+      const rowsPerPageNum = parseInt(rowsPerPage, 10) || 3;
+      
+      const result = await this.islemService.getKasaDevirVerileri(pageNum, rowsPerPageNum);
+      return {
+        success: true,
+        data: result.data,
+        totalRecords: result.totalRecords,
+        message: 'Kasa devir verileri başarıyla getirildi'
+      };
+    } catch (error) {
+      console.error('❌ Kasa devir verileri endpoint hatası:', error);
+      return {
+        success: false,
+        message: 'Kasa devir verileri alınamadı',
+        error: error.message
+      };
+    }
+  }
+
+  @Post('kasa-aktarimi')
+  async kasaAktarimi(@Body() body: { veren: string; alan: string; tutar: number }) {
+    try {
+      console.log('Kasa aktarımı başlatılıyor:', body);
+      
+      if (!body.veren || !body.alan || !body.tutar) {
+        throw new HttpException('Veren, alan ve tutar alanları zorunludur', HttpStatus.BAD_REQUEST);
+      }
+
+      if (body.veren === body.alan) {
+        throw new HttpException('Veren ve alan kasa aynı olamaz', HttpStatus.BAD_REQUEST);
+      }
+
+      if (body.tutar <= 0) {
+        throw new HttpException('Tutar pozitif olmalıdır', HttpStatus.BAD_REQUEST);
+      }
+
+      const sonuc = await this.islemService.kasaAktarimi(body.veren, body.alan, body.tutar);
+      
+      return {
+        success: true,
+        message: 'Kasa aktarımı başarıyla tamamlandı',
+        sonuc
+      };
+    } catch (error) {
+      console.error('Kasa aktarımı hatası:', error);
+      throw new HttpException(
+        error.message || 'Kasa aktarımı sırasında hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 } 
