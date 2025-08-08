@@ -336,7 +336,6 @@ const linksList = computed(() => {
   const isKartliIslemPage = currentRoute.value === '/kartli-islem';
   const currentFilter = kartliIslemCurrentFilter.value || window.kartliIslemCurrentFilter;
   
-  const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
   
   return allLinksList.filter(link => {
     // Kartlı işlem sayfasında değilse bu menüleri gizle
