@@ -2572,7 +2572,9 @@ async function loadCariHareketler(cariKod: string) {
         }
       }
     } else {
-      
+      // Başarısız yanıt geldiğinde listeyi temizle
+      cariHareketlerListesi.value = []
+      filteredCariHareketlerListesi.value = []
     }
   } catch (error) {
     console.error('Cari hareketler yüklenemedi:', error)
@@ -2623,7 +2625,9 @@ async function loadCariHareketlerByTC(tcKimlik: string) {
         }
       }
     } else {
-      
+      // Başarısız yanıt geldiğinde listeyi temizle
+      cariHareketlerListesi.value = []
+      filteredCariHareketlerListesi.value = []
     }
   } catch (error) {
     console.error('🔄 Cari hareketler yüklenemedi:', error)

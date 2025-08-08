@@ -762,7 +762,7 @@
   </q-page>
 </template>
 
-<!-- eslint-disable @typescript-eslint/no-floating-promises -->
+
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
