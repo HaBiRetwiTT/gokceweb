@@ -26,6 +26,44 @@ export interface MusteriKonaklamaData {
   odemeVadesi?: string;
 }
 
+// Tip güvenliği: Dashboard birleşik istatistik satırı
+type UnifiedStatsRow = {
+  ToplamAktifKonaklama: number | string | null;
+  GunlukKonaklama: number | string | null;
+  HaftalikKonaklama: number | string | null;
+  AylikKonaklama: number | string | null;
+  ToplamGelir: number | string | null;
+  OrtalamaGelir: number | string | null;
+  YeniMusteriKonaklama: number | string | null;
+  YeniGirisKonaklama: number | string | null;
+  DevamEdenKonaklama: number | string | null;
+  BugünCikanKonaklama: number | string | null;
+  BorcluMusteriSayisi: number | string | null;
+  AlacakliMusteriSayisi: number | string | null;
+  BakiyesizHesaplarSayisi: number | string | null;
+  SuresiGecentKonaklama: number | string | null;
+};
+
+// Tip güvenliği: Borçlu müşteri satırı (liste sorgusu)
+type BorcluMusteriRow = {
+  cKytTarihi: string;
+  CariKllnc: string;
+  CariKod: string;
+  CariAdi: string;
+  CariVD: string;
+  CariVTCN: string;
+  CariYetkili: string;
+  CariTelNo: string;
+  MstrFirma: string;
+  MstrHspTip: string;
+  BorcTutari: number | string | null;
+  CikisTarihi: string | null;
+  KnklmCksTrh: string | null;
+  KnklmPlnTrh: string | null;
+  MstrDurum: string | null;
+  odemeVadesi?: string | null;
+};
+
 @Injectable()
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
@@ -479,14 +517,16 @@ export class DashboardService {
         CROSS JOIN SuresiDolanStats sds
       `;
       
-      const result = await this.musteriRepository.query(unifiedStatsQuery);
+      const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
+      const result = resultUnknown as UnifiedStatsRow[];
       
 
       
       // Cache'e kaydet - devre dışı
       // this.statsCache = { data: result[0], timestamp: Date.now() };
       
-      return result[0];
+      const row = result[0];
+      return row;
     } catch (error) {
       console.error('getDashboardStats hatası:', error);
       return {};
@@ -509,7 +549,12 @@ export class DashboardService {
         ORDER BY KnklmOdaTip
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as Array<{
+        KnklmOdaTip: string;
+        DoluOdaSayisi: number | string | null;
+        SuresiGecentOda: number | string | null;
+      }>;
       return result;
     } catch (error) {
       console.error('getOdaDolulukDurumu hatası:', error);

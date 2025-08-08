@@ -3,6 +3,22 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DatabaseConfigService } from '../database/database-config.service';
 
+// Types for stronger typing and to avoid any-unsafe lint warnings
+type KasaGunlukOzet = { tarih: string; gelir: number; gider: number };
+type DetayIslem = {
+  id: number;
+  iKytTarihi: string;
+  islemAltG: string;
+  islemGrup: string;
+  islemTutar: number;
+  islemBilgi: string;
+};
+type KasaDevirKaydi = {
+  DevirTarihi: string;
+  DevirEden: string;
+  KasaYekun: number;
+};
+
 @Injectable()
 export class IslemService {
   constructor(
@@ -25,7 +41,7 @@ export class IslemService {
     islemYonu?: string,
     page: number = 1,
     rowsPerPage: number = 15,
-  ): Promise<{ data: any[]; totalRecords: number }> {
+  ): Promise<{ data: KasaGunlukOzet[]; totalRecords: number }> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
@@ -112,11 +128,12 @@ export class IslemService {
           ) as grouped_data
         `;
 
-      const countResult = await this.dataSource.query(countQuery, [
+      const countResultUnknown = (await this.dataSource.query(countQuery, [
         baslangicTarihi,
         bitisTarihi,
-      ]);
-      const totalRecords = countResult[0]?.total || 0;
+      ])) as unknown;
+      const countResult = countResultUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countResult[0]?.total || 0);
       this.debugLog('🔍 Count Query sonucu:', countResult);
       this.debugLog('🔍 Toplam kayıt sayısı:', totalRecords);
 
@@ -143,26 +160,30 @@ export class IslemService {
       this.debugLog('🔍 SQL Sorgusu:', query);
       this.debugLog('🔍 Parametreler:', params);
 
-      const result = await this.dataSource.query(query, params);
+      const resultUnknown = (await this.dataSource.query(
+        query,
+        params,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        tarih: string;
+        gelir: number | string | null;
+        gider: number | string | null;
+      }>;
 
       // Sadece 3 sütun döndür (bakiye hesaplama kaldırıldı)
-      const processedData = result.map((row: any) => {
-        const gelir = parseFloat(row.gelir) || 0;
-        const gider = parseFloat(row.gider) || 0;
-
-        return {
-          tarih: row.tarih,
-          gelir: gelir,
-          gider: gider,
-        };
-      });
+      const processedData: KasaGunlukOzet[] = result.map((row) => ({
+        tarih: row.tarih,
+        gelir: Number(row.gelir) || 0,
+        gider: Number(row.gider) || 0,
+      }));
 
       return {
         data: processedData,
         totalRecords: totalRecords,
       };
-    } catch (error) {
-      console.error('Kasa işlemleri getirme hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Kasa işlemleri getirme hatası:', message);
       throw new Error('Kasa işlemleri getirilemedi');
     }
   }
@@ -194,8 +215,11 @@ export class IslemService {
         SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir WITH (TABLOCKX)
       `;
-      const nextIdRes = await this.dataSource.query(nextIdQuery);
-      const nextId = parseInt(nextIdRes?.[0]?.nextId ?? 1, 10);
+      const nextIdResUnknown = (await this.dataSource.query(
+        nextIdQuery,
+      )) as unknown;
+      const nextIdRes = nextIdResUnknown as Array<{ nextId: number | string }>;
+      const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
 
       const insertQuery = `
         INSERT INTO ${this.dbConfig.getTableSchema()}.tblKasaDevir (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
@@ -207,14 +231,10 @@ export class IslemService {
       await this.dataSource.query(insertQuery, params);
 
       return { success: true };
-    } catch (error: any) {
-      console.error(
-        '❌ Kasa devir kaydı ekleme hatası:',
-        error?.message || error,
-      );
-      throw new Error(
-        `Kasa devir kaydı eklenemedi: ${error?.message || String(error)}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa devir kaydı ekleme hatası:', message);
+      throw new Error(`Kasa devir kaydı eklenemedi: ${message}`);
     }
   }
 
@@ -228,7 +248,7 @@ export class IslemService {
     selectedYonu?: string,
     page: number = 1,
     rowsPerPage: number = 15,
-  ): Promise<{ data: any[]; totalRecords: number }> {
+  ): Promise<{ data: DetayIslem[]; totalRecords: number }> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
@@ -294,8 +314,11 @@ export class IslemService {
         AND i.iKytTarihi = @0
       `;
 
-      const countResult = await this.dataSource.query(countQuery, [tarih]);
-      const totalRecords = countResult[0]?.total || 0;
+      const countDetayUnknown = (await this.dataSource.query(countQuery, [
+        tarih,
+      ])) as unknown;
+      const countDetay = countDetayUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countDetay[0]?.total || 0);
       this.debugLog('🔍 Detay Count Query sonucu:', countResult);
       this.debugLog('🔍 Detay toplam kayıt sayısı:', totalRecords);
 
@@ -322,19 +345,46 @@ export class IslemService {
       this.debugLog('🔍 Detay SQL Sorgusu:', query);
       this.debugLog('🔍 Parametreler:', [tarih, offset, rowsPerPage]);
 
-      const result = await this.dataSource.query(query, [
+      const resultUnknown2 = (await this.dataSource.query(query, [
         tarih,
         offset,
         rowsPerPage,
-      ]);
+      ])) as unknown;
+      const result = resultUnknown2 as Array<{
+        id: number | string;
+        iKytTarihi: string;
+        islemAltG: string;
+        islemGrup: string;
+        islemTutar: number | string;
+        islemBilgi: string;
+      }>;
       this.debugLog('📊 Detay işlemler sonucu:', result);
 
+      const typed: DetayIslem[] = (
+        result as Array<{
+          id: number;
+          iKytTarihi: string;
+          islemAltG: string;
+          islemGrup: string;
+          islemTutar: number | string;
+          islemBilgi: string;
+        }>
+      ).map((row) => ({
+        id: Number(row.id),
+        iKytTarihi: row.iKytTarihi,
+        islemAltG: row.islemAltG,
+        islemGrup: row.islemGrup,
+        islemTutar: Number(row.islemTutar) || 0,
+        islemBilgi: row.islemBilgi,
+      }));
+
       return {
-        data: result,
+        data: typed,
         totalRecords: totalRecords,
       };
-    } catch (error) {
-      console.error('Detay işlemler getirme hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Detay işlemler getirme hatası:', message);
       throw new Error('Detay işlemler getirilemedi');
     }
   }
@@ -379,18 +429,23 @@ export class IslemService {
          ORDER BY CONVERT(DATE, i.iKytTarihi, 104) DESC
        `;
 
-      const result = await this.dataSource.query(query, [
+      const depoUnknown = (await this.dataSource.query(query, [
         baslangicTarihi,
         bitisTarihi,
-      ]);
+      ])) as unknown;
+      const result = depoUnknown as Array<{
+        tarih: string;
+        gelir: number | string | null;
+        gider: number | string | null;
+      }>;
 
       // Bakiye hesaplama
       const baslangicBakiye = 107695; // Depozito başlangıç bakiyesi
       let currentBakiye = baslangicBakiye;
 
-      const processedData = result.map((row: any) => {
-        const gelir = parseFloat(row.gelir) || 0;
-        const gider = parseFloat(row.gider) || 0;
+      const processedData = result.map((row) => {
+        const gelir = Number(row.gelir) || 0;
+        const gider = Number(row.gider) || 0;
 
         currentBakiye = currentBakiye + gelir - gider;
 
@@ -489,9 +544,15 @@ export class IslemService {
         ${whereCondition}
       `;
 
-      const result = await this.dataSource.query(bakiyeQuery);
-      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
-      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+      const bakiyeUnknown = (await this.dataSource.query(
+        bakiyeQuery,
+      )) as unknown;
+      const bakiyeRes = bakiyeUnknown as Array<{
+        toplamGelir: number | string | null;
+        toplamGider: number | string | null;
+      }>;
+      const toplamGelir = Number(bakiyeRes[0]?.toplamGelir) || 0;
+      const toplamGider = Number(bakiyeRes[0]?.toplamGider) || 0;
       const guncelBakiye = toplamGelir - toplamGider;
 
       this.debugLog(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
@@ -501,8 +562,9 @@ export class IslemService {
       });
 
       return guncelBakiye;
-    } catch (error) {
-      console.error('❌ Güncel bakiye hesaplama hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Güncel bakiye hesaplama hatası:', message);
       return 0;
     }
   }
@@ -566,9 +628,15 @@ export class IslemService {
         AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
       `;
 
-      const result = await this.dataSource.query(bakiyeQuery, [secilenTarih]);
-      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
-      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+      const secilenUnknown = (await this.dataSource.query(bakiyeQuery, [
+        secilenTarih,
+      ])) as unknown;
+      const secilenRes = secilenUnknown as Array<{
+        toplamGelir: number | string | null;
+        toplamGider: number | string | null;
+      }>;
+      const toplamGelir = Number(secilenRes[0]?.toplamGelir) || 0;
+      const toplamGider = Number(secilenRes[0]?.toplamGider) || 0;
       const secilenGunBakiyesi = toplamGelir - toplamGider;
 
       this.debugLog(
@@ -581,8 +649,9 @@ export class IslemService {
       );
 
       return secilenGunBakiyesi;
-    } catch (error) {
-      console.error('❌ Seçilen gün bakiyesi hesaplama hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Seçilen gün bakiyesi hesaplama hatası:', message);
       return 0;
     }
   }
@@ -593,7 +662,7 @@ export class IslemService {
   async getKasaDevirVerileri(
     page: number = 1,
     rowsPerPage: number = 3,
-  ): Promise<{ data: any[]; totalRecords: number }> {
+  ): Promise<{ data: KasaDevirKaydi[]; totalRecords: number }> {
     try {
       const offset = (page - 1) * rowsPerPage;
 
@@ -603,8 +672,11 @@ export class IslemService {
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir
       `;
 
-      const countResult = await this.dataSource.query(countQuery);
-      const totalRecords = countResult[0]?.total || 0;
+      const countDevirUnknown = (await this.dataSource.query(
+        countQuery,
+      )) as unknown;
+      const countDevir = countDevirUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countDevir[0]?.total || 0);
 
       // Sayfalanmış verileri al
       const query = `
@@ -618,7 +690,12 @@ export class IslemService {
         FETCH NEXT ${rowsPerPage} ROWS ONLY
       `;
 
-      const result = await this.dataSource.query(query);
+      const devirUnknown = (await this.dataSource.query(query)) as unknown;
+      const result = devirUnknown as Array<{
+        DevirTarihi: string;
+        DevirEden: string;
+        KasaYekun: number | string;
+      }>;
       this.debugLog(
         '📊 Kasa devir verileri alındı:',
         result.length,
@@ -627,12 +704,25 @@ export class IslemService {
         ')',
       );
 
+      const typed: KasaDevirKaydi[] = (
+        result as Array<{
+          DevirTarihi: string;
+          DevirEden: string;
+          KasaYekun: number | string;
+        }>
+      ).map((row) => ({
+        DevirTarihi: row.DevirTarihi,
+        DevirEden: row.DevirEden,
+        KasaYekun: Number(row.KasaYekun) || 0,
+      }));
+
       return {
-        data: result,
+        data: typed,
         totalRecords: totalRecords,
       };
-    } catch (error) {
-      console.error('❌ Kasa devir verileri alma hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa devir verileri alma hatası:', message);
       return {
         data: [],
         totalRecords: 0,
@@ -653,13 +743,15 @@ export class IslemService {
         WHERE PrsnUsrNm = 'SAadmin'
       `;
 
-      const result = await this.dataSource.query(query);
-      const kullaniciAdi = result[0]?.PrsnUsrNm || 'SAadmin';
+      const userUnknown = (await this.dataSource.query(query)) as unknown;
+      const result = userUnknown as Array<{ PrsnUsrNm: string }>;
+      const kullaniciAdi = result[0]?.PrsnUsrNm ?? 'SAadmin';
 
       this.debugLog('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
       return kullaniciAdi;
-    } catch (error) {
-      console.error('❌ Kullanıcı bilgisi alma hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kullanıcı bilgisi alma hatası:', message);
       return 'SAadmin'; // Fallback değer
     }
   }
@@ -827,8 +919,9 @@ export class IslemService {
         await queryRunner.release();
         this.debugLog('🔒 Transaction kaynakları serbest bırakıldı');
       }
-    } catch (error) {
-      console.error('❌ Kasa aktarımı genel hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa aktarımı genel hatası:', message);
       throw error; // Zaten formatlanmış hata mesajını tekrar formatlamaya gerek yok
     }
   }
