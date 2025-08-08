@@ -336,13 +336,7 @@ const linksList = computed(() => {
   const isKartliIslemPage = currentRoute.value === '/kartli-islem';
   const currentFilter = kartliIslemCurrentFilter.value || window.kartliIslemCurrentFilter;
   
-  // 🔥 DEBUG: Mevcut durumu logla
   const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
-  console.log('🔥 MainLayout linksList computed:', {
-    isKartliIslemPage,
-    currentFilter,
-    shouldShowOdemeIslem: isKartliIslemPage && currentFilter && ilk6Kart.includes(currentFilter)
-  });
   
   return allLinksList.filter(link => {
     // Kartlı işlem sayfasında değilse bu menüleri gizle
@@ -354,7 +348,7 @@ const linksList = computed(() => {
     if (isKartliIslemPage && link.title === 'Müşteri Tahsilat') {
       const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
       if (!currentFilter || !ilk6Kart.includes(currentFilter)) {
-        console.log('🔥 Müşteri Tahsilat gizlendi - kart:', currentFilter);
+        // Dev log kaldırıldı
         return false;
       }
     }
@@ -591,16 +585,15 @@ function toggleDarkMode() {
 }
 
 function handleLogoError() {
-  console.log('Logo yüklenemedi, fallback text gösteriliyor');
+  // Sessiz log
   showFallbackText.value = true;
 }
 
 function handleLogoLoad() {
-  console.log('Logo başarıyla yüklendi');
-  // Logo yüklendikten sonra background ekleyerek test edelim
+  // Sessiz log
   const img = document.querySelector('.logo-image') as HTMLImageElement;
   if (img) {
-    console.log('Logo boyutları:', img.naturalWidth, 'x', img.naturalHeight);
+    // Sessiz log
   }
 }
 
@@ -658,7 +651,7 @@ async function refreshPage() {
   
   // Kartlı işlem sayfasındaysa stats verilerini yenile
   if (router.currentRoute.value.path === '/kartli-islem') {
-    console.log('🔄 Kartlı işlem sayfası stats verileri yenileniyor...');
+    // Sessiz log
     window.dispatchEvent(new Event('refreshKartliIslemStats'));
     
     // Kullanıcıya bilgi ver
@@ -897,7 +890,6 @@ onMounted(() => {
   const checkKartliIslemFilter = () => {
     const newFilter = window.kartliIslemCurrentFilter;
     if (kartliIslemCurrentFilter.value !== newFilter) {
-      console.log('🔥 MainLayout: kartliIslemCurrentFilter değişti:', newFilter);
       kartliIslemCurrentFilter.value = newFilter || null;
     }
   };
