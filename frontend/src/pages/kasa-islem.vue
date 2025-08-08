@@ -358,6 +358,13 @@ import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
 import { isAxiosError } from 'axios'
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log(...args)
+  }
+}
+
 const $q = useQuasar()
 
 // Axios instance'ını al
@@ -524,7 +531,7 @@ const detailPagination = ref({
 // Ana tablo pagination request handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onRequest = (props: any) => {
-  console.log('🔍 Ana tablo pagination request:', props)
+  debugLog('🔍 Ana tablo pagination request:', props)
   
   // Pagination değişikliklerini uygula
   pagination.value = props.pagination
@@ -536,7 +543,7 @@ const onRequest = (props: any) => {
 // Detay tablo pagination request handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onDetailRequest = (props: any) => {
-  console.log('🔍 Detay tablo pagination request:', props)
+  debugLog('🔍 Detay tablo pagination request:', props)
   
   // Pagination değişikliklerini uygula
   detailPagination.value = props.pagination
@@ -573,14 +580,14 @@ const onDetailRequest = (props: any) => {
 
 // Ana tablo sayfa değiştirme fonksiyonu
 const changePage = (newPage: number) => {
-  console.log('🔍 Ana tablo sayfa değiştiriliyor:', newPage)
+  debugLog('🔍 Ana tablo sayfa değiştiriliyor:', newPage)
   pagination.value.page = newPage
   updateTableData()
 }
 
 // Detay tablo sayfa değiştirme fonksiyonu
 const changeDetailPage = (newPage: number) => {
-  console.log('🔍 Detay tablo sayfa değiştiriliyor:', newPage)
+  debugLog('🔍 Detay tablo sayfa değiştiriliyor:', newPage)
   detailPagination.value.page = newPage
   updateDetailTableData()
 }
@@ -590,7 +597,7 @@ const updateTableData = () => {
   const startIndex = (pagination.value.page - 1) * pagination.value.rowsPerPage
   const endIndex = startIndex + pagination.value.rowsPerPage
   tableData.value = allTableData.value.slice(startIndex, endIndex)
-  console.log('🔍 Ana tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allTableData.value.length)
+  debugLog('🔍 Ana tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allTableData.value.length)
 }
 
 // Detay tablo verilerini güncelle (15 satırlık parçalar halinde)
@@ -598,7 +605,7 @@ const updateDetailTableData = () => {
   const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage
   const endIndex = startIndex + detailPagination.value.rowsPerPage
   detailTableData.value = allDetailTableData.value.slice(startIndex, endIndex)
-  console.log('🔍 Detay tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allDetailTableData.value.length)
+  debugLog('🔍 Detay tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allDetailTableData.value.length)
 }
 
 
@@ -663,8 +670,8 @@ const islemYonuForApi = computed(() => {
 
 // Satır tıklama event handler
 const onRowClick = (evt: Event, row: TableRow) => {
-  console.log('🔍 Satır tıklandı:', row)
-  console.log('🔍 Seçilen tarih:', row.tarih)
+  debugLog('🔍 Satır tıklandı:', row)
+  debugLog('🔍 Seçilen tarih:', row.tarih)
   selectedDate.value = row.tarih
   void loadDetailTableData(row.tarih)
   
@@ -685,7 +692,7 @@ const onIslemTuruChange = (_value: string) => {
   
   // Eğer seçili tarih varsa detay tabloyu otomatik olarak güncelle
   if (selectedDate.value) {
-    console.log('🔍 İşlem türü değişti, seçili tarih korunuyor ve detay tablo güncelleniyor:', selectedDate.value)
+    debugLog('🔍 İşlem türü değişti, seçili tarih korunuyor ve detay tablo güncelleniyor:', selectedDate.value)
     void loadDetailTableData(selectedDate.value)
   } else {
     // Seçili tarih yoksa detay tabloyu temizle
@@ -704,10 +711,10 @@ const loadDetailTableData = async (tarih: string) => {
   
   detailLoading.value = true
   try {
-    console.log('Detay tablo verisi yükleniyor...')
-    console.log('Seçilen tarih:', tarih)
-    console.log('Seçilen işlem türü:', selectedIslemTuru.value)
-    console.log('Seçilen işlem yönü:', islemYonuForApi.value)
+    debugLog('Detay tablo verisi yükleniyor...')
+    debugLog('Seçilen tarih:', tarih)
+    debugLog('Seçilen işlem türü:', selectedIslemTuru.value)
+    debugLog('Seçilen işlem yönü:', islemYonuForApi.value)
     
     // Axios instance kullanarak API çağrısı yap
     const response = await $api.get('/islem/detay-islemler', {
@@ -720,14 +727,14 @@ const loadDetailTableData = async (tarih: string) => {
         rowsPerPage: 1000
       }
     })
-    console.log('Detay Response status:', response.status)
+    debugLog('Detay Response status:', response.status)
     
     const result = response.data
-    console.log('Detay API Response:', result)
+    debugLog('Detay API Response:', result)
     
     if (result.success) {
-       console.log('Detay veri sayısı:', result.data?.length || 0)
-       console.log('Detay toplam kayıt sayısı:', result.totalRecords)
+       debugLog('Detay veri sayısı:', result.data?.length || 0)
+       debugLog('Detay toplam kayıt sayısı:', result.totalRecords)
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
@@ -743,8 +750,8 @@ const loadDetailTableData = async (tarih: string) => {
        // İlk sayfayı göster
        detailPagination.value.page = 1
        updateDetailTableData()
-       console.log('Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
-       console.log('Detay tablo verisi güncellendi:', detailTableData.value)
+        debugLog('Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
+        debugLog('Detay tablo verisi güncellendi:', detailTableData.value)
      } else {
       console.error('Detay API hatası:', result.message)
       detailTableData.value = []
@@ -775,7 +782,7 @@ const bakiyeLabelText = computed(() => {
 
 // Kasalar arası aktarım fonksiyonu
 const performTransfer = async () => {
-  console.log('🔄 Kasalar arası aktarım başlatılıyor...')
+  debugLog('🔄 Kasalar arası aktarım başlatılıyor...')
   
   // Form validasyonu
   if (!transferForm.value.veren || !transferForm.value.alan || !transferForm.value.tutar) {
@@ -795,7 +802,7 @@ const performTransfer = async () => {
   }
   
   try {
-    console.log('📤 Aktarım verileri:', {
+    debugLog('📤 Aktarım verileri:', {
       veren: transferForm.value.veren,
       alan: transferForm.value.alan,
       tutar: tutar
@@ -809,7 +816,7 @@ const performTransfer = async () => {
     })
     
     if (response.data.success) {
-      console.log('✅ Aktarım başarılı:', response.data.message)
+      debugLog('✅ Aktarım başarılı:', response.data.message)
       
       // Form temizle
       transferForm.value.veren = ''
@@ -848,7 +855,7 @@ const performTransfer = async () => {
 // Kasa devir verilerini yükle
 const loadKasaDevirVerileri = async () => {
   try {
-    console.log('🔄 Kasa devir verileri yükleniyor...')
+    debugLog('🔄 Kasa devir verileri yükleniyor...')
     kasaDevirLoading.value = true
     
     const response = await $api.get('/islem/kasa-devir-verileri', {
@@ -861,7 +868,7 @@ const loadKasaDevirVerileri = async () => {
     if (response.data.success) {
       kasaDevirData.value = response.data.data
       kasaDevirPagination.value.rowsNumber = response.data.totalRecords
-      console.log('✅ Kasa devir verileri yüklendi:', kasaDevirData.value.length, 'kayıt')
+      debugLog('✅ Kasa devir verileri yüklendi:', kasaDevirData.value.length, 'kayıt')
     } else {
       console.error('❌ Kasa devir verileri yüklenemedi:', response.data.message)
       $q.notify({
@@ -927,7 +934,7 @@ const onKasaDevretOnayla = async () => {
 // Kasa devir tablo pagination request handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onKasaDevirRequest = (props: any) => {
-  console.log('🔍 Kasa devir tablo pagination request:', props)
+  debugLog('🔍 Kasa devir tablo pagination request:', props)
   
   // Pagination değişikliklerini uygula
   kasaDevirPagination.value = props.pagination
@@ -941,14 +948,14 @@ const onKasaDevirRequest = (props: any) => {
 
 // Kasa devir sayfa değiştirme fonksiyonu
 const changeKasaDevirPage = async (newPage: number) => {
-  console.log('🔄 Kasa devir sayfa değiştiriliyor:', newPage)
+  debugLog('🔄 Kasa devir sayfa değiştiriliyor:', newPage)
   kasaDevirPagination.value.page = newPage
   await loadKasaDevirVerileri()
 }
 
 // Veriyi yenile fonksiyonu
 const refreshData = async () => {
-  console.log('🔄 Veri yenileniyor...')
+  debugLog('🔄 Veri yenileniyor...')
   
   // Mevcut seçili tarihi sakla
   const mevcutSeciliTarih = selectedDate.value
@@ -977,7 +984,7 @@ const refreshData = async () => {
   // Güncel bakiyeyi hesapla
   await loadGuncelBakiye()
   
-  console.log('✅ Veri yenileme tamamlandı')
+  debugLog('✅ Veri yenileme tamamlandı')
 }
 
 // Güncel bakiye hesapla
@@ -992,7 +999,7 @@ const loadGuncelBakiye = async () => {
     
     if (response.data.success) {
       currentBakiye.value = response.data.bakiye
-      console.log('💰 Güncel bakiye yüklendi:', currentBakiye.value)
+      debugLog('💰 Güncel bakiye yüklendi:', currentBakiye.value)
     }
   } catch (error) {
     console.error('❌ Güncel bakiye yükleme hatası:', error)
@@ -1013,7 +1020,7 @@ const loadSecilenGunBakiyesi = async (tarih: string) => {
     
     if (response.data.success) {
       currentBakiye.value = response.data.bakiye
-      console.log('💰 Seçilen gün bakiyesi yüklendi:', currentBakiye.value)
+      debugLog('💰 Seçilen gün bakiyesi yüklendi:', currentBakiye.value)
     }
   } catch (error) {
     console.error('❌ Seçilen gün bakiyesi yükleme hatası:', error)
@@ -1116,13 +1123,13 @@ watch(selectedIslemTuru, () => {
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
 watch(selectedIslemYonu, () => {
-  console.log('🔍 selectedIslemYonu değişti:', selectedIslemYonu.value)
-  console.log('🔍 islemYonuForApi değeri:', islemYonuForApi.value)
+  debugLog('🔍 selectedIslemYonu değişti:', selectedIslemYonu.value)
+  debugLog('🔍 islemYonuForApi değeri:', islemYonuForApi.value)
   if (selectedDate.value) {
-    console.log('🔍 Detay tablo güncelleniyor...')
+    debugLog('🔍 Detay tablo güncelleniyor...')
     void loadDetailTableData(selectedDate.value)
   } else {
-    console.log('🔍 Seçili tarih yok, detay tablo güncellenmiyor')
+    debugLog('🔍 Seçili tarih yok, detay tablo güncellenmiyor')
   }
   
   // İşlem yönü değiştiğinde bakiye hesaplaması yap

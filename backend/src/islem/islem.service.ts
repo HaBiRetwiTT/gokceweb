@@ -11,6 +11,13 @@ export class IslemService {
     private readonly dbConfig: DatabaseConfigService,
   ) {}
 
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(...args);
+    }
+  }
+
   /**
    * Kasa işlemleri için günlük toplamları getirir
    */
@@ -32,12 +39,12 @@ export class IslemService {
                          (bugun.getMonth() + 1).toString().padStart(2, '0') + '.' + 
                          bugun.getFullYear();
       
-             console.log('🔍 Debug bilgileri:');
-       console.log('- Schema:', schemaName);
-       console.log('- Tablo:', tableName);
-       console.log('- İşlem türü:', islemTuru);
-       console.log('- İşlem yönü:', islemYonu);
-       console.log('- Tarih aralığı:', baslangicTarihi, 'ile', bitisTarihi);
+       this.debugLog('🔍 Debug bilgileri:');
+       this.debugLog('- Schema:', schemaName);
+       this.debugLog('- Tablo:', tableName);
+       this.debugLog('- İşlem türü:', islemTuru);
+       this.debugLog('- İşlem yönü:', islemYonu);
+       this.debugLog('- Tarih aralığı:', baslangicTarihi, 'ile', bitisTarihi);
       
       // Gereksiz ağır debug sorguları kaldırıldı
       
@@ -97,8 +104,8 @@ export class IslemService {
       
       const countResult = await this.dataSource.query(countQuery, [baslangicTarihi, bitisTarihi]);
       const totalRecords = countResult[0]?.total || 0;
-      console.log('🔍 Count Query sonucu:', countResult);
-      console.log('🔍 Toplam kayıt sayısı:', totalRecords);
+      this.debugLog('🔍 Count Query sonucu:', countResult);
+      this.debugLog('🔍 Toplam kayıt sayısı:', totalRecords);
       
       // Pagination için OFFSET hesapla
       const offset = (page - 1) * rowsPerPage;
@@ -120,8 +127,8 @@ export class IslemService {
       
       params = [baslangicTarihi, bitisTarihi, offset, rowsPerPage];
       
-      console.log('🔍 SQL Sorgusu:', query);
-      console.log('🔍 Parametreler:', params);
+      this.debugLog('🔍 SQL Sorgusu:', query);
+      this.debugLog('🔍 Parametreler:', params);
       
       const result = await this.dataSource.query(query, params);
       
@@ -185,8 +192,8 @@ export class IslemService {
         VALUES (@0, @1, @2, @3)
       `;
       const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
-      console.log('📝 KasaDevir INSERT sorgusu:', insertQuery);
-      console.log('📝 Parametreler:', params);
+      this.debugLog('📝 KasaDevir INSERT sorgusu:', insertQuery);
+      this.debugLog('📝 Parametreler:', params);
       await this.dataSource.query(insertQuery, params);
 
       return { success: true };
@@ -204,13 +211,13 @@ export class IslemService {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
       
-      console.log('🔍 Detay işlemler debug bilgileri:')
-      console.log('- Schema:', schemaName)
-      console.log('- Tablo:', tableName)
-      console.log('- Tarih:', tarih)
-      console.log('- İşlem türü:', islemTuru)
-      console.log('- İşlem yönü:', islemYonu)
-      console.log('- Seçilen yön:', selectedYonu)
+      this.debugLog('🔍 Detay işlemler debug bilgileri:')
+      this.debugLog('- Schema:', schemaName)
+      this.debugLog('- Tablo:', tableName)
+      this.debugLog('- Tarih:', tarih)
+      this.debugLog('- İşlem türü:', islemTuru)
+      this.debugLog('- İşlem yönü:', islemYonu)
+      this.debugLog('- Seçilen yön:', selectedYonu)
 
       // İşlem türüne göre islemArac filtresi
       let islemAracFilter = ''
@@ -247,7 +254,7 @@ export class IslemService {
         islemTipFilter = selectedYonu === 'gelir' ? "i.islemTip = 'Giren'" : "i.islemTip = 'Çıkan'"
       }
 
-      console.log('🔍 islemTipFilter:', islemTipFilter)
+      this.debugLog('🔍 islemTipFilter:', islemTipFilter)
       
       // Önce toplam kayıt sayısını al
       const countQuery = `
@@ -260,8 +267,8 @@ export class IslemService {
       
       const countResult = await this.dataSource.query(countQuery, [tarih])
       const totalRecords = countResult[0]?.total || 0
-      console.log('🔍 Detay Count Query sonucu:', countResult)
-      console.log('🔍 Detay toplam kayıt sayısı:', totalRecords)
+      this.debugLog('🔍 Detay Count Query sonucu:', countResult)
+      this.debugLog('🔍 Detay toplam kayıt sayısı:', totalRecords)
       
       // Pagination için OFFSET hesapla
       const offset = (page - 1) * rowsPerPage
@@ -283,11 +290,11 @@ export class IslemService {
         FETCH NEXT @2 ROWS ONLY
       `
 
-      console.log('🔍 Detay SQL Sorgusu:', query)
-      console.log('🔍 Parametreler:', [tarih, offset, rowsPerPage])
+      this.debugLog('🔍 Detay SQL Sorgusu:', query)
+      this.debugLog('🔍 Parametreler:', [tarih, offset, rowsPerPage])
 
       const result = await this.dataSource.query(query, [tarih, offset, rowsPerPage])
-      console.log('📊 Detay işlemler sonucu:', result)
+      this.debugLog('📊 Detay işlemler sonucu:', result)
 
       return {
         data: result,
@@ -367,7 +374,7 @@ export class IslemService {
    */
   async kaydetIslemler(kayitlar: any[]): Promise<any[]> {
     try {
-      console.log(`${kayitlar.length} kayıt kaydediliyor...`);
+      this.debugLog(`${kayitlar.length} kayıt kaydediliyor...`);
       
       // Şimdilik basit bir mock response döndürüyoruz
       // Gerçek implementasyon için stored procedure kullanılabilir
@@ -377,7 +384,7 @@ export class IslemService {
         message: `Kayıt ${index + 1} başarıyla kaydedildi`
       }));
       
-      console.log(`${kayitlar.length} kayıt başarıyla kaydedildi`);
+      this.debugLog(`${kayitlar.length} kayıt başarıyla kaydedildi`);
       return sonuclar;
       
     } catch (error) {
@@ -445,7 +452,7 @@ export class IslemService {
       const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
       const guncelBakiye = toplamGelir - toplamGider;
       
-      console.log(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
+      this.debugLog(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
         toplamGelir,
         toplamGider,
         guncelBakiye
@@ -518,7 +525,7 @@ export class IslemService {
       const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
       const secilenGunBakiyesi = toplamGelir - toplamGider;
       
-      console.log(`💰 Seçilen gün bakiyesi hesaplandı (${islemTuru}, ${secilenTarih}):`, {
+      this.debugLog(`💰 Seçilen gün bakiyesi hesaplandı (${islemTuru}, ${secilenTarih}):`, {
         toplamGelir,
         toplamGider,
         secilenGunBakiyesi
@@ -560,7 +567,7 @@ export class IslemService {
       `;
       
       const result = await this.dataSource.query(query);
-      console.log('📊 Kasa devir verileri alındı:', result.length, 'kayıt (sayfa:', page, ')');
+      this.debugLog('📊 Kasa devir verileri alındı:', result.length, 'kayıt (sayfa:', page, ')');
       
       return {
         data: result,
@@ -591,7 +598,7 @@ export class IslemService {
       const result = await this.dataSource.query(query);
       const kullaniciAdi = result[0]?.PrsnUsrNm || 'SAadmin';
       
-      console.log('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
+      this.debugLog('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
       return kullaniciAdi;
     } catch (error) {
       console.error('❌ Kullanıcı bilgisi alma hatası:', error);
@@ -604,7 +611,7 @@ export class IslemService {
    */
   async kasaAktarimi(veren: string, alan: string, tutar: number): Promise<any> {
     try {
-      console.log('🔄 Kasa aktarımı başlatılıyor:', { veren, alan, tutar });
+      this.debugLog('🔄 Kasa aktarımı başlatılıyor:', { veren, alan, tutar });
       
       // Bugünün tarihini DD.MM.YYYY formatında al
       const bugun = new Date();
@@ -699,9 +706,9 @@ export class IslemService {
           1                     // @16 islemKur
         ];
 
-        console.log('📤 Veren kasadan çıkış işlemi gerçekleştiriliyor...');
+        this.debugLog('📤 Veren kasadan çıkış işlemi gerçekleştiriliyor...');
         await queryRunner.query(verenIslemQuery, verenIslemParams);
-        console.log('✅ Veren kasadan çıkış işlemi kaydedildi');
+        this.debugLog('✅ Veren kasadan çıkış işlemi kaydedildi');
 
         // 2. Alan kasaya giriş işlemi
         const alanIslemParams = [
@@ -724,16 +731,16 @@ export class IslemService {
           1                     // @16 islemKur
         ];
 
-        console.log('📥 Alan kasaya giriş işlemi gerçekleştiriliyor...');
+        this.debugLog('📥 Alan kasaya giriş işlemi gerçekleştiriliyor...');
         await queryRunner.query(verenIslemQuery, alanIslemParams);
-        console.log('✅ Alan kasaya giriş işlemi kaydedildi');
+        this.debugLog('✅ Alan kasaya giriş işlemi kaydedildi');
 
         // Transaction'ı commit et
         await queryRunner.commitTransaction();
         
         const basariliMesaj = `✅ Kasa aktarımı başarıyla tamamlandı!\n\n💰 ${verenParametreleri.islemArac} → ${alanParametreleri.islemArac}\n💵 Tutar: ${tutar.toLocaleString('tr-TR')} TL\n👤 İşlemi Yapan: ${islemKllnc}\n📅 Tarih: ${iKytTarihi}`;
         
-        console.log('✅ Kasa aktarımı başarıyla tamamlandı');
+        this.debugLog('✅ Kasa aktarımı başarıyla tamamlandı');
         
         return {
           success: true,
@@ -758,7 +765,7 @@ export class IslemService {
       } finally {
         // Query runner'ı serbest bırak
         await queryRunner.release();
-        console.log('🔒 Transaction kaynakları serbest bırakıldı');
+        this.debugLog('🔒 Transaction kaynakları serbest bırakıldı');
       }
 
     } catch (error) {

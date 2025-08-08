@@ -251,7 +251,7 @@
                   :disable="!odemeContainerKullanilabilir"
                   :key="`nakit-kasa-${odemeContainerKullanilabilir}-${odemeAraclari.nakitKasa}`"
                   @update:model-value="onNakitKasaChange"
-                  @click="console.log('Nakit Kasa checkbox clicked, disable:', !odemeContainerKullanilabilir, 'odemeContainerKullanilabilir:', odemeContainerKullanilabilir)"
+                  @click="undefined"
                 />
                 <q-input
                   v-model="odemeAraclari.nakitKasaTutar"
@@ -344,7 +344,7 @@
               class="combobox-select"
               style="width: 400px;"
               clearable
-              @click="console.log('Combobox clicked, options:', comboboxOptions)"
+              @click="undefined"
               @update:model-value="onComboboxChange"
               @clear="onComboboxClear"
             >
