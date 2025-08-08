@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "GÖKÇE Pansiyon Yönetim Sistemi",
   "productName": "GÖKÇE Pansiyon",
   "author": "HaBiRetwiTT <habiretwitt@gmail.com>",
@@ -17,6 +17,9 @@
     "prebuild": "node scripts/update-version.js",
     "build": "quasar build",
     "build:vercel": "quasar build",
+    "type-check": "vue-tsc --noEmit",
+    "build:strict": "npm run type-check ; quasar build",
+    "dev:strict": "npm run type-check ; quasar dev",
     "start": "serve -s dist/spa -l 9000",
     "start:prod": "npm run build && npm run start"
   },

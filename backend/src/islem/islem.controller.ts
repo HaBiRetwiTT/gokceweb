@@ -39,6 +39,16 @@ export class IslemController {
     }
   }
 
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Bilinmeyen hata';
+    }
+  }
+
   @Post('kaydet')
   async kaydetIslem(@Body() body: { kayitlar: IslemKayit[] }) {
     try {
@@ -59,10 +69,11 @@ export class IslemController {
         kayitSayisi: body.kayitlar.length,
         sonuc,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('İşlem kaydetme hatası:', error);
+      const msg = this.getErrorMessage(error);
       throw new HttpException(
-        error.message || 'İşlem kaydedilirken hata oluştu',
+        msg || 'İşlem kaydedilirken hata oluştu',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -94,11 +105,10 @@ export class IslemController {
         totalRecords: data.totalRecords,
         message: 'Kasa işlemleri başarıyla getirildi',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Kasa işlemleri getirilemedi',
-        error: error,
+        message: this.getErrorMessage(error) || 'Kasa işlemleri getirilemedi',
       };
     }
   }
@@ -133,11 +143,10 @@ export class IslemController {
         totalRecords: data.totalRecords,
         message: 'Detay işlemler başarıyla getirildi',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Detay işlemler getirilemedi',
-        error: error,
+        message: this.getErrorMessage(error) || 'Detay işlemler getirilemedi',
       };
     }
   }
@@ -154,11 +163,11 @@ export class IslemController {
         data: data,
         message: 'Depozito işlemleri başarıyla getirildi',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Depozito işlemleri getirilemedi',
-        error: error,
+        message:
+          this.getErrorMessage(error) || 'Depozito işlemleri getirilemedi',
       };
     }
   }
@@ -188,11 +197,10 @@ export class IslemController {
         bakiye: bakiye,
         message: 'Güncel bakiye başarıyla hesaplandı',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Güncel bakiye hesaplanamadı',
-        error: error,
+        message: this.getErrorMessage(error) || 'Güncel bakiye hesaplanamadı',
       };
     }
   }
@@ -217,11 +225,11 @@ export class IslemController {
         bakiye: bakiye,
         message: 'Seçilen gün bakiyesi başarıyla hesaplandı',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Seçilen gün bakiyesi hesaplanamadı',
-        error: error,
+        message:
+          this.getErrorMessage(error) || 'Seçilen gün bakiyesi hesaplanamadı',
       };
     }
   }
@@ -248,12 +256,11 @@ export class IslemController {
         totalRecords: result.totalRecords,
         message: 'Kasa devir verileri başarıyla getirildi',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Kasa devir verileri endpoint hatası:', error);
       return {
         success: false,
-        message: 'Kasa devir verileri alınamadı',
-        error: error.message,
+        message: this.getErrorMessage(error) || 'Kasa devir verileri alınamadı',
       };
     }
   }
@@ -297,10 +304,11 @@ export class IslemController {
         message: 'Kasa aktarımı başarıyla tamamlandı',
         sonuc,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Kasa aktarımı hatası:', error);
+      const msg = this.getErrorMessage(error);
       throw new HttpException(
-        error.message || 'Kasa aktarımı sırasında hata oluştu',
+        msg || 'Kasa aktarımı sırasında hata oluştu',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -317,10 +325,11 @@ export class IslemController {
       }
       const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun);
       return { success: true, message: 'Kasa devri kaydedildi', sonuc };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ /islem/kasa-devret hatası:', error);
+      const msg = this.getErrorMessage(error);
       throw new HttpException(
-        error?.message || 'Kasa devri kaydedilemedi',
+        msg || 'Kasa devri kaydedilemedi',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

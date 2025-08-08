@@ -319,7 +319,7 @@ export class IslemService {
       ])) as unknown;
       const countDetay = countDetayUnknown as Array<{ total: number }>;
       const totalRecords = Number(countDetay[0]?.total || 0);
-      this.debugLog('🔍 Detay Count Query sonucu:', countResult);
+      this.debugLog('🔍 Detay Count Query sonucu:', countDetay);
       this.debugLog('🔍 Detay toplam kayıt sayısı:', totalRecords);
 
       // Pagination için OFFSET hesapla
@@ -685,7 +685,7 @@ export class IslemService {
           kd.nKasaDvrAln as DevirEden,
           kd.nKasaYekun as KasaYekun
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir kd
-        ORDER BY CONVERT(DATE, kd.nKytTarihi, 104) DESC
+        ORDER BY kd.nKasaNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
       `;

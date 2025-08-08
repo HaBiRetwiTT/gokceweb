@@ -57,7 +57,7 @@
                   </div>
                   <div class="transfer-form">
                     <div class="form-row">
-                      <div class="form-label">Veren</div>
+                      <div class="form-label">Veren Kasa</div>
                       <q-select 
                         v-model="transferForm.veren" 
                         :options="kasaOptions"
@@ -70,7 +70,7 @@
                       />
                     </div>
                     <div class="form-row">
-                      <div class="form-label">Alan</div>
+                      <div class="form-label">Alan Kasa</div>
                       <q-select 
                         v-model="transferForm.alan" 
                         :options="kasaOptions"
@@ -83,7 +83,7 @@
                       />
                     </div>
                     <div class="form-row">
-                      <div class="form-label">Tutar</div>
+                      <div class="form-label">Aktarılacak Tutar</div>
                       <q-input 
                         v-model="transferForm.tutar" 
                         outlined 
@@ -117,14 +117,14 @@
              <q-card class="main-card">
                <q-card-section>
                  <!-- Bakiye Label -->
-                 <div class="bakiye-label q-mb-sm">
-                   <q-chip 
-                     :color="bakiyeLabelText.includes('Güncel Bakiye') ? 'green' : 'orange'" 
-                     text-color="white"
-                     :label="bakiyeLabelText"
-                     class="text-weight-medium"
-                   />
-                 </div>
+                  <div class="bakiye-label q-mb-sm">
+                    <q-chip 
+                      :color="isGuncelBakiyeLabel ? 'green' : 'orange'" 
+                      text-color="white"
+                      :label="bakiyeLabelText"
+                      class="text-weight-medium"
+                    />
+                  </div>
                  
                  <!-- Ana Grid Tablo Container -->
                  <div class="main-table-container">
@@ -202,12 +202,12 @@
                      </div>
                      
                      <div class="kasa-devir-table-container">
-                       <q-table
+                        <q-table
                          :rows="kasaDevirData"
                          :columns="kasaDevirColumns"
                          :loading="kasaDevirLoading"
                          :pagination="kasaDevirPagination"
-                         row-key="DevirTarihi"
+                          row-key="rowKey"
                          flat
                          bordered
                          class="kasa-devir-table"
@@ -399,9 +399,11 @@ interface DetailTableRow {
 }
 
 interface KasaDevirRow {
+  nKasaNo?: number
   DevirTarihi: string
   DevirEden: string
   KasaYekun: number
+  rowKey?: string
 }
 
 const tableData = ref<TableRow[]>([])
@@ -418,7 +420,7 @@ const showKasaDevretDialog = ref(false)
 
 // Kasa devir pagination ayarları
 const kasaDevirPagination = ref({
-  sortBy: 'DevirTarihi',
+  sortBy: 'nKasaNo',
   descending: true,
   page: 1,
   rowsPerPage: 3,
@@ -481,7 +483,7 @@ const columns = computed((): QTableColumn[] => [
 
 ])
 
-// Kasa devir tablo sütunları
+// Kasa devir tablo sütunları (3 sütun)
 const kasaDevirColumns = computed((): QTableColumn[] => [
   {
     name: 'DevirTarihi',
@@ -674,13 +676,13 @@ const onRowClick = (evt: Event, row: TableRow) => {
   selectedDate.value = row.tarih
   void loadDetailTableData(row.tarih)
   
-  // En üst satır (en yeni tarih) seçildiğinde güncel bakiyeyi hesapla
-  const isEnUstSatir = tableData.value.length > 0 && row.tarih === tableData.value[0].tarih
-  if (isEnUstSatir) {
-    void loadGuncelBakiye()
-  } else {
-    void loadSecilenGunBakiyesi(row.tarih)
-  }
+  // Sadece 1. sayfanın ilk satırında güncel bakiye, aksi halde seçilen gün bakiyesi
+  const isIlkSayfaVeIlkSatir =
+    pagination.value.page === 1 &&
+    tableData.value.length > 0 &&
+    row.tarih === tableData.value[0].tarih
+  if (isIlkSayfaVeIlkSatir) void loadGuncelBakiye()
+  else void loadSecilenGunBakiyesi(row.tarih)
 }
 
 // Event handler for radio group change
@@ -765,19 +767,55 @@ const loadDetailTableData = async (tarih: string) => {
 
 // Bakiye hesaplama fonksiyonları
 const currentBakiye = ref(0)
-const bakiyeLabelText = computed(() => {
-  if (selectedDate.value) {
-    // En üst satır (en yeni tarih) seçildiğinde güncel bakiye göster
-    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
-    if (isEnUstSatir) {
-      return `Güncel Bakiye: ${formatCurrency(currentBakiye.value)}`
-    } else {
-      return `Seçilen Gün Bakiye: ${formatCurrency(currentBakiye.value)}`
-    }
-  } else {
-    return `Güncel Bakiye: ${formatCurrency(currentBakiye.value)}`
+const kasaLabel = computed(() => {
+  switch (selectedIslemTuru.value) {
+    case 'cari':
+      return 'Cari';
+    case 'nakit':
+      return 'Nakit';
+    case 'kart':
+      return 'Kart';
+    case 'eft':
+      return 'EFT';
+    case 'acenta':
+      return 'Acenta';
+    case 'depozito':
+      return 'Depozito';
+    default:
+      return 'Kasa';
   }
 })
+
+const isGuncelBakiyeLabel = computed(() => {
+  if (!selectedDate.value) return true
+  return (
+    pagination.value.page === 1 &&
+    tableData.value.length > 0 &&
+    selectedDate.value === tableData.value[0].tarih
+  )
+})
+
+const bakiyeLabelText = computed(() => {
+  const prefix = isGuncelBakiyeLabel.value ? `Güncel ${kasaLabel.value} Bakiye` : `Seçilen Gün ${kasaLabel.value} Bakiye`
+  return `${prefix}: ${formatCurrency(currentBakiye.value)}`
+})
+
+// Seçime göre güncel/seçilen gün bakiyesini hesapla
+const recomputeCurrentBakiyeForSelection = async () => {
+  if (!selectedDate.value) {
+    await loadGuncelBakiye()
+    return
+  }
+  const isIlkSayfaVeIlkSatir =
+    pagination.value.page === 1 &&
+    tableData.value.length > 0 &&
+    selectedDate.value === tableData.value[0].tarih
+  if (isIlkSayfaVeIlkSatir) {
+    await loadGuncelBakiye()
+  } else {
+    await loadSecilenGunBakiyesi(selectedDate.value)
+  }
+}
 
 // Kasalar arası aktarım fonksiyonu
 const performTransfer = async () => {
@@ -865,7 +903,26 @@ const loadKasaDevirVerileri = async () => {
     })
     
     if (response.data.success) {
-      kasaDevirData.value = response.data.data
+      const page = kasaDevirPagination.value.page
+      const limit = kasaDevirPagination.value.rowsPerPage
+      const rawRows = (response.data.data || []) as KasaDevirRow[]
+      // Sıralama: nKasaNo DESC öncelikli; yoksa DevirTarihi DESC fallback
+      rawRows.sort((a, b) => {
+        const an = a.nKasaNo ?? 0
+        const bn = b.nKasaNo ?? 0
+        if (an !== 0 || bn !== 0) return bn - an
+        // fallback: tarih formatı DD.MM.YYYY -> YYYYMMDD kıyaslaması
+        const toNum = (d: string) => {
+          const p = (d || '').split('.')
+          return p.length === 3 ? Number(`${p[2]}${p[1]}${p[0]}`) : 0
+        }
+        return toNum(b.DevirTarihi) - toNum(a.DevirTarihi)
+      })
+      // Güvenli dilimleme ve benzersiz satır anahtarı üretimi
+      kasaDevirData.value = rawRows.slice(0, limit).map((row, idx) => ({
+        ...row,
+        rowKey: `${row.nKasaNo ?? ''}|${row.DevirTarihi}|${row.DevirEden}|${row.KasaYekun}|p${page}-i${idx}`
+      }))
       kasaDevirPagination.value.rowsNumber = response.data.totalRecords
       debugLog('✅ Kasa devir verileri yüklendi:', kasaDevirData.value.length, 'kayıt')
     } else {
@@ -935,9 +992,9 @@ const onKasaDevretOnayla = async () => {
 const onKasaDevirRequest = (props: any) => {
   debugLog('🔍 Kasa devir tablo pagination request:', props)
   
-  // Pagination değişikliklerini uygula
+  // Pagination değişikliklerini uygula ve sıralamayı nKasaNo DESC'e sabitle
   kasaDevirPagination.value = props.pagination
-  // Sadece tarih sütunu DESC olarak kalacak
+  // Sıralamayı backend nKasaNo DESC olarak sağlıyor, UI'da görüntü sütunlarını bozmayalım
   kasaDevirPagination.value.sortBy = 'DevirTarihi'
   kasaDevirPagination.value.descending = true
   
@@ -969,7 +1026,7 @@ const refreshData = async () => {
   await loadTableData()
   
   // Tarih seçili ise o tarih için detay tablo, değilse ilk tarih seçilsin
-  if (mevcutSeciliTarih && tableData.value.some(row => row.tarih === mevcutSeciliTarih)) {
+  if (mevcutSeciliTarih && tableData.value.some((row: TableRow) => row.tarih === mevcutSeciliTarih)) {
     // Mevcut seçili tarih hala geçerliyse onu kullan
     selectedDate.value = mevcutSeciliTarih
     await loadDetailTableData(mevcutSeciliTarih)
@@ -1099,25 +1156,15 @@ onMounted(async () => {
     const ilkTarih = tableData.value[0].tarih
     selectedDate.value = ilkTarih
     await loadDetailTableData(ilkTarih)
+    // 1. sayfanın ilk satırında olduğumuz için güncel bakiye
     await loadGuncelBakiye()
   }
 })
 
 // İşlem türü değiştiğinde tabloyu yeniden yükle
-watch(selectedIslemTuru, () => {
-  void loadTableData()
-  // İşlem türü değiştiğinde bakiye hesaplaması yap
-  if (selectedDate.value) {
-    // En üst satır seçildiğinde güncel bakiyeyi hesapla
-    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
-    if (isEnUstSatir) {
-      void loadGuncelBakiye()
-    } else {
-      void loadSecilenGunBakiyesi(selectedDate.value)
-    }
-  } else {
-    void loadGuncelBakiye()
-  }
+watch(selectedIslemTuru, async () => {
+  await loadTableData()
+  void recomputeCurrentBakiyeForSelection()
 })
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
@@ -1132,17 +1179,7 @@ watch(selectedIslemYonu, () => {
   }
   
   // İşlem yönü değiştiğinde bakiye hesaplaması yap
-  if (selectedDate.value) {
-    // En üst satır seçildiğinde güncel bakiyeyi hesapla
-    const isEnUstSatir = tableData.value.length > 0 && selectedDate.value === tableData.value[0].tarih
-    if (isEnUstSatir) {
-      void loadGuncelBakiye()
-    } else {
-      void loadSecilenGunBakiyesi(selectedDate.value)
-    }
-  } else {
-    void loadGuncelBakiye()
-  }
+  void recomputeCurrentBakiyeForSelection()
 })
 </script>
 
@@ -1174,17 +1211,19 @@ watch(selectedIslemYonu, () => {
 
 /* Kasalar Arası Aktarım Container */
 .transfer-container {
-  margin-top: 2px;
-  background: rgba(255, 255, 255, 0.8);
+
+  background: linear-gradient(180deg, rgba(230, 245, 255, 0.95), rgba(220, 236, 255, 0.95));
   border-radius: 10px;
   padding: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(25, 118, 210, 0.25);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.12);
 }
 
 /* Dark mode için transfer container */
 .body--dark .transfer-container {
-  background: rgba(30, 30, 30, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(10, 20, 35, 0.96), rgba(8, 16, 28, 0.96));
+  border: 1px solid rgba(100, 181, 246, 0.6);
+  box-shadow: 0 4px 14px rgba(33, 150, 243, 0.28);
 }
 
 .transfer-header {
@@ -1203,7 +1242,7 @@ watch(selectedIslemYonu, () => {
 
 /* Dark mode için transfer başlık rengi */
 .body--dark .transfer-title {
-  color: #ffffff;
+  color: #90caf9;
 }
 
 .transfer-form {
@@ -1253,18 +1292,18 @@ watch(selectedIslemYonu, () => {
 
 /* Kasa Devir Container */
 .kasa-devir-container {
-  background: rgba(222, 232, 222, 0.95);
+  background: linear-gradient(180deg, rgba(242, 248, 240, 0.96), rgba(235, 246, 235, 0.96));
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid rgba(70, 130, 180, 0.2);
-  box-shadow: 0 2px 8px rgba(70, 130, 180, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
 }
 
 /* Dark mode için kasa devir container */
 .body--dark .kasa-devir-container {
-  background: rgba(20, 30, 40, 0.95);
-  border: 1px solid rgba(100, 150, 200, 0.3);
-  box-shadow: 0 2px 8px rgba(100, 150, 200, 0.2);
+  background: linear-gradient(180deg, rgba(12, 28, 18, 0.96), rgba(8, 22, 14, 0.96));
+  border: 1px solid rgba(129, 199, 132, 0.6);
+  box-shadow: 0 4px 14px rgba(76, 175, 80, 0.28);
 }
 
 .kasa-devir-header {

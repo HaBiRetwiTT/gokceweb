@@ -64,6 +64,24 @@ type BorcluMusteriRow = {
   odemeVadesi?: string | null;
 };
 
+// Tip güvenliği: Cari hareket satırı (Excel)
+type CariHareketRow = {
+  iKytTarihi: string;
+  islemTip?: string | null;
+  islemBilgi?: string | null;
+  islemTutar?: number | null;
+};
+
+// Tip güvenliği: Konaklama geçmişi satırı (PDF)
+type KonaklamaGecmisRow = {
+  kKytTarihi: string;
+  KnklmOdaTip?: string | null;
+  KnklmOdaNo?: string | number | null;
+  KnklmYtkNo?: string | number | null;
+  KnklmTip?: string | null;
+  KnklmNfyt?: number | null;
+};
+
 @Injectable()
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
@@ -959,7 +977,7 @@ export class DashboardService {
   }
 
   // Borçlu Müşteriler - tblCari bilgileri ve hesaplanan borç tutarları
-  async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+  async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: BorcluMusteriRow[]; total: number; page: number; limit: number }> {
     try {
       const tables = this.dbConfig.getTables();
       const views = this.dbConfig.getViews();
@@ -1028,21 +1046,24 @@ export class DashboardService {
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as BorcluMusteriRow[];
       
       // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
-        musteri.odemeVadesi = await this.hesaplaOdemeVadesi(musteri.CariKod);
+        const vade = await this.hesaplaOdemeVadesi(musteri.CariKod);
+        musteri.odemeVadesi = vade;
       }
       
       // Ödeme vadesine göre küçükten büyüğe sırala, null/boş olanlar en sonda
       result.sort((a, b) => {
-        if (!a.odemeVadesi && !b.odemeVadesi) return 0;
-        if (!a.odemeVadesi) return 1;
-        if (!b.odemeVadesi) return -1;
-        // Tarih formatı: DD.MM.YYYY
-        const [gA, aA, yA] = a.odemeVadesi.split('.').map(Number);
-        const [gB, aB, yB] = b.odemeVadesi.split('.').map(Number);
+        const vA = a.odemeVadesi;
+        const vB = b.odemeVadesi;
+        if (!vA && !vB) return 0;
+        if (!vA) return 1;
+        if (!vB) return -1;
+        const [gA, aA, yA] = vA.split('.').map(Number);
+        const [gB, aB, yB] = vB.split('.').map(Number);
         const tA = new Date(yA, aA - 1, gA).getTime();
         const tB = new Date(yB, aB - 1, gB).getTime();
         return tA - tB;
@@ -1394,10 +1415,11 @@ export class DashboardService {
         ORDER BY k.knklmNo DESC
       `;
       
-      const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
+      const resultUnknown = (await this.musteriRepository.query(query, [tcKimlik])) as unknown;
+      const result = resultUnknown as Array<{ KnklmKrLst: string | null; KnklmNot: string | null; knklmNo: number; MstrAdi: string | null; MstrTelNo: string | null; MstrFirma: string | null }>;
       
       if (result.length > 0) {
-        const kayit = result[0] as { KnklmKrLst: string; KnklmNot: string; knklmNo: number; MstrAdi: string; MstrTelNo: string; MstrFirma: string };
+        const kayit = result[0];
         return {
           isKaraListe: kayit.KnklmKrLst === 'EVET',
           karaListeNot: kayit.KnklmNot || '',
@@ -1439,10 +1461,9 @@ export class DashboardService {
         `;
         
         try {
-          const odaTipiKontrol = await this.musteriRepository.query(odaTipiKontrolQuery);
-                  // Oda tipi kontrolü başarısız oldu, devam et
-      } catch (error) {
-        // Oda tipi kontrolü başarısız oldu, devam et
+          await this.musteriRepository.query(odaTipiKontrolQuery);
+        } catch (_error) {
+          // Devam et
         }
       }
       let query = `
@@ -2002,7 +2023,13 @@ export class DashboardService {
         ORDER BY ToplamGelir DESC
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as Array<{
+        FirmaAdi: string;
+        AktifMusteriSayisi: number | string | null;
+        ToplamGelir: number | string | null;
+        OrtalamaGelir: number | string | null;
+      }>;
       this.debugLog('Firma analizi sonucu:', result.length, 'firma bulundu');
       return result;
     } catch (error) {
@@ -2029,12 +2056,14 @@ export class DashboardService {
   private async hesaplaOdemeVadesi(cariKod: string): Promise<string | null> {
     this.debugLog('🔍 Ödeme vadesi hesaplanıyor:', cariKod);
     const tables = this.dbConfig.getTables();
-    const islemList: any[] = await this.musteriRepository.query(`
+    type IslemRow = { islemTip: string; islemBilgi?: string | null; islemTutar: number; iKytTarihi: string };
+    const islemListUnknown = (await this.musteriRepository.query(`
       SELECT islemTip, islemBilgi, islemTutar, iKytTarihi
       FROM ${tables.islem}
       WHERE islemCrKod = @0
       ORDER BY CONVERT(Date, iKytTarihi, 104) ASC
-    `, [cariKod]);
+    `, [cariKod])) as unknown;
+    const islemList = islemListUnknown as IslemRow[];
 
     this.debugLog('🔍 İşlem kayıtları bulundu:', islemList.length);
 
@@ -2051,7 +2080,7 @@ export class DashboardService {
       }
       
       let vadeTarihi: Date;
-      const { islemTip, islemBilgi, islemTutar, iKytTarihi } = islem;
+      const { islemTip, islemTutar, iKytTarihi } = islem;
 
       if (islemTip === 'GELİR') {
         // islemBilgi'den vade tarihi çek (büyük/küçük harf duyarsız)
@@ -2206,7 +2235,7 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE CİRİ HAREKETLER PDF OLUŞTURMA
   async generateCariHareketlerByTCPDF(tcKimlik: string): Promise<any> {
     try {
-      const data = await this.getCariHareketlerByTC(tcKimlik);
+      const data = (await this.getCariHareketlerByTC(tcKimlik)) as CariHareketRow[];
       
       // Müşteri adını al
       let musteriAdi = '';
@@ -2261,7 +2290,7 @@ export class DashboardService {
         y += 20;
 
         // Veri satırları
-        data.forEach((row: any) => {
+        data.forEach((row: CariHareketRow) => {
           if (y > 700) {
             doc.addPage();
             y = 50;
@@ -2271,7 +2300,7 @@ export class DashboardService {
             this.formatDate(row.iKytTarihi),
             row.islemTip || '',
             row.islemBilgi || '',
-            this.formatCurrency(row.islemTutar)
+            this.formatCurrency(row.islemTutar ?? 0)
           ];
 
           values.forEach((value, index) => {
@@ -2341,7 +2370,7 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ PDF OLUŞTURMA
   async generateKonaklamaGecmisiByTCPDF(tcKimlik: string): Promise<any> {
     try {
-      const data = await this.getMusteriKonaklamaGecmisi(tcKimlik);
+      const data = (await this.getMusteriKonaklamaGecmisi(tcKimlik)) as KonaklamaGecmisRow[];
       
       // Müşteri adını al
       let musteriAdi = '';
@@ -2396,7 +2425,7 @@ export class DashboardService {
         y += 20;
 
         // Veri satırları
-        data.forEach((row: any) => {
+        data.forEach((row: KonaklamaGecmisRow) => {
           if (y > 700) {
             doc.addPage();
             y = 50;
@@ -2406,7 +2435,7 @@ export class DashboardService {
             this.formatDate(row.kKytTarihi),
             row.KnklmTip || '',
             `${row.KnklmOdaTip} - ${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-            this.formatCurrency(row.KnklmNfyt)
+            this.formatCurrency(Number(row.KnklmNfyt ?? 0))
           ];
 
           values.forEach((value, index) => {
@@ -2442,11 +2471,11 @@ export class DashboardService {
       // Veri satırları
       data.forEach((row: any) => {
         worksheet.addRow([
-          this.formatDate(row.kKytTarihi),
-          row.KnklmOdaTip || '',
-          `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-          row.KnklmTip || '',
-          row.KnklmNfyt
+            this.formatDate(row.kKytTarihi),
+            row.KnklmOdaTip || '',
+            `${row.KnklmOdaNo ?? ''}-${row.KnklmYtkNo ?? ''}`,
+            row.KnklmTip || '',
+            row.KnklmNfyt ?? 0
         ]);
       });
 

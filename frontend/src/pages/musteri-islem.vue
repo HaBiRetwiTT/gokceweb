@@ -1375,11 +1375,19 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
-  // SessionStorage'dan TC kimlik auto-fill kontrolü
+  // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
   await checkAndApplyAutoFillTCKimlik()
-  
-  // 🔥 localStorage'dan kartli-islem sayfasından gelen seçili müşteri bilgilerini kontrol et
-  await checkAndApplySelectedMusteriFromKartliIslem()
+
+  // Sadece önceki sayfa kartli-islem ise müşteri otomatik yüklensin
+  const prevPage = sessionStorage.getItem('prevPage')
+  if (prevPage === 'kartli-islem') {
+    await checkAndApplySelectedMusteriFromKartliIslem()
+  } else if (sessionStorage.getItem('autoFillTCKimlik')) {
+    // Eski akış desteği: sadece TC auto-fill geldiğinde seçili müşteri yükleme denenebilir
+    await checkAndApplySelectedMusteriFromKartliIslem()
+  } else {
+    debugLog('🔍 Önceki sayfa kartli-islem değil, otomatik müşteri yükleme atlandı. prevPage=', prevPage)
+  }
   
   await loadOdaTipleri()
   void loadFirmaList()
@@ -1916,6 +1924,13 @@ function onTCNInput() {
 async function checkAndApplySelectedMusteriFromKartliIslem() {
   try {
     debugLog('🔥 checkAndApplySelectedMusteriFromKartliIslem fonksiyonu çağrıldı')
+    // Güvenlik: kartli-islem menşei YOKSA sadece TC auto-fill varsa devam et
+    const prevPage = sessionStorage.getItem('prevPage')
+    const hasAutoFillTC = !!sessionStorage.getItem('autoFillTCKimlik')
+    if (prevPage !== 'kartli-islem' && !hasAutoFillTC) {
+      debugLog('🔍 prevPage != kartli-islem ve autoFill yok, otomatik yükleme yapılmayacak')
+      return
+    }
     const selectedMusteriData = localStorage.getItem('selectedMusteriForIslem')
     debugLog('🔥 localStorage\'dan alınan veri:', selectedMusteriData)
     
@@ -2011,8 +2026,9 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
         
         notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Güncelleme modu aktif'
         
-        // localStorage'dan temizle
+        // localStorage ve prevPage işaretini temizle
         localStorage.removeItem('selectedMusteriForIslem')
+        sessionStorage.removeItem('prevPage')
         
         setTimeout(() => {
           notify.value = ''
@@ -2201,7 +2217,8 @@ async function onTCNBlur() {
           // Veri yükleme başlangıcı - watchers'ları disable et
           veriYukleniyor.value = true
           
-          const konaklamaResponse = await api.get(`/mevcut-konaklama/${tcn}`)
+          // Mevcut konaklama endpoint'i modül ile birlikte olmalı
+          const konaklamaResponse = await api.get(`/musteri/mevcut-konaklama/${tcn}`)
           
           if (konaklamaResponse.data.success && konaklamaResponse.data.data) {
             const konaklamaData = konaklamaResponse.data.data

@@ -18,7 +18,13 @@ export class CariService {
     }
   }
 
-  async getTedarikciListesi() {
+  async getTedarikciListesi(): Promise<
+    Array<{
+      CariKod: string;
+      CariAdi: string;
+      CariBakiye: number | string | null;
+    }>
+  > {
     try {
       this.debugLog('Tedarikçi listesi isteniyor...');
 
@@ -42,7 +48,14 @@ export class CariService {
         ORDER BY c.CariAdi ASC
       `;
 
-      const result = await this.cariRepository.query(bakiyeQuery);
+      const resultUnknown = (await this.cariRepository.query(
+        bakiyeQuery,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number | string | null;
+      }>;
 
       this.debugLog('Tedarikçi listesi sonucu:', result);
       this.debugLog('Tedarikçi sayısı:', result.length);
@@ -56,7 +69,13 @@ export class CariService {
     }
   }
 
-  async getMusteriListesi() {
+  async getMusteriListesi(): Promise<
+    Array<{
+      CariKod: string;
+      CariAdi: string;
+      CariBakiye: number | string | null;
+    }>
+  > {
     try {
       this.debugLog('Müşteri listesi isteniyor...');
 
@@ -82,7 +101,14 @@ export class CariService {
       `;
 
       this.debugLog('Müşteri sorgusu çalıştırılıyor...');
-      const result = await this.cariRepository.query(musteriQuery);
+      const resultUnknown = (await this.cariRepository.query(
+        musteriQuery,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number | string | null;
+      }>;
       this.debugLog('Müşteri sorgusu sonucu:', result.length, 'kayıt bulundu');
 
       this.debugLog('Müşteri listesi sonucu:', result.length, 'kayıt');
@@ -96,11 +122,16 @@ export class CariService {
 
       // Hata durumunda test verilerini döndür
       this.debugLog('Hata durumunda test verileri döndürülüyor...');
-      return [
+      const fallback: Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number;
+      }> = [
         { CariKod: 'MB10001', CariAdi: 'TEST MÜŞTERİ 1', CariBakiye: 0 },
         { CariKod: 'MB10002', CariAdi: 'TEST MÜŞTERİ 2', CariBakiye: 0 },
         { CariKod: 'MB10003', CariAdi: 'TEST MÜŞTERİ 3', CariBakiye: 0 },
       ];
+      return fallback;
     }
   }
 }

@@ -1127,19 +1127,19 @@ export class MusteriService {
     return `${year}-${month}-${day}`;
   }
 
-  async getBosOdalar(odaTipi: string): Promise<{value: string, label: string}[]> {
+  async getBosOdalar(odaTipi: string): Promise<{ value: string; label: string }[]> {
     try {
       const tables = this.dbConfig.getTables();
       const query = `
-        SELECT OdYatOdaNo, OdYatYtkNo 
+        SELECT OdYatOdaNo, OdYatYtkNo, OdYatDurum 
         FROM ${tables.odaYatak} 
-        WHERE OdYatOdaTip = @0 AND OdYatDurum = 'BOŞ'
+        WHERE OdYatOdaTip = @0 AND OdYatDurum <> 'DOLU'
         ORDER BY OdYatOdaNo, OdYatYtkNo
       `;
-      const result: { OdYatOdaNo: string; OdYatYtkNo: string }[] = await this.odaYatakRepository.query(query, [odaTipi]);
+      const result: { OdYatOdaNo: string; OdYatYtkNo: string; OdYatDurum?: string }[] = await this.odaYatakRepository.query(query, [odaTipi]);
       return result.map(item => ({
         value: `${item.OdYatOdaNo}-${item.OdYatYtkNo}`,
-        label: `Oda: ${item.OdYatOdaNo} - Yatak: ${item.OdYatYtkNo}`
+        label: `${item.OdYatOdaNo} - ${item.OdYatYtkNo} / ${item.OdYatDurum ?? ''}`
       }));
     } catch (error) {
       console.error('Boş odalar alınırken hata:', error);

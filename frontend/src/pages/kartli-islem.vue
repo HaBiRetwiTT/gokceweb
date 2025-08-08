@@ -2853,6 +2853,8 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   };
   
   localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
+  sessionStorage.setItem('prevPage', 'kartli-islem');
+  if (row?.MstrTCN) sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
   
   selectedCustomer.value = {
     id: row.MstrTCN,
@@ -2883,6 +2885,7 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   
   if (currentFilter.value === 'cikis-yapanlar' || currentFilter.value === 'bugun-cikan') {
     sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
+    sessionStorage.setItem('prevPage', 'kartli-islem');
     void router.push('/musteri-islem');
   } else {
     // Modal açılış akışı - ödeme vadesi hesaplama
@@ -3962,6 +3965,8 @@ function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {
   
   console.log('🔥 MstrHspTip değeri:', musteriDataForIslem.MstrHspTip);
   localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
+  sessionStorage.setItem('prevPage', 'kartli-islem');
+  if (row?.MstrTCN) sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
   
   
   selectedCustomer.value = {

@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { Controller, Get, Query, HttpException, HttpStatus, Param, Put, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
@@ -462,7 +463,7 @@ export class DashboardController {
 
   // 🔥 Eski Endpoint - Geriye Uyumluluk için (Frontend hala bu endpointi çağırıyor)
   @Get('cari-hareketler-pdf')
-  async getCariHareketlerPDF(@Query('tcNo') tcNo: string, @Res() res: any) {
+  async getCariHareketlerPDF(@Query('tcNo') tcNo: string, @Res() res: Response) {
     try {
       if (!tcNo) {
         throw new HttpException({
@@ -472,7 +473,7 @@ export class DashboardController {
       }
 
       // Yeni güncellenmiş fonksiyonu çağır
-      const pdfBuffer = await this.dashboardService.generateCariHareketlerByTCPDF(tcNo);
+      const pdfBuffer: Buffer = (await this.dashboardService.generateCariHareketlerByTCPDF(tcNo)) as unknown as Buffer;
       
       res.set({
         'Content-Type': 'application/pdf',
@@ -492,7 +493,7 @@ export class DashboardController {
 
   // 🔥 TC Kimlik ile Cari Hareketler PDF
   @Get('cari-hareketler-tc-pdf')
-  async getCariHareketlerByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+  async getCariHareketlerByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: Response) {
     try {
       if (!tcKimlik) {
         throw new HttpException({
@@ -501,7 +502,7 @@ export class DashboardController {
         }, HttpStatus.BAD_REQUEST);
       }
 
-      const pdfBuffer = await this.dashboardService.generateCariHareketlerByTCPDF(tcKimlik);
+      const pdfBuffer: Buffer = (await this.dashboardService.generateCariHareketlerByTCPDF(tcKimlik)) as unknown as Buffer;
       
       res.set({
         'Content-Type': 'application/pdf',
@@ -521,7 +522,7 @@ export class DashboardController {
 
   // 🔥 TC Kimlik ile Cari Hareketler Excel
   @Get('cari-hareketler-tc-excel')
-  async getCariHareketlerByTCExcel(@Query('tcKimlik') tcKimlik: string, @Query('tcNo') tcNo: string, @Res() res: any) {
+  async getCariHareketlerByTCExcel(@Query('tcKimlik') tcKimlik: string, @Query('tcNo') tcNo: string, @Res() res: Response) {
     try {
       // tcNo parametresi öncelikli, yoksa tcKimlik kullan
       const tcParam = tcNo || tcKimlik;
@@ -533,7 +534,7 @@ export class DashboardController {
         }, HttpStatus.BAD_REQUEST);
       }
 
-      const excelBuffer = await this.dashboardService.generateCariHareketlerByTCExcel(tcParam);
+      const excelBuffer: Buffer = (await this.dashboardService.generateCariHareketlerByTCExcel(tcParam)) as unknown as Buffer;
       
       res.set({
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -553,7 +554,7 @@ export class DashboardController {
 
   // 🔥 TC Kimlik ile Konaklama Geçmişi PDF
   @Get('konaklama-gecmisi-tc-pdf')
-  async getKonaklamaGecmisiByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+  async getKonaklamaGecmisiByTCPDF(@Query('tcKimlik') tcKimlik: string, @Res() res: Response) {
     try {
       if (!tcKimlik) {
         throw new HttpException({
@@ -562,7 +563,7 @@ export class DashboardController {
         }, HttpStatus.BAD_REQUEST);
       }
 
-      const pdfBuffer = await this.dashboardService.generateKonaklamaGecmisiByTCPDF(tcKimlik);
+      const pdfBuffer: Buffer = (await this.dashboardService.generateKonaklamaGecmisiByTCPDF(tcKimlik)) as unknown as Buffer;
       
       res.set({
         'Content-Type': 'application/pdf',
@@ -582,7 +583,7 @@ export class DashboardController {
 
   // 🔥 TC Kimlik ile Konaklama Geçmişi Excel
   @Get('konaklama-gecmisi-tc-excel')
-  async getKonaklamaGecmisiByTCExcel(@Query('tcKimlik') tcKimlik: string, @Res() res: any) {
+  async getKonaklamaGecmisiByTCExcel(@Query('tcKimlik') tcKimlik: string, @Res() res: Response) {
     try {
       if (!tcKimlik) {
         throw new HttpException({
@@ -591,7 +592,7 @@ export class DashboardController {
         }, HttpStatus.BAD_REQUEST);
       }
 
-      const excelBuffer = await this.dashboardService.generateKonaklamaGecmisiByTCExcel(tcKimlik);
+      const excelBuffer: Buffer = (await this.dashboardService.generateKonaklamaGecmisiByTCExcel(tcKimlik)) as unknown as Buffer;
       
       res.set({
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

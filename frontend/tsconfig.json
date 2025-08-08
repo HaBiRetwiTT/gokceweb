@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
     "importHelpers": true,
@@ -22,7 +22,9 @@
     },
     "types": [
       "vite/client",
-      "node"
+      "node",
+      "vue",
+      "quasar"
     ],
     "lib": [
       "dom",

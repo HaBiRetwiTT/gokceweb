@@ -28,6 +28,16 @@ export interface KonaklamaTakvimData {
   odaTipleri: OdaTipDoluluk[];
 }
 
+type AktifKonaklamaRow = {
+  KnklmOdaTip: string | null;
+  KnklmPlnTrh: string | null;
+  MstrAdi: string | null;
+  KnklmOdaNo: string | null;
+  KnklmYtkNo: string | null;
+  KnklmGrsTrh: string | null;
+  KnklmTip: string | null;
+};
+
 @Injectable()
 export class KonaklamaTakvimService {
   constructor(
@@ -74,7 +84,8 @@ export class KonaklamaTakvimService {
   /**
    * v_MusteriKonaklama view'ından aktif konaklamaları getirir
    */
-  private async getAktifKonaklamalar(): Promise<any[]> {
+
+  private async getAktifKonaklamalar(): Promise<AktifKonaklamaRow[]> {
     try {
       const views = this.dbConfig.getViews();
       
@@ -133,7 +144,7 @@ export class KonaklamaTakvimService {
                  KnklmYtkNo ASC
       `;
       
-      const result = await this.musteriRepository.query(query);
+      const result = (await this.musteriRepository.query(query)) as unknown as AktifKonaklamaRow[];
       console.log('Aktif konaklamalar:', result.length, 'kayıt bulundu');
       
       // Debug için ilk birkaç kaydı logla
@@ -159,8 +170,9 @@ export class KonaklamaTakvimService {
         WHERE odYatOdaTip = @0 AND odYatDurum IN ('BOŞ', 'DOLU')
       `;
       
-      const result = await this.musteriRepository.query(query, [odaTipi]);
-      return result[0]?.toplamYatakSayisi || 0;
+      const result = (await this.musteriRepository.query(query, [odaTipi])) as unknown as Array<{ toplamYatakSayisi: number | string | null }>;
+      const val = result[0]?.toplamYatakSayisi ?? 0;
+      return typeof val === 'number' ? val : Number(val) || 0;
     } catch (error) {
       console.error('getToplamYatakSayisi hatası:', error);
       return 0;
@@ -170,8 +182,8 @@ export class KonaklamaTakvimService {
   /**
    * Konaklamaları oda tipine göre gruplandırır
    */
-  private groupByOdaTipi(konaklamalar: any[]): { [odaTipi: string]: any[] } {
-    const grup: { [odaTipi: string]: any[] } = {};
+  private groupByOdaTipi(konaklamalar: AktifKonaklamaRow[]): { [odaTipi: string]: AktifKonaklamaRow[] } {
+    const grup: { [odaTipi: string]: AktifKonaklamaRow[] } = {};
     
     konaklamalar.forEach(konaklama => {
       const odaTipi = konaklama.KnklmOdaTip || 'Belirtilmemiş';
@@ -188,7 +200,7 @@ export class KonaklamaTakvimService {
   /**
    * Her oda tipi için doluluk durumunu hesaplar
    */
-  private async calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: any[] }, gunler: string[]): Promise<OdaTipDoluluk[]> {
+  private async calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: AktifKonaklamaRow[] }, gunler: string[]): Promise<OdaTipDoluluk[]> {
     const odaTipleri: OdaTipDoluluk[] = [];
     
     for (const odaTipi of Object.keys(odaTipGruplari)) {
@@ -202,7 +214,7 @@ export class KonaklamaTakvimService {
           const planTarih = this.parseDate(konaklama.KnklmPlnTrh);
           const tarihObj = new Date(planTarih);
           
-          if (!maxPlanlananTarih || tarihObj > maxPlanlananTarih) {
+           if (!maxPlanlananTarih || tarihObj > maxPlanlananTarih) {
             maxPlanlananTarih = tarihObj;
           }
         }
@@ -220,8 +232,8 @@ export class KonaklamaTakvimService {
           if (!konaklama.KnklmGrsTrh || !konaklama.KnklmPlnTrh) return;
           
           try {
-            const girisTarih = new Date(this.parseDate(konaklama.KnklmGrsTrh));
-            const cikisTarih = new Date(this.parseDate(konaklama.KnklmPlnTrh));
+             const girisTarih = new Date(this.parseDate(konaklama.KnklmGrsTrh));
+             const cikisTarih = new Date(this.parseDate(konaklama.KnklmPlnTrh));
             
             // Tarih parse edilemezse skip et
             if (isNaN(girisTarih.getTime()) || isNaN(cikisTarih.getTime())) {
