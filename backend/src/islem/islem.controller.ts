@@ -25,10 +25,17 @@ interface IslemKayit {
 export class IslemController {
   constructor(private readonly islemService: IslemService) {}
 
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(...args)
+    }
+  }
+
   @Post('kaydet')
   async kaydetIslem(@Body() body: { kayitlar: IslemKayit[] }) {
     try {
-      console.log('Gelen kayıtlar:', body.kayitlar)
+      this.debugLog('Gelen kayıtlar:', body.kayitlar)
       
       if (!body.kayitlar || body.kayitlar.length === 0) {
         throw new HttpException('Kayıt listesi boş olamaz', HttpStatus.BAD_REQUEST)
@@ -224,7 +231,7 @@ export class IslemController {
   @Post('kasa-aktarimi')
   async kasaAktarimi(@Body() body: { veren: string; alan: string; tutar: number }) {
     try {
-      console.log('Kasa aktarımı başlatılıyor:', body);
+      this.debugLog('Kasa aktarımı başlatılıyor:', body);
       
       if (!body.veren || !body.alan || !body.tutar) {
         throw new HttpException('Veren, alan ve tutar alanları zorunludur', HttpStatus.BAD_REQUEST);

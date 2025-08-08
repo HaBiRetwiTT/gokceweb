@@ -5,6 +5,13 @@ import { CariService } from './cari.service';
 export class CariController {
   constructor(private readonly cariService: CariService) {}
 
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(...args);
+    }
+  }
+
   @Get('health')
   async healthCheck() {
     return { status: 'OK', message: 'Cari API is running', timestamp: new Date().toISOString() };
@@ -13,9 +20,9 @@ export class CariController {
   @Get('tedarikci')
   async getTedarikciListesi() {
     try {
-      console.log('Tedarikçi listesi endpoint\'i çağrıldı');
+      this.debugLog('Tedarikçi listesi endpoint\'i çağrıldı');
       const result = await this.cariService.getTedarikciListesi();
-      console.log('Tedarikçi listesi başarıyla döndürüldü, kayıt sayısı:', result.length);
+      this.debugLog('Tedarikçi listesi başarıyla döndürüldü, kayıt sayısı:', result.length);
       return result;
     } catch (error) {
       console.error('Tedarikçi listesi controller hatası:', error);
@@ -26,9 +33,9 @@ export class CariController {
   @Get('musteri')
   async getMusteriListesi() {
     try {
-      console.log('Müşteri listesi endpoint\'i çağrıldı');
+      this.debugLog('Müşteri listesi endpoint\'i çağrıldı');
       const result = await this.cariService.getMusteriListesi();
-      console.log('Müşteri listesi başarıyla döndürüldü, kayıt sayısı:', result.length);
+      this.debugLog('Müşteri listesi başarıyla döndürüldü, kayıt sayısı:', result.length);
       return result;
     } catch (error) {
       console.error('Müşteri listesi controller hatası:', error);

@@ -3,6 +3,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
+function debugLog(...args: unknown[]): void {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log(...args);
+  }
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
@@ -39,6 +46,6 @@ async function bootstrap() {
   });
   
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`Backend running on port ${process.env.PORT ?? 3000}`);
+  debugLog(`Backend running on port ${process.env.PORT ?? 3000}`);
 }
 void bootstrap();
