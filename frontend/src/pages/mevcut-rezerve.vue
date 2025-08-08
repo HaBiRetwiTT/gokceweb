@@ -93,7 +93,7 @@
                           <div class="kat-header">Kat {{ kat }}</div>
                           <ul class="bos-odalar-list">
                             <li v-for="(item, idx) in getBosListByKat(odaTipi.odaTipi, kat)" :key="`${kat}-${idx}`">
-                              {{ item.label || item.value }}
+                              {{ (item.label || item.value) + (item.durum ? ' / ' + item.durum : '') }}
                             </li>
                           </ul>
                         </div>
@@ -250,7 +250,7 @@ const takvimData = ref<TakvimData | null>(null)
 const route = useRoute()
 
   // Boş odalar tooltip cache ve yükleme durumları
-  const bosOdalarCache = ref<Record<string, Array<{ label?: string; value: string }>>>({})
+  const bosOdalarCache = ref<Record<string, Array<{ label?: string; value: string; durum?: string }>>>({})
   const bosOdalarLoading = ref<Record<string, boolean>>({})
 
   async function ensureBosOdalar(odaTipi: string) {
@@ -262,8 +262,8 @@ const route = useRoute()
       // Basit SQL mantığı backend'de uygulanıyor.
       // Doğru endpoint: GET /musteri/bos-odalar/:odaTipi
       const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(odaTipi)}`)
-      const rows = ((response.data?.data || []) as Array<{ label?: string; value: string }>)
-        .map((r) => ({ label: r.label || r.value, value: r.value }))
+      const rows = ((response.data?.data || []) as Array<{ label?: string; value: string; durum?: string }>)
+        .map((r) => ({ label: r.label || r.value, value: r.value, durum: r.durum }))
       bosOdalarCache.value = { ...bosOdalarCache.value, [odaTipi]: rows }
     } catch {
       bosOdalarCache.value = { ...bosOdalarCache.value, [odaTipi]: [] }
@@ -272,7 +272,7 @@ const route = useRoute()
     }
   }
 
-  function extractKatFromItem(item: { label?: string; value: string }): string {
+  function extractKatFromItem(item: { label?: string; value: string; durum?: string }): string {
     const text = String(item.label ?? item.value ?? '')
     // "101-1" gibi ifadede odaNo ilk digit katı verir
     const odaNoPart = text.split('-')[0]
@@ -287,7 +287,7 @@ const route = useRoute()
     return Array.from(set).sort((a, b) => Number(a) - Number(b))
   }
 
-  function getBosListByKat(odaTipi: string, kat: string): Array<{ label?: string; value: string }> {
+  function getBosListByKat(odaTipi: string, kat: string): Array<{ label?: string; value: string; durum?: string }> {
     const list = bosOdalarCache.value[odaTipi] || []
     return list.filter((it) => extractKatFromItem(it) === kat)
   }

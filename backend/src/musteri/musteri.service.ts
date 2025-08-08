@@ -618,13 +618,13 @@ export class MusteriService {
   private parseOdaYatak(odaYatakData: string | { label?: string; value?: string }): { odaNo: string, yatakNo: string } {
     console.log('parseOdaYatak input:', odaYatakData, 'type:', typeof odaYatakData);
     
-    // Eğer obje ise, label property'sini al (doğru format burada)
+    // Eğer obje ise, ÖNCE value, sonra label'ı kullan (value genelde '508-1' formatında gelir)
     let odaYatakStr: string;
     if (typeof odaYatakData === 'object' && odaYatakData !== null) {
-      if (odaYatakData.label) {
-        odaYatakStr = odaYatakData.label;
-      } else if (odaYatakData.value) {
+      if (odaYatakData.value) {
         odaYatakStr = odaYatakData.value;
+      } else if (odaYatakData.label) {
+        odaYatakStr = odaYatakData.label;
       } else {
         odaYatakStr = JSON.stringify(odaYatakData);
       }
@@ -634,8 +634,8 @@ export class MusteriService {
     
     console.log('parseOdaYatak string:', odaYatakStr);
     
-    // Önce basit format kontrolü: "123-1"
-    const simpleMatch = odaYatakStr.match(/^(\d+)-(\d+)$/);
+    // Önce basit format kontrolü: "123-1" veya arada boşluklu "123 - 1"
+    const simpleMatch = odaYatakStr.match(/^(\d+)\s*-\s*(\d+)$/);
     if (simpleMatch) {
       const result = {
         odaNo: simpleMatch[1],
@@ -1137,9 +1137,11 @@ export class MusteriService {
         ORDER BY OdYatOdaNo, OdYatYtkNo
       `;
       const result: { OdYatOdaNo: string; OdYatYtkNo: string; OdYatDurum?: string }[] = await this.odaYatakRepository.query(query, [odaTipi]);
+      // Combobox için sade label; ek olarak mevcut-rezerve tooltip'inde kullanmak üzere durum alanını da döndür
       return result.map(item => ({
         value: `${item.OdYatOdaNo}-${item.OdYatYtkNo}`,
-        label: `${item.OdYatOdaNo} - ${item.OdYatYtkNo} / ${item.OdYatDurum ?? ''}`
+        label: `${item.OdYatOdaNo} - ${item.OdYatYtkNo}`,
+        durum: item.OdYatDurum ?? ''
       }));
     } catch (error) {
       console.error('Boş odalar alınırken hata:', error);

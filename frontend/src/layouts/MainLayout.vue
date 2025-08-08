@@ -204,7 +204,17 @@
               </template>
               <template v-slot:body-cell-birimFiyat="props">
                 <q-td>
-                  {{ props.row.Prm04.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) }}
+                  <q-input
+                    v-model.number="props.row.Prm04"
+                    dense
+                    outlined
+                    style="max-width: 120px;"
+                    :input-style="{ textAlign: 'right' }"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    :disable="!props.row.selected"
+                  />
                 </q-td>
               </template>
               <template v-slot:body-cell-miktar="props">

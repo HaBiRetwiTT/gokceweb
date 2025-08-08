@@ -1169,7 +1169,7 @@
       @success="onModalSuccess"
     />
 
-    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="selectedNormalMusteri?.MstrAdi || ''" @bakiyeGuncelle="bakiyeGuncelleHandler" />
+    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="odemeMusteriAdi" @bakiyeGuncelle="bakiyeGuncelleHandler" />
     
     <!-- 🔥 DEBUG: Seçili müşteri bilgisi -->
     <div v-if="false" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid black; z-index: 9999;">
@@ -1317,6 +1317,11 @@ const listelenenGelir = computed(() => {
 })
 
 const showOdemeIslemModal = ref(false);
+const odemeMusteriAdi = computed(() => {
+  const fromSelected = selectedNormalMusteri.value?.MstrAdi;
+  const fromWindow = (window as Window & { kartliIslemSelectedNormalMusteri?: { MstrAdi?: string } }).kartliIslemSelectedNormalMusteri?.MstrAdi;
+  return fromSelected || fromWindow || '';
+});
 // Filtrelenmiş veriler - tablo için kullanılacak
 const displayedMusteriListesi = computed(() => {
   let baseList = musteriListesi.value;
@@ -2643,7 +2648,7 @@ async function loadCariHareketlerByTC(tcKimlik: string) {
 // 🔥 BACKEND STATS CACHE'İNİ TEMİZLE
 async function clearBackendStatsCache() {
   try {
-    await api.post('/api/dashboard/clear-stats-cache');
+    await api.post('/dashboard/clear-stats-cache');
   } catch (error) {
     console.error('❌ Backend stats cache temizleme hatası:', error);
   }

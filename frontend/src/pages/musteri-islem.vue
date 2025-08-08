@@ -859,7 +859,7 @@ const ekBilgilerContainerRef = ref()
 // Ek Bilgiler Dialog
 const showEkBilgilerDialog = ref(false)
 const ekBilgiler = ref({
-  kahvaltiDahil: true, // Günlük konaklama default olduğu için true
+  kahvaltiDahil: false,
   havluVerildi: false,
   prizVerildi: false,
   geceKonaklama: false
@@ -1004,9 +1004,18 @@ async function hesaplaBedel() {
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data
       
-      // Depozito tutarını güncelle (OdDpzt alanından)
-      const depozitoBedeli = Number(odaTipFiyatlari.value?.OdDpzt) || 0
-      depozito.value.bedel = depozitoBedeli
+      // Depozito tutarını güncelle (OdDpzt alanından) ve konaklama tipine göre çarpan uygula
+      const bazDepozito = Number(odaTipFiyatlari.value?.OdDpzt) || 0
+      const tipForDepozito = form.value.KonaklamaTipi
+      let depozitoCarpan = 1
+      if (tipForDepozito === 'GÜNLÜK') {
+        depozitoCarpan = 1
+      } else if (tipForDepozito === '1 HAFTALIK' || tipForDepozito === '2 HAFTALIK' || tipForDepozito === '3 HAFTALIK' || tipForDepozito === 'HAFTALIK') {
+        depozitoCarpan = 5
+      } else if (tipForDepozito === 'AYLIK') {
+        depozitoCarpan = 10
+      }
+      depozito.value.bedel = Math.round(bazDepozito * depozitoCarpan)
       // console.log(`Depozito tutarı güncellendi: ${depozitoBedeli} TL`)
       
       let hesaplananFiyat = 0
@@ -1308,8 +1317,8 @@ watch(() => form.value.OdaTipi, (newOdaTipi) => {
 // Konaklama tipi değişikliklerini izle (Kahvaltı otomatik seçimi için)
 watch(() => form.value.KonaklamaTipi, (newTip) => {
   if (newTip === 'GÜNLÜK') {
-    // Günlük konaklamalarda kahvaltı otomatik seçili
-    ekBilgiler.value.kahvaltiDahil = true
+    // Günlük konaklama seçildiğinde kahvaltı default false kalsın
+    ekBilgiler.value.kahvaltiDahil = false
   } else {
     // Haftalık ve aylık konaklamalarda kahvaltı seçilemez
     ekBilgiler.value.kahvaltiDahil = false
@@ -1633,13 +1642,13 @@ async function submitForm() {
         MstrAdres: '',
         MstrNot: ''
       }
-      // Ek Bilgileri temizle
-      ekBilgiler.value = {
-        kahvaltiDahil: true, // Günlük konaklama default olduğu için true
-        havluVerildi: false,
-        prizVerildi: false,
-        geceKonaklama: false
-      }
+  // Ek Bilgileri temizle
+  ekBilgiler.value = {
+    kahvaltiDahil: false,
+    havluVerildi: false,
+    prizVerildi: false,
+    geceKonaklama: false
+  }
       // Depozito'yu temizle
       depozito.value = {
         dahil: true, // Default olarak işaretli
@@ -1714,7 +1723,7 @@ function clearForm() {
   }
   // Ek Bilgileri temizle
   ekBilgiler.value = {
-    kahvaltiDahil: true, // Günlük konaklama default olduğu için true
+    kahvaltiDahil: false,
     havluVerildi: false,
     prizVerildi: false,
     geceKonaklama: false
@@ -1818,8 +1827,10 @@ function updateEkNotlar() {
   }
   
   // 3. Kahvaltı durumu
-  if (form.value.KonaklamaTipi === 'GÜNLÜK' && !ekBilgiler.value.kahvaltiDahil) {
-    notlar.push('Kahvaltısız')
+  if (form.value.KonaklamaTipi === 'GÜNLÜK') {
+    if (ekBilgiler.value.kahvaltiDahil) {
+      notlar.push('Kahvaltı Verildi')
+    }
   }
   
   // 4. Ek Bilgiler
