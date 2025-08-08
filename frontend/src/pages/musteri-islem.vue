@@ -774,7 +774,6 @@ import { Notify } from 'quasar';
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
-    // eslint-disable-next-line no-console
     console.log(...args)
   }
 }
@@ -1596,12 +1595,12 @@ async function submitForm() {
           timeout: 2000
         })
         
-        router.push('/kartli-islem?autoOpenModal=true')
+        void router.push('/kartli-islem?autoOpenModal=true')
         
         // Kartli-islem sayfası yüklendikten sonra tahsilat modalını aç
         setTimeout(() => {
           // DOM'un tamamen güncellendiğinden emin ol
-          nextTick().then(() => {
+          void nextTick().then(() => {
             debugLog('🔥 showOdemeIslemModal event dispatched')
             window.dispatchEvent(new Event('showOdemeIslemModal'))
           })
