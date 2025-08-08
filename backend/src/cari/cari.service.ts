@@ -9,12 +9,11 @@ export class CariService {
   constructor(
     @InjectRepository(Cari)
     private cariRepository: Repository<Cari>,
-    private dbConfig: DatabaseConfigService
+    private dbConfig: DatabaseConfigService,
   ) {}
 
   private debugLog(...args: unknown[]): void {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.log(...args);
     }
   }
@@ -22,7 +21,7 @@ export class CariService {
   async getTedarikciListesi() {
     try {
       this.debugLog('Tedarikçi listesi isteniyor...');
-      
+
       // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
       const bakiyeQuery = `
         SELECT 
@@ -42,12 +41,12 @@ export class CariService {
         GROUP BY c.CariKod, c.CariAdi
         ORDER BY c.CariAdi ASC
       `;
-      
+
       const result = await this.cariRepository.query(bakiyeQuery);
-      
+
       this.debugLog('Tedarikçi listesi sonucu:', result);
       this.debugLog('Tedarikçi sayısı:', result.length);
-      
+
       return result;
     } catch (error) {
       console.error('Tedarikçi listesi alınırken hata:', error);
@@ -60,7 +59,7 @@ export class CariService {
   async getMusteriListesi() {
     try {
       this.debugLog('Müşteri listesi isteniyor...');
-      
+
       // Müşteri listesini tblCari tablosundan al (M% ile başlayan kodlar)
       const musteriQuery = `
         SELECT 
@@ -81,27 +80,27 @@ export class CariService {
         GROUP BY c.CariKod, c.CariAdi
         ORDER BY c.CariAdi ASC
       `;
-      
+
       this.debugLog('Müşteri sorgusu çalıştırılıyor...');
       const result = await this.cariRepository.query(musteriQuery);
       this.debugLog('Müşteri sorgusu sonucu:', result.length, 'kayıt bulundu');
-      
+
       this.debugLog('Müşteri listesi sonucu:', result.length, 'kayıt');
       this.debugLog('Müşteri sayısı:', result.length);
-      
+
       return result;
     } catch (error) {
       console.error('Müşteri listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);
       console.error('Hata stack:', error.stack);
-      
+
       // Hata durumunda test verilerini döndür
       this.debugLog('Hata durumunda test verileri döndürülüyor...');
       return [
         { CariKod: 'MB10001', CariAdi: 'TEST MÜŞTERİ 1', CariBakiye: 0 },
         { CariKod: 'MB10002', CariAdi: 'TEST MÜŞTERİ 2', CariBakiye: 0 },
-        { CariKod: 'MB10003', CariAdi: 'TEST MÜŞTERİ 3', CariBakiye: 0 }
+        { CariKod: 'MB10003', CariAdi: 'TEST MÜŞTERİ 3', CariBakiye: 0 },
       ];
     }
   }
-} 
+}

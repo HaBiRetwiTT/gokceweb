@@ -14,7 +14,6 @@ export class DatabaseConfigService {
       (process.env.NODE_ENV === 'production' ? 'harunta' : 'dbo');
     this.spSchema = process.env.DB_SP_SCHEMA || 'dbo';
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.log(
         `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
       );

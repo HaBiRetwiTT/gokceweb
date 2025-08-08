@@ -4,7 +4,11 @@ import { firstValueFrom } from 'rxjs';
 
 export interface AgentTask {
   id: string;
-  type: 'customer_analysis' | 'pricing_optimization' | 'room_management' | 'financial_report';
+  type:
+    | 'customer_analysis'
+    | 'pricing_optimization'
+    | 'room_management'
+    | 'financial_report';
   parameters: any;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   result?: any;
@@ -32,24 +36,24 @@ export class AgentService {
   async analyzeCustomer(customerData: any): Promise<AgentResponse> {
     try {
       this.logger.log('Müşteri analizi başlatılıyor...');
-      
+
       // Müşteri verilerini analiz et
       const analysis = await this.performCustomerAnalysis(customerData);
-      
+
       return {
         success: true,
         data: analysis,
         suggestions: [
           'Müşteri tercihlerine göre oda önerisi',
           'Fiyat optimizasyonu önerileri',
-          'Konaklama süresi tahminleri'
-        ]
+          'Konaklama süresi tahminleri',
+        ],
       };
     } catch (error) {
       this.logger.error('Müşteri analizi hatası:', error);
       return {
         success: false,
-        error: 'Müşteri analizi sırasında hata oluştu'
+        error: 'Müşteri analizi sırasında hata oluştu',
       };
     }
   }
@@ -57,26 +61,32 @@ export class AgentService {
   /**
    * Fiyat optimizasyonu önerileri sunar
    */
-  async optimizePricing(roomData: any, marketData: any): Promise<AgentResponse> {
+  async optimizePricing(
+    roomData: any,
+    marketData: any,
+  ): Promise<AgentResponse> {
     try {
       this.logger.log('Fiyat optimizasyonu başlatılıyor...');
-      
-      const optimization = await this.performPricingOptimization(roomData, marketData);
-      
+
+      const optimization = await this.performPricingOptimization(
+        roomData,
+        marketData,
+      );
+
       return {
         success: true,
         data: optimization,
         suggestions: [
           'Rekabetçi fiyatlandırma önerileri',
           'Sezonsal fiyat ayarlamaları',
-          'Özel kampanya önerileri'
-        ]
+          'Özel kampanya önerileri',
+        ],
       };
     } catch (error) {
       this.logger.error('Fiyat optimizasyonu hatası:', error);
       return {
         success: false,
-        error: 'Fiyat optimizasyonu sırasında hata oluştu'
+        error: 'Fiyat optimizasyonu sırasında hata oluştu',
       };
     }
   }
@@ -87,23 +97,23 @@ export class AgentService {
   async manageRooms(roomStatus: any): Promise<AgentResponse> {
     try {
       this.logger.log('Oda yönetimi analizi başlatılıyor...');
-      
+
       const management = await this.performRoomManagement(roomStatus);
-      
+
       return {
         success: true,
         data: management,
         suggestions: [
           'Oda temizlik planlaması',
           'Bakım öncelikleri',
-          'Kapasite optimizasyonu'
-        ]
+          'Kapasite optimizasyonu',
+        ],
       };
     } catch (error) {
       this.logger.error('Oda yönetimi hatası:', error);
       return {
         success: false,
-        error: 'Oda yönetimi analizi sırasında hata oluştu'
+        error: 'Oda yönetimi analizi sırasında hata oluştu',
       };
     }
   }
@@ -114,23 +124,23 @@ export class AgentService {
   async analyzeFinancialReport(financialData: any): Promise<AgentResponse> {
     try {
       this.logger.log('Finansal rapor analizi başlatılıyor...');
-      
+
       const analysis = await this.performFinancialAnalysis(financialData);
-      
+
       return {
         success: true,
         data: analysis,
         suggestions: [
           'Gelir artırma önerileri',
           'Maliyet optimizasyonu',
-          'Yatırım önerileri'
-        ]
+          'Yatırım önerileri',
+        ],
       };
     } catch (error) {
       this.logger.error('Finansal analiz hatası:', error);
       return {
         success: false,
-        error: 'Finansal analiz sırasında hata oluştu'
+        error: 'Finansal analiz sırasında hata oluştu',
       };
     }
   }
@@ -140,20 +150,20 @@ export class AgentService {
    */
   async createTask(type: AgentTask['type'], parameters: any): Promise<string> {
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const task: AgentTask = {
       id: taskId,
       type,
       parameters,
       status: 'pending',
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     this.tasks.set(taskId, task);
-    
+
     // Görevi arka planda işle
     this.processTask(taskId);
-    
+
     return taskId;
   }
 
@@ -185,7 +195,10 @@ export class AgentService {
           result = await this.analyzeCustomer(task.parameters);
           break;
         case 'pricing_optimization':
-          result = await this.optimizePricing(task.parameters.roomData, task.parameters.marketData);
+          result = await this.optimizePricing(
+            task.parameters.roomData,
+            task.parameters.marketData,
+          );
           break;
         case 'room_management':
           result = await this.manageRooms(task.parameters);
@@ -215,19 +228,22 @@ export class AgentService {
       customerType: customerData.type === 'Bireysel' ? 'Bireysel' : 'Kurumsal',
       preferences: this.analyzePreferences(customerData),
       riskScore: this.calculateRiskScore(customerData),
-      recommendations: this.generateCustomerRecommendations(customerData)
+      recommendations: this.generateCustomerRecommendations(customerData),
     };
 
     return analysis;
   }
 
-  private async performPricingOptimization(roomData: any, marketData: any): Promise<any> {
+  private async performPricingOptimization(
+    roomData: any,
+    marketData: any,
+  ): Promise<any> {
     // Fiyat optimizasyonu algoritması
     const optimization = {
       currentPrice: roomData.price,
       suggestedPrice: this.calculateOptimalPrice(roomData, marketData),
       marketAnalysis: this.analyzeMarketConditions(marketData),
-      seasonalAdjustments: this.calculateSeasonalAdjustments()
+      seasonalAdjustments: this.calculateSeasonalAdjustments(),
     };
 
     return optimization;
@@ -239,7 +255,7 @@ export class AgentService {
       occupancyRate: this.calculateOccupancyRate(roomStatus),
       maintenanceSchedule: this.generateMaintenanceSchedule(roomStatus),
       cleaningPriority: this.determineCleaningPriority(roomStatus),
-      capacityOptimization: this.optimizeCapacity(roomStatus)
+      capacityOptimization: this.optimizeCapacity(roomStatus),
     };
 
     return management;
@@ -251,7 +267,7 @@ export class AgentService {
       revenueAnalysis: this.analyzeRevenue(financialData),
       costAnalysis: this.analyzeCosts(financialData),
       profitabilityMetrics: this.calculateProfitabilityMetrics(financialData),
-      growthProjections: this.projectGrowth(financialData)
+      growthProjections: this.projectGrowth(financialData),
     };
 
     return analysis;
@@ -262,34 +278,34 @@ export class AgentService {
     return {
       roomType: customerData.odaTipi || 'Standart',
       duration: customerData.konaklamaSuresi || 1,
-      budget: customerData.butce || 'Orta'
+      budget: customerData.butce || 'Orta',
     };
   }
 
   private calculateRiskScore(customerData: any): number {
     // Risk skoru hesaplama algoritması
     let score = 50; // Başlangıç skoru
-    
+
     if (customerData.type === 'Kurumsal') score += 20;
     if (customerData.odemeGecmisi === 'İyi') score += 15;
     if (customerData.konaklamaSuresi > 30) score -= 10;
-    
+
     return Math.max(0, Math.min(100, score));
   }
 
   private generateCustomerRecommendations(customerData: any): string[] {
     const recommendations: string[] = [];
-    
+
     if (customerData.type === 'Bireysel') {
       recommendations.push('Bireysel müşteri için özel kampanya önerisi');
     } else {
       recommendations.push('Kurumsal müşteri için toplu indirim önerisi');
     }
-    
+
     if (customerData.konaklamaSuresi > 7) {
       recommendations.push('Uzun konaklama için haftalık indirim önerisi');
     }
-    
+
     return recommendations;
   }
 
@@ -297,7 +313,7 @@ export class AgentService {
     const basePrice = roomData.price;
     const marketAverage = marketData.averagePrice || basePrice;
     const demandFactor = marketData.demandFactor || 1;
-    
+
     return Math.round(basePrice * demandFactor * 0.95); // %5 indirim ile başla
   }
 
@@ -305,7 +321,7 @@ export class AgentService {
     return {
       demandLevel: marketData.demandLevel || 'Orta',
       competitionLevel: marketData.competitionLevel || 'Orta',
-      seasonalFactor: marketData.seasonalFactor || 1
+      seasonalFactor: marketData.seasonalFactor || 1,
     };
   }
 
@@ -315,7 +331,7 @@ export class AgentService {
       summer: [5, 6, 7, 8], // Haziran-Eylül
       winter: [11, 0, 1, 2], // Aralık-Mart
       spring: [3, 4], // Nisan-Mayıs
-      autumn: [9, 10] // Ekim-Kasım
+      autumn: [9, 10], // Ekim-Kasım
     };
 
     let adjustment = 1;
@@ -339,44 +355,49 @@ export class AgentService {
   }
 
   private generateMaintenanceSchedule(roomStatus: any): any[] {
-    return roomStatus.rooms?.map((room: any) => ({
-      roomId: room.id,
-      lastMaintenance: room.lastMaintenance,
-      nextMaintenance: this.calculateNextMaintenance(room.lastMaintenance),
-      priority: room.maintenancePriority || 'Normal'
-    })) || [];
+    return (
+      roomStatus.rooms?.map((room: any) => ({
+        roomId: room.id,
+        lastMaintenance: room.lastMaintenance,
+        nextMaintenance: this.calculateNextMaintenance(room.lastMaintenance),
+        priority: room.maintenancePriority || 'Normal',
+      })) || []
+    );
   }
 
   private calculateNextMaintenance(lastMaintenance: string): string {
     const lastDate = new Date(lastMaintenance);
-    const nextDate = new Date(lastDate.getTime() + (90 * 24 * 60 * 60 * 1000)); // 90 gün sonra
+    const nextDate = new Date(lastDate.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 gün sonra
     return nextDate.toLocaleDateString('tr-TR');
   }
 
   private determineCleaningPriority(roomStatus: any): any[] {
-    return roomStatus.rooms?.map((room: any) => ({
-      roomId: room.id,
-      priority: room.cleaningPriority || 'Normal',
-      lastCleaning: room.lastCleaning,
-      nextCleaning: this.calculateNextCleaning(room.lastCleaning)
-    })) || [];
+    return (
+      roomStatus.rooms?.map((room: any) => ({
+        roomId: room.id,
+        priority: room.cleaningPriority || 'Normal',
+        lastCleaning: room.lastCleaning,
+        nextCleaning: this.calculateNextCleaning(room.lastCleaning),
+      })) || []
+    );
   }
 
   private calculateNextCleaning(lastCleaning: string): string {
     const lastDate = new Date(lastCleaning);
-    const nextDate = new Date(lastDate.getTime() + (1 * 24 * 60 * 60 * 1000)); // 1 gün sonra
+    const nextDate = new Date(lastDate.getTime() + 1 * 24 * 60 * 60 * 1000); // 1 gün sonra
     return nextDate.toLocaleDateString('tr-TR');
   }
 
   private optimizeCapacity(roomStatus: any): any {
     const occupancyRate = this.calculateOccupancyRate(roomStatus);
-    
+
     return {
       currentCapacity: occupancyRate,
       recommendedCapacity: Math.min(85, occupancyRate + 10), // %85'e kadar artır
-      optimizationSuggestions: occupancyRate < 70 ? 
-        ['Kapasite artırma kampanyası başlat', 'Fiyat indirimi önerisi'] :
-        ['Mevcut kapasite optimal seviyede']
+      optimizationSuggestions:
+        occupancyRate < 70
+          ? ['Kapasite artırma kampanyası başlat', 'Fiyat indirimi önerisi']
+          : ['Mevcut kapasite optimal seviyede'],
     };
   }
 
@@ -385,7 +406,7 @@ export class AgentService {
       totalRevenue: financialData.totalRevenue || 0,
       monthlyGrowth: this.calculateGrowthRate(financialData.monthlyRevenue),
       revenueByRoomType: financialData.revenueByRoomType || {},
-      averageRevenuePerGuest: this.calculateAverageRevenue(financialData)
+      averageRevenuePerGuest: this.calculateAverageRevenue(financialData),
     };
   }
 
@@ -394,7 +415,8 @@ export class AgentService {
       totalCosts: financialData.totalCosts || 0,
       costBreakdown: financialData.costBreakdown || {},
       costEfficiency: this.calculateCostEfficiency(financialData),
-      costOptimizationSuggestions: this.generateCostOptimizationSuggestions(financialData)
+      costOptimizationSuggestions:
+        this.generateCostOptimizationSuggestions(financialData),
     };
   }
 
@@ -402,33 +424,33 @@ export class AgentService {
     const revenue = financialData.totalRevenue || 0;
     const costs = financialData.totalCosts || 0;
     const profit = revenue - costs;
-    
+
     return {
       grossProfit: profit,
       profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
       roi: this.calculateROI(financialData),
-      breakEvenPoint: this.calculateBreakEvenPoint(financialData)
+      breakEvenPoint: this.calculateBreakEvenPoint(financialData),
     };
   }
 
   private projectGrowth(financialData: any): any {
     const currentRevenue = financialData.totalRevenue || 0;
     const growthRate = this.calculateGrowthRate(financialData.monthlyRevenue);
-    
+
     return {
       projectedRevenue: currentRevenue * (1 + growthRate / 100),
       growthRate: growthRate,
       growthFactors: this.identifyGrowthFactors(financialData),
-      growthRecommendations: this.generateGrowthRecommendations(financialData)
+      growthRecommendations: this.generateGrowthRecommendations(financialData),
     };
   }
 
   private calculateGrowthRate(monthlyRevenue: any[]): number {
     if (!monthlyRevenue || monthlyRevenue.length < 2) return 0;
-    
+
     const current = monthlyRevenue[monthlyRevenue.length - 1];
     const previous = monthlyRevenue[monthlyRevenue.length - 2];
-    
+
     return previous > 0 ? ((current - previous) / previous) * 100 : 0;
   }
 
@@ -447,17 +469,18 @@ export class AgentService {
   private generateCostOptimizationSuggestions(financialData: any): string[] {
     const suggestions: string[] = [];
     const costEfficiency = this.calculateCostEfficiency(financialData);
-    
+
     if (costEfficiency > 80) {
       suggestions.push('Maliyet optimizasyonu gerekli');
       suggestions.push('Enerji tasarrufu önlemleri alın');
     }
-    
+
     return suggestions;
   }
 
   private calculateROI(financialData: any): number {
-    const profit = (financialData.totalRevenue || 0) - (financialData.totalCosts || 0);
+    const profit =
+      (financialData.totalRevenue || 0) - (financialData.totalCosts || 0);
     const investment = financialData.totalInvestment || 1;
     return (profit / investment) * 100;
   }
@@ -466,27 +489,29 @@ export class AgentService {
     const fixedCosts = financialData.fixedCosts || 0;
     const variableCosts = financialData.variableCosts || 0;
     const pricePerUnit = financialData.pricePerUnit || 1;
-    
+
     return fixedCosts / (pricePerUnit - variableCosts);
   }
 
   private identifyGrowthFactors(financialData: any): string[] {
     const factors: string[] = [];
-    
+
     if (financialData.seasonalDemand) factors.push('Sezonsal talep artışı');
-    if (financialData.marketingCampaigns) factors.push('Pazarlama kampanyaları');
-    if (financialData.customerSatisfaction > 4) factors.push('Yüksek müşteri memnuniyeti');
-    
+    if (financialData.marketingCampaigns)
+      factors.push('Pazarlama kampanyaları');
+    if (financialData.customerSatisfaction > 4)
+      factors.push('Yüksek müşteri memnuniyeti');
+
     return factors;
   }
 
   private generateGrowthRecommendations(financialData: any): string[] {
     const recommendations: string[] = [];
-    
+
     recommendations.push('Müşteri sadakat programı başlat');
     recommendations.push('Online rezervasyon sistemini geliştir');
     recommendations.push('Sosyal medya pazarlamasını artır');
-    
+
     return recommendations;
   }
-} 
+}

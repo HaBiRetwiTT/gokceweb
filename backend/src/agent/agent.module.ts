@@ -9,4 +9,4 @@ import { HttpModule } from '@nestjs/axios';
   providers: [AgentService],
   exports: [AgentService],
 })
-export class AgentModule {} 
+export class AgentModule {}

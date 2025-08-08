@@ -1,24 +1,32 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Query } from '@nestjs/common'
-import { IslemService } from './islem.service'
+import {
+  Controller,
+  Post,
+  Body,
+  HttpException,
+  HttpStatus,
+  Get,
+  Query,
+} from '@nestjs/common';
+import { IslemService } from './islem.service';
 
 interface IslemKayit {
-  iKytTarihi: string
-  islemKllnc: string
-  islemOzel1: string
-  islemOzel2: string
-  islemOzel3: string
-  islemOzel4: string
-  islemBirim: string
-  islemDoviz: string
-  islemKur: number
-  islemBilgi: string
-  islemCrKod: string
-  islemArac: string
-  islemTip: string
-  islemGrup: string
-  islemAltG: string
-  islemMiktar: number
-  islemTutar: number
+  iKytTarihi: string;
+  islemKllnc: string;
+  islemOzel1: string;
+  islemOzel2: string;
+  islemOzel3: string;
+  islemOzel4: string;
+  islemBirim: string;
+  islemDoviz: string;
+  islemKur: number;
+  islemBilgi: string;
+  islemCrKod: string;
+  islemArac: string;
+  islemTip: string;
+  islemGrup: string;
+  islemAltG: string;
+  islemMiktar: number;
+  islemTutar: number;
 }
 
 @Controller('islem')
@@ -27,34 +35,36 @@ export class IslemController {
 
   private debugLog(...args: unknown[]): void {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.log(...args)
+      console.log(...args);
     }
   }
 
   @Post('kaydet')
   async kaydetIslem(@Body() body: { kayitlar: IslemKayit[] }) {
     try {
-      this.debugLog('Gelen kayıtlar:', body.kayitlar)
-      
+      this.debugLog('Gelen kayıtlar:', body.kayitlar);
+
       if (!body.kayitlar || body.kayitlar.length === 0) {
-        throw new HttpException('Kayıt listesi boş olamaz', HttpStatus.BAD_REQUEST)
+        throw new HttpException(
+          'Kayıt listesi boş olamaz',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
-      const sonuc = await this.islemService.kaydetIslemler(body.kayitlar)
-      
+      const sonuc = await this.islemService.kaydetIslemler(body.kayitlar);
+
       return {
         success: true,
         message: `${body.kayitlar.length} kayıt başarıyla kaydedildi`,
         kayitSayisi: body.kayitlar.length,
-        sonuc
-      }
+        sonuc,
+      };
     } catch (error) {
-      console.error('İşlem kaydetme hatası:', error)
+      console.error('İşlem kaydetme hatası:', error);
       throw new HttpException(
         error.message || 'İşlem kaydedilirken hata oluştu',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      )
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -66,24 +76,29 @@ export class IslemController {
     @Query('islemTuru') islemTuru: string,
     @Query('islemYonu') islemYonu: string,
     @Query('page') page: string = '1',
-    @Query('rowsPerPage') rowsPerPage: string = '15'
+    @Query('rowsPerPage') rowsPerPage: string = '15',
   ) {
     try {
-      const pageNum = parseInt(page, 10) || 1
-      const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15
-      
-      const data = await this.islemService.getKasaIslemleri(islemTuru, islemYonu, pageNum, rowsPerPageNum);
+      const pageNum = parseInt(page, 10) || 1;
+      const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15;
+
+      const data = await this.islemService.getKasaIslemleri(
+        islemTuru,
+        islemYonu,
+        pageNum,
+        rowsPerPageNum,
+      );
       return {
         success: true,
         data: data.data,
         totalRecords: data.totalRecords,
-        message: 'Kasa işlemleri başarıyla getirildi'
+        message: 'Kasa işlemleri başarıyla getirildi',
       };
     } catch (error) {
       return {
         success: false,
         message: error.message || 'Kasa işlemleri getirilemedi',
-        error: error
+        error: error,
       };
     }
   }
@@ -98,24 +113,31 @@ export class IslemController {
     @Query('islemYonu') islemYonu: string,
     @Query('selectedYonu') selectedYonu: string,
     @Query('page') page: string = '1',
-    @Query('rowsPerPage') rowsPerPage: string = '15'
+    @Query('rowsPerPage') rowsPerPage: string = '15',
   ) {
     try {
-      const pageNum = parseInt(page, 10) || 1
-      const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15
-      
-      const data = await this.islemService.getDetayIslemler(tarih, islemTuru, islemYonu, selectedYonu, pageNum, rowsPerPageNum);
+      const pageNum = parseInt(page, 10) || 1;
+      const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15;
+
+      const data = await this.islemService.getDetayIslemler(
+        tarih,
+        islemTuru,
+        islemYonu,
+        selectedYonu,
+        pageNum,
+        rowsPerPageNum,
+      );
       return {
         success: true,
         data: data.data,
         totalRecords: data.totalRecords,
-        message: 'Detay işlemler başarıyla getirildi'
+        message: 'Detay işlemler başarıyla getirildi',
       };
     } catch (error) {
       return {
         success: false,
         message: error.message || 'Detay işlemler getirilemedi',
-        error: error
+        error: error,
       };
     }
   }
@@ -130,25 +152,23 @@ export class IslemController {
       return {
         success: true,
         data: data,
-        message: 'Depozito işlemleri başarıyla getirildi'
+        message: 'Depozito işlemleri başarıyla getirildi',
       };
     } catch (error) {
       return {
         success: false,
         message: error.message || 'Depozito işlemleri getirilemedi',
-        error: error
+        error: error,
       };
     }
   }
 
   @Get('health')
   async health() {
-    return { status: 'OK', message: 'İşlem servisi çalışıyor' }
+    return { status: 'OK', message: 'İşlem servisi çalışıyor' };
   }
 
   // test endpoint kaldırıldı (gereksiz trafik)
-
-
 
   /**
    * Güncel bakiye getirir
@@ -156,20 +176,23 @@ export class IslemController {
   @Get('guncel-bakiye')
   async getGuncelBakiye(
     @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string
+    @Query('islemYonu') islemYonu: string,
   ) {
     try {
-      const bakiye = await this.islemService.getGuncelBakiye(islemTuru, islemYonu);
+      const bakiye = await this.islemService.getGuncelBakiye(
+        islemTuru,
+        islemYonu,
+      );
       return {
         success: true,
         bakiye: bakiye,
-        message: 'Güncel bakiye başarıyla hesaplandı'
+        message: 'Güncel bakiye başarıyla hesaplandı',
       };
     } catch (error) {
       return {
         success: false,
         message: error.message || 'Güncel bakiye hesaplanamadı',
-        error: error
+        error: error,
       };
     }
   }
@@ -181,20 +204,24 @@ export class IslemController {
   async getSecilenGunBakiyesi(
     @Query('islemTuru') islemTuru: string,
     @Query('islemYonu') islemYonu: string,
-    @Query('secilenTarih') secilenTarih: string
+    @Query('secilenTarih') secilenTarih: string,
   ) {
     try {
-      const bakiye = await this.islemService.getSecilenGunBakiyesi(islemTuru, islemYonu, secilenTarih);
+      const bakiye = await this.islemService.getSecilenGunBakiyesi(
+        islemTuru,
+        islemYonu,
+        secilenTarih,
+      );
       return {
         success: true,
         bakiye: bakiye,
-        message: 'Seçilen gün bakiyesi başarıyla hesaplandı'
+        message: 'Seçilen gün bakiyesi başarıyla hesaplandı',
       };
     } catch (error) {
       return {
         success: false,
         message: error.message || 'Seçilen gün bakiyesi hesaplanamadı',
-        error: error
+        error: error,
       };
     }
   }
@@ -205,58 +232,76 @@ export class IslemController {
   @Get('kasa-devir-verileri')
   async getKasaDevirVerileri(
     @Query('page') page: string = '1',
-    @Query('rowsPerPage') rowsPerPage: string = '3'
+    @Query('rowsPerPage') rowsPerPage: string = '3',
   ) {
     try {
       const pageNum = parseInt(page, 10) || 1;
       const rowsPerPageNum = parseInt(rowsPerPage, 10) || 3;
-      
-      const result = await this.islemService.getKasaDevirVerileri(pageNum, rowsPerPageNum);
+
+      const result = await this.islemService.getKasaDevirVerileri(
+        pageNum,
+        rowsPerPageNum,
+      );
       return {
         success: true,
         data: result.data,
         totalRecords: result.totalRecords,
-        message: 'Kasa devir verileri başarıyla getirildi'
+        message: 'Kasa devir verileri başarıyla getirildi',
       };
     } catch (error) {
       console.error('❌ Kasa devir verileri endpoint hatası:', error);
       return {
         success: false,
         message: 'Kasa devir verileri alınamadı',
-        error: error.message
+        error: error.message,
       };
     }
   }
 
   @Post('kasa-aktarimi')
-  async kasaAktarimi(@Body() body: { veren: string; alan: string; tutar: number }) {
+  async kasaAktarimi(
+    @Body() body: { veren: string; alan: string; tutar: number },
+  ) {
     try {
       this.debugLog('Kasa aktarımı başlatılıyor:', body);
-      
+
       if (!body.veren || !body.alan || !body.tutar) {
-        throw new HttpException('Veren, alan ve tutar alanları zorunludur', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Veren, alan ve tutar alanları zorunludur',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (body.veren === body.alan) {
-        throw new HttpException('Veren ve alan kasa aynı olamaz', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Veren ve alan kasa aynı olamaz',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (body.tutar <= 0) {
-        throw new HttpException('Tutar pozitif olmalıdır', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Tutar pozitif olmalıdır',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
-      const sonuc = await this.islemService.kasaAktarimi(body.veren, body.alan, body.tutar);
-      
+      const sonuc = await this.islemService.kasaAktarimi(
+        body.veren,
+        body.alan,
+        body.tutar,
+      );
+
       return {
         success: true,
         message: 'Kasa aktarımı başarıyla tamamlandı',
-        sonuc
+        sonuc,
       };
     } catch (error) {
       console.error('Kasa aktarımı hatası:', error);
       throw new HttpException(
         error.message || 'Kasa aktarımı sırasında hata oluştu',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -268,16 +313,16 @@ export class IslemController {
   async kasaDevret(@Body() body: { kasaYekun: number }) {
     try {
       if (typeof body.kasaYekun !== 'number' || isNaN(body.kasaYekun)) {
-        throw new HttpException('Geçersiz kasa tutarı', HttpStatus.BAD_REQUEST)
+        throw new HttpException('Geçersiz kasa tutarı', HttpStatus.BAD_REQUEST);
       }
-      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun)
-      return { success: true, message: 'Kasa devri kaydedildi', sonuc }
+      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun);
+      return { success: true, message: 'Kasa devri kaydedildi', sonuc };
     } catch (error) {
-      console.error('❌ /islem/kasa-devret hatası:', error)
+      console.error('❌ /islem/kasa-devret hatası:', error);
       throw new HttpException(
-        (error as any)?.message || 'Kasa devri kaydedilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      )
+        error?.message || 'Kasa devri kaydedilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-} 
+}
