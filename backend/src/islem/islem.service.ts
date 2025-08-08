@@ -39,19 +39,7 @@ export class IslemService {
        console.log('- İşlem yönü:', islemYonu);
        console.log('- Tarih aralığı:', baslangicTarihi, 'ile', bitisTarihi);
       
-             // Önce tabloda genel veri kontrolü yapalım
-       const genelKontrolQuery = `
-         SELECT TOP 5
-           iKytTarihi, islemArac, islemTip, islemTutar, islemBilgi,
-           ISNUMERIC(islemTutar) as isNumeric,
-           CAST(islemTutar AS DECIMAL(18,2)) as castedValue
-         FROM ${schemaName}.${tableName}
-         WHERE islemArac = 'Cari İşlem'
-         ORDER BY iKytTarihi DESC
-       `;
-
-       const genelKontrol = await this.dataSource.query(genelKontrolQuery);
-       console.log('📊 Tablo genel kontrol (son 5 kayıt):', genelKontrol);
+      // Gereksiz ağır debug sorguları kaldırıldı
       
       let whereCondition = '';
       let params: any[] = [];

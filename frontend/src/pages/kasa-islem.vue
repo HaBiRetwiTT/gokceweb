@@ -1050,55 +1050,25 @@ const formatCurrency = (amount: number) => {
   }).format(amount)
 }
 
-// Tablo verilerini yükle
+// Tablo verilerini yükle (direct call - test endpoints kaldırıldı)
 const loadTableData = async () => {
   loading.value = true
   try {
-    console.log('API çağrısı başlatılıyor...')
-    console.log('Seçilen işlem türü:', selectedIslemTuru.value)
-    
-    // Test endpoint'i deneyelim
-    const testResponse = await $api.get('/islem/test')
-    console.log('Test Response status:', testResponse.status)
-    
-    const testResult = testResponse.data
-    console.log('Test API Response:', testResult)
-    
-    // Test başarılıysa gerçek API'yi çağır
-    if (testResult.success) {
-      console.log('Test başarılı, gerçek API çağrılıyor...')
-      
-      const realResponse = await $api.get('/islem/kasa-islemleri', {
-        params: {
-          islemTuru: selectedIslemTuru.value,
-          islemYonu: islemYonuForApi.value,
-          page: 1,
-          rowsPerPage: 1000
-        }
-      })
-      console.log('Real Response status:', realResponse.status)
-      
-      const realResult = realResponse.data
-      console.log('Real API Response:', realResult)
-      
-      if (realResult.success) {
-         console.log('Gelen veri sayısı:', realResult.data?.length || 0)
-         console.log('Toplam kayıt sayısı:', realResult.totalRecords)
-         // Backend'den gelen veriyi kullan
-         allTableData.value = realResult.data || []
-         // Pagination için toplam kayıt sayısını ayarla
-         pagination.value.rowsNumber = allTableData.value.length
-         // İlk sayfayı göster
-         pagination.value.page = 1
-         updateTableData()
-         console.log('Pagination rowsNumber güncellendi:', pagination.value.rowsNumber)
-         console.log('Tablo verisi güncellendi:', tableData.value)
-       } else {
-        console.error('Gerçek API hatası:', realResult.message)
-        tableData.value = []
+    const response = await $api.get('/islem/kasa-islemleri', {
+      params: {
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value,
+        page: 1,
+        rowsPerPage: 1000
       }
+    })
+    const result = response.data
+    if (result.success) {
+      allTableData.value = result.data || []
+      pagination.value.rowsNumber = allTableData.value.length
+      pagination.value.page = 1
+      updateTableData()
     } else {
-      console.error('Test API hatası:', testResult.message)
       tableData.value = []
     }
   } catch (error) {

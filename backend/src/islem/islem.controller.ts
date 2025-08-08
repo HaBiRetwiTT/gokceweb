@@ -139,14 +139,7 @@ export class IslemController {
     return { status: 'OK', message: 'İşlem servisi çalışıyor' }
   }
 
-  @Get('test')
-  async test() {
-    return { 
-      success: true, 
-      message: 'Test endpoint çalışıyor',
-      timestamp: new Date().toISOString()
-    }
-  }
+  // test endpoint kaldırıldı (gereksiz trafik)
 
 
 
