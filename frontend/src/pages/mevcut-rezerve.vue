@@ -184,6 +184,12 @@ import { api } from '../boot/axios'
 import { Notify } from 'quasar'
 import { useRoute } from 'vue-router'
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args)
+  }
+}
+
 interface KonaklamaDetay {
   musteriAdi: string
   odaNo: string
@@ -226,10 +232,10 @@ async function loadTakvimData() {
     
     takvimData.value = response.data
     
-    console.log('Takvim verileri yüklendi:', takvimData.value)
-    console.log('Gün sayısı:', takvimData.value?.gunler?.length)
-    console.log('İlk tarih:', takvimData.value?.gunler?.[0])
-    console.log('Son tarih:', takvimData.value?.gunler?.[takvimData.value.gunler.length - 1])
+    debugLog('Takvim verileri yüklendi:', takvimData.value)
+    debugLog('Gün sayısı:', takvimData.value?.gunler?.length)
+    debugLog('İlk tarih:', takvimData.value?.gunler?.[0])
+    debugLog('Son tarih:', takvimData.value?.gunler?.[takvimData.value.gunler.length - 1])
   } catch (err) {
     console.error('Takvim verileri yüklenirken hata:', err)
     error.value = 'Takvim verileri yüklenemedi. Lütfen tekrar deneyin.'
