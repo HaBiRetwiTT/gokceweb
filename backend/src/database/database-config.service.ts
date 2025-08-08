@@ -13,9 +13,11 @@ export class DatabaseConfigService {
       process.env.DB_TABLE_SCHEMA ||
       (process.env.NODE_ENV === 'production' ? 'harunta' : 'dbo');
     this.spSchema = process.env.DB_SP_SCHEMA || 'dbo';
-    console.log(
-      `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
+      );
+    }
   }
 
   /**

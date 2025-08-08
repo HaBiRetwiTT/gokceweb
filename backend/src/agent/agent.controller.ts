@@ -18,9 +18,12 @@ export class AgentController {
    */
   @Post('optimize-pricing')
   async optimizePricing(
-    @Body() data: { roomData: any; marketData: any }
+    @Body() data: { roomData: any; marketData: any },
   ): Promise<AgentResponse> {
-    return await this.agentService.optimizePricing(data.roomData, data.marketData);
+    return await this.agentService.optimizePricing(
+      data.roomData,
+      data.marketData,
+    );
   }
 
   /**
@@ -44,9 +47,12 @@ export class AgentController {
    */
   @Post('create-task')
   async createTask(
-    @Body() data: { type: string; parameters: any }
+    @Body() data: { type: string; parameters: any },
   ): Promise<{ taskId: string }> {
-    const taskId = await this.agentService.createTask(data.type as any, data.parameters);
+    const taskId = await this.agentService.createTask(
+      data.type as any,
+      data.parameters,
+    );
     return { taskId };
   }
 
@@ -75,23 +81,23 @@ export class AgentController {
       customer: [
         'Müşteri sadakat programı başlatın',
         'Kişiselleştirilmiş hizmetler sunun',
-        'Online rezervasyon kolaylığı sağlayın'
+        'Online rezervasyon kolaylığı sağlayın',
       ],
       pricing: [
         'Sezonsal fiyatlandırma uygulayın',
         'Erken rezervasyon indirimleri sunun',
-        'Paket fiyatlandırma seçenekleri ekleyin'
+        'Paket fiyatlandırma seçenekleri ekleyin',
       ],
       operations: [
         'Oda temizlik süreçlerini optimize edin',
         'Bakım planlamasını otomatikleştirin',
-        'Kapasite kullanımını artırın'
+        'Kapasite kullanımını artırın',
       ],
       financial: [
         'Gelir analizi yapın',
         'Maliyet optimizasyonu uygulayın',
-        'Yatırım planlaması geliştirin'
-      ]
+        'Yatırım planlaması geliştirin',
+      ],
     };
 
     return {
@@ -100,8 +106,8 @@ export class AgentController {
       suggestions: [
         'AI önerilerini düzenli olarak kontrol edin',
         'Önerileri iş süreçlerinize entegre edin',
-        'Sonuçları takip ederek sürekli iyileştirme yapın'
-      ]
+        'Sonuçları takip ederek sürekli iyileştirme yapın',
+      ],
     };
   }
 
@@ -119,8 +125,8 @@ export class AgentController {
         'Fiyat Optimizasyonu',
         'Oda Yönetimi',
         'Finansal Analiz',
-        'Asenkron Görev Yönetimi'
-      ]
+        'Asenkron Görev Yönetimi',
+      ],
     };
   }
-} 
+}

@@ -3,6 +3,22 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DatabaseConfigService } from '../database/database-config.service';
 
+// Types for stronger typing and to avoid any-unsafe lint warnings
+type KasaGunlukOzet = { tarih: string; gelir: number; gider: number };
+type DetayIslem = {
+  id: number;
+  iKytTarihi: string;
+  islemAltG: string;
+  islemGrup: string;
+  islemTutar: number;
+  islemBilgi: string;
+};
+type KasaDevirKaydi = {
+  DevirTarihi: string;
+  DevirEden: string;
+  KasaYekun: number;
+};
+
 @Injectable()
 export class IslemService {
   constructor(
@@ -11,51 +27,56 @@ export class IslemService {
     private readonly dbConfig: DatabaseConfigService,
   ) {}
 
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(...args);
+    }
+  }
+
   /**
    * Kasa işlemleri için günlük toplamları getirir
    */
-  async getKasaIslemleri(islemTuru: string, islemYonu?: string, page: number = 1, rowsPerPage: number = 15): Promise<{data: any[], totalRecords: number}> {
+  async getKasaIslemleri(
+    islemTuru: string,
+    islemYonu?: string,
+    page: number = 1,
+    rowsPerPage: number = 15,
+  ): Promise<{ data: KasaGunlukOzet[]; totalRecords: number }> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
-      
+
       // Tarih aralığı (son 1 yıl)
       const bugun = new Date();
       const birYilOnce = new Date();
       birYilOnce.setFullYear(birYilOnce.getFullYear() - 1);
-      
-      // DD.MM.YYYY formatına çevir
-      const baslangicTarihi = birYilOnce.getDate().toString().padStart(2, '0') + '.' + 
-                             (birYilOnce.getMonth() + 1).toString().padStart(2, '0') + '.' + 
-                             birYilOnce.getFullYear();
-      const bitisTarihi = bugun.getDate().toString().padStart(2, '0') + '.' + 
-                         (bugun.getMonth() + 1).toString().padStart(2, '0') + '.' + 
-                         bugun.getFullYear();
-      
-             console.log('🔍 Debug bilgileri:');
-       console.log('- Schema:', schemaName);
-       console.log('- Tablo:', tableName);
-       console.log('- İşlem türü:', islemTuru);
-       console.log('- İşlem yönü:', islemYonu);
-       console.log('- Tarih aralığı:', baslangicTarihi, 'ile', bitisTarihi);
-      
-             // Önce tabloda genel veri kontrolü yapalım
-       const genelKontrolQuery = `
-         SELECT TOP 5
-           iKytTarihi, islemArac, islemTip, islemTutar, islemBilgi,
-           ISNUMERIC(islemTutar) as isNumeric,
-           CAST(islemTutar AS DECIMAL(18,2)) as castedValue
-         FROM ${schemaName}.${tableName}
-         WHERE islemArac = 'Cari İşlem'
-         ORDER BY iKytTarihi DESC
-       `;
 
-       const genelKontrol = await this.dataSource.query(genelKontrolQuery);
-       console.log('📊 Tablo genel kontrol (son 5 kayıt):', genelKontrol);
-      
+      // DD.MM.YYYY formatına çevir
+      const baslangicTarihi =
+        birYilOnce.getDate().toString().padStart(2, '0') +
+        '.' +
+        (birYilOnce.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        birYilOnce.getFullYear();
+      const bitisTarihi =
+        bugun.getDate().toString().padStart(2, '0') +
+        '.' +
+        (bugun.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        bugun.getFullYear();
+
+      this.debugLog('🔍 Debug bilgileri:');
+      this.debugLog('- Schema:', schemaName);
+      this.debugLog('- Tablo:', tableName);
+      this.debugLog('- İşlem türü:', islemTuru);
+      this.debugLog('- İşlem yönü:', islemYonu);
+      this.debugLog('- Tarih aralığı:', baslangicTarihi, 'ile', bitisTarihi);
+
+      // Gereksiz ağır debug sorguları kaldırıldı
+
       let whereCondition = '';
       let params: any[] = [];
-      
+
       // İşlem türüne göre filtreleme
       switch (islemTuru) {
         case 'cari':
@@ -79,22 +100,22 @@ export class IslemService {
         default:
           whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
       }
-      
-             // İşlem yönüne göre dinamik sorgu
-       let gelirCondition = '';
-       let giderCondition = '';
-       
-       if (islemYonu === 'gelir-gider') {
-         // Cari seçildiğinde GELİR/GİDER
-         gelirCondition = "i.islemTip = 'GELİR'";
-         giderCondition = "i.islemTip = 'GİDER'";
-       } else {
-         // Diğer seçimlerde Giren/Çıkan
-         gelirCondition = "i.islemTip = 'Giren'";
-         giderCondition = "i.islemTip = 'Çıkan'";
-       }
-       
-               // Önce toplam kayıt sayısını al
+
+      // İşlem yönüne göre dinamik sorgu
+      let gelirCondition = '';
+      let giderCondition = '';
+
+      if (islemYonu === 'gelir-gider') {
+        // Cari seçildiğinde GELİR/GİDER
+        gelirCondition = "i.islemTip = 'GELİR'";
+        giderCondition = "i.islemTip = 'GİDER'";
+      } else {
+        // Diğer seçimlerde Giren/Çıkan
+        gelirCondition = "i.islemTip = 'Giren'";
+        giderCondition = "i.islemTip = 'Çıkan'";
+      }
+
+      // Önce toplam kayıt sayısını al
       const countQuery = `
           SELECT COUNT(*) as total
           FROM (
@@ -106,15 +127,19 @@ export class IslemService {
             GROUP BY i.iKytTarihi
           ) as grouped_data
         `;
-      
-      const countResult = await this.dataSource.query(countQuery, [baslangicTarihi, bitisTarihi]);
-      const totalRecords = countResult[0]?.total || 0;
-      console.log('🔍 Count Query sonucu:', countResult);
-      console.log('🔍 Toplam kayıt sayısı:', totalRecords);
-      
+
+      const countResultUnknown = (await this.dataSource.query(countQuery, [
+        baslangicTarihi,
+        bitisTarihi,
+      ])) as unknown;
+      const countResult = countResultUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countResult[0]?.total || 0);
+      this.debugLog('🔍 Count Query sonucu:', countResult);
+      this.debugLog('🔍 Toplam kayıt sayısı:', totalRecords);
+
       // Pagination için OFFSET hesapla
       const offset = (page - 1) * rowsPerPage;
-      
+
       const query = `
           SELECT 
             i.iKytTarihi as tarih,
@@ -129,33 +154,36 @@ export class IslemService {
           OFFSET @2 ROWS
           FETCH NEXT @3 ROWS ONLY
         `;
-      
+
       params = [baslangicTarihi, bitisTarihi, offset, rowsPerPage];
-      
-      console.log('🔍 SQL Sorgusu:', query);
-      console.log('🔍 Parametreler:', params);
-      
-      const result = await this.dataSource.query(query, params);
-      
+
+      this.debugLog('🔍 SQL Sorgusu:', query);
+      this.debugLog('🔍 Parametreler:', params);
+
+      const resultUnknown = (await this.dataSource.query(
+        query,
+        params,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        tarih: string;
+        gelir: number | string | null;
+        gider: number | string | null;
+      }>;
+
       // Sadece 3 sütun döndür (bakiye hesaplama kaldırıldı)
-      const processedData = result.map((row: any) => {
-        const gelir = parseFloat(row.gelir) || 0;
-        const gider = parseFloat(row.gider) || 0;
-        
-        return {
-          tarih: row.tarih,
-          gelir: gelir,
-          gider: gider
-        };
-      });
-      
+      const processedData: KasaGunlukOzet[] = result.map((row) => ({
+        tarih: row.tarih,
+        gelir: Number(row.gelir) || 0,
+        gider: Number(row.gider) || 0,
+      }));
+
       return {
         data: processedData,
-        totalRecords: totalRecords
+        totalRecords: totalRecords,
       };
-      
-    } catch (error) {
-      console.error('Kasa işlemleri getirme hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Kasa işlemleri getirme hatası:', message);
       throw new Error('Kasa işlemleri getirilemedi');
     }
   }
@@ -163,7 +191,7 @@ export class IslemService {
   /**
    * Kasa devri kaydı ekler (tblKasaDevir)
    */
-  async saveKasaDevir(kasaYekun: number): Promise<{ success: boolean }>{
+  async saveKasaDevir(kasaYekun: number): Promise<{ success: boolean }> {
     try {
       if (!Number.isFinite(kasaYekun)) {
         throw new Error('Geçersiz kasa tutarı');
@@ -171,10 +199,8 @@ export class IslemService {
       const kasaYekunFixed = Number(parseFloat(String(kasaYekun)).toFixed(2));
       // Tarihi DD.MM.YYYY formatında hazırla (nchar(10))
       const bugun = new Date();
-      const nKytTarihi = bugun
-        .getDate()
-        .toString()
-        .padStart(2, '0') +
+      const nKytTarihi =
+        bugun.getDate().toString().padStart(2, '0') +
         '.' +
         (bugun.getMonth() + 1).toString().padStart(2, '0') +
         '.' +
@@ -189,78 +215,96 @@ export class IslemService {
         SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir WITH (TABLOCKX)
       `;
-      const nextIdRes = await this.dataSource.query(nextIdQuery);
-      const nextId = parseInt(nextIdRes?.[0]?.nextId ?? 1, 10);
+      const nextIdResUnknown = (await this.dataSource.query(
+        nextIdQuery,
+      )) as unknown;
+      const nextIdRes = nextIdResUnknown as Array<{ nextId: number | string }>;
+      const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
 
       const insertQuery = `
         INSERT INTO ${this.dbConfig.getTableSchema()}.tblKasaDevir (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
         VALUES (@0, @1, @2, @3)
       `;
       const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
-      console.log('📝 KasaDevir INSERT sorgusu:', insertQuery);
-      console.log('📝 Parametreler:', params);
+      this.debugLog('📝 KasaDevir INSERT sorgusu:', insertQuery);
+      this.debugLog('📝 Parametreler:', params);
       await this.dataSource.query(insertQuery, params);
 
       return { success: true };
-    } catch (error: any) {
-      console.error('❌ Kasa devir kaydı ekleme hatası:', error?.message || error);
-      throw new Error(`Kasa devir kaydı eklenemedi: ${error?.message || String(error)}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa devir kaydı ekleme hatası:', message);
+      throw new Error(`Kasa devir kaydı eklenemedi: ${message}`);
     }
   }
 
   /**
    * Detay işlemleri getirir
    */
-  async getDetayIslemler(tarih: string, islemTuru: string, islemYonu: string, selectedYonu?: string, page: number = 1, rowsPerPage: number = 15): Promise<{data: any[], totalRecords: number}> {
+  async getDetayIslemler(
+    tarih: string,
+    islemTuru: string,
+    islemYonu: string,
+    selectedYonu?: string,
+    page: number = 1,
+    rowsPerPage: number = 15,
+  ): Promise<{ data: DetayIslem[]; totalRecords: number }> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
-      
-      console.log('🔍 Detay işlemler debug bilgileri:')
-      console.log('- Schema:', schemaName)
-      console.log('- Tablo:', tableName)
-      console.log('- Tarih:', tarih)
-      console.log('- İşlem türü:', islemTuru)
-      console.log('- İşlem yönü:', islemYonu)
-      console.log('- Seçilen yön:', selectedYonu)
+
+      this.debugLog('🔍 Detay işlemler debug bilgileri:');
+      this.debugLog('- Schema:', schemaName);
+      this.debugLog('- Tablo:', tableName);
+      this.debugLog('- Tarih:', tarih);
+      this.debugLog('- İşlem türü:', islemTuru);
+      this.debugLog('- İşlem yönü:', islemYonu);
+      this.debugLog('- Seçilen yön:', selectedYonu);
 
       // İşlem türüne göre islemArac filtresi
-      let islemAracFilter = ''
+      let islemAracFilter = '';
       switch (islemTuru) {
         case 'cari':
-          islemAracFilter = "i.islemArac = 'Cari İşlem'"
-          break
+          islemAracFilter = "i.islemArac = 'Cari İşlem'";
+          break;
         case 'nakit':
-          islemAracFilter = "i.islemArac = 'Nakit Kasa(TL)'"
-          break
+          islemAracFilter = "i.islemArac = 'Nakit Kasa(TL)'";
+          break;
         case 'kart':
-          islemAracFilter = "i.islemArac = 'Kredi Kartları'"
-          break
+          islemAracFilter = "i.islemArac = 'Kredi Kartları'";
+          break;
         case 'eft':
-          islemAracFilter = "i.islemArac = 'Banka EFT'"
-          break
+          islemAracFilter = "i.islemArac = 'Banka EFT'";
+          break;
         case 'acenta':
-          islemAracFilter = "i.islemArac = 'Acenta Tahsilat'"
-          break
+          islemAracFilter = "i.islemArac = 'Acenta Tahsilat'";
+          break;
         case 'depozito':
-          islemAracFilter = "(i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')"
-          break
+          islemAracFilter =
+            "(i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')";
+          break;
         default:
-          islemAracFilter = "i.islemArac = 'Cari İşlem'"
+          islemAracFilter = "i.islemArac = 'Cari İşlem'";
       }
 
       // İşlem yönüne göre islemTip filtresi
-      let islemTipFilter = ''
+      let islemTipFilter = '';
       if (islemYonu === 'gelir-gider') {
         // Cari seçildiğinde GELİR/GİDER
-        islemTipFilter = selectedYonu === 'gelir' ? "i.islemTip = 'GELİR'" : "i.islemTip = 'GİDER'"
+        islemTipFilter =
+          selectedYonu === 'gelir'
+            ? "i.islemTip = 'GELİR'"
+            : "i.islemTip = 'GİDER'";
       } else {
         // Diğer seçimlerde Giren/Çıkan
-        islemTipFilter = selectedYonu === 'gelir' ? "i.islemTip = 'Giren'" : "i.islemTip = 'Çıkan'"
+        islemTipFilter =
+          selectedYonu === 'gelir'
+            ? "i.islemTip = 'Giren'"
+            : "i.islemTip = 'Çıkan'";
       }
 
-      console.log('🔍 islemTipFilter:', islemTipFilter)
-      
+      this.debugLog('🔍 islemTipFilter:', islemTipFilter);
+
       // Önce toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
@@ -268,16 +312,19 @@ export class IslemService {
         WHERE ${islemAracFilter}
         AND ${islemTipFilter}
         AND i.iKytTarihi = @0
-      `
-      
-      const countResult = await this.dataSource.query(countQuery, [tarih])
-      const totalRecords = countResult[0]?.total || 0
-      console.log('🔍 Detay Count Query sonucu:', countResult)
-      console.log('🔍 Detay toplam kayıt sayısı:', totalRecords)
-      
+      `;
+
+      const countDetayUnknown = (await this.dataSource.query(countQuery, [
+        tarih,
+      ])) as unknown;
+      const countDetay = countDetayUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countDetay[0]?.total || 0);
+      this.debugLog('🔍 Detay Count Query sonucu:', countDetay);
+      this.debugLog('🔍 Detay toplam kayıt sayısı:', totalRecords);
+
       // Pagination için OFFSET hesapla
-      const offset = (page - 1) * rowsPerPage
-      
+      const offset = (page - 1) * rowsPerPage;
+
       const query = `
         SELECT 
           ROW_NUMBER() OVER (ORDER BY i.islemAltG ASC, i.islemTutar DESC) as id,
@@ -293,22 +340,52 @@ export class IslemService {
         ORDER BY i.islemAltG ASC, i.islemTutar DESC
         OFFSET @1 ROWS
         FETCH NEXT @2 ROWS ONLY
-      `
+      `;
 
-      console.log('🔍 Detay SQL Sorgusu:', query)
-      console.log('🔍 Parametreler:', [tarih, offset, rowsPerPage])
+      this.debugLog('🔍 Detay SQL Sorgusu:', query);
+      this.debugLog('🔍 Parametreler:', [tarih, offset, rowsPerPage]);
 
-      const result = await this.dataSource.query(query, [tarih, offset, rowsPerPage])
-      console.log('📊 Detay işlemler sonucu:', result)
+      const resultUnknown2 = (await this.dataSource.query(query, [
+        tarih,
+        offset,
+        rowsPerPage,
+      ])) as unknown;
+      const result = resultUnknown2 as Array<{
+        id: number | string;
+        iKytTarihi: string;
+        islemAltG: string;
+        islemGrup: string;
+        islemTutar: number | string;
+        islemBilgi: string;
+      }>;
+      this.debugLog('📊 Detay işlemler sonucu:', result);
+
+      const typed: DetayIslem[] = (
+        result as Array<{
+          id: number;
+          iKytTarihi: string;
+          islemAltG: string;
+          islemGrup: string;
+          islemTutar: number | string;
+          islemBilgi: string;
+        }>
+      ).map((row) => ({
+        id: Number(row.id),
+        iKytTarihi: row.iKytTarihi,
+        islemAltG: row.islemAltG,
+        islemGrup: row.islemGrup,
+        islemTutar: Number(row.islemTutar) || 0,
+        islemBilgi: row.islemBilgi,
+      }));
 
       return {
-        data: result,
-        totalRecords: totalRecords
-      }
-
-    } catch (error) {
-      console.error('Detay işlemler getirme hatası:', error)
-      throw new Error('Detay işlemler getirilemedi')
+        data: typed,
+        totalRecords: totalRecords,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Detay işlemler getirme hatası:', message);
+      throw new Error('Detay işlemler getirilemedi');
     }
   }
 
@@ -319,21 +396,27 @@ export class IslemService {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
-      
+
       // Tarih aralığı (son 1 yıl) - DD.MM.YYYY formatında
       const bugun = new Date();
       const birYilOnce = new Date();
       birYilOnce.setFullYear(birYilOnce.getFullYear() - 1);
-      
+
       // DD.MM.YYYY formatına çevir
-      const baslangicTarihi = birYilOnce.getDate().toString().padStart(2, '0') + '.' + 
-                             (birYilOnce.getMonth() + 1).toString().padStart(2, '0') + '.' + 
-                             birYilOnce.getFullYear();
-      const bitisTarihi = bugun.getDate().toString().padStart(2, '0') + '.' + 
-                         (bugun.getMonth() + 1).toString().padStart(2, '0') + '.' + 
-                         bugun.getFullYear();
-      
-             const query = `
+      const baslangicTarihi =
+        birYilOnce.getDate().toString().padStart(2, '0') +
+        '.' +
+        (birYilOnce.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        birYilOnce.getFullYear();
+      const bitisTarihi =
+        bugun.getDate().toString().padStart(2, '0') +
+        '.' +
+        (bugun.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        bugun.getFullYear();
+
+      const query = `
          SELECT 
            i.iKytTarihi as tarih,
            SUM(CASE WHEN i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN i.islemTutar ELSE 0 END) as gelir,
@@ -345,29 +428,36 @@ export class IslemService {
          GROUP BY i.iKytTarihi
          ORDER BY CONVERT(DATE, i.iKytTarihi, 104) DESC
        `;
-      
-      const result = await this.dataSource.query(query, [baslangicTarihi, bitisTarihi]);
-      
+
+      const depoUnknown = (await this.dataSource.query(query, [
+        baslangicTarihi,
+        bitisTarihi,
+      ])) as unknown;
+      const result = depoUnknown as Array<{
+        tarih: string;
+        gelir: number | string | null;
+        gider: number | string | null;
+      }>;
+
       // Bakiye hesaplama
       const baslangicBakiye = 107695; // Depozito başlangıç bakiyesi
       let currentBakiye = baslangicBakiye;
-      
-      const processedData = result.map((row: any) => {
-        const gelir = parseFloat(row.gelir) || 0;
-        const gider = parseFloat(row.gider) || 0;
-        
+
+      const processedData = result.map((row) => {
+        const gelir = Number(row.gelir) || 0;
+        const gider = Number(row.gider) || 0;
+
         currentBakiye = currentBakiye + gelir - gider;
-        
+
         return {
           tarih: row.tarih,
           gelir: gelir,
           gider: gider,
-          bakiye: currentBakiye
+          bakiye: currentBakiye,
         };
       });
-      
+
       return processedData;
-      
     } catch (error) {
       console.error('Depozito işlemleri getirme hatası:', error);
       throw new Error('Depozito işlemleri getirilemedi');
@@ -379,19 +469,18 @@ export class IslemService {
    */
   async kaydetIslemler(kayitlar: any[]): Promise<any[]> {
     try {
-      console.log(`${kayitlar.length} kayıt kaydediliyor...`);
-      
+      this.debugLog(`${kayitlar.length} kayıt kaydediliyor...`);
+
       // Şimdilik basit bir mock response döndürüyoruz
       // Gerçek implementasyon için stored procedure kullanılabilir
       const sonuclar = kayitlar.map((kayit, index) => ({
         id: index + 1,
         success: true,
-        message: `Kayıt ${index + 1} başarıyla kaydedildi`
+        message: `Kayıt ${index + 1} başarıyla kaydedildi`,
       }));
-      
-      console.log(`${kayitlar.length} kayıt başarıyla kaydedildi`);
+
+      this.debugLog(`${kayitlar.length} kayıt başarıyla kaydedildi`);
       return sonuclar;
-      
     } catch (error) {
       console.error('İşlem kaydetme hatası:', error);
       throw new Error('İşlem kayıtları kaydedilemedi');
@@ -401,13 +490,16 @@ export class IslemService {
   /**
    * Güncel bakiye hesaplar (tüm günlerin toplamı)
    */
-  async getGuncelBakiye(islemTuru: string, islemYonu?: string): Promise<number> {
+  async getGuncelBakiye(
+    islemTuru: string,
+    islemYonu?: string,
+  ): Promise<number> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
-      
+
       let whereCondition = '';
-      
+
       // İşlem türüne göre filtreleme
       switch (islemTuru) {
         case 'cari':
@@ -431,11 +523,11 @@ export class IslemService {
         default:
           whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
       }
-      
+
       // İşlem yönüne göre dinamik sorgu
       let gelirCondition = '';
       let giderCondition = '';
-      
+
       if (islemYonu === 'gelir-gider') {
         gelirCondition = "i.islemTip = 'GELİR'";
         giderCondition = "i.islemTip = 'GİDER'";
@@ -443,7 +535,7 @@ export class IslemService {
         gelirCondition = "i.islemTip = 'Giren'";
         giderCondition = "i.islemTip = 'Çıkan'";
       }
-      
+
       const bakiyeQuery = `
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
@@ -451,21 +543,28 @@ export class IslemService {
         FROM ${schemaName}.${tableName} i
         ${whereCondition}
       `;
-      
-      const result = await this.dataSource.query(bakiyeQuery);
-      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
-      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+
+      const bakiyeUnknown = (await this.dataSource.query(
+        bakiyeQuery,
+      )) as unknown;
+      const bakiyeRes = bakiyeUnknown as Array<{
+        toplamGelir: number | string | null;
+        toplamGider: number | string | null;
+      }>;
+      const toplamGelir = Number(bakiyeRes[0]?.toplamGelir) || 0;
+      const toplamGider = Number(bakiyeRes[0]?.toplamGider) || 0;
       const guncelBakiye = toplamGelir - toplamGider;
-      
-      console.log(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
+
+      this.debugLog(`💰 Güncel bakiye hesaplandı (${islemTuru}):`, {
         toplamGelir,
         toplamGider,
-        guncelBakiye
+        guncelBakiye,
       });
-      
+
       return guncelBakiye;
-    } catch (error) {
-      console.error('❌ Güncel bakiye hesaplama hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Güncel bakiye hesaplama hatası:', message);
       return 0;
     }
   }
@@ -473,13 +572,17 @@ export class IslemService {
   /**
    * Seçilen güne kadar olan bakiye hesaplar
    */
-  async getSecilenGunBakiyesi(islemTuru: string, islemYonu: string, secilenTarih: string): Promise<number> {
+  async getSecilenGunBakiyesi(
+    islemTuru: string,
+    islemYonu: string,
+    secilenTarih: string,
+  ): Promise<number> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
-      
+
       let whereCondition = '';
-      
+
       // İşlem türüne göre filtreleme
       switch (islemTuru) {
         case 'cari':
@@ -503,11 +606,11 @@ export class IslemService {
         default:
           whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
       }
-      
+
       // İşlem yönüne göre dinamik sorgu
       let gelirCondition = '';
       let giderCondition = '';
-      
+
       if (islemYonu === 'gelir-gider') {
         gelirCondition = "i.islemTip = 'GELİR'";
         giderCondition = "i.islemTip = 'GİDER'";
@@ -515,7 +618,7 @@ export class IslemService {
         gelirCondition = "i.islemTip = 'Giren'";
         giderCondition = "i.islemTip = 'Çıkan'";
       }
-      
+
       const bakiyeQuery = `
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
@@ -524,21 +627,31 @@ export class IslemService {
         ${whereCondition}
         AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
       `;
-      
-      const result = await this.dataSource.query(bakiyeQuery, [secilenTarih]);
-      const toplamGelir = parseFloat(result[0]?.toplamGelir) || 0;
-      const toplamGider = parseFloat(result[0]?.toplamGider) || 0;
+
+      const secilenUnknown = (await this.dataSource.query(bakiyeQuery, [
+        secilenTarih,
+      ])) as unknown;
+      const secilenRes = secilenUnknown as Array<{
+        toplamGelir: number | string | null;
+        toplamGider: number | string | null;
+      }>;
+      const toplamGelir = Number(secilenRes[0]?.toplamGelir) || 0;
+      const toplamGider = Number(secilenRes[0]?.toplamGider) || 0;
       const secilenGunBakiyesi = toplamGelir - toplamGider;
-      
-      console.log(`💰 Seçilen gün bakiyesi hesaplandı (${islemTuru}, ${secilenTarih}):`, {
-        toplamGelir,
-        toplamGider,
-        secilenGunBakiyesi
-      });
-      
+
+      this.debugLog(
+        `💰 Seçilen gün bakiyesi hesaplandı (${islemTuru}, ${secilenTarih}):`,
+        {
+          toplamGelir,
+          toplamGider,
+          secilenGunBakiyesi,
+        },
+      );
+
       return secilenGunBakiyesi;
-    } catch (error) {
-      console.error('❌ Seçilen gün bakiyesi hesaplama hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Seçilen gün bakiyesi hesaplama hatası:', message);
       return 0;
     }
   }
@@ -546,19 +659,25 @@ export class IslemService {
   /**
    * tblKasaDevir tablosundan sayfalanmış verileri getirir
    */
-  async getKasaDevirVerileri(page: number = 1, rowsPerPage: number = 3): Promise<{data: any[], totalRecords: number}> {
+  async getKasaDevirVerileri(
+    page: number = 1,
+    rowsPerPage: number = 3,
+  ): Promise<{ data: KasaDevirKaydi[]; totalRecords: number }> {
     try {
       const offset = (page - 1) * rowsPerPage;
-      
+
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir
       `;
-      
-      const countResult = await this.dataSource.query(countQuery);
-      const totalRecords = countResult[0]?.total || 0;
-      
+
+      const countDevirUnknown = (await this.dataSource.query(
+        countQuery,
+      )) as unknown;
+      const countDevir = countDevirUnknown as Array<{ total: number }>;
+      const totalRecords = Number(countDevir[0]?.total || 0);
+
       // Sayfalanmış verileri al
       const query = `
         SELECT 
@@ -566,23 +685,47 @@ export class IslemService {
           kd.nKasaDvrAln as DevirEden,
           kd.nKasaYekun as KasaYekun
         FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir kd
-        ORDER BY CONVERT(DATE, kd.nKytTarihi, 104) DESC
+        ORDER BY kd.nKasaNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
       `;
-      
-      const result = await this.dataSource.query(query);
-      console.log('📊 Kasa devir verileri alındı:', result.length, 'kayıt (sayfa:', page, ')');
-      
+
+      const devirUnknown = (await this.dataSource.query(query)) as unknown;
+      const result = devirUnknown as Array<{
+        DevirTarihi: string;
+        DevirEden: string;
+        KasaYekun: number | string;
+      }>;
+      this.debugLog(
+        '📊 Kasa devir verileri alındı:',
+        result.length,
+        'kayıt (sayfa:',
+        page,
+        ')',
+      );
+
+      const typed: KasaDevirKaydi[] = (
+        result as Array<{
+          DevirTarihi: string;
+          DevirEden: string;
+          KasaYekun: number | string;
+        }>
+      ).map((row) => ({
+        DevirTarihi: row.DevirTarihi,
+        DevirEden: row.DevirEden,
+        KasaYekun: Number(row.KasaYekun) || 0,
+      }));
+
       return {
-        data: result,
-        totalRecords: totalRecords
+        data: typed,
+        totalRecords: totalRecords,
       };
-    } catch (error) {
-      console.error('❌ Kasa devir verileri alma hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa devir verileri alma hatası:', message);
       return {
         data: [],
-        totalRecords: 0
+        totalRecords: 0,
       };
     }
   }
@@ -599,14 +742,16 @@ export class IslemService {
         FROM ${this.dbConfig.getTableSchema()}.tblPersonel 
         WHERE PrsnUsrNm = 'SAadmin'
       `;
-      
-      const result = await this.dataSource.query(query);
-      const kullaniciAdi = result[0]?.PrsnUsrNm || 'SAadmin';
-      
-      console.log('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
+
+      const userUnknown = (await this.dataSource.query(query)) as unknown;
+      const result = userUnknown as Array<{ PrsnUsrNm: string }>;
+      const kullaniciAdi = result[0]?.PrsnUsrNm ?? 'SAadmin';
+
+      this.debugLog('👤 Aktif kullanıcı bilgisi alındı:', kullaniciAdi);
       return kullaniciAdi;
-    } catch (error) {
-      console.error('❌ Kullanıcı bilgisi alma hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kullanıcı bilgisi alma hatası:', message);
       return 'SAadmin'; // Fallback değer
     }
   }
@@ -616,41 +761,44 @@ export class IslemService {
    */
   async kasaAktarimi(veren: string, alan: string, tutar: number): Promise<any> {
     try {
-      console.log('🔄 Kasa aktarımı başlatılıyor:', { veren, alan, tutar });
-      
+      this.debugLog('🔄 Kasa aktarımı başlatılıyor:', { veren, alan, tutar });
+
       // Bugünün tarihini DD.MM.YYYY formatında al
       const bugun = new Date();
-      const iKytTarihi = bugun.getDate().toString().padStart(2, '0') + '.' + 
-                         (bugun.getMonth() + 1).toString().padStart(2, '0') + '.' + 
-                         bugun.getFullYear();
-      
+      const iKytTarihi =
+        bugun.getDate().toString().padStart(2, '0') +
+        '.' +
+        (bugun.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        bugun.getFullYear();
+
       // Kasa parametrelerini belirle
       const kasaParametreleri = {
         nakit: {
           islemCrKod: 'PN10000',
           islemArac: 'Nakit Kasa(TL)',
-          islemAltG: 'PANSİYON NAKİT GİDERLERİ'
+          islemAltG: 'PANSİYON NAKİT GİDERLERİ',
         },
         kart: {
           islemCrKod: 'PK10000',
           islemArac: 'Kredi Kartları',
-          islemAltG: 'PANSİYON KREDİ KARTI GİDERLERİ'
+          islemAltG: 'PANSİYON KREDİ KARTI GİDERLERİ',
         },
         eft: {
           islemCrKod: 'PB10000',
           islemArac: 'Banka EFT',
-          islemAltG: 'PANSİYON BANKA GİDERLERİ'
+          islemAltG: 'PANSİYON BANKA GİDERLERİ',
         },
         acenta: {
           islemCrKod: 'PA10000',
           islemArac: 'Acenta Tahsilat',
-          islemAltG: 'PANSİYON ACENTA KASASI'
+          islemAltG: 'PANSİYON ACENTA KASASI',
         },
         depozito: {
           islemCrKod: 'PD10000',
           islemArac: 'Depozito Kasası',
-          islemAltG: 'PANSİYON DEPOZİTO KASASI'
-        }
+          islemAltG: 'PANSİYON DEPOZİTO KASASI',
+        },
       };
 
       const verenParametreleri = kasaParametreleri[veren];
@@ -692,61 +840,61 @@ export class IslemService {
         `;
 
         const verenIslemParams = [
-          iKytTarihi,           // @0 iKytTarihi
-          islemKllnc,           // @1 islemKllnc
+          iKytTarihi, // @0 iKytTarihi
+          islemKllnc, // @1 islemKllnc
           verenParametreleri.islemCrKod, // @2 islemCrKod
-          '',                   // @3 islemOzel1
-          '',                   // @4 islemOzel2
-          '',                   // @5 islemOzel3
-          '',                   // @6 islemOzel4
-          verenParametreleri.islemArac,  // @7 islemArac
-          'Çıkan',              // @8 islemTip
-          'Kasaya Verilen',     // @9 islemGrup
-          verenParametreleri.islemAltG,  // @10 islemAltG
+          '', // @3 islemOzel1
+          '', // @4 islemOzel2
+          '', // @5 islemOzel3
+          '', // @6 islemOzel4
+          verenParametreleri.islemArac, // @7 islemArac
+          'Çıkan', // @8 islemTip
+          'Kasaya Verilen', // @9 islemGrup
+          verenParametreleri.islemAltG, // @10 islemAltG
           `${verenParametreleri.islemArac} Kasasına Verilen Tutar`, // @11 islemBilgi
-          1,                    // @12 islemMiktar
-          'ADET',               // @13 islemBirim
-          tutar,                // @14 islemTutar
-          'TL',                 // @15 islemDoviz
-          1                     // @16 islemKur
+          1, // @12 islemMiktar
+          'ADET', // @13 islemBirim
+          tutar, // @14 islemTutar
+          'TL', // @15 islemDoviz
+          1, // @16 islemKur
         ];
 
-        console.log('📤 Veren kasadan çıkış işlemi gerçekleştiriliyor...');
+        this.debugLog('📤 Veren kasadan çıkış işlemi gerçekleştiriliyor...');
         await queryRunner.query(verenIslemQuery, verenIslemParams);
-        console.log('✅ Veren kasadan çıkış işlemi kaydedildi');
+        this.debugLog('✅ Veren kasadan çıkış işlemi kaydedildi');
 
         // 2. Alan kasaya giriş işlemi
         const alanIslemParams = [
-          iKytTarihi,           // @0 iKytTarihi
-          islemKllnc,           // @1 islemKllnc
+          iKytTarihi, // @0 iKytTarihi
+          islemKllnc, // @1 islemKllnc
           alanParametreleri.islemCrKod, // @2 islemCrKod
-          '',                   // @3 islemOzel1
-          '',                   // @4 islemOzel2
-          '',                   // @5 islemOzel3
-          '',                   // @6 islemOzel4
-          alanParametreleri.islemArac,  // @7 islemArac
-          'Giren',              // @8 islemTip
-          'Kasadan Alınan',     // @9 islemGrup
-          alanParametreleri.islemAltG,  // @10 islemAltG
+          '', // @3 islemOzel1
+          '', // @4 islemOzel2
+          '', // @5 islemOzel3
+          '', // @6 islemOzel4
+          alanParametreleri.islemArac, // @7 islemArac
+          'Giren', // @8 islemTip
+          'Kasadan Alınan', // @9 islemGrup
+          alanParametreleri.islemAltG, // @10 islemAltG
           `${alanParametreleri.islemArac} Kasasından Alınan Tutar`, // @11 islemBilgi
-          1,                    // @12 islemMiktar
-          'ADET',               // @13 islemBirim
-          tutar,                // @14 islemTutar
-          'TL',                 // @15 islemDoviz
-          1                     // @16 islemKur
+          1, // @12 islemMiktar
+          'ADET', // @13 islemBirim
+          tutar, // @14 islemTutar
+          'TL', // @15 islemDoviz
+          1, // @16 islemKur
         ];
 
-        console.log('📥 Alan kasaya giriş işlemi gerçekleştiriliyor...');
+        this.debugLog('📥 Alan kasaya giriş işlemi gerçekleştiriliyor...');
         await queryRunner.query(verenIslemQuery, alanIslemParams);
-        console.log('✅ Alan kasaya giriş işlemi kaydedildi');
+        this.debugLog('✅ Alan kasaya giriş işlemi kaydedildi');
 
         // Transaction'ı commit et
         await queryRunner.commitTransaction();
-        
+
         const basariliMesaj = `✅ Kasa aktarımı başarıyla tamamlandı!\n\n💰 ${verenParametreleri.islemArac} → ${alanParametreleri.islemArac}\n💵 Tutar: ${tutar.toLocaleString('tr-TR')} TL\n👤 İşlemi Yapan: ${islemKllnc}\n📅 Tarih: ${iKytTarihi}`;
-        
-        console.log('✅ Kasa aktarımı başarıyla tamamlandı');
-        
+
+        this.debugLog('✅ Kasa aktarımı başarıyla tamamlandı');
+
         return {
           success: true,
           message: basariliMesaj,
@@ -755,27 +903,26 @@ export class IslemService {
             alan: alanParametreleri.islemArac,
             tutar: tutar,
             kullanici: islemKllnc,
-            tarih: iKytTarihi
-          }
+            tarih: iKytTarihi,
+          },
         };
-
       } catch (error) {
         // Hata durumunda rollback
         await queryRunner.rollbackTransaction();
-        
+
         const hataMesaj = `❌ Kasa aktarımı başarısız!\n\n🔍 Hata Detayı: ${error.message}\n💰 İşlem: ${verenParametreleri.islemArac} → ${alanParametreleri.islemArac}\n💵 Tutar: ${tutar.toLocaleString('tr-TR')} TL\n📅 Tarih: ${iKytTarihi}`;
-        
+
         console.error('❌ Kasa aktarımı hatası, rollback yapıldı:', error);
         throw new Error(hataMesaj);
       } finally {
         // Query runner'ı serbest bırak
         await queryRunner.release();
-        console.log('🔒 Transaction kaynakları serbest bırakıldı');
+        this.debugLog('🔒 Transaction kaynakları serbest bırakıldı');
       }
-
-    } catch (error) {
-      console.error('❌ Kasa aktarımı genel hatası:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Kasa aktarımı genel hatası:', message);
       throw error; // Zaten formatlanmış hata mesajını tekrar formatlamaya gerek yok
     }
   }
-} 
+}

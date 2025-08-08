@@ -9,13 +9,25 @@ export class CariService {
   constructor(
     @InjectRepository(Cari)
     private cariRepository: Repository<Cari>,
-    private dbConfig: DatabaseConfigService
+    private dbConfig: DatabaseConfigService,
   ) {}
 
-  async getTedarikciListesi() {
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(...args);
+    }
+  }
+
+  async getTedarikciListesi(): Promise<
+    Array<{
+      CariKod: string;
+      CariAdi: string;
+      CariBakiye: number | string | null;
+    }>
+  > {
     try {
-      console.log('Tedarikçi listesi isteniyor...');
-      
+      this.debugLog('Tedarikçi listesi isteniyor...');
+
       // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
       const bakiyeQuery = `
         SELECT 
@@ -35,12 +47,19 @@ export class CariService {
         GROUP BY c.CariKod, c.CariAdi
         ORDER BY c.CariAdi ASC
       `;
-      
-      const result = await this.cariRepository.query(bakiyeQuery);
-      
-      console.log('Tedarikçi listesi sonucu:', result);
-      console.log('Tedarikçi sayısı:', result.length);
-      
+
+      const resultUnknown = (await this.cariRepository.query(
+        bakiyeQuery,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number | string | null;
+      }>;
+
+      this.debugLog('Tedarikçi listesi sonucu:', result);
+      this.debugLog('Tedarikçi sayısı:', result.length);
+
       return result;
     } catch (error) {
       console.error('Tedarikçi listesi alınırken hata:', error);
@@ -50,10 +69,16 @@ export class CariService {
     }
   }
 
-  async getMusteriListesi() {
+  async getMusteriListesi(): Promise<
+    Array<{
+      CariKod: string;
+      CariAdi: string;
+      CariBakiye: number | string | null;
+    }>
+  > {
     try {
-      console.log('Müşteri listesi isteniyor...');
-      
+      this.debugLog('Müşteri listesi isteniyor...');
+
       // Müşteri listesini tblCari tablosundan al (M% ile başlayan kodlar)
       const musteriQuery = `
         SELECT 
@@ -74,27 +99,39 @@ export class CariService {
         GROUP BY c.CariKod, c.CariAdi
         ORDER BY c.CariAdi ASC
       `;
-      
-      console.log('Müşteri sorgusu çalıştırılıyor...');
-      const result = await this.cariRepository.query(musteriQuery);
-      console.log('Müşteri sorgusu sonucu:', result.length, 'kayıt bulundu');
-      
-      console.log('Müşteri listesi sonucu:', result.length, 'kayıt');
-      console.log('Müşteri sayısı:', result.length);
-      
+
+      this.debugLog('Müşteri sorgusu çalıştırılıyor...');
+      const resultUnknown = (await this.cariRepository.query(
+        musteriQuery,
+      )) as unknown;
+      const result = resultUnknown as Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number | string | null;
+      }>;
+      this.debugLog('Müşteri sorgusu sonucu:', result.length, 'kayıt bulundu');
+
+      this.debugLog('Müşteri listesi sonucu:', result.length, 'kayıt');
+      this.debugLog('Müşteri sayısı:', result.length);
+
       return result;
     } catch (error) {
       console.error('Müşteri listesi alınırken hata:', error);
       console.error('Hata detayı:', error.message);
       console.error('Hata stack:', error.stack);
-      
+
       // Hata durumunda test verilerini döndür
-      console.log('Hata durumunda test verileri döndürülüyor...');
-      return [
+      this.debugLog('Hata durumunda test verileri döndürülüyor...');
+      const fallback: Array<{
+        CariKod: string;
+        CariAdi: string;
+        CariBakiye: number;
+      }> = [
         { CariKod: 'MB10001', CariAdi: 'TEST MÜŞTERİ 1', CariBakiye: 0 },
         { CariKod: 'MB10002', CariAdi: 'TEST MÜŞTERİ 2', CariBakiye: 0 },
-        { CariKod: 'MB10003', CariAdi: 'TEST MÜŞTERİ 3', CariBakiye: 0 }
+        { CariKod: 'MB10003', CariAdi: 'TEST MÜŞTERİ 3', CariBakiye: 0 },
       ];
+      return fallback;
     }
   }
-} 
+}

@@ -131,6 +131,12 @@ import { ref, computed, watch, defineProps, defineEmits } from 'vue';
 import { api } from '../boot/axios';
 import { Notify } from 'quasar';
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args);
+  }
+}
+
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
 const emit = defineEmits(['update:show', 'bakiyeGuncelle']);
 const show = ref(props.show);
@@ -139,13 +145,13 @@ watch(show, v => emit('update:show', v));
 
 // 🔥 DEBUG: Props değişikliklerini izle
 watch(() => props.musteriAdi, (newValue) => {
-  console.log('🔥 OdemeIslemForm - musteriAdi prop değişti:', newValue);
+  debugLog('🔥 OdemeIslemForm - musteriAdi prop değişti:', newValue);
 }, { immediate: true });
 
 watch(() => props.show, (newValue) => {
-  console.log('🔥 OdemeIslemForm - show prop değişti:', newValue);
+  debugLog('🔥 OdemeIslemForm - show prop değişti:', newValue);
   if (newValue) {
-    console.log('🔥 OdemeIslemForm - Modal açıldı, musteriAdi:', props.musteriAdi);
+    debugLog('🔥 OdemeIslemForm - Modal açıldı, musteriAdi:', props.musteriAdi);
   }
 }, { immediate: true });
 

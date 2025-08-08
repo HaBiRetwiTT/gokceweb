@@ -762,7 +762,7 @@
   </q-page>
 </template>
 
-<!-- eslint-disable @typescript-eslint/no-floating-promises -->
+
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
@@ -771,6 +771,12 @@ import { api } from '../boot/axios'
 import { QForm } from 'quasar'
 import type { AxiosError } from 'axios';
 import { Notify } from 'quasar';
+
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args)
+  }
+}
 
 const $q = useQuasar()
 const router = useRouter()
@@ -1075,9 +1081,9 @@ async function loadFirmaList() {
 // Oda tiplerini getir (sadece boş odaların bulunduğu tipler)
 async function loadOdaTipleri() {
   try {
-    console.log('Boş oda tipleri yükleniyor...')
+    debugLog('Boş oda tipleri yükleniyor...')
     const response = await api.get('/musteri/bos-oda-tipleri')
-    console.log('Boş oda tipleri response:', response.data)
+    debugLog('Boş oda tipleri response:', response.data)
     if (response.data.success) {
       odaTipleriOptions.value = response.data.data
       // Formatted options'u oluştur - dropdown'da boş oda sayısı gösterimi için
@@ -1086,8 +1092,8 @@ async function loadOdaTipleri() {
         label: item.odaTipi, // Seçildiğinde sadece oda tipi görünsün
         bosOdaSayisi: item.bosOdaSayisi
       }))
-      console.log('Boş oda tipleri yüklendi:', odaTipleriOptions.value)
-      console.log('Formatted oda tipleri:', odaTipleriFormatted.value)
+      debugLog('Boş oda tipleri yüklendi:', odaTipleriOptions.value)
+      debugLog('Formatted oda tipleri:', odaTipleriFormatted.value)
     } else {
       console.error('Boş oda tipleri yüklenirken hata:', response.data)
     }
@@ -1099,16 +1105,16 @@ async function loadOdaTipleri() {
 // Boş odaları getir
 async function loadBosOdalar(odaTipi: string) {
   try {
-    console.log('Boş odalar yükleniyor, oda tipi:', odaTipi)
+    debugLog('Boş odalar yükleniyor, oda tipi:', odaTipi)
     if (!odaTipi) {
       bosOdalarOptions.value = []
       return
     }
     const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(odaTipi)}`)
-    console.log('Boş odalar response:', response.data)
+    debugLog('Boş odalar response:', response.data)
     if (response.data.success) {
       bosOdalarOptions.value = response.data.data
-      console.log('Boş odalar yüklendi:', bosOdalarOptions.value)
+      debugLog('Boş odalar yüklendi:', bosOdalarOptions.value)
     } else {
       console.error('Boş odalar yüklenirken hata:', response.data)
     }
@@ -1274,13 +1280,13 @@ watch(() => form.value.MstrHspTip, (newType) => {
 watch(() => form.value.OdaTipi, (newOdaTipi) => {
   // Veri yükleme sırasında watcher'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - onOdaTipiChanged atlandı')
+    debugLog('Veri yükleniyor - onOdaTipiChanged atlandı')
     return
   }
   
   // Güncelleme modunda oda tipi değişiklik kontrollerini yapma
   if (guncellemeModuAktif.value) {
-    console.log('Güncelleme modunda - Oda tipi değişiklik kontrolleri atlandı')
+    debugLog('Güncelleme modunda - Oda tipi değişiklik kontrolleri atlandı')
     return
   }
 
@@ -1369,11 +1375,19 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
-  // SessionStorage'dan TC kimlik auto-fill kontrolü
+  // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
   await checkAndApplyAutoFillTCKimlik()
-  
-  // 🔥 localStorage'dan kartli-islem sayfasından gelen seçili müşteri bilgilerini kontrol et
-  await checkAndApplySelectedMusteriFromKartliIslem()
+
+  // Sadece önceki sayfa kartli-islem ise müşteri otomatik yüklensin
+  const prevPage = sessionStorage.getItem('prevPage')
+  if (prevPage === 'kartli-islem') {
+    await checkAndApplySelectedMusteriFromKartliIslem()
+  } else if (sessionStorage.getItem('autoFillTCKimlik')) {
+    // Eski akış desteği: sadece TC auto-fill geldiğinde seçili müşteri yükleme denenebilir
+    await checkAndApplySelectedMusteriFromKartliIslem()
+  } else {
+    debugLog('🔍 Önceki sayfa kartli-islem değil, otomatik müşteri yükleme atlandı. prevPage=', prevPage)
+  }
   
   await loadOdaTipleri()
   void loadFirmaList()
@@ -1589,13 +1603,13 @@ async function submitForm() {
           timeout: 2000
         })
         
-        router.push('/kartli-islem?autoOpenModal=true')
+        void router.push('/kartli-islem?autoOpenModal=true')
         
         // Kartli-islem sayfası yüklendikten sonra tahsilat modalını aç
         setTimeout(() => {
           // DOM'un tamamen güncellendiğinden emin ol
-          nextTick().then(() => {
-            console.log('🔥 showOdemeIslemModal event dispatched')
+          void nextTick().then(() => {
+            debugLog('🔥 showOdemeIslemModal event dispatched')
             window.dispatchEvent(new Event('showOdemeIslemModal'))
           })
         }, 1000)
@@ -1909,27 +1923,34 @@ function onTCNInput() {
 // 🔥 localStorage'dan kartli-islem sayfasından gelen seçili müşteri bilgilerini kontrol et ve yükle
 async function checkAndApplySelectedMusteriFromKartliIslem() {
   try {
-    console.log('🔥 checkAndApplySelectedMusteriFromKartliIslem fonksiyonu çağrıldı')
+    debugLog('🔥 checkAndApplySelectedMusteriFromKartliIslem fonksiyonu çağrıldı')
+    // Güvenlik: kartli-islem menşei YOKSA sadece TC auto-fill varsa devam et
+    const prevPage = sessionStorage.getItem('prevPage')
+    const hasAutoFillTC = !!sessionStorage.getItem('autoFillTCKimlik')
+    if (prevPage !== 'kartli-islem' && !hasAutoFillTC) {
+      debugLog('🔍 prevPage != kartli-islem ve autoFill yok, otomatik yükleme yapılmayacak')
+      return
+    }
     const selectedMusteriData = localStorage.getItem('selectedMusteriForIslem')
-    console.log('🔥 localStorage\'dan alınan veri:', selectedMusteriData)
+    debugLog('🔥 localStorage\'dan alınan veri:', selectedMusteriData)
     
     if (selectedMusteriData) {
       const musteriData = JSON.parse(selectedMusteriData)
-      console.log('🔥 Parse edilen müşteri verisi:', musteriData)
+      debugLog('🔥 Parse edilen müşteri verisi:', musteriData)
       
       // Sadece belirli kartlardan gelen müşteriler için işlem yap
       const allowedFilters = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan']
-      console.log('🔥 Müşteri kartı:', musteriData.currentFilter, 'İzin verilen kartlar:', allowedFilters)
+      debugLog('🔥 Müşteri kartı:', musteriData.currentFilter, 'İzin verilen kartlar:', allowedFilters)
       
       if (allowedFilters.includes(musteriData.currentFilter)) {
-        console.log('🔥 kartli-islem sayfasından seçili müşteri bulundu:', musteriData)
+        debugLog('🔥 kartli-islem sayfasından seçili müşteri bulundu:', musteriData)
         
         // Sadece müşteri bilgilerini doldur (tblMusteri tablosundaki bilgiler)
         form.value.MstrTCN = musteriData.MstrTCN || ''
         form.value.MstrAdi = musteriData.MstrAdi || ''
         form.value.MstrTelNo = musteriData.MstrTelNo || ''
         form.value.MstrHspTip = musteriData.MstrHspTip || 'Bireysel'
-        console.log('🔥 Hesap Tipi set edildi:', form.value.MstrHspTip, 'Orijinal veri:', musteriData.MstrHspTip)
+        debugLog('🔥 Hesap Tipi set edildi:', form.value.MstrHspTip, 'Orijinal veri:', musteriData.MstrHspTip)
         
         // Konaklama bilgilerini readonly olarak göster (değiştirilemez)
         form.value.OdaTipi = musteriData.KnklmOdaTip || ''
@@ -2005,8 +2026,9 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
         
         notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Güncelleme modu aktif'
         
-        // localStorage'dan temizle
+        // localStorage ve prevPage işaretini temizle
         localStorage.removeItem('selectedMusteriForIslem')
+        sessionStorage.removeItem('prevPage')
         
         setTimeout(() => {
           notify.value = ''
@@ -2195,7 +2217,8 @@ async function onTCNBlur() {
           // Veri yükleme başlangıcı - watchers'ları disable et
           veriYukleniyor.value = true
           
-          const konaklamaResponse = await api.get(`/mevcut-konaklama/${tcn}`)
+          // Mevcut konaklama endpoint'i modül ile birlikte olmalı
+          const konaklamaResponse = await api.get(`/musteri/mevcut-konaklama/${tcn}`)
           
           if (konaklamaResponse.data.success && konaklamaResponse.data.data) {
             const konaklamaData = konaklamaResponse.data.data
@@ -2260,7 +2283,7 @@ async function onTCNBlur() {
             // Veri yükleme tamamlandı - watchers'ları tekrar aktif et
             setTimeout(() => {
               veriYukleniyor.value = false
-              console.log('Veri yükleme tamamlandı - watchers tekrar aktif')
+              debugLog('Veri yükleme tamamlandı - watchers tekrar aktif')
             }, 100)
           }
         } catch (konaklamaError) {
@@ -2299,14 +2322,14 @@ async function onTCNBlur() {
 // 🚨 KARA LİSTE DURUMU KONTROLÜ
 async function checkKaraListeDurumu(tcKimlik: string) {
   try {
-    console.log('🚨 Kara liste kontrolü başlatılıyor:', tcKimlik)
+    debugLog('🚨 Kara liste kontrolü başlatılıyor:', tcKimlik)
     const response = await api.get(`/dashboard/kara-liste-kontrol/${tcKimlik}`)
     
     if (response.data.success && response.data.data) {
       const karaListeData = response.data.data
       
       if (karaListeData.isKaraListe) {
-        console.log('🚨 KARA LİSTE MÜŞTERİSİ TESPİT EDİLDİ!')
+        debugLog('🚨 KARA LİSTE MÜŞTERİSİ TESPİT EDİLDİ!')
         // Kara liste popup'ını göster - Backend'den gelen müşteri bilgilerini kullan
         selectedKaraListeMusteri.value = {
           MstrTCN: tcKimlik,
@@ -2488,13 +2511,13 @@ function stopDrag() {
 function onOdaTipiChanged(odaTipi: string | null) {
   // Veri yükleme sırasında onchange handler'ı çalıştırma
   if (veriYukleniyor.value) {
-    console.log('Veri yükleniyor - onOdaTipiChanged atlandı')
+    debugLog('Veri yükleniyor - onOdaTipiChanged atlandı')
     return
   }
   
   // Güncelleme modunda oda tipi değişiklik kontrollerini yapma
   if (guncellemeModuAktif.value) {
-    console.log('Güncelleme modunda - Oda tipi değişiklik kontrolleri atlandı')
+    debugLog('Güncelleme modunda - Oda tipi değişiklik kontrolleri atlandı')
     return
   }
 
@@ -2520,7 +2543,7 @@ function onOdaTipiChanged(odaTipi: string | null) {
 function onOdaYatakChanged(odaYatak: string | null) {
   // Güncelleme modunda oda-yatak değişiklik kontrollerini yapma
   if (guncellemeModuAktif.value) {
-    console.log('Güncelleme modunda - Oda-yatak değişiklik kontrolleri atlandı')
+    debugLog('Güncelleme modunda - Oda-yatak değişiklik kontrolleri atlandı')
     return
   }
 
@@ -2537,7 +2560,7 @@ function onOdemeTakvimGunuChanged() {
   
   // Güncelleme modunda işlem yapma
   if (guncellemeModuAktif.value) {
-    console.log('Güncelleme modunda - Ödeme takvim günü değişikliği atlandı')
+    debugLog('Güncelleme modunda - Ödeme takvim günü değişikliği atlandı')
     return
   }
   
@@ -2551,13 +2574,13 @@ function onOdemeTakvimGunuChanged() {
     return
   }
   
-  console.log('Ödeme takvim günü güncellendi:', gun)
+  debugLog('Ödeme takvim günü güncellendi:', gun)
 }
 
 async function onKonaklamaSuresiChanged() {
   // Güncelleme modunda konaklama süresi hesaplamalarını yapma
   if (guncellemeModuAktif.value) {
-    console.log('Güncelleme modunda - Konaklama süresi hesaplamaları atlandı')
+    debugLog('Güncelleme modunda - Konaklama süresi hesaplamaları atlandı')
     return
   }
 
@@ -2568,7 +2591,7 @@ async function onKonaklamaSuresiChanged() {
     const bugun = new Date()
     const gunDegeri = bugun.getDate()
     form.value.OdemeTakvimGunu = gunDegeri
-    console.log('Ö.T.G. default değer ayarlandı:', gunDegeri)
+    debugLog('Ö.T.G. default değer ayarlandı:', gunDegeri)
   } else if (sure !== 30) {
     // Konaklama süresi 30 değilse Ö.T.G. değerini temizle
     form.value.OdemeTakvimGunu = null
@@ -2607,7 +2630,7 @@ async function onKonaklamaSuresiChanged() {
   const haftalikFiyat = Number(odaTipFiyatlari.value.OdLfytHft) || 0
   const aylikFiyat = Number(odaTipFiyatlari.value.OdLfytAyl) || 0
   
-  console.log('Fiyat analizi:', { sure, gunlukFiyat, haftalikFiyat, aylikFiyat })
+  debugLog('Fiyat analizi:', { sure, gunlukFiyat, haftalikFiyat, aylikFiyat })
   
   // Yeni formulasyon ile konaklama tipini hesapla
   let hesaplananTip = ''
@@ -2616,41 +2639,41 @@ async function onKonaklamaSuresiChanged() {
   if (sure <= 7 && sure * gunlukFiyat <= haftalikFiyat) {
     hesaplananTip = 'GÜNLÜK'
     hesaplananTutar = sure * gunlukFiyat
-    console.log('Günlük seçildi:', { gunlukToplam: hesaplananTutar, haftalikFiyat })
+    debugLog('Günlük seçildi:', { gunlukToplam: hesaplananTutar, haftalikFiyat })
   } else if (sure > 7 && sure <= 14 && (sure - 7) * gunlukFiyat + haftalikFiyat <= 2 * haftalikFiyat) {
     hesaplananTip = '1 HAFTALIK'
     hesaplananTutar = (sure - 7) * gunlukFiyat + haftalikFiyat
-    console.log('1 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ikiHaftalik: 2 * haftalikFiyat })
+    debugLog('1 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ikiHaftalik: 2 * haftalikFiyat })
   } else if (sure > 14 && sure <= 21 && (sure - 14) * gunlukFiyat + 2 * haftalikFiyat <= 3 * haftalikFiyat) {
     hesaplananTip = '2 HAFTALIK'
     hesaplananTutar = (sure - 14) * gunlukFiyat + 2 * haftalikFiyat
-    console.log('2 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ucHaftalik: 3 * haftalikFiyat })
+    debugLog('2 Haftalık seçildi:', { hesaplanan: hesaplananTutar, ucHaftalik: 3 * haftalikFiyat })
   } else if (sure > 21 && (sure - 21) * gunlukFiyat + 3 * haftalikFiyat <= aylikFiyat) {
     hesaplananTip = '3 HAFTALIK'
     hesaplananTutar = (sure - 21) * gunlukFiyat + 3 * haftalikFiyat
-    console.log('3 Haftalık seçildi:', { hesaplanan: hesaplananTutar, aylikFiyat })
+    debugLog('3 Haftalık seçildi:', { hesaplanan: hesaplananTutar, aylikFiyat })
   } else if (sure <= 7) {
     hesaplananTip = '1 HAFTALIK'
     hesaplananTutar = haftalikFiyat
-    console.log('1 Haftalık seçildi (6-7 gün için):', { gunlukToplam: sure * gunlukFiyat, haftalikFiyat })
+    debugLog('1 Haftalık seçildi (6-7 gün için):', { gunlukToplam: sure * gunlukFiyat, haftalikFiyat })
   } else if (sure <= 14) {
     hesaplananTip = '2 HAFTALIK'
     hesaplananTutar = 2 * haftalikFiyat
-    console.log('2 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar })
+    debugLog('2 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar })
   } else if (sure <= 21) {
     hesaplananTip = '3 HAFTALIK'
     hesaplananTutar = 3 * haftalikFiyat
-    console.log('3 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar })
+    debugLog('3 Haftalık seçildi (backup):', { sure, hesaplanan: hesaplananTutar })
   } else {
     hesaplananTip = 'AYLIK'
     hesaplananTutar = aylikFiyat
-    console.log('Aylık seçildi:', { sure, aylikFiyat })
+    debugLog('Aylık seçildi:', { sure, aylikFiyat })
   }
   
   // Aylık fiyat kontrolü - hesaplanan tutar aylık fiyatı geçerse aylık yap
   if (hesaplananTutar > aylikFiyat) {
     form.value.KonaklamaTipi = 'AYLIK'
-    console.log('Aylık fiyat sınırı aşıldı, aylık seçildi:', { hesaplananTutar, aylikFiyat })
+    debugLog('Aylık fiyat sınırı aşıldı, aylık seçildi:', { hesaplananTutar, aylikFiyat })
   } else {
     form.value.KonaklamaTipi = hesaplananTip
   }
@@ -2677,7 +2700,7 @@ function onToplamBedelChanged(yeniBedel: string | number | null) {
 
 // 🔥 Ö.T.G. Checkbox değişiklik fonksiyonu
 function onOtgCheckboxChanged(isChecked: boolean) {
-  console.log('Ö.T.G. checkbox değişti:', isChecked)
+  debugLog('Ö.T.G. checkbox değişti:', isChecked)
   
   if (isChecked) {
     // Checkbox tıklandığında ek notlara sadece (ÖTG) ifadesi ekle
@@ -2737,7 +2760,7 @@ async function clearOdaYatakAndRefresh() {
   if (form.value.OdaTipi) {
     try {
       await loadBosOdalar(form.value.OdaTipi)
-      console.log('Oda-yatak listesi güncellendi')
+      debugLog('Oda-yatak listesi güncellendi')
     } catch (error) {
       console.error('Oda listesi güncellenirken hata:', error)
     }
@@ -2756,7 +2779,7 @@ function adjustContainerHeights() {
         if (anaContainerRef.value && ekBilgilerContainerRef.value) {
           const anaHeight = anaContainerRef.value.offsetHeight
           ekBilgilerContainerRef.value.style.height = `${anaHeight}px`
-          console.log('Container yükseklikleri senkronize edildi:', { anaHeight })
+          debugLog('Container yükseklikleri senkronize edildi:', { anaHeight })
         }
       }, 50)
     } else if (ekBilgilerContainerRef.value && !showExtraFields.value) {

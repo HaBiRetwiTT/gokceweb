@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
     "importHelpers": true,
@@ -22,8 +22,9 @@
     },
     "types": [
       "vite/client",
-      "chrome",
-      "node"
+      "node",
+      "vue",
+      "quasar"
     ],
     "lib": [
       "dom",
@@ -43,6 +44,7 @@
     "src/**/*.vue"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/components/ExampleComponent.vue"
   ]
 }

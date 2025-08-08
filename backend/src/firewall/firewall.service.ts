@@ -4,6 +4,14 @@ import { Repository } from 'typeorm';
 import { Firewall } from './firewall';
 import * as fs from 'fs/promises';
 import { Client } from 'basic-ftp';
+import * as dotenv from 'dotenv';
+
+dotenv.config({
+  path:
+    process.env.NODE_ENV === 'production'
+      ? '.env.production'
+      : '.env.development',
+});
 
 @Injectable()
 export class FirewallService {
@@ -28,9 +36,9 @@ export class FirewallService {
     const client = new Client();
     try {
       await client.access({
-        host: '94.199.202.175',
-        user: 'visitor',
-        password: '6rm$p736U',
+        host: process.env.FW_FTP_HOST ?? '',
+        user: process.env.FW_FTP_USER ?? '',
+        password: process.env.FW_FTP_PASS ?? '',
         secure: false,
       });
       await client.uploadFrom(localFile, remoteFile);

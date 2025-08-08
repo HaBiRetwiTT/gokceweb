@@ -9,6 +9,6 @@ import { DatabaseConfigService } from '../database/database-config.service';
   imports: [TypeOrmModule.forFeature([Cari])],
   controllers: [CariController],
   providers: [CariService, DatabaseConfigService],
-  exports: [CariService]
+  exports: [CariService],
 })
-export class CariModule {} 
+export class CariModule {}

@@ -26,12 +26,15 @@ export class OdemeIslemService {
    */
   private async getMusteriBilgiByTCN(
     tcNo: string,
-    queryRunner: any,
+    queryRunner: {
+      query: (sql: string, params?: unknown[]) => Promise<unknown>;
+    },
   ): Promise<{ MstrNo?: number } | null> {
-    const result = await queryRunner.query(
+    const resultUnknown = await queryRunner.query(
       'SELECT TOP 1 MstrNo FROM tblMusteri WHERE MstrTCN = @0',
       [tcNo],
     );
+    const result = resultUnknown as Array<{ MstrNo: number }>;
     return result[0] || null;
   }
 
@@ -114,17 +117,22 @@ export class OdemeIslemService {
         ];
 
         // Stored procedure'ü çalıştır ve sonucu al
-        const result = await this.transactionService.executeStoredProcedure(
-          queryRunner,
-          storedProcedures.islemEkle, // Doğru SP adı config'ten alınır
-          params,
-        );
+        const resultUnknown =
+          await this.transactionService.executeStoredProcedure(
+            queryRunner,
+            storedProcedures.islemEkle, // Doğru SP adı config'ten alınır
+            params,
+          );
+        const result = resultUnknown as Array<Record<string, unknown>>;
 
         // Stored procedure'den dönen islemno'yu al
         // SQL Server'da OUTPUT parametresi veya SELECT sonucu olarak dönebilir
         if (result && result.length > 0) {
-          const islemno =
-            result[0]?.islemno || result[0]?.IslemNo || result[0]?.ISLEMNO;
+          const raw = result[0];
+          const islemno = (raw.islemno ?? raw.IslemNo ?? raw.ISLEMNO) as
+            | number
+            | string
+            | undefined;
           if (islemno) {
             islemNoList.push(Number(islemno));
             this.logger.log(`İşlem kaydedildi, islemno: ${islemno}`);

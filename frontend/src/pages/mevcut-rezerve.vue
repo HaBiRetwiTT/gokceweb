@@ -69,6 +69,38 @@
                     Toplam Konaklama: {{ getTotalKonaklama(odaTipi) }}
                   </div>
                 </div>
+                <!-- Oda tipi hover tooltip: Boş oda-yatak listesi -->
+                <q-tooltip 
+                  anchor="center right" 
+                  self="center left" 
+                  :offset="[10, 0]"
+                  class="bos-odalar-tooltip bg-dark text-white shadow-2"
+                  :max-width="null"
+                  @before-show="() => ensureBosOdalar(odaTipi.odaTipi)"
+                >
+                  <div class="bos-odalar-tooltip-content">
+                    <div class="q-mb-xs text-weight-bold">Boş Oda-Yataklar</div>
+                    <div v-if="bosOdalarLoading[odaTipi.odaTipi]" class="row items-center q-gutter-sm">
+                      <q-spinner-dots size="16px" color="white" />
+                      <span>Yükleniyor...</span>
+                    </div>
+                    <div v-else>
+                      <div v-if="(bosOdalarCache[odaTipi.odaTipi] || []).length === 0" class="text-italic">
+                        Uygun boş yatak bulunamadı
+                      </div>
+                      <div v-else class="kat-columns">
+                        <div class="kat-column" v-for="kat in getKats(odaTipi.odaTipi)" :key="kat">
+                          <div class="kat-header">Kat {{ kat }}</div>
+                          <ul class="bos-odalar-list">
+                            <li v-for="(item, idx) in getBosListByKat(odaTipi.odaTipi, kat)" :key="`${kat}-${idx}`">
+                              {{ item.label || item.value }}
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </q-tooltip>
               </td>
 
               <!-- Tarih Hücreleri -->
@@ -184,6 +216,12 @@ import { api } from '../boot/axios'
 import { Notify } from 'quasar'
 import { useRoute } from 'vue-router'
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args)
+  }
+}
+
 interface KonaklamaDetay {
   musteriAdi: string
   odaNo: string
@@ -211,6 +249,49 @@ const error = ref<string | null>(null)
 const takvimData = ref<TakvimData | null>(null)
 const route = useRoute()
 
+  // Boş odalar tooltip cache ve yükleme durumları
+  const bosOdalarCache = ref<Record<string, Array<{ label?: string; value: string }>>>({})
+  const bosOdalarLoading = ref<Record<string, boolean>>({})
+
+  async function ensureBosOdalar(odaTipi: string) {
+    try {
+      if (!odaTipi) return
+      if (bosOdalarCache.value[odaTipi] && bosOdalarCache.value[odaTipi].length > 0) return
+      if (bosOdalarLoading.value[odaTipi]) return
+      bosOdalarLoading.value = { ...bosOdalarLoading.value, [odaTipi]: true }
+      // Basit SQL mantığı backend'de uygulanıyor.
+      // Doğru endpoint: GET /musteri/bos-odalar/:odaTipi
+      const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(odaTipi)}`)
+      const rows = ((response.data?.data || []) as Array<{ label?: string; value: string }>)
+        .map((r) => ({ label: r.label || r.value, value: r.value }))
+      bosOdalarCache.value = { ...bosOdalarCache.value, [odaTipi]: rows }
+    } catch {
+      bosOdalarCache.value = { ...bosOdalarCache.value, [odaTipi]: [] }
+    } finally {
+      bosOdalarLoading.value = { ...bosOdalarLoading.value, [odaTipi]: false }
+    }
+  }
+
+  function extractKatFromItem(item: { label?: string; value: string }): string {
+    const text = String(item.label ?? item.value ?? '')
+    // "101-1" gibi ifadede odaNo ilk digit katı verir
+    const odaNoPart = text.split('-')[0]
+    const digits = odaNoPart.match(/\d+/)?.[0] ?? ''
+    return digits.charAt(0) || '0'
+  }
+
+  function getKats(odaTipi: string): string[] {
+    const list = bosOdalarCache.value[odaTipi] || []
+    const set = new Set<string>()
+    for (const it of list) set.add(extractKatFromItem(it))
+    return Array.from(set).sort((a, b) => Number(a) - Number(b))
+  }
+
+  function getBosListByKat(odaTipi: string, kat: string): Array<{ label?: string; value: string }> {
+    const list = bosOdalarCache.value[odaTipi] || []
+    return list.filter((it) => extractKatFromItem(it) === kat)
+  }
+
 
 // Takvim verilerini yükle
 async function loadTakvimData() {
@@ -226,10 +307,10 @@ async function loadTakvimData() {
     
     takvimData.value = response.data
     
-    console.log('Takvim verileri yüklendi:', takvimData.value)
-    console.log('Gün sayısı:', takvimData.value?.gunler?.length)
-    console.log('İlk tarih:', takvimData.value?.gunler?.[0])
-    console.log('Son tarih:', takvimData.value?.gunler?.[takvimData.value.gunler.length - 1])
+    debugLog('Takvim verileri yüklendi:', takvimData.value)
+    debugLog('Gün sayısı:', takvimData.value?.gunler?.length)
+    debugLog('İlk tarih:', takvimData.value?.gunler?.[0])
+    debugLog('Son tarih:', takvimData.value?.gunler?.[takvimData.value.gunler.length - 1])
   } catch (err) {
     console.error('Takvim verileri yüklenirken hata:', err)
     error.value = 'Takvim verileri yüklenemedi. Lütfen tekrar deneyin.'
@@ -536,6 +617,42 @@ watch(() => route.path, (newPath, oldPath) => {
   width: 135px;
   border-right: 1px solid #e0e0e0; /* Tarih sütunu ile arasında border */
   border-bottom: 1px solid rgba(224, 224, 224, 0.3); /* Satırlar arası hafif border */
+  cursor: pointer; /* Tooltip hedefinde el işareti */
+}
+
+/* Boş odalar tooltip içerik stilleri */
+.bos-odalar-tooltip-content {}
+
+.bos-odalar-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.kat-columns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap; /* 2’den fazla katı yan yana gösterebilmek ve sığmazsa alta geçmek */
+  max-width: none; /* genişlik sınırı yok */
+}
+
+.kat-column {
+  min-width: 100px;
+  flex: 0 0 100px; /* sütunları biraz daralt ve sabitle */
+}
+
+.kat-header {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* Global aggressive tooltip override'larını aşmak için daha spesifik seçici */
+:deep(.bos-odalar-tooltip .q-tooltip__content) {
+  max-height: 340px !important;
+  max-width: none !important; /* genişlik sınırlamasını kaldır */
+  overflow: auto !important;  /* hem yatay hem dikey kaydırma mümkün olsun */
+  white-space: normal !important;
 }
 
 .oda-tipi-content {

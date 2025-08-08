@@ -523,6 +523,12 @@ import { api } from '../boot/axios';
 import { useQuasar, Notify } from 'quasar';
 import type { MusteriKonaklama } from './models';
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args);
+  }
+}
+
 interface Props {
   modelValue: boolean;
   selectedData: MusteriKonaklama | null;
@@ -752,15 +758,15 @@ async function saveDonemYenileme() {
         setTimeout(() => {
           // Müşteri bilgisini global state'e aktar
           if (props.selectedData) {
-            console.log('🔥 saveDonemYenileme - props.selectedData:', props.selectedData)
-            console.log('🔥 saveDonemYenileme - MstrAdi:', props.selectedData.MstrAdi)
+            debugLog('🔥 saveDonemYenileme - props.selectedData:', props.selectedData)
+            debugLog('🔥 saveDonemYenileme - MstrAdi:', props.selectedData.MstrAdi)
             window.kartliIslemSelectedNormalMusteri = {
               ...props.selectedData,
               MstrAdi: props.selectedData.MstrAdi || ''
             };
-            console.log('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+            debugLog('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
           } else {
-            console.log('❌ saveDonemYenileme - props.selectedData bulunamadı')
+            debugLog('❌ saveDonemYenileme - props.selectedData bulunamadı')
           }
           // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
           (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
@@ -900,15 +906,15 @@ function handleCikisYap() {
             setTimeout(() => {
               // Müşteri bilgisini global state'e aktar
               if (props.selectedData) {
-                console.log('🔥 handleCikisYap - props.selectedData:', props.selectedData)
-                console.log('🔥 handleCikisYap - MstrAdi:', props.selectedData.MstrAdi)
+                debugLog('🔥 handleCikisYap - props.selectedData:', props.selectedData)
+                debugLog('🔥 handleCikisYap - MstrAdi:', props.selectedData.MstrAdi)
                 window.kartliIslemSelectedNormalMusteri = {
                   ...props.selectedData,
                   MstrAdi: props.selectedData.MstrAdi || ''
                 };
-                console.log('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+                debugLog('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
               } else {
-                console.log('❌ handleCikisYap - props.selectedData bulunamadı')
+                debugLog('❌ handleCikisYap - props.selectedData bulunamadı')
               }
               // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
               (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
@@ -2394,15 +2400,15 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
         setTimeout(() => {
           // Müşteri bilgisini global state'e aktar
           if (props.selectedData) {
-            console.log('🔥 direktOdaDegisikligiYap - props.selectedData:', props.selectedData)
-            console.log('🔥 direktOdaDegisikligiYap - MstrAdi:', props.selectedData.MstrAdi)
+            debugLog('🔥 direktOdaDegisikligiYap - props.selectedData:', props.selectedData)
+            debugLog('🔥 direktOdaDegisikligiYap - MstrAdi:', props.selectedData.MstrAdi)
             window.kartliIslemSelectedNormalMusteri = {
               ...props.selectedData,
               MstrAdi: props.selectedData.MstrAdi || ''
             };
-            console.log('🔥 direktOdaDegisikligiYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+            debugLog('🔥 direktOdaDegisikligiYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
           } else {
-            console.log('❌ direktOdaDegisikligiYap - props.selectedData bulunamadı')
+            debugLog('❌ direktOdaDegisikligiYap - props.selectedData bulunamadı')
           }
           // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
           (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;

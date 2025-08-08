@@ -1450,13 +1450,13 @@ const shouldShowSearchBox = computed(() => {
 // Arama kutusu focus event handler
 function onSearchFocus() {
   isSearchFocused.value = true
-  console.log('Arama kutusu focus oldu - görünür kalacak')
+  
 }
 
 // Arama kutusu blur event handler
 function onSearchBlur() {
   isSearchFocused.value = false
-  console.log('Arama kutusu blur oldu - normal görünürlük kuralları uygulanacak')
+  
 }
 
 // Pagination izleyicisi - sıralama değişikliklerinde API çağrısı yapma
@@ -1466,7 +1466,7 @@ watch(
   () => [pagination.value.sortBy, pagination.value.descending],
   () => {
     if (!sortingInProgress) {
-      console.log('Pagination izleyici tetiklendi - sıralama API çağrısı engelleniyor')
+      
       sortingInProgress = true
     }
   }
@@ -1481,7 +1481,7 @@ watch(
       selectedMusteriBakiye.value = 0
       selectedMusteriDepozito.value = 0
       selectedFirmaBakiye.value = 0
-      console.log('Dönem yenileme modal kapandı - müşteri ve firma bakiyesi sıfırlandı')
+      
     }
   }
 )
@@ -2352,8 +2352,7 @@ async function loadMusteriListesi() {
     if (response.data.success) {
       // Array'i tamamen yenile, append etme
       musteriListesi.value = [...response.data.data]
-      console.log(`${response.data.count} kayıt yüklendi (${currentFilter.value || 'varsayılan'} filtresi)`)
-      console.log('Yüklenen veriler:', musteriListesi.value.length, 'kayıt')
+      
     }
   } catch (error) {
     console.error('Müşteri listesi yüklenemedi:', error)
@@ -2392,7 +2391,7 @@ async function loadCikisYapanlarListesi() {
       musteriListesi.value = [...response.data.data]
       // 🔥 Filtrelenmiş listeyi de güncelle - bu kritik!
       filteredMusteriListesi.value = [...response.data.data]
-      console.log(`${response.data.count} çıkış yapan müşteri yüklendi`)
+      
     }
   } catch (error) {
     console.error('Çıkış yapanlar listesi yüklenemedi:', error)
@@ -2562,7 +2561,7 @@ async function loadCariHareketler(cariKod: string) {
     const response = await api.get(`/dashboard/cari-hareketler?cariKod=${encodeURIComponent(cleanCariKod)}`)
     if (response.data.success) {
       cariHareketlerListesi.value = [...response.data.data]
-      console.log(`${cleanCariKod} için ${response.data.data.length} cari hareket yüklendi`)
+      
       
       // Tablo yüklendikten sonra scroll pozisyonunu sıfırla
       await nextTick()
@@ -2573,7 +2572,9 @@ async function loadCariHareketler(cariKod: string) {
         }
       }
     } else {
-      console.log(`${cleanCariKod} için cari hareket bulunamadı`)
+      // Başarısız yanıt geldiğinde listeyi temizle
+      cariHareketlerListesi.value = []
+      filteredCariHareketlerListesi.value = []
     }
   } catch (error) {
     console.error('Cari hareketler yüklenemedi:', error)
@@ -2587,7 +2588,7 @@ async function loadCariHareketler(cariKod: string) {
 
 // TC Kimlik ile cari hareketler yükleme fonksiyonu
 async function loadCariHareketlerByTC(tcKimlik: string) {
-  console.log('🔄 loadCariHareketlerByTC başladı, TC:', tcKimlik)
+  
   cariHareketlerLoading.value = true
   
   // 🔥 ÖNEMLİ: Önceki müşterinin cari hareketlerini temizle
@@ -2607,14 +2608,13 @@ async function loadCariHareketlerByTC(tcKimlik: string) {
   }
   
   try {
-    console.log('🔄 API çağrısı yapılıyor:', `/dashboard/cari-hareketler-tc?tcKimlik=${encodeURIComponent(cleanTCKimlik)}`)
+    
     const response = await api.get(`/dashboard/cari-hareketler-tc?tcKimlik=${encodeURIComponent(cleanTCKimlik)}`)
-    console.log('🔄 API yanıtı:', response.data)
+    
     
     if (response.data.success) {
       cariHareketlerListesi.value = [...response.data.data]
-      console.log(`🔄 TC: ${cleanTCKimlik} için ${response.data.data.length} cari hareket yüklendi`)
-      console.log('🔄 cariHareketlerListesi güncellendi:', cariHareketlerListesi.value.length)
+      
       
       // Tablo yüklendikten sonra scroll pozisyonunu sıfırla
       await nextTick()
@@ -2625,7 +2625,9 @@ async function loadCariHareketlerByTC(tcKimlik: string) {
         }
       }
     } else {
-      console.log(`🔄 TC: ${cleanTCKimlik} için cari hareket bulunamadı`)
+      // Başarısız yanıt geldiğinde listeyi temizle
+      cariHareketlerListesi.value = []
+      filteredCariHareketlerListesi.value = []
     }
   } catch (error) {
     console.error('🔄 Cari hareketler yüklenemedi:', error)
@@ -2634,7 +2636,7 @@ async function loadCariHareketlerByTC(tcKimlik: string) {
     filteredCariHareketlerListesi.value = []
   } finally {
     cariHareketlerLoading.value = false
-    console.log('🔄 loadCariHareketlerByTC bitti')
+    
   }
 }
 
@@ -2675,20 +2677,20 @@ function setupDataChangeListeners() {
 
   // Header'daki yenile butonundan gelen event
   window.addEventListener('refreshKartliIslemStats', () => {
-    console.log('📡 Header yenile butonu eventi alındı');
+    
     void updateStatsOnly();
   });
 
   // Sayfa görünür olduğunda stats güncelleme (focus/blur events)
   window.addEventListener('focus', () => {
-    console.log('📡 Sayfa focus oldu - stats güncelleniyor');
+    
     void updateStatsOnly();
   });
 
   // Tab değişikliği sonrası stats güncelleme
   window.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      console.log('📡 Tab aktif oldu - stats güncelleniyor');
+      
       void updateStatsOnly();
     }
   });
@@ -2769,12 +2771,12 @@ async function refreshData() {
 
 // Modal başarılı işlem sonrası güncelleme fonksiyonu
 function onModalSuccess() {
-  console.log('🎉 Modal başarılı işlem tamamlandı - Stats güncelleniyor...');
+  
   
   // Modal kapatıldıktan sonra kısa bir gecikme ile stats'ı güncelle
   setTimeout(() => {
     void updateStatsOnly();
-    console.log('✅ Stats başarıyla güncellendi');
+    
   }, 500);
 }
 
@@ -2831,7 +2833,7 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
     normalMusteriClickTimeout.value = null
   }
   
-  console.log('Row double click:', row);
+  
   
   // 🔥 Önce seçimi güncelle (grid tabloda aktif hale getir)
   selectedNormalMusteri.value = row;
@@ -2849,9 +2851,11 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
     currentFilter: currentFilter.value,
     musteriDurumu: 'KALIYOR' // Güncelleme modu için
   };
-  console.log('🔥 localStorage\'a kaydedilecek müşteri verisi:', musteriDataForIslem);
+  
   localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
-  console.log('🔥 localStorage\'a kaydedildi. currentFilter:', currentFilter.value);
+  sessionStorage.setItem('prevPage', 'kartli-islem');
+  if (row?.MstrTCN) sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
+  
   selectedCustomer.value = {
     id: row.MstrTCN,
     name: row.MstrAdi,
@@ -2881,6 +2885,7 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
   
   if (currentFilter.value === 'cikis-yapanlar' || currentFilter.value === 'bugun-cikan') {
     sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
+    sessionStorage.setItem('prevPage', 'kartli-islem');
     void router.push('/musteri-islem');
   } else {
     // Modal açılış akışı - ödeme vadesi hesaplama
@@ -2925,7 +2930,7 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
   borcluMusteriClickTimeout.value = window.setTimeout(() => {
     // Arama sonrası tıklamada, orijinal listeden gerçek nesneyi bul
     const realRow = borcluMusteriListesi.value.find(b => b.CariKod === row.CariKod) || row;
-    console.log('Borçlu müşteri satırına tek tıklandı:', realRow);
+    
     selectedBorcluMusteri.value = realRow;
     
     // 🔥 DİNAMİK TABLO GÖSTERİMİ: Borçlu müşteri kartı için cari hareketler göster
@@ -2941,7 +2946,7 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
     // 🔥 Firma filtresi aktifse sadece o müşterinin verilerini yükle, filtreyi kapatma
     if (firmaFiltresiAktif.value && selectedFirmaAdi.value) {
       // Firma filtresi aktifken bireysel müşteri seçimi - sadece o müşterinin cari hareketlerini göster
-      console.log('Firma filtresi aktifken borçlu müşteri seçildi:', realRow.CariAdi);
+      
       // Firma filtresi açık kalacak, sadece seçilen müşterinin verileri gösterilecek
     } else {
       // Normal durum - firma filtresini sıfırla (ama hesaplaBorcluMusteriFirmaBakiye zaten uygun şekilde ayarlıyor)
@@ -3957,10 +3962,12 @@ function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {
     currentFilter: currentFilter.value,
     musteriDurumu: 'KALIYOR' // Güncelleme modu için
   };
-  console.log('🔥 localStorage\'a kaydedilecek müşteri verisi:', musteriDataForIslem);
+  
   console.log('🔥 MstrHspTip değeri:', musteriDataForIslem.MstrHspTip);
   localStorage.setItem('selectedMusteriForIslem', JSON.stringify(musteriDataForIslem));
-  console.log('🔥 localStorage\'a kaydedildi. currentFilter:', currentFilter.value);
+  sessionStorage.setItem('prevPage', 'kartli-islem');
+  if (row?.MstrTCN) sessionStorage.setItem('autoFillTCKimlik', row.MstrTCN);
+  
   
   selectedCustomer.value = {
     id: row.MstrTCN,

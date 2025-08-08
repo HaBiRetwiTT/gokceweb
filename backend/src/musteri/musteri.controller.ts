@@ -12,7 +12,6 @@ import * as PDFDocument from 'pdfkit';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
-import jsPDF from 'jspdf';
 import { QueryRunner } from 'typeorm';
 //import { MusteriBilgi } from '../dto/musteri-bilgi.dto';
 

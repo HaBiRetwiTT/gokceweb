@@ -26,9 +26,71 @@ export interface MusteriKonaklamaData {
   odemeVadesi?: string;
 }
 
+// Tip güvenliği: Dashboard birleşik istatistik satırı
+type UnifiedStatsRow = {
+  ToplamAktifKonaklama: number | string | null;
+  GunlukKonaklama: number | string | null;
+  HaftalikKonaklama: number | string | null;
+  AylikKonaklama: number | string | null;
+  ToplamGelir: number | string | null;
+  OrtalamaGelir: number | string | null;
+  YeniMusteriKonaklama: number | string | null;
+  YeniGirisKonaklama: number | string | null;
+  DevamEdenKonaklama: number | string | null;
+  BugünCikanKonaklama: number | string | null;
+  BorcluMusteriSayisi: number | string | null;
+  AlacakliMusteriSayisi: number | string | null;
+  BakiyesizHesaplarSayisi: number | string | null;
+  SuresiGecentKonaklama: number | string | null;
+};
+
+// Tip güvenliği: Borçlu müşteri satırı (liste sorgusu)
+type BorcluMusteriRow = {
+  cKytTarihi: string;
+  CariKllnc: string;
+  CariKod: string;
+  CariAdi: string;
+  CariVD: string;
+  CariVTCN: string;
+  CariYetkili: string;
+  CariTelNo: string;
+  MstrFirma: string;
+  MstrHspTip: string;
+  BorcTutari: number | string | null;
+  CikisTarihi: string | null;
+  KnklmCksTrh: string | null;
+  KnklmPlnTrh: string | null;
+  MstrDurum: string | null;
+  odemeVadesi?: string | null;
+};
+
+// Tip güvenliği: Cari hareket satırı (Excel)
+type CariHareketRow = {
+  iKytTarihi: string;
+  islemTip?: string | null;
+  islemBilgi?: string | null;
+  islemTutar?: number | null;
+};
+
+// Tip güvenliği: Konaklama geçmişi satırı (PDF)
+type KonaklamaGecmisRow = {
+  kKytTarihi: string;
+  KnklmOdaTip?: string | null;
+  KnklmOdaNo?: string | number | null;
+  KnklmYtkNo?: string | number | null;
+  KnklmTip?: string | null;
+  KnklmNfyt?: number | null;
+};
+
 @Injectable()
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+       
+      console.log(...args);
+    }
+  }
   private statsCache: { data: any; timestamp: number } | null = null;
   private readonly CACHE_DURATION = 0; // Cache devre dışı - her zaman güncel veri
 
@@ -42,11 +104,11 @@ export class DashboardService {
   // sp_bOdGunMusteriListeY stored procedure'ünü çağır
   async getMusteriListesi(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
-      console.log('=== getMusteriListesi called ===');
-      console.log('knklmTipi:', knklmTipi);
+      this.debugLog('=== getMusteriListesi called ===');
+      this.debugLog('knklmTipi:', knklmTipi);
 
       // Direkt view'dan sorgulayalım (SP'de tarih filtresi çok kısıtlayıcı)
-      console.log('View sorgusu kullanılacak');
+      this.debugLog('View sorgusu kullanılacak');
       return await this.getMusteriKonaklamaView(knklmTipi);
     } catch (error) {
       console.error('getMusteriListesi hatası:', error);
@@ -93,11 +155,9 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      console.log('View sorgusu sonucu:', result.length, 'kayıt bulundu');
-      
-      // Debug için sorguyu logla
-      console.log('Executed query:', query);
-      console.log('Parameters:', parameters);
+      this.debugLog('View sorgusu sonucu:', result.length, 'kayıt bulundu');
+      this.debugLog('Executed query:', query);
+      this.debugLog('Parameters:', parameters);
       
       return result;
     } catch (error) {
@@ -475,14 +535,16 @@ export class DashboardService {
         CROSS JOIN SuresiDolanStats sds
       `;
       
-      const result = await this.musteriRepository.query(unifiedStatsQuery);
+      const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
+      const result = resultUnknown as UnifiedStatsRow[];
       
 
       
       // Cache'e kaydet - devre dışı
       // this.statsCache = { data: result[0], timestamp: Date.now() };
       
-      return result[0];
+      const row = result[0];
+      return row;
     } catch (error) {
       console.error('getDashboardStats hatası:', error);
       return {};
@@ -505,7 +567,12 @@ export class DashboardService {
         ORDER BY KnklmOdaTip
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as Array<{
+        KnklmOdaTip: string;
+        DoluOdaSayisi: number | string | null;
+        SuresiGecentOda: number | string | null;
+      }>;
       return result;
     } catch (error) {
       console.error('getOdaDolulukDurumu hatası:', error);
@@ -707,7 +774,7 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, k.knklmCksTrh, 104), k.knklmTip DESC, CONVERT(Date, k.knklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      console.log('getBugunCikanMusteri sonucu:', result.length, 'kayıt bulundu');
+      this.debugLog('getBugunCikanMusteri sonucu:', result.length, 'kayıt bulundu');
       return result;
     } catch (error) {
       console.error('getBugunCikanMusteri hatası:', error);
@@ -910,7 +977,7 @@ export class DashboardService {
   }
 
   // Borçlu Müşteriler - tblCari bilgileri ve hesaplanan borç tutarları
-  async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+  async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: BorcluMusteriRow[]; total: number; page: number; limit: number }> {
     try {
       const tables = this.dbConfig.getTables();
       const views = this.dbConfig.getViews();
@@ -979,21 +1046,24 @@ export class DashboardService {
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as BorcluMusteriRow[];
       
       // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
-        musteri.odemeVadesi = await this.hesaplaOdemeVadesi(musteri.CariKod);
+        const vade = await this.hesaplaOdemeVadesi(musteri.CariKod);
+        musteri.odemeVadesi = vade;
       }
       
       // Ödeme vadesine göre küçükten büyüğe sırala, null/boş olanlar en sonda
       result.sort((a, b) => {
-        if (!a.odemeVadesi && !b.odemeVadesi) return 0;
-        if (!a.odemeVadesi) return 1;
-        if (!b.odemeVadesi) return -1;
-        // Tarih formatı: DD.MM.YYYY
-        const [gA, aA, yA] = a.odemeVadesi.split('.').map(Number);
-        const [gB, aB, yB] = b.odemeVadesi.split('.').map(Number);
+        const vA = a.odemeVadesi;
+        const vB = b.odemeVadesi;
+        if (!vA && !vB) return 0;
+        if (!vA) return 1;
+        if (!vB) return -1;
+        const [gA, aA, yA] = vA.split('.').map(Number);
+        const [gB, aB, yB] = vB.split('.').map(Number);
         const tA = new Date(yA, aA - 1, gA).getTime();
         const tB = new Date(yB, aB - 1, gB).getTime();
         return tA - tB;
@@ -1283,7 +1353,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
-      console.log(`TC: ${tcKimlik} için ${result.length} cari hareket bulundu`);
+      this.debugLog(`TC: ${tcKimlik} için ${result.length} cari hareket bulundu`);
       return result;
     } catch (error) {
       console.error('getCariHareketlerByTC hatası:', error);
@@ -1318,7 +1388,7 @@ export class DashboardService {
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
       const sayisi = Number(result[0]?.CikisYapanSayisi || 0);
       
-      console.log('🔍 getCikisYapanlarSayisi sonucu:', sayisi, 'kayıt bulundu');
+      this.debugLog('🔍 getCikisYapanlarSayisi sonucu:', sayisi, 'kayıt bulundu');
       return sayisi;
     } catch (error) {
       console.error('getCikisYapanlarSayisi hatası:', error);
@@ -1345,10 +1415,11 @@ export class DashboardService {
         ORDER BY k.knklmNo DESC
       `;
       
-      const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
+      const resultUnknown = (await this.musteriRepository.query(query, [tcKimlik])) as unknown;
+      const result = resultUnknown as Array<{ KnklmKrLst: string | null; KnklmNot: string | null; knklmNo: number; MstrAdi: string | null; MstrTelNo: string | null; MstrFirma: string | null }>;
       
       if (result.length > 0) {
-        const kayit = result[0] as { KnklmKrLst: string; KnklmNot: string; knklmNo: number; MstrAdi: string; MstrTelNo: string; MstrFirma: string };
+        const kayit = result[0];
         return {
           isKaraListe: kayit.KnklmKrLst === 'EVET',
           karaListeNot: kayit.KnklmNot || '',
@@ -1390,10 +1461,9 @@ export class DashboardService {
         `;
         
         try {
-          const odaTipiKontrol = await this.musteriRepository.query(odaTipiKontrolQuery);
-                  // Oda tipi kontrolü başarısız oldu, devam et
-      } catch (error) {
-        // Oda tipi kontrolü başarısız oldu, devam et
+          await this.musteriRepository.query(odaTipiKontrolQuery);
+        } catch (_error) {
+          // Devam et
         }
       }
       let query = `
@@ -1443,16 +1513,16 @@ export class DashboardService {
 
       query += ` ORDER BY CONVERT(Date, k2.knklmCksTrh, 104) DESC, k2.KnklmTip DESC`;
 
-      console.log('🔍 SQL SORGUSU:', query);
-      console.log('🔍 PARAMETRELER:', parameters);
+      this.debugLog('🔍 SQL SORGUSU:', query);
+      this.debugLog('🔍 PARAMETRELER:', parameters);
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
       
       // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
       if (result.length > 0) {
-        console.log('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
+        this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
         result.slice(0, 3).forEach((item, index) => {
-          console.log(`Kayıt ${index + 1}:`, {
+          this.debugLog(`Kayıt ${index + 1}:`, {
             MstrAdi: item.MstrAdi,
             KnklmCksTrh: item.KnklmCksTrh,
             KnklmPlnTrh: item.KnklmPlnTrh,
@@ -1461,14 +1531,14 @@ export class DashboardService {
         });
       }
       
-      console.log('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
-      console.log('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
+      this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
+      this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
       
       // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
       if (result.length > 0) {
-        console.log('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
+        this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
         result.slice(0, 3).forEach((item, index) => {
-          console.log(`Kayıt ${index + 1}:`, {
+          this.debugLog(`Kayıt ${index + 1}:`, {
             MstrAdi: item.MstrAdi,
             KnklmCksTrh: item.KnklmCksTrh,
             KnklmPlnTrh: item.KnklmPlnTrh,
@@ -1514,7 +1584,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
-      console.log('Müşteri konaklama geçmişi:', result.length, 'kayıt bulundu');
+      this.debugLog('Müşteri konaklama geçmişi:', result.length, 'kayıt bulundu');
       return result;
     } catch (error) {
       console.error('getMusteriKonaklamaGecmisi hatası:', error);
@@ -1674,7 +1744,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(cariHareketlerQuery, cariKodlar);
-      console.log(`Firma ${firmaAdi} için ${result.length} cari hareket bulundu`);
+      this.debugLog(`Firma ${firmaAdi} için ${result.length} cari hareket bulundu`);
       return result;
     } catch (error) {
       console.error('getFirmaGenelCariHareketler hatası:', error);
@@ -1685,8 +1755,8 @@ export class DashboardService {
   // 🚨 KARA LİSTEDEN ÇIKARMA - Müşterinin son konaklama kaydındaki KnklmKrLst alanını NULL yapar
   async karaListedenCikar(tcKimlik: string): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('=== karaListedenCikar çağrıldı ===');
-      console.log('TC Kimlik:', tcKimlik);
+      this.debugLog('=== karaListedenCikar çağrıldı ===');
+      this.debugLog('TC Kimlik:', tcKimlik);
       
       const tables = this.dbConfig.getTables();
       
@@ -1720,8 +1790,8 @@ export class DashboardService {
       
       const updateResult: unknown = await this.musteriRepository.query(updateQuery, [mstrNo]);
       
-      console.log('Kara listeden çıkarma işlemi tamamlandı');
-      console.log('Update result:', updateResult);
+      this.debugLog('Kara listeden çıkarma işlemi tamamlandı');
+      this.debugLog('Update result:', updateResult);
       
       return {
         success: true,
@@ -1764,7 +1834,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log('Aylık gelir trendi sonucu:', result.length, 'ay bulundu');
+      this.debugLog('Aylık gelir trendi sonucu:', result.length, 'ay bulundu');
       return result.reverse(); // En eski aydan başlasın
     } catch (error) {
       console.error('getAylikGelirTrendi hatası:', error);
@@ -1812,7 +1882,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log('Oda tipi analizi sonucu:', result.length, 'oda tipi bulundu');
+      this.debugLog('Oda tipi analizi sonucu:', result.length, 'oda tipi bulundu');
       return result;
     } catch (error) {
       console.error('getOdaTipiAnalizi hatası:', error);
@@ -1860,7 +1930,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log('Konaklama tipi dağılımı sonucu:', result.length, 'tip bulundu');
+      this.debugLog('Konaklama tipi dağılımı sonucu:', result.length, 'tip bulundu');
       return result;
     } catch (error) {
       console.error('getKonaklamaTipiDagilimi hatası:', error);
@@ -1918,7 +1988,7 @@ export class DashboardService {
       `;
       
       const result: any[] = await this.musteriRepository.query(query);
-      console.log('Son 7 gün aktivite sonucu:', result.length, 'gün bulundu');
+      this.debugLog('Son 7 gün aktivite sonucu:', result.length, 'gün bulundu');
       return result;
     } catch (error) {
       console.error('getSon7GunAktivite hatası:', error);
@@ -1953,8 +2023,14 @@ export class DashboardService {
         ORDER BY ToplamGelir DESC
       `;
       
-      const result: any[] = await this.musteriRepository.query(query);
-      console.log('Firma analizi sonucu:', result.length, 'firma bulundu');
+      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const result = resultUnknown as Array<{
+        FirmaAdi: string;
+        AktifMusteriSayisi: number | string | null;
+        ToplamGelir: number | string | null;
+        OrtalamaGelir: number | string | null;
+      }>;
+      this.debugLog('Firma analizi sonucu:', result.length, 'firma bulundu');
       return result;
     } catch (error) {
       console.error('getFirmaAnalizi hatası:', error);
@@ -1978,16 +2054,18 @@ export class DashboardService {
 
   // Borçlu müşteriler için ağırlıklı ortalama ödeme vadesi hesapla
   private async hesaplaOdemeVadesi(cariKod: string): Promise<string | null> {
-    console.log('🔍 Ödeme vadesi hesaplanıyor:', cariKod);
+    this.debugLog('🔍 Ödeme vadesi hesaplanıyor:', cariKod);
     const tables = this.dbConfig.getTables();
-    const islemList: any[] = await this.musteriRepository.query(`
+    type IslemRow = { islemTip: string; islemBilgi?: string | null; islemTutar: number; iKytTarihi: string };
+    const islemListUnknown = (await this.musteriRepository.query(`
       SELECT islemTip, islemBilgi, islemTutar, iKytTarihi
       FROM ${tables.islem}
       WHERE islemCrKod = @0
       ORDER BY CONVERT(Date, iKytTarihi, 104) ASC
-    `, [cariKod]);
+    `, [cariKod])) as unknown;
+    const islemList = islemListUnknown as IslemRow[];
 
-    console.log('🔍 İşlem kayıtları bulundu:', islemList.length);
+    this.debugLog('🔍 İşlem kayıtları bulundu:', islemList.length);
 
     let toplamTutar = 0;
     let toplamGun = 0;
@@ -1997,12 +2075,12 @@ export class DashboardService {
       // Eğer islemBilgi'de 'DEPOZİTO' ifadesi geçiyorsa bu kaydı hesap dışı bırak
       // (Büyük/küçük harf duyarsız kontrol)
       if ((islem.islemBilgi || '').toUpperCase().includes('DEPOZİTO')) {
-        console.log('🔍 DEPOZİTO kaydı atlandı:', islem.islemBilgi);
+        this.debugLog('🔍 DEPOZİTO kaydı atlandı:', islem.islemBilgi);
         continue;
       }
       
       let vadeTarihi: Date;
-      const { islemTip, islemBilgi, islemTutar, iKytTarihi } = islem;
+      const { islemTip, islemTutar, iKytTarihi } = islem;
 
       if (islemTip === 'GELİR') {
         // islemBilgi'den vade tarihi çek (büyük/küçük harf duyarsız)
@@ -2010,30 +2088,30 @@ export class DashboardService {
         if (match) {
           const [gun, ay, yil] = match[1].split('.').map(Number);
           vadeTarihi = new Date(yil, ay - 1, gun);
-          console.log('🔍 GELİR vadesi bulundu:', match[1], 'Tutar:', islemTutar);
+          this.debugLog('🔍 GELİR vadesi bulundu:', match[1], 'Tutar:', islemTutar);
         } else {
           // Vade tarihi yoksa iKytTarihi'ni kullan
           vadeTarihi = this.parseDate(iKytTarihi);
-          console.log('🔍 GELİR vadesi bulunamadı, iKytTarihi kullanılıyor:', iKytTarihi, 'Tutar:', islemTutar);
+          this.debugLog('🔍 GELİR vadesi bulunamadı, iKytTarihi kullanılıyor:', iKytTarihi, 'Tutar:', islemTutar);
         }
       } else if (islemTip === 'Giren') {
         // Giren için iKytTarihi kullan
         vadeTarihi = this.parseDate(iKytTarihi);
-        console.log('🔍 Giren işlemi kullanıldı, tarih:', iKytTarihi, 'Tutar:', islemTutar);
+        this.debugLog('🔍 Giren işlemi kullanıldı, tarih:', iKytTarihi, 'Tutar:', islemTutar);
       } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
         // GİDER/Çıkan için önce islemBilgi'den vade tarihi çek, yoksa iKytTarihi kullan
         const match = (islem.islemBilgi || '').match(/BAKİYE ÖDEME VADESİ: (\d{2}\.\d{2}\.\d{4})/i);
         if (match) {
           const [gun, ay, yil] = match[1].split('.').map(Number);
           vadeTarihi = new Date(yil, ay - 1, gun);
-          console.log('🔍 GİDER/Çıkan vadesi bulundu:', match[1], 'Tutar:', islemTutar);
+          this.debugLog('🔍 GİDER/Çıkan vadesi bulundu:', match[1], 'Tutar:', islemTutar);
         } else {
           // Vade tarihi yoksa iKytTarihi'ni kullan
           vadeTarihi = this.parseDate(iKytTarihi);
-          console.log('🔍 GİDER/Çıkan vadesi bulunamadı, iKytTarihi kullanılıyor:', iKytTarihi, 'Tutar:', islemTutar);
+          this.debugLog('🔍 GİDER/Çıkan vadesi bulunamadı, iKytTarihi kullanılıyor:', iKytTarihi, 'Tutar:', islemTutar);
         }
       } else {
-        console.log('🔍 Bilinmeyen işlem tipi atlandı:', islemTip);
+        this.debugLog('🔍 Bilinmeyen işlem tipi atlandı:', islemTip);
         continue; // Tanımsız işlem tipleri atla
       }
 
@@ -2044,11 +2122,11 @@ export class DashboardService {
       toplamTutar += Math.abs(islemTutar);
       toplamGun += gun * Math.abs(islemTutar);
       
-      console.log('🔍 İşlem eklendi - Tip:', islemTip, 'Gün:', gun.toFixed(1), 'Tutar:', islemTutar);
+      this.debugLog('🔍 İşlem eklendi - Tip:', islemTip, 'Gün:', gun.toFixed(1), 'Tutar:', islemTutar);
     }
 
     if (toplamTutar === 0) {
-      console.log('🔍 Toplam tutar sıfır, ödeme vadesi hesaplanamadı');
+      this.debugLog('🔍 Toplam tutar sıfır, ödeme vadesi hesaplanamadı');
       return null;
     }
 
@@ -2060,7 +2138,7 @@ export class DashboardService {
     const pad = (n: number) => n < 10 ? '0' + n : n;
     const tarihStr = pad(ortTarih.getDate()) + '.' + pad(ortTarih.getMonth() + 1) + '.' + ortTarih.getFullYear();
     
-    console.log('🔍 Hesaplanan ödeme vadesi:', tarihStr, 'Ortalama gün:', ortalamaGun.toFixed(1));
+    this.debugLog('🔍 Hesaplanan ödeme vadesi:', tarihStr, 'Ortalama gün:', ortalamaGun.toFixed(1));
     return tarihStr;
   }
 
@@ -2157,7 +2235,7 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE CİRİ HAREKETLER PDF OLUŞTURMA
   async generateCariHareketlerByTCPDF(tcKimlik: string): Promise<any> {
     try {
-      const data = await this.getCariHareketlerByTC(tcKimlik);
+      const data = (await this.getCariHareketlerByTC(tcKimlik)) as CariHareketRow[];
       
       // Müşteri adını al
       let musteriAdi = '';
@@ -2169,7 +2247,7 @@ export class DashboardService {
             musteriAdi = musteriResult[0].MstrAdi;
           }
         } catch (error) {
-          console.warn('Müşteri adı alınamadı:', error);
+          this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
       
@@ -2189,7 +2267,7 @@ export class DashboardService {
         try {
           doc.font('./fonts/DejaVuSans.ttf');
         } catch (error) {
-          console.warn('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
+          this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
         // PDF başlığı
@@ -2212,7 +2290,7 @@ export class DashboardService {
         y += 20;
 
         // Veri satırları
-        data.forEach((row: any) => {
+        data.forEach((row: CariHareketRow) => {
           if (y > 700) {
             doc.addPage();
             y = 50;
@@ -2222,7 +2300,7 @@ export class DashboardService {
             this.formatDate(row.iKytTarihi),
             row.islemTip || '',
             row.islemBilgi || '',
-            this.formatCurrency(row.islemTutar)
+            this.formatCurrency(row.islemTutar ?? 0)
           ];
 
           values.forEach((value, index) => {
@@ -2248,10 +2326,10 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE CİRİ HAREKETLER EXCEL OLUŞTURMA
   async generateCariHareketlerByTCExcel(tcKimlik: string): Promise<any> {
     try {
-      console.log('🔥 Excel oluşturma başladı, TC:', tcKimlik);
+      this.debugLog('🔥 Excel oluşturma başladı, TC:', tcKimlik);
       
       const data = await this.getCariHareketlerByTC(tcKimlik);
-      console.log('🔥 Veri alındı, satır sayısı:', data.length);
+      this.debugLog('🔥 Veri alındı, satır sayısı:', data.length);
       
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Cari Hareketler');
@@ -2278,9 +2356,9 @@ export class DashboardService {
         column.width = 15;
       });
 
-      console.log('🔥 Excel buffer oluşturuluyor...');
+      this.debugLog('🔥 Excel buffer oluşturuluyor...');
       const buffer = await workbook.xlsx.writeBuffer();
-      console.log('🔥 Excel buffer oluşturuldu, boyut:', buffer.byteLength);
+      this.debugLog('🔥 Excel buffer oluşturuldu, boyut:', buffer.byteLength);
       
       return buffer;
     } catch (error) {
@@ -2292,7 +2370,7 @@ export class DashboardService {
   // 🔥 TC KİMLİK İLE KONAKLAMA GEÇMİŞİ PDF OLUŞTURMA
   async generateKonaklamaGecmisiByTCPDF(tcKimlik: string): Promise<any> {
     try {
-      const data = await this.getMusteriKonaklamaGecmisi(tcKimlik);
+      const data = (await this.getMusteriKonaklamaGecmisi(tcKimlik)) as KonaklamaGecmisRow[];
       
       // Müşteri adını al
       let musteriAdi = '';
@@ -2304,7 +2382,7 @@ export class DashboardService {
             musteriAdi = musteriResult[0].MstrAdi;
           }
         } catch (error) {
-          console.warn('Müşteri adı alınamadı:', error);
+          this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
       
@@ -2324,7 +2402,7 @@ export class DashboardService {
         try {
           doc.font('./fonts/DejaVuSans.ttf');
         } catch (error) {
-          console.warn('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
+          this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
         // PDF başlığı
@@ -2347,7 +2425,7 @@ export class DashboardService {
         y += 20;
 
         // Veri satırları
-        data.forEach((row: any) => {
+        data.forEach((row: KonaklamaGecmisRow) => {
           if (y > 700) {
             doc.addPage();
             y = 50;
@@ -2357,7 +2435,7 @@ export class DashboardService {
             this.formatDate(row.kKytTarihi),
             row.KnklmTip || '',
             `${row.KnklmOdaTip} - ${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-            this.formatCurrency(row.KnklmNfyt)
+            this.formatCurrency(Number(row.KnklmNfyt ?? 0))
           ];
 
           values.forEach((value, index) => {
@@ -2393,11 +2471,11 @@ export class DashboardService {
       // Veri satırları
       data.forEach((row: any) => {
         worksheet.addRow([
-          this.formatDate(row.kKytTarihi),
-          row.KnklmOdaTip || '',
-          `${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
-          row.KnklmTip || '',
-          row.KnklmNfyt
+            this.formatDate(row.kKytTarihi),
+            row.KnklmOdaTip || '',
+            `${row.KnklmOdaNo ?? ''}-${row.KnklmYtkNo ?? ''}`,
+            row.KnklmTip || '',
+            row.KnklmNfyt ?? 0
         ]);
       });
 

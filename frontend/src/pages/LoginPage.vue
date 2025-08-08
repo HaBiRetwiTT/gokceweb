@@ -45,6 +45,12 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from 'src/boot/axios'
 
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args)
+  }
+}
+
 const router = useRouter()
 const username = ref('')
 const password = ref('')
@@ -74,8 +80,8 @@ async function handleLogin() {
       localStorage.setItem('isAdmin', response.data.user.isAdmin.toString())
       localStorage.setItem('userId', response.data.user.id.toString())
       
-      // Başarılı giriş mesajı
-      console.log('Giriş başarılı:', response.data.message)
+      // Başarılı giriş mesajı (dev modunda)
+      debugLog('Giriş başarılı:', response.data.message)
       
       // Ana sayfaya yönlendir
       void router.push('/')

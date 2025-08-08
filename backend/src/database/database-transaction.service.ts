@@ -10,6 +10,13 @@ export class DatabaseTransactionService {
     private dataSource: DataSource
   ) {}
 
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+       
+      console.log(...args);
+    }
+  }
+
   /**
    * Birden fazla veritabanı operasyonunu tek transaction içinde güvenli çalıştır
    * Herhangi bir hata durumunda tüm işlemler geri alınır (rollback)
@@ -24,14 +31,14 @@ export class DatabaseTransactionService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
       
-      console.log('🔒 Transaction başlatıldı');
+      this.debugLog('🔒 Transaction başlatıldı');
       
       // İşlemleri çalıştır
       const result = await operation(queryRunner);
       
       // Tüm işlemler başarılıysa commit et
       await queryRunner.commitTransaction();
-      console.log('✅ Transaction commit edildi - Tüm işlemler kalıcı hale getirildi');
+      this.debugLog('✅ Transaction commit edildi - Tüm işlemler kalıcı hale getirildi');
       
       return result;
       
@@ -39,7 +46,7 @@ export class DatabaseTransactionService {
       // Hata durumunda rollback yap
       try {
         await queryRunner.rollbackTransaction();
-        console.log('🔄 Transaction rollback edildi - Tüm değişiklikler geri alındı');
+        this.debugLog('🔄 Transaction rollback edildi - Tüm değişiklikler geri alındı');
       } catch (rollbackError) {
         console.error('❌ Rollback işlemi başarısız:', rollbackError);
       }
@@ -53,7 +60,7 @@ export class DatabaseTransactionService {
         await queryRunner.release();
         console.log('🔌 Database bağlantısı temizlendi');
       } catch (releaseError) {
-        console.error('⚠️ Bağlantı temizleme hatası:', releaseError);
+         console.error('⚠️ Bağlantı temizleme hatası:', releaseError);
       }
     }
   }
@@ -67,13 +74,13 @@ export class DatabaseTransactionService {
     parameters?: any[]
   ): Promise<any> {
     try {
-      console.log('📝 Query çalıştırılıyor:', query.substring(0, 100) + '...');
-      console.log('📊 Parametreler:', parameters);
+      this.debugLog('📝 Query çalıştırılıyor:', query.substring(0, 100) + '...');
+      this.debugLog('📊 Parametreler:', parameters);
       
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = await queryRunner.query(query, parameters);
       
-      console.log('✅ Query başarılı');
+      this.debugLog('✅ Query başarılı');
        
       return result;
       
@@ -101,8 +108,8 @@ export class DatabaseTransactionService {
       const paramPlaceholders = parameters.map((_, index) => `@${index}`).join(', ');
       const query = `EXEC ${spName} ${paramPlaceholders}`;
       
-      console.log('🔧 Stored Procedure çalıştırılıyor:', spName);
-      console.log('📊 Parametreler:', parameters);
+      this.debugLog('🔧 Stored Procedure çalıştırılıyor:', spName);
+      this.debugLog('📊 Parametreler:', parameters);
       
       // Stored procedure için özel timeout ayarı (60 saniye)
       const timeoutQuery = `SET LOCK_TIMEOUT 60000; ${query}`;
@@ -110,7 +117,7 @@ export class DatabaseTransactionService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = await queryRunner.query(timeoutQuery, parameters);
       
-      console.log('✅ Stored Procedure başarılı');
+      this.debugLog('✅ Stored Procedure başarılı');
        
       return result;
       

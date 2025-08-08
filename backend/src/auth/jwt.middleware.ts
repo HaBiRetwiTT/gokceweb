@@ -1,24 +1,26 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
-// Request interface'ini extend et
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        username: string;
-        id: number;
-        isAdmin: boolean;
-      };
-    }
+// Express global type augmentation using declare module (ES module friendly)
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: {
+      username: string;
+      id: number;
+      isAdmin: boolean;
+    };
   }
 }
 
 @Injectable()
 export class JwtMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
-    // Frontend'den gelen kullanıcı adını request body'den al
-    const kullaniciAdi = req.body?.kullaniciAdi || req.query?.kullaniciAdi;
+    // Frontend'den gelen kullanıcı adını güvenli şekilde al
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const query = (req.query ?? {}) as Record<string, unknown>;
+    const rawKullaniciAdi = body.kullaniciAdi ?? query.kullaniciAdi;
+    const kullaniciAdi =
+      typeof rawKullaniciAdi === 'string' ? rawKullaniciAdi : undefined;
 
     if (kullaniciAdi) {
       // Request nesnesine user bilgisini ekle

@@ -251,7 +251,7 @@
                   :disable="!odemeContainerKullanilabilir"
                   :key="`nakit-kasa-${odemeContainerKullanilabilir}-${odemeAraclari.nakitKasa}`"
                   @update:model-value="onNakitKasaChange"
-                  @click="console.log('Nakit Kasa checkbox clicked, disable:', !odemeContainerKullanilabilir, 'odemeContainerKullanilabilir:', odemeContainerKullanilabilir)"
+                  @click="undefined"
                 />
                 <q-input
                   v-model="odemeAraclari.nakitKasaTutar"
@@ -344,7 +344,7 @@
               class="combobox-select"
               style="width: 400px;"
               clearable
-              @click="console.log('Combobox clicked, options:', comboboxOptions)"
+              @click="undefined"
               @update:model-value="onComboboxChange"
               @clear="onComboboxClear"
             >
@@ -475,6 +475,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../boot/axios'
+
+function debugLog(...args: unknown[]) {
+  if (import.meta.env.MODE !== 'production') {
+    console.log(...args)
+  }
+}
 
 const $q = useQuasar()
 
@@ -717,16 +723,16 @@ function onComboboxClear() {
     bankaEftTutar: ''
   }
   
-  console.log('Combobox temizlendi, sadece ödeme araçları sıfırlandı')
+  debugLog('Combobox temizlendi, sadece ödeme araçları sıfırlandı')
 }
 
 // Ödeme aracı değiştiğinde
 function onOdemeAraciChange() {
-  console.log('Ödeme aracı değişti:', odemeAraclari.value)
+  debugLog('Ödeme aracı değişti:', odemeAraclari.value)
   
   // Çıkan/Giren seçili ve combobox dolu ise ödeme araçlarını temizleme
   if (cikanGiren.value && selectedComboboxValue.value) {
-    console.log('Primer koşul sağlandı, ödeme araçları temizlenmeyecek')
+    debugLog('Primer koşul sağlandı, ödeme araçları temizlenmeyecek')
     return
   }
   
@@ -948,7 +954,7 @@ function getToplamLabel() {
 const odemeContainerKullanilabilir = computed(() => {
   // Çıkan/Giren seçili ve combobox dolu ise primer koşul - kullanılabilir
   if (cikanGiren.value && selectedComboboxValue.value) {
-    console.log('Ödeme container kullanılabilir: Primer koşul sağlandı', {
+    debugLog('Ödeme container kullanılabilir: Primer koşul sağlandı', {
       cikanGiren: cikanGiren.value,
       selectedComboboxValue: selectedComboboxValue.value,
       genelToplam: genelToplam.value
@@ -958,7 +964,7 @@ const odemeContainerKullanilabilir = computed(() => {
   
   // Diğer durumlarda genel toplam > 0 ise kullanılabilir
   const result = genelToplam.value > 0
-  console.log('Ödeme container kullanılabilir:', result, 'Genel toplam:', genelToplam.value)
+  debugLog('Ödeme container kullanılabilir:', result, 'Genel toplam:', genelToplam.value)
   return result
 })
 
@@ -1031,17 +1037,17 @@ function onCheckboxChange(row: GiderKategori) {
     row.miktar = 1
     row.tutar = null
   }
-  console.log('Checkbox değişti:', row.giderAdi, row.selected)
+  debugLog('Checkbox değişti:', row.giderAdi, row.selected)
 }
 
 function onMiktarChange(row: GiderKategori) {
   // Miktar değiştiğinde yapılacak işlemler
-  console.log('Miktar değişti:', row.giderAdi, row.miktar)
+  debugLog('Miktar değişti:', row.giderAdi, row.miktar)
 }
 
 function onTutarChange(row: GiderKategori) {
   // Tutar değiştiğinde yapılacak işlemler
-  console.log('Tutar değişti:', row.giderAdi, row.tutar)
+  debugLog('Tutar değişti:', row.giderAdi, row.tutar)
 }
 
 function formatTutar(row: GiderKategori) {
@@ -1089,17 +1095,17 @@ function onGelirCheckboxChange(row: GelirKategori) {
     row.miktar = 1
     row.tutar = null
   }
-  console.log('Gelir checkbox değişti:', row.gelirAdi, row.selected)
+  debugLog('Gelir checkbox değişti:', row.gelirAdi, row.selected)
 }
 
 function onGelirMiktarChange(row: GelirKategori) {
   // Miktar değiştiğinde yapılacak işlemler
-  console.log('Gelir miktar değişti:', row.gelirAdi, row.miktar)
+  debugLog('Gelir miktar değişti:', row.gelirAdi, row.miktar)
 }
 
 function onGelirTutarChange(row: GelirKategori) {
   // Tutar değiştiğinde yapılacak işlemler
-  console.log('Gelir tutar değişti:', row.gelirAdi, row.tutar)
+  debugLog('Gelir tutar değişti:', row.gelirAdi, row.tutar)
 }
 
 function formatGelirTutar(row: GelirKategori) {
@@ -1257,7 +1263,7 @@ async function handleGelirGiderKaydet() {
   const bugun = new Date().toLocaleDateString('tr-TR') // DD.MM.YYYY formatında
   // Aktif kullanıcı bilgisi - login sayfasından alınacak
   const aktifKullanici = sessionStorage.getItem('username') || localStorage.getItem('username') || 'admin'
-  console.log('Aktif kullanıcı bilgisi:', {
+  debugLog('Aktif kullanıcı bilgisi:', {
     sessionStorage: sessionStorage.getItem('username'),
     localStorage: localStorage.getItem('username'),
     final: aktifKullanici
@@ -1359,11 +1365,11 @@ async function handleGelirGiderKaydet() {
   })
 
   // Kayıtları backend'e gönder
-  console.log('Kaydedilecek kayıtlar:', kayitlar)
+  debugLog('Kaydedilecek kayıtlar:', kayitlar)
   
   try {
     const response = await api.post('/islem/kaydet', { kayitlar })
-    console.log('Backend yanıtı:', response.data)
+    debugLog('Backend yanıtı:', response.data)
   } catch (error) {
     console.error('Backend kayıt hatası:', error)
     throw new Error('Kayıt işlemi başarısız')
@@ -1404,7 +1410,7 @@ async function handleGirenCikanKaydet() {
   
   // Aktif kullanıcı bilgisi - login sayfasından alınacak
   const aktifKullanici = sessionStorage.getItem('username') || localStorage.getItem('username') || 'admin'
-  console.log('Aktif kullanıcı bilgisi:', {
+  debugLog('Aktif kullanıcı bilgisi:', {
     sessionStorage: sessionStorage.getItem('username'),
     localStorage: localStorage.getItem('username'),
     final: aktifKullanici
@@ -1481,11 +1487,11 @@ async function handleGirenCikanKaydet() {
   })
 
   // Kayıtları backend'e gönder
-  console.log('Giren/Çıkan kaydedilecek kayıtlar:', kayitlar)
+  debugLog('Giren/Çıkan kaydedilecek kayıtlar:', kayitlar)
   
   try {
     const response = await api.post('/islem/kaydet', { kayitlar })
-    console.log('Backend yanıtı:', response.data)
+    debugLog('Backend yanıtı:', response.data)
   } catch (error) {
     console.error('Backend kayıt hatası:', error)
     throw new Error('Kayıt işlemi başarısız')
@@ -1506,15 +1512,15 @@ async function handleGirenCikanKaydet() {
 // Tedarikçi listesini yükle
 async function loadTedarikciListesi() {
   try {
-    console.log('Tedarikçi listesi yükleniyor...')
+    debugLog('Tedarikçi listesi yükleniyor...')
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
       ? 'https://gokceweb-production.up.railway.app'
       : ''
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
-    console.log('Tedarikçi response status:', response.status)
-    console.log('Tedarikçi response headers:', response.headers)
+    debugLog('Tedarikçi response status:', response.status)
+    debugLog('Tedarikçi response headers:', response.headers)
     
     if (!response.ok) {
       const errorText = await response.text()
@@ -1523,9 +1529,9 @@ async function loadTedarikciListesi() {
     }
 
     const data = await response.json()
-    console.log('Tedarikçi API response:', data)
-    console.log('Tedarikçi data type:', typeof data)
-    console.log('Tedarikçi data length:', Array.isArray(data) ? data.length : 'Not an array')
+    debugLog('Tedarikçi API response:', data)
+    debugLog('Tedarikçi data type:', typeof data)
+    debugLog('Tedarikçi data length:', Array.isArray(data) ? data.length : 'Not an array')
 
     if (!Array.isArray(data)) {
       throw new Error('Tedarikçi API response is not an array')
@@ -1537,7 +1543,7 @@ async function loadTedarikciListesi() {
       bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
     }))
 
-    console.log('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
+    debugLog('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
 
   } catch (error) {
     console.error('Tedarikçi listesi yüklenirken hata:', error)
@@ -1558,22 +1564,22 @@ async function loadTedarikciListesi() {
       bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
     }))
 
-    console.log('Test verileri kullanılıyor:', tedarikciListesi.value)
+    debugLog('Test verileri kullanılıyor:', tedarikciListesi.value)
   }
 }
 
 // Müşteri listesini yükle
 async function loadMusteriListesi() {
   try {
-    console.log('Müşteri listesi yükleniyor...')
+    debugLog('Müşteri listesi yükleniyor...')
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
       ? 'https://gokceweb-production.up.railway.app'
       : ''
     const response = await fetch(`${baseUrl}/cari/musteri`)
-    console.log('Müşteri response status:', response.status)
-    console.log('Müşteri response headers:', response.headers)
+    debugLog('Müşteri response status:', response.status)
+    debugLog('Müşteri response headers:', response.headers)
     
     if (!response.ok) {
       const errorText = await response.text()
@@ -1582,9 +1588,9 @@ async function loadMusteriListesi() {
     }
 
     const data = await response.json()
-    console.log('Müşteri API response:', data)
-    console.log('Müşteri data type:', typeof data)
-    console.log('Müşteri data length:', Array.isArray(data) ? data.length : 'Not an array')
+    debugLog('Müşteri API response:', data)
+    debugLog('Müşteri data type:', typeof data)
+    debugLog('Müşteri data length:', Array.isArray(data) ? data.length : 'Not an array')
 
     if (!Array.isArray(data)) {
       throw new Error('Müşteri API response is not an array')
@@ -1596,7 +1602,7 @@ async function loadMusteriListesi() {
       bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
     }))
 
-    console.log('Müşteri listesi yüklendi:', musteriListesi.value)
+    debugLog('Müşteri listesi yüklendi:', musteriListesi.value)
 
   } catch (error) {
     console.error('Müşteri listesi yüklenirken hata:', error)
@@ -1617,14 +1623,14 @@ async function loadMusteriListesi() {
       bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
     }))
 
-    console.log('Test verileri kullanılıyor:', musteriListesi.value)
+    debugLog('Test verileri kullanılıyor:', musteriListesi.value)
   }
 }
 
 // API bağlantısını test eden fonksiyon
 async function testApiConnection() {
   try {
-    console.log('API bağlantısı test ediliyor...')
+    debugLog('API bağlantısı test ediliyor...')
     
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
     const baseUrl = import.meta.env.PROD 
@@ -1633,20 +1639,20 @@ async function testApiConnection() {
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)
-    console.log('Health check response status:', healthResponse.status)
+    debugLog('Health check response status:', healthResponse.status)
     
     if (healthResponse.ok) {
       const healthData = await healthResponse.json()
-      console.log('Health check data:', healthData)
+      debugLog('Health check data:', healthData)
     }
     
     // Tedarikçi endpoint'ini test et
     const tedarikciResponse = await fetch(`${baseUrl}/cari/tedarikci`)
-    console.log('Tedarikçi endpoint response status:', tedarikciResponse.status)
+    debugLog('Tedarikçi endpoint response status:', tedarikciResponse.status)
     
     if (tedarikciResponse.ok) {
       const tedarikciData = await tedarikciResponse.json()
-      console.log('Tedarikçi endpoint data length:', tedarikciData.length)
+      debugLog('Tedarikçi endpoint data length:', tedarikciData.length)
     }
     
   } catch (error) {
@@ -1678,9 +1684,9 @@ onMounted(async () => {
   await loadMusteriListesi()
 
   // Debug için console log'ları
-  console.log('Tedarikçi listesi:', tedarikciListesi.value)
-  console.log('Müşteri listesi:', musteriListesi.value)
-  console.log('Combobox options:', comboboxOptions.value)
+  debugLog('Tedarikçi listesi:', tedarikciListesi.value)
+  debugLog('Müşteri listesi:', musteriListesi.value)
+  debugLog('Combobox options:', comboboxOptions.value)
 })
 </script>
 

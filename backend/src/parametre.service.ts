@@ -22,13 +22,16 @@ export class ParametreService {
         WHERE Prm01 IN ('1','2','3','4','5','6')
         ORDER BY Prm01
     `;
-    console.log('🔥 PRODUCTION DEBUG - Environment:', process.env.NODE_ENV);
-    console.log('🔥 PRODUCTION DEBUG - Table schema:', tables.parametreler);
-    console.log('🔥 PRODUCTION DEBUG - Query:', query);
+    // debug
+    // this.debugLog('Environment:', process.env.NODE_ENV, 'Table:', tables.parametreler, 'Query:', query);
 
     try {
-      const result = await this.parametreRepository.query(query);
-      console.log('🔥 PRODUCTION DEBUG - Result:', result);
+      const resultUnknown = await this.parametreRepository.query(query);
+      const result = resultUnknown as Array<{
+        Prm01: string;
+        PrmAdi: string;
+        Prm04: number;
+      }>;
       return result;
     } catch (error) {
       console.error('🔥 PRODUCTION DEBUG - Query ERROR:', error);
@@ -43,12 +46,12 @@ export class ParametreService {
       FROM ${tables.parametreler}
       WHERE Prm01 = '8'
     `;
-    console.log('🔥 KOMISYON DEBUG - Table schema:', tables.parametreler);
-    console.log('🔥 KOMISYON DEBUG - Query:', query);
+    // debug
+    // this.debugLog('Komisyon table:', tables.parametreler, 'Query:', query);
 
     try {
-      const result = await this.parametreRepository.query(query);
-      console.log('🔥 KOMISYON DEBUG - Result:', result);
+      const resultUnknown = await this.parametreRepository.query(query);
+      const result = resultUnknown as Array<{ Prm04: number | null }>;
       return result[0]?.Prm04 ?? null;
     } catch (error) {
       console.error('🔥 KOMISYON DEBUG - Query ERROR:', error);
