@@ -29,6 +29,12 @@ export interface MusteriKonaklamaData {
 @Injectable()
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
+  private debugLog(...args: unknown[]): void {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(...args);
+    }
+  }
   private statsCache: { data: any; timestamp: number } | null = null;
   private readonly CACHE_DURATION = 0; // Cache devre dışı - her zaman güncel veri
 
@@ -42,11 +48,11 @@ export class DashboardService {
   // sp_bOdGunMusteriListeY stored procedure'ünü çağır
   async getMusteriListesi(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
-      console.log('=== getMusteriListesi called ===');
-      console.log('knklmTipi:', knklmTipi);
+      this.debugLog('=== getMusteriListesi called ===');
+      this.debugLog('knklmTipi:', knklmTipi);
 
       // Direkt view'dan sorgulayalım (SP'de tarih filtresi çok kısıtlayıcı)
-      console.log('View sorgusu kullanılacak');
+      this.debugLog('View sorgusu kullanılacak');
       return await this.getMusteriKonaklamaView(knklmTipi);
     } catch (error) {
       console.error('getMusteriListesi hatası:', error);
@@ -93,11 +99,9 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      console.log('View sorgusu sonucu:', result.length, 'kayıt bulundu');
-      
-      // Debug için sorguyu logla
-      console.log('Executed query:', query);
-      console.log('Parameters:', parameters);
+      this.debugLog('View sorgusu sonucu:', result.length, 'kayıt bulundu');
+      this.debugLog('Executed query:', query);
+      this.debugLog('Parameters:', parameters);
       
       return result;
     } catch (error) {
