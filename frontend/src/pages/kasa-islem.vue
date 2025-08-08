@@ -197,7 +197,7 @@
                          label="KASA DEVRET" 
                          size="md"
                          class="kasa-devir-btn"
-                         @click="loadKasaDevirVerileri"
+                          @click="onKasaDevretClick"
                        />
                      </div>
                      
@@ -327,12 +327,36 @@
       </div>
     </div>
   </q-page>
+
+  <!-- Kasa Devret Onay Dialogu -->
+  <q-dialog v-model="showKasaDevretDialog">
+    <q-card style="min-width: 420px">
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-subtitle1 text-weight-bold">DİKKAT</div>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup />
+      </q-card-section>
+      <q-card-section>
+        <div class="q-mb-md">
+          GÜNCEL NAKİT KASA BAKİYESİ : <span class="text-weight-bold">{{ formatCurrency(currentBakiye) }} TL</span>. TESLİM ALMAK ÜZERESİNİZ!
+        </div>
+        <div class="text-center text-weight-bold text-uppercase" style="letter-spacing: 3px;">
+          SAYARAK TESLİM ALDIĞINIZI ONAYLIYOR MUSUNUZ?
+        </div>
+      </q-card-section>
+      <q-card-actions align="right">
+        <q-btn flat label="Evet" color="primary" @click="onKasaDevretOnayla" />
+        <q-btn flat label="Hayır" color="negative" @click="() => { showKasaDevretDialog = false }" />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
 import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
+import { isAxiosError } from 'axios'
 
 const $q = useQuasar()
 
@@ -384,6 +408,7 @@ const allDetailTableData = ref<DetailTableRow[]>([])
 // Kasa devir verileri
 const kasaDevirData = ref<KasaDevirRow[]>([])
 const kasaDevirLoading = ref(false)
+const showKasaDevretDialog = ref(false)
 
 // Kasa devir pagination ayarları
 const kasaDevirPagination = ref({
@@ -856,6 +881,46 @@ const loadKasaDevirVerileri = async () => {
     })
   } finally {
     kasaDevirLoading.value = false
+  }
+}
+
+// Kasa devret tıklama
+const onKasaDevretClick = async () => {
+  // Sadece Nakit seçiliyken izin ver
+  if (selectedIslemTuru.value !== 'nakit') {
+    $q.notify({
+      type: 'warning',
+      message: 'Kasa devri için önce 6\'lı seçimden Nakit kasayı seçiniz.',
+      position: 'top'
+    })
+    return
+  }
+  // Bakiye tazele ve popup aç
+  await loadGuncelBakiye()
+  showKasaDevretDialog.value = true
+}
+
+// Kasa devret onayla -> tblKasaDevir'e kaydet ve grid'i yenile
+const onKasaDevretOnayla = async () => {
+  try {
+    const response = await $api.post('/islem/kasa-devret', { kasaYekun: currentBakiye.value })
+    if (response.data && response.data.success) {
+      showKasaDevretDialog.value = false
+      $q.notify({ type: 'positive', message: 'Kasa devri kaydedildi', position: 'top' })
+      await loadKasaDevirVerileri()
+    } else {
+      $q.notify({ type: 'negative', message: response.data?.message || 'Kasa devri kaydedilemedi', position: 'top' })
+    }
+  } catch (error: unknown) {
+    console.error('Kasa devret hatası:', error)
+    let msg = 'Kasa devri sırasında hata oluştu'
+    if (isAxiosError(error)) {
+      const data = error.response?.data as { message?: string } | undefined
+      msg = data?.message ?? error.message
+    } else if (error instanceof Error) {
+      msg = error.message
+    }
+    $q.notify({ type: 'negative', message: msg, position: 'top', timeout: 7000 })
   }
 }
 

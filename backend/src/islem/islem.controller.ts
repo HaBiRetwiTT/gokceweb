@@ -260,4 +260,24 @@ export class IslemController {
       );
     }
   }
+
+  /**
+   * Kasa devret onayı ile tblKasaDevir'e kayıt atar
+   */
+  @Post('kasa-devret')
+  async kasaDevret(@Body() body: { kasaYekun: number }) {
+    try {
+      if (typeof body.kasaYekun !== 'number' || isNaN(body.kasaYekun)) {
+        throw new HttpException('Geçersiz kasa tutarı', HttpStatus.BAD_REQUEST)
+      }
+      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun)
+      return { success: true, message: 'Kasa devri kaydedildi', sonuc }
+    } catch (error) {
+      console.error('❌ /islem/kasa-devret hatası:', error)
+      throw new HttpException(
+        (error as any)?.message || 'Kasa devri kaydedilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      )
+    }
+  }
 } 

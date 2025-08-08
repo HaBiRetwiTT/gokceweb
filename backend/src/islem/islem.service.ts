@@ -161,6 +161,54 @@ export class IslemService {
   }
 
   /**
+   * Kasa devri kaydı ekler (tblKasaDevir)
+   */
+  async saveKasaDevir(kasaYekun: number): Promise<{ success: boolean }>{
+    try {
+      if (!Number.isFinite(kasaYekun)) {
+        throw new Error('Geçersiz kasa tutarı');
+      }
+      const kasaYekunFixed = Number(parseFloat(String(kasaYekun)).toFixed(2));
+      // Tarihi DD.MM.YYYY formatında hazırla (nchar(10))
+      const bugun = new Date();
+      const nKytTarihi = bugun
+        .getDate()
+        .toString()
+        .padStart(2, '0') +
+        '.' +
+        (bugun.getMonth() + 1).toString().padStart(2, '0') +
+        '.' +
+        bugun.getFullYear();
+
+      // Aktif kullanıcı adı (tblPersonel.PrsnUsrNm)
+      const aktifKullanici = await this.getAktifKullaniciAdi();
+
+      // Daima INSERT
+      // nKasaNo kimliği (tablo IDENTITY değil; bu yüzden yeni değer üret)
+      const nextIdQuery = `
+        SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
+        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir WITH (TABLOCKX)
+      `;
+      const nextIdRes = await this.dataSource.query(nextIdQuery);
+      const nextId = parseInt(nextIdRes?.[0]?.nextId ?? 1, 10);
+
+      const insertQuery = `
+        INSERT INTO ${this.dbConfig.getTableSchema()}.tblKasaDevir (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
+        VALUES (@0, @1, @2, @3)
+      `;
+      const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
+      console.log('📝 KasaDevir INSERT sorgusu:', insertQuery);
+      console.log('📝 Parametreler:', params);
+      await this.dataSource.query(insertQuery, params);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ Kasa devir kaydı ekleme hatası:', error?.message || error);
+      throw new Error(`Kasa devir kaydı eklenemedi: ${error?.message || String(error)}`);
+    }
+  }
+
+  /**
    * Detay işlemleri getirir
    */
   async getDetayIslemler(tarih: string, islemTuru: string, islemYonu: string, selectedYonu?: string, page: number = 1, rowsPerPage: number = 15): Promise<{data: any[], totalRecords: number}> {
