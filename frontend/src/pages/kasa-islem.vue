@@ -360,7 +360,6 @@ import { isAxiosError } from 'axios'
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
-    // eslint-disable-next-line no-console
     console.log(...args)
   }
 }
