@@ -180,6 +180,26 @@ export class KonaklamaTakvimService {
   }
 
   /**
+   * Belirli oda tipi için anlık BOŞ yatak sayısını getirir (yalnızca 'BOŞ')
+   */
+  private async getBosYatakSayisi(odaTipi: string): Promise<number> {
+    try {
+      const query = `
+        SELECT COUNT(*) as bosYatakSayisi
+        FROM tblOdaYatak
+        WHERE odYatOdaTip = @0 AND odYatDurum = 'BOŞ'
+      `;
+
+      const result = (await this.musteriRepository.query(query, [odaTipi])) as unknown as Array<{ bosYatakSayisi: number | string | null }>;
+      const val = result[0]?.bosYatakSayisi ?? 0;
+      return typeof val === 'number' ? val : Number(val) || 0;
+    } catch (error) {
+      console.error('getBosYatakSayisi hatası:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Konaklamaları oda tipine göre gruplandırır
    */
   private groupByOdaTipi(konaklamalar: AktifKonaklamaRow[]): { [odaTipi: string]: AktifKonaklamaRow[] } {
@@ -303,12 +323,21 @@ export class KonaklamaTakvimService {
         };
       });
       
-      // Bu oda tipi için toplam yatak sayısını al
-      const toplamYatakSayisi = await this.getToplamYatakSayisi(odaTipi);
+      // İlk gün (tablodaki ilk tarih) için BOŞ sayısını dinamik olarak al
+      const bosIlkGun = await this.getBosYatakSayisi(odaTipi);
+      const ilkGunDolu = dolulukTarihleri[0]?.konaklamaDetaylari.length ?? 0;
       
-      // Her güne göre boş yatak sayısını hesapla (toplam - o günkü konaklama sayısı)
-      dolulukTarihleri.forEach(doluluk => {
-        doluluk.bosYatakSayisi = toplamYatakSayisi - doluluk.konaklamaDetaylari.length;
+      // Kapasiteyi cache'le: İlk gün için hesaplanan D + B
+      const kapasite = bosIlkGun + ilkGunDolu;
+
+      // Her gün için B hesabı: i=0 ise dinamik BOŞ; diğer günlerde B = kapasite - D
+      dolulukTarihleri.forEach((doluluk, index) => {
+        if (index === 0) {
+          doluluk.bosYatakSayisi = bosIlkGun;
+        } else {
+          const hesaplananBos = kapasite - doluluk.konaklamaDetaylari.length;
+          doluluk.bosYatakSayisi = hesaplananBos < 0 ? 0 : hesaplananBos;
+        }
       });
       
       odaTipleri.push({
