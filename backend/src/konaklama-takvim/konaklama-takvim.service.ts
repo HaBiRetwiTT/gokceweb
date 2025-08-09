@@ -222,14 +222,22 @@ export class KonaklamaTakvimService {
    */
   private async calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: AktifKonaklamaRow[] }, gunler: string[]): Promise<OdaTipDoluluk[]> {
     const odaTipleri: OdaTipDoluluk[] = [];
-    
-    for (const odaTipi of Object.keys(odaTipGruplari)) {
+
+    // Tüm oda tiplerini envanterden al; aktif konaklaması olmayan tipler de listelenecek
+    const tumOdaTipleri = await this.getTumOdaTipleri();
+    const aktifOdaTipleri = Object.keys(odaTipGruplari);
+    const birlesikOdaTipleri = Array.from(new Set([...tumOdaTipleri, ...aktifOdaTipleri]));
+
+    for (const odaTipi of birlesikOdaTipleri) {
       const konaklamalar = odaTipGruplari[odaTipi];
+      
+      // Aktif kaydı yoksa boş diziyle devam et
+      const konaklamalarList = Array.isArray(konaklamalar) ? konaklamalar : [];
       
       // Bu oda tipindeki en büyük planlanan çıkış tarihini bul
       let maxPlanlananTarih: Date | null = null;
       
-      konaklamalar.forEach(konaklama => {
+      konaklamalarList.forEach(konaklama => {
         if (konaklama.KnklmPlnTrh) {
           const planTarih = this.parseDate(konaklama.KnklmPlnTrh);
           const tarihObj = new Date(planTarih);
@@ -248,7 +256,7 @@ export class KonaklamaTakvimService {
         // Bu günde konaklama yapan müşterileri bul
         const konaklamaDetaylari: KonaklamaDetay[] = [];
         
-        konaklamalar.forEach(konaklama => {
+        konaklamalarList.forEach(konaklama => {
           if (!konaklama.KnklmGrsTrh || !konaklama.KnklmPlnTrh) return;
           
           try {
@@ -351,6 +359,24 @@ export class KonaklamaTakvimService {
     odaTipleri.sort((a, b) => a.odaTipi.localeCompare(b.odaTipi, 'tr'));
     
     return odaTipleri;
+  }
+
+  /**
+   * Envanterdeki tüm oda tiplerini döndürür (aktif konaklaması olmasa da)
+   */
+  private async getTumOdaTipleri(): Promise<string[]> {
+    try {
+      const query = `
+        SELECT DISTINCT odYatOdaTip AS odaTipi
+        FROM tblOdaYatak
+        WHERE odYatOdaTip IS NOT NULL AND LTRIM(RTRIM(odYatOdaTip)) <> ''
+      `;
+      const result = (await this.musteriRepository.query(query)) as Array<{ odaTipi: string }>;
+      return result.map(r => r.odaTipi).filter(Boolean);
+    } catch (error) {
+      console.error('getTumOdaTipleri hatası:', error);
+      return [];
+    }
   }
 
   /**
