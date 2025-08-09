@@ -327,7 +327,8 @@ export class IslemService {
 
       const query = `
         SELECT 
-          ROW_NUMBER() OVER (ORDER BY i.islemAltG ASC, i.islemTutar DESC) as id,
+          ROW_NUMBER() OVER (ORDER BY i.islemNo DESC) as id,
+          i.islemNo,
           i.iKytTarihi,
           i.islemAltG,
           i.islemGrup,
@@ -337,7 +338,7 @@ export class IslemService {
         WHERE ${islemAracFilter}
         AND ${islemTipFilter}
         AND i.iKytTarihi = @0
-        ORDER BY i.islemAltG ASC, i.islemTutar DESC
+        ORDER BY i.islemNo DESC
         OFFSET @1 ROWS
         FETCH NEXT @2 ROWS ONLY
       `;
@@ -352,6 +353,7 @@ export class IslemService {
       ])) as unknown;
       const result = resultUnknown2 as Array<{
         id: number | string;
+        islemNo?: number | string;
         iKytTarihi: string;
         islemAltG: string;
         islemGrup: string;
@@ -363,6 +365,7 @@ export class IslemService {
       const typed: DetayIslem[] = (
         result as Array<{
           id: number;
+          islemNo?: number | string;
           iKytTarihi: string;
           islemAltG: string;
           islemGrup: string;
@@ -371,6 +374,7 @@ export class IslemService {
         }>
       ).map((row) => ({
         id: Number(row.id),
+        islemNo: row.islemNo !== undefined ? Number(row.islemNo) : undefined,
         iKytTarihi: row.iKytTarihi,
         islemAltG: row.islemAltG,
         islemGrup: row.islemGrup,
@@ -469,18 +473,108 @@ export class IslemService {
    */
   async kaydetIslemler(kayitlar: any[]): Promise<any[]> {
     try {
-      this.debugLog(`${kayitlar.length} kayıt kaydediliyor...`);
+      if (!Array.isArray(kayitlar) || kayitlar.length === 0) {
+        return [];
+      }
 
-      // Şimdilik basit bir mock response döndürüyoruz
-      // Gerçek implementasyon için stored procedure kullanılabilir
-      const sonuclar = kayitlar.map((kayit, index) => ({
-        id: index + 1,
-        success: true,
-        message: `Kayıt ${index + 1} başarıyla kaydedildi`,
-      }));
+      this.debugLog(`📝 ${kayitlar.length} kayıt veritabanına yazılıyor...`);
 
-      this.debugLog(`${kayitlar.length} kayıt başarıyla kaydedildi`);
-      return sonuclar;
+      const spName = this.dbConfig.getSpName('spr_islemEkleYn');
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        const results: Array<{ index: number; success: boolean; message: string }> = [];
+
+        for (let i = 0; i < kayitlar.length; i++) {
+          const k = kayitlar[i] || {};
+
+          // Zorunlu alanlar ve güvenli defaultlar
+          const iKytTarihi: string = String(k.iKytTarihi || '').trim(); // DD.MM.YYYY (nchar(10))
+          const islemKllnc: string = String(k.islemKllnc || 'SAadmin').trim();
+          const islemCrKod: string = String(k.islemCrKod || '').trim();
+          const islemOzel1: string = String(k.islemOzel1 || '').trim();
+          const islemOzel2: string = String(k.islemOzel2 || '').trim();
+          const islemOzel3: string = String(k.islemOzel3 || '').trim();
+          const islemOzel4: string = String(k.islemOzel4 || '').trim();
+          const islemArac: string = String(k.islemArac || 'Cari İşlem').trim();
+          const islemTip: string = String(k.islemTip || '').trim(); // 'GELİR' | 'GİDER' | 'Giren' | 'Çıkan'
+          const islemGrup: string = String(k.islemGrup || '').trim();
+          const islemAltG: string = String(k.islemAltG || '').trim();
+          const islemBilgi: string = String(k.islemBilgi || '').trim();
+          const islemMiktar: number = Number(k.islemMiktar ?? 1) || 1;
+          const islemBirim: string = String(k.islemBirim || 'ADET').trim();
+          const islemTutar: number = Number(k.islemTutar ?? 0) || 0;
+          const islemDoviz: string = String(k.islemDoviz || 'TL').trim();
+          const islemKur: number = Number(k.islemKur ?? 1) || 1;
+
+          const execQuery = `
+            EXEC ${spName}
+              @iKytTarihi = @0,
+              @islemKllnc = @1,
+              @islemCrKod = @2,
+              @islemOzel1 = @3,
+              @islemOzel2 = @4,
+              @islemOzel3 = @5,
+              @islemOzel4 = @6,
+              @islemArac = @7,
+              @islemTip = @8,
+              @islemGrup = @9,
+              @islemAltG = @10,
+              @islemBilgi = @11,
+              @islemMiktar = @12,
+              @islemBirim = @13,
+              @islemTutar = @14,
+              @islemDoviz = @15,
+              @islemKur = @16
+          `;
+
+          const params = [
+            iKytTarihi,
+            islemKllnc,
+            islemCrKod,
+            islemOzel1,
+            islemOzel2,
+            islemOzel3,
+            islemOzel4,
+            islemArac,
+            islemTip,
+            islemGrup,
+            islemAltG,
+            islemBilgi,
+            islemMiktar,
+            islemBirim,
+            islemTutar,
+            islemDoviz,
+            islemKur,
+          ];
+
+          this.debugLog(`➡️ [${i + 1}/${kayitlar.length}] islemEkle çağrılıyor`, {
+            iKytTarihi,
+            islemKllnc,
+            islemCrKod,
+            islemArac,
+            islemTip,
+            islemGrup,
+            islemAltG,
+            islemTutar,
+          });
+
+          await queryRunner.query(execQuery, params);
+          results.push({ index: i, success: true, message: 'OK' });
+        }
+
+        await queryRunner.commitTransaction();
+        this.debugLog(`✅ ${kayitlar.length} kayıt veritabanına yazıldı`);
+        return results;
+      } catch (innerError) {
+        await queryRunner.rollbackTransaction();
+        console.error('❌ İşlem kayıtları yazılamadı, rollback yapıldı:', innerError);
+        throw innerError;
+      } finally {
+        await queryRunner.release();
+      }
     } catch (error) {
       console.error('İşlem kaydetme hatası:', error);
       throw new Error('İşlem kayıtları kaydedilemedi');
@@ -851,7 +945,7 @@ export class IslemService {
           'Çıkan', // @8 islemTip
           'Kasaya Verilen', // @9 islemGrup
           verenParametreleri.islemAltG, // @10 islemAltG
-          `${verenParametreleri.islemArac} Kasasına Verilen Tutar`, // @11 islemBilgi
+          `${alanParametreleri.islemArac} Kasasına Verilen Tutar`, // @11 islemBilgi (alan kasa adı yazılır)
           1, // @12 islemMiktar
           'ADET', // @13 islemBirim
           tutar, // @14 islemTutar
@@ -876,7 +970,7 @@ export class IslemService {
           'Giren', // @8 islemTip
           'Kasadan Alınan', // @9 islemGrup
           alanParametreleri.islemAltG, // @10 islemAltG
-          `${alanParametreleri.islemArac} Kasasından Alınan Tutar`, // @11 islemBilgi
+          `${verenParametreleri.islemArac} Kasasından Alınan Tutar`, // @11 islemBilgi (veren kasa adı yazılır)
           1, // @12 islemMiktar
           'ADET', // @13 islemBirim
           tutar, // @14 islemTutar

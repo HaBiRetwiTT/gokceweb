@@ -16,13 +16,39 @@
               <div class="container-header">
                 <div class="hesap-tipi-section">
               <label class="text-subtitle2 text-grey-8 q-mb-sm block">Hesap Tipi</label>
-              <q-option-group
-                v-model="form.MstrHspTip"
-                :options="hesapTipleri"
-                color="primary"
-                inline
-                    dense
-                  />
+              <div class="row items-center q-gutter-sm">
+                <q-option-group
+                  v-model="form.MstrHspTip"
+                  :options="hesapTipleri"
+                  color="primary"
+                  inline
+                  dense
+                />
+              </div>
+                </div>
+                <div class="satis-center" v-if="!guncellemeModuAktif">
+                  <div class="satis-section row items-center q-gutter-xs">
+                    <span class="text-body2 text-grey-4 satis-label">Satış:</span>
+                    <q-select
+                      v-model="satisKanali"
+                      :options="satisKanalOptions"
+                      dense
+                      outlined
+                      color="primary"
+                      label-color="primary"
+                      emit-value
+                      map-options
+                      options-dense
+                      class="q-ml-sm"
+                      style="min-width: 175px;"
+                    />
+                  </div>
+                </div>
+                <div v-else class="satis-center">
+                  <div class="satis-section row items-center q-gutter-xs">
+                    <span class="text-body2 text-grey-4 satis-label">Satış:</span>
+                    <span class="text-body2">{{ satisKanali || 'KAPIDAN' }}</span>
+                  </div>
                 </div>
                 
                 <!-- Ek Bilgiler Toggle Butonu -->
@@ -469,6 +495,7 @@
                 :label="guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET'" 
                 color="primary" 
                 :loading="loading" 
+                :disable="loading"
                       class="kurumsal-responsive"
                       size="md"
               />
@@ -876,6 +903,44 @@ const ekNotlar = ref('')
 
 // Gerçek zamanlı saat takibi için reactive değişken
 const currentTime = ref(new Date())
+
+  // Satış Kanalı
+  const satisKanalOptions = [
+    { label: 'AGODA', value: 'AGODA' },
+    { label: 'AIRBNB', value: 'AIRBNB' },
+    { label: 'BOOKING', value: 'BOOKING' },
+    { label: 'DIRECT PLUS', value: 'DIRECT PLUS' },
+    { label: 'EXPEDIA', value: 'EXPEDIA' },
+    { label: 'HOTEL COLLECT', value: 'HOTEL COLLECT' },
+    { label: 'HOTEL RUNNER', value: 'HOTEL RUNNER' },
+    { label: 'KAPIDAN', value: 'KAPIDAN' },
+    { label: 'ONLINE', value: 'ONLINE' }
+  ]
+  const satisKanali = ref<string | null>('KAPIDAN')
+  
+  // Satış kanalı yerel saklama: başlangıçta yükle
+  onMounted(() => {
+    try {
+      const storedSatis = localStorage.getItem('satisKanali')
+      if (storedSatis && satisKanalOptions.some(o => o.value === storedSatis)) {
+        satisKanali.value = storedSatis
+      } else {
+        localStorage.setItem('satisKanali', 'KAPIDAN')
+        satisKanali.value = 'KAPIDAN'
+      }
+    } catch {
+      // ignore storage errors
+      satisKanali.value = 'KAPIDAN'
+    }
+  })
+
+  watch(() => satisKanali.value, (val) => {
+    try {
+      localStorage.setItem('satisKanali', val || 'KAPIDAN')
+    } catch {
+      // ignore
+    }
+  })
 
 // Bugünün tarihini DD.MM.YYYY formatında al
 const bugunTarihi = computed(() => {
@@ -1566,6 +1631,7 @@ async function submitForm() {
       ...extraForm.value,
       MstrKllnc: username,
       MstrDurum: 'KALIYOR',
+      satisKanali: satisKanali.value || 'KAPIDAN',
       planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
       ekNotlar: ekNotlar.value,
       ekBilgiler: ekBilgiler.value,
@@ -1601,7 +1667,9 @@ async function submitForm() {
       }
       
       // Global window objesine kaydedilen müşteri bilgilerini set et
+      // Güvenlik: global state'e yaz ve selectedNormalMusteri eşleniği de ayarla
       window.kartliIslemSelectedNormalMusteri = savedMusteriData
+      ;(window as Window & { selectedNormalMusteri?: typeof savedMusteriData }).selectedNormalMusteri = savedMusteriData
       
       // 2 saniye sonra kartli-islem sayfasına yönlendir
       setTimeout(() => {
@@ -1663,6 +1731,13 @@ async function submitForm() {
       bosOdalarOptions.value = []
       // Ek bilgiler alanını gizle
       showExtraFields.value = false
+      // Satış kanalını sıfırla
+      satisKanali.value = 'KAPIDAN'
+      try { 
+        localStorage.setItem('satisKanali', 'KAPIDAN') 
+      } catch {
+        // ignore
+      }
     } else {
       notify.value = 'Kayıt sırasında hata oluştu!'
     }
@@ -1745,6 +1820,13 @@ function clearForm() {
   // Dropdown'ları temizle
   bosOdalarOptions.value = []
   notify.value = '' // Uyarı mesajını da temizle
+  // Satış kanalını sıfırla ve sakla
+  satisKanali.value = 'KAPIDAN'
+  try { 
+    localStorage.setItem('satisKanali', 'KAPIDAN') 
+  } catch {
+    // ignore
+  }
 }
 
 function toggleExtraFields() {
@@ -1770,7 +1852,7 @@ function saveEkBilgiler() {
 function cancelEkBilgiler() {
   // Seçenekleri mevcut konaklama tipine ve saat koşullarına göre sıfırla ve dialog'u kapat
   ekBilgiler.value = {
-    kahvaltiDahil: form.value.KonaklamaTipi === 'GÜNLÜK',
+    kahvaltiDahil: false,
     havluVerildi: false,
     prizVerildi: false,
     geceKonaklama: false // Saat ve süre koşullarına bakılmaksızın false yapılıyor
@@ -2112,9 +2194,9 @@ async function onTCNBlur() {
         MstrNot: ''
       }
       
-      // Ek Bilgileri temizle
+      // Ek Bilgileri temizle (kahvaltı hiçbir zaman otomatik true olmasın)
       ekBilgiler.value = {
-        kahvaltiDahil: true,
+        kahvaltiDahil: false,
         havluVerildi: false,
         prizVerildi: false,
         geceKonaklama: false
@@ -3145,6 +3227,20 @@ function isAxiosError(error: unknown): error is AxiosError {
 
 .hesap-tipi-section {
   flex: 1;
+}
+
+.satis-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.satis-section {
+  align-items: center;
+}
+
+.satis-label {
+  margin-right: 8px;
 }
 
 /* Ek bilgiler toggle butonu */

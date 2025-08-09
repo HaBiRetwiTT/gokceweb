@@ -391,6 +391,7 @@ interface TableRow {
 
 interface DetailTableRow {
   id: number
+  islemNo?: number
   iKytTarihi: string
   islemAltG: string
   islemGrup: string
@@ -522,7 +523,7 @@ const pagination = ref({
 
 // Detay tablo pagination ayarları
 const detailPagination = ref({
-  sortBy: 'islemTutar',
+  sortBy: 'islemNo',
   descending: true,
   page: 1,
   rowsPerPage: 15,
@@ -556,11 +557,14 @@ const onDetailRequest = (props: any) => {
     
     // Verileri sırala
     allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
-      let aValue: string | number = a[sortBy as keyof DetailTableRow]
-      let bValue: string | number = b[sortBy as keyof DetailTableRow]
+      const sortKey = sortBy as keyof DetailTableRow
+      const aRaw = a[sortKey]
+      const bRaw = b[sortKey]
+      let aValue: string | number = aRaw !== undefined ? aRaw : (sortBy === 'islemTutar' || sortBy === 'islemNo' ? 0 : '')
+      let bValue: string | number = bRaw !== undefined ? bRaw : (sortBy === 'islemTutar' || sortBy === 'islemNo' ? 0 : '')
       
-      // Tutar sütunu için sayısal karşılaştırma
-      if (sortBy === 'islemTutar') {
+      // Sayısal alanlar için numara kıyasla
+      if (sortBy === 'islemTutar' || sortBy === 'islemNo') {
         aValue = parseFloat(String(aValue)) || 0
         bValue = parseFloat(String(bValue)) || 0
       } else {
@@ -739,11 +743,16 @@ const loadDetailTableData = async (tarih: string) => {
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
-       // Verileri tutar sütununa göre azalan sırala
+       // Verileri islemNo'ya göre azalan sırala (fallback: islemTutar)
        allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
-         const aValue = parseFloat(String(a.islemTutar)) || 0
-         const bValue = parseFloat(String(b.islemTutar)) || 0
-         return bValue - aValue // Azalan sıralama (büyükten küçüğe)
+         const aNo = a.islemNo ?? 0
+         const bNo = b.islemNo ?? 0
+         if (aNo !== 0 || bNo !== 0) {
+           return (bNo) - (aNo)
+         }
+         const aVal = parseFloat(String(a.islemTutar)) || 0
+         const bVal = parseFloat(String(b.islemTutar)) || 0
+         return bVal - aVal
        })
        
        // Detay tablo pagination için toplam kayıt sayısını ayarla

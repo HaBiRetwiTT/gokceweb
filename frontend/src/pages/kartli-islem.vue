@@ -4345,23 +4345,22 @@ onMounted(() => {
   const ekHizmetHandler = () => { showEkHizmetlerModal.value = true; };
   const odemeHandler = () => { 
     console.log('🔥 showOdemeIslemModal event received, opening modal...')
-    
-    // 🔥 DÖNEM YENİLEME MODALINDAN GELEN MÜŞTERİ BİLGİSİNİ AKTAR
-    if (window.kartliIslemSelectedNormalMusteri) {
-      console.log('🔥 Global state\'den müşteri bilgisi alınıyor:', window.kartliIslemSelectedNormalMusteri)
-      selectedNormalMusteri.value = window.kartliIslemSelectedNormalMusteri as MusteriKonaklama;
-      console.log('🔥 selectedNormalMusteri güncellendi:', selectedNormalMusteri.value)
-      console.log('🔥 Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
-      
-      // 🔥 KISA BİR BEKLEME SONRASI MODALI AÇ - REACTIVE UPDATE İÇİN
-      setTimeout(() => {
-        console.log('🔥 Modal açılıyor, son kontrol - Müşteri adı:', selectedNormalMusteri.value?.MstrAdi)
-        showOdemeIslemModal.value = true;
-      }, 100);
-    } else {
-      console.log('❌ window.kartliIslemSelectedNormalMusteri bulunamadı')
-      showOdemeIslemModal.value = true; 
+    const globalMusteri = window.kartliIslemSelectedNormalMusteri as MusteriKonaklama | null | undefined
+    if (!globalMusteri || typeof globalMusteri !== 'object') {
+      console.warn('❌ Global müşteri bilgisi bulunamadı, modal açılışı iptal edildi')
+      return
     }
+    // Global state'i selected'e aktar
+    selectedNormalMusteri.value = globalMusteri
+    console.log('🔥 selectedNormalMusteri set:', selectedNormalMusteri.value?.MstrAdi)
+    // Reactive güncelleme için kısa bekleme, sonra modal aç
+    setTimeout(() => {
+      if (!selectedNormalMusteri.value) {
+        console.warn('❌ Modal açılışı sırasında müşteri kayboldu, açılmayacak')
+        return
+      }
+      showOdemeIslemModal.value = true
+    }, 300)
   };
   window.addEventListener('showEkHizmetlerModal', ekHizmetHandler);
   window.addEventListener('showOdemeIslemModal', odemeHandler);

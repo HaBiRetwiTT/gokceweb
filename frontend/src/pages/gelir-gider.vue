@@ -458,7 +458,8 @@
               icon="save" 
               label="Kaydet" 
               @click="onKaydet"
-              :disable="seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
+              :disable="saving || seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
+              :loading="saving"
               unelevated
               size="md"
             />
@@ -475,6 +476,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../boot/axios'
+const saving = ref(false)
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -1208,6 +1210,8 @@ function temizleForm() {
 }
 
 async function onKaydet() {
+  if (saving.value) return
+  saving.value = true
   try {
     // GELİR/GİDER seçimi kontrolü - Giren/Çıkan seçildiğinde bu kontrol yapılmayacak
     if (!islemTipi.value && !cikanGiren.value) {
@@ -1254,6 +1258,8 @@ async function onKaydet() {
       message: 'Kaydetme işlemi sırasında hata oluştu',
       timeout: 3000
     })
+  } finally {
+    saving.value = false
   }
 }
 
@@ -1473,10 +1479,19 @@ async function handleGirenCikanKaydet() {
   }
 
   // Ödeme kayıtlarını oluştur - Giren/Çıkan seçildiğinde sadece bu kayıtlar yapılacak
+  // Combobox doluysa islemCrKod olarak seçilen cari kodu kullanılacak
+  const comboboxDolu = Boolean(selectedComboboxValue.value);
+  const seciliCariKod = comboboxDolu
+    ? (typeof selectedComboboxValue.value === 'object'
+        ? selectedComboboxValue.value.value
+        : selectedComboboxValue.value)
+    : '';
+
   seciliOdemeAraclari.forEach(odeme => {
     kayitlar.push({
       ...ortakParametreler,
-      islemCrKod: odeme.islemCrKod,
+      // Combobox dolu iken islemCrKod = seçilen Tedarikçi/Müşteri Cari Kodu, değilse ödeme aracının hesabı
+      islemCrKod: comboboxDolu ? seciliCariKod : odeme.islemCrKod,
       islemArac: odeme.islemArac,
       islemTip: cikanGiren.value === 'giren' ? 'Giren' : 'Çıkan',
       islemGrup: cikanGiren.value === 'giren' ? 'Sair Gelirler' : 'Sair Giderler',

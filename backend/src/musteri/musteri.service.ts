@@ -786,6 +786,7 @@ export class MusteriService {
     planlananCikisTarihi?: string; // Frontend'den gelen planlanan çıkış tarihi
     musteriDurumu?: string; // 'YENI' veya 'AYRILAN_MUSTERI' 
     OdemeVadesi?: string; // 🔥 Ödeme vadesi bilgisi eklendi
+    satisKanali?: string; // 🔥 Satış kanalı bilgisi (islemOzel4)
     depozito?: {
       dahil: boolean;
       bedel: number;
@@ -838,7 +839,7 @@ export class MusteriService {
         konaklamaTipi,                 // @3
         `${blok}-BLOK - ${kat}. KAT`,  // @4
         `${odaNo} - ${yatakNo}`,       // @5
-        '',                            // @6 - islemOzel4 boş
+        islemData.satisKanali || '',   // @6 - islemOzel4: satış kanalı
         'Cari İşlem',                  // @7
         'GELİR',                       // @8
         'Konaklama',                   // @9
@@ -880,7 +881,7 @@ export class MusteriService {
           konaklamaTipi,                 // @3
           `${blok}-BLOK - ${kat}. KAT`,  // @4
           `${odaNo} - ${yatakNo}`,       // @5
-          '',                            // @6 - islemOzel4 boş
+          '',                            // @6 - islemOzel4 boş (depozito kaydı için)
           'Nakit Kasa(TL)',              // @7 - DEĞİŞTİ: 'Cari İşlem' -> 'Nakit Kasa(TL)'
           'Çıkan',                       // @8 - DEĞİŞTİ: 'GELİR' -> 'Çıkan'
           'Konaklama',                   // @9
@@ -2343,6 +2344,7 @@ export class MusteriService {
       ToplamBedel: number;
       musteriDurumu?: string; // 'YENI' veya 'AYRILAN_MUSTERI' 
       OdemeVadesi?: string; // 🔥 Ödeme vadesi bilgisi eklendi
+      satisKanali?: string; // 🔥 Satış kanalı bilgisi (islemOzel4)
       depozito?: {
         dahil: boolean;
         bedel: number;
@@ -2393,7 +2395,7 @@ export class MusteriService {
         konaklamaTipi,                 // @3
         `${blok}-BLOK - ${kat}. KAT`,  // @4
         `${odaNo} - ${yatakNo}`,       // @5
-        '',                            // @6 - islemOzel4 boş
+        islemData.satisKanali || '',   // @6 - islemOzel4: satış kanalı
         'Cari İşlem',                  // @7
         'GELİR',                       // @8
         'Konaklama',                   // @9

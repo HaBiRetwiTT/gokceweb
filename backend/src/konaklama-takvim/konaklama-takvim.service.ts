@@ -319,7 +319,7 @@ export class KonaklamaTakvimService {
           tarih: gunTarihi,
           dolu: konaklamaDetaylari.length > 0,
           konaklamaDetaylari,
-          bosYatakSayisi: 0 // Geçici, aşağıda güncellenecek
+          bosYatakSayisi: -1 // placeholder, hemen aşağıda gerçek değerle güncellenecek
         };
       });
       

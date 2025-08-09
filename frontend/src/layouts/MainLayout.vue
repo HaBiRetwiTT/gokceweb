@@ -876,6 +876,27 @@ async function onKaydet() {
     if (result.success) {
       Notify.create({ type: 'positive', message: result.message || 'Ek hizmetler başarıyla kaydedildi.' });
       showEkHizmetlerModal.value = false;
+      // OdemeIslem formunu otomatik aç: seçili müşteri bilgisini global state'e aktar ve event tetikle
+      try {
+        if (musteri) {
+          // Kartlı İşlem sayfasının anlayacağı global state (window genişletmesi ile tip güvenli)
+          (window as Window & {
+            kartliIslemSelectedNormalMusteri?: KartliIslemMusteri & { customerNote?: string }
+            kartliIslemAutoOpenModal?: boolean
+          }).kartliIslemSelectedNormalMusteri = {
+            ...(musteri as KartliIslemMusteri),
+            customerNote: ((window as Window & { kartliIslemSelectedNormalMusteri?: { customerNote?: string } }).kartliIslemSelectedNormalMusteri?.customerNote) || ''
+          };
+          // Kartlı işlem sayfasına geçiş ve modal açma
+          setTimeout(() => {
+            // Bayrak set et ve event yayınla
+            (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
+            window.dispatchEvent(new Event('showOdemeIslemModal'));
+          }, 300);
+        }
+      } catch {
+        // ignore
+      }
     } else {
       Notify.create({ type: 'negative', message: result.message || 'Ek hizmetler kaydedilemedi.' });
     }

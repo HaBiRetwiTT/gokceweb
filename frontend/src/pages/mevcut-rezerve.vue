@@ -24,7 +24,7 @@
                   round 
                   size="sm"
                   color="lime-2"
-                  @click="loadTakvimData"
+                  @click="refreshAll"
                   class="refresh-btn"
                 />
                 Oda Tipi
@@ -71,6 +71,7 @@
                 </div>
                 <!-- Oda tipi hover tooltip: Boş oda-yatak listesi -->
                 <q-tooltip 
+                  :key="'bos-' + tooltipKey + '-' + odaTipi.odaTipi"
                   anchor="center right" 
                   self="center left" 
                   :offset="[10, 0]"
@@ -141,6 +142,7 @@
                   
                   <!-- Tooltip -->
                   <q-tooltip 
+                    :key="'kon-' + tooltipKey + '-' + doluluk.tarih + '-' + odaTipi.odaTipi"
                     v-if="doluluk.dolu && doluluk.konaklamaDetaylari.length > 0"
                     anchor="center right" 
                     self="center left"
@@ -248,6 +250,8 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const takvimData = ref<TakvimData | null>(null)
 const route = useRoute()
+  // Tooltip yenileme anahtarı
+  const tooltipKey = ref(0)
 
   // Boş odalar tooltip cache ve yükleme durumları
   const bosOdalarCache = ref<Record<string, Array<{ label?: string; value: string; durum?: string }>>>({})
@@ -448,7 +452,7 @@ function getColumnCount(detaylar: KonaklamaDetay[]) {
   return count
 }
 
-// Component mount olduğunda veri yükle
+  // Component mount olduğunda veri yükle
 onMounted(() => {
   void loadTakvimData()
 })
@@ -464,6 +468,13 @@ watch(() => route.path, (newPath, oldPath) => {
     void loadTakvimData()
   }
 }, { immediate: false })
+
+  function refreshAll() {
+    // Veriyi yenile
+    void loadTakvimData()
+    // Tooltipleri zorla yeniden oluştur
+    tooltipKey.value++
+  }
 </script>
 
 <style scoped>

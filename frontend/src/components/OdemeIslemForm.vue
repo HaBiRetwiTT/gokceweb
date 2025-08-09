@@ -115,7 +115,7 @@
                 </div>
               </div>
               <div class="column items-center justify-center q-ml-lg depozito-btns-col">
-                <q-btn label="KAYDET" color="primary" class="form-btn q-mb-sm depozito-btn" size="lg" :disabled="isKaydetDisabled" @click="onKaydet" />
+                <q-btn label="KAYDET" color="primary" class="form-btn q-mb-sm depozito-btn" size="lg" :disabled="isKaydetDisabled || kaydetLoading" :loading="kaydetLoading" @click="onKaydet" />
                 <q-btn label="VAZGEÇ" color="secondary" class="form-btn depozito-btn" size="md" flat @click="onClose" />
               </div>
             </div>
@@ -137,8 +137,23 @@ function debugLog(...args: unknown[]) {
   }
 }
 
+// Global müşteri tipi - bu formun ihtiyaç duyduğu asgari alanlar
+type GlobalMusteri = {
+  MstrNo?: number;
+  MstrTCN?: string;
+  MstrAdi?: string;
+  MstrHspTip?: string;
+  KonaklamaTipi?: string;
+  KnklmTip?: string;
+  OdaYatak?: string;
+  KnklmOdaNo?: string;
+  KnklmYtkNo?: string;
+  CariKod?: string;
+};
+
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
 const emit = defineEmits(['update:show', 'bakiyeGuncelle']);
+const kaydetLoading = ref(false);
 const show = ref(props.show);
 watch(() => props.show, v => show.value = v);
 watch(show, v => emit('update:show', v));
@@ -540,9 +555,16 @@ async function printMultipleFis(fisliOdemeler: Array<{ tutar: string | number; t
 }
 
 async function onKaydet() {
-  const musteri = window.kartliIslemSelectedNormalMusteri;
-  if (!musteri || typeof musteri !== 'object') {
+  if (kaydetLoading.value) return;
+  kaydetLoading.value = true;
+  const win = window as Window & {
+    kartliIslemSelectedNormalMusteri?: GlobalMusteri | null;
+    selectedNormalMusteri?: GlobalMusteri | null;
+  };
+  const musteri: GlobalMusteri | null | undefined = win.kartliIslemSelectedNormalMusteri ?? win.selectedNormalMusteri ?? null;
+  if (!musteri) {
     Notify.create({ type: 'warning', message: 'Seçili müşteri bulunamadı.' });
+    kaydetLoading.value = false;
     return;
   }
   
@@ -733,6 +755,9 @@ async function onKaydet() {
     }
   } catch (err) {
     Notify.create({ type: 'negative', message: 'Sunucu hatası: ' + (err instanceof Error ? err.message : String(err)) });
+  }
+  finally {
+    kaydetLoading.value = false;
   }
 
   // Fiş yazdırma işlemi artık API başarılı olduktan sonra yapılıyor

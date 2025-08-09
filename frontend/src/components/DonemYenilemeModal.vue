@@ -203,7 +203,7 @@
                         label-color="green-6"
                         dense
                         type="number"
-                        :min="1"
+                         :min="minAllowedKonaklamaSuresi"
                         :max="30"
                         @update:model-value="onKonaklamaSuresiChanged"
                         required
@@ -442,7 +442,7 @@
 
           <q-card-actions align="right">
             <q-btn flat label="İptal" color="grey" @click="cancelEkBilgiler" />
-            <q-btn flat label="Tamam" color="primary" @click="saveEkBilgiler" />
+            <q-btn flat label="Tamam" color="primary" @click="saveEkBilgiler" :disable="saving"/>
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -481,7 +481,7 @@
       </q-card-section>
       <q-card-actions align="right">
         <q-btn flat label="Hayır" color="negative" @click="showOdaDegisikligiDialog = false" />
-        <q-btn flat label="Evet" color="positive" @click="onOdaDegisikligiOnayla" />
+        <q-btn flat label="Evet" color="positive" @click="onOdaDegisikligiOnayla" :disable="saving"/>
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -510,8 +510,8 @@
       </q-card-section>
       <q-card-actions align="right">
         <q-btn flat label="İPTAL" color="grey" @click="showErkenCikisDialog = false" />
-        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="onErkenCikisIadesizCikis" />
-        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="onErkenCikisDialogOnayla" />
+        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="onErkenCikisIadesizCikis" :disable="saving"/>
+        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="onErkenCikisDialogOnayla" :disable="saving"/>
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -611,6 +611,25 @@ const konaklamaSuresiLabel = computed(() => {
   return donemYenileButtonLabel.value === 'ODA DEĞİŞİKLİ'
     ? 'Kalan Konaklama Süresi (Gün)'
     : 'Konaklama Süresi (Gün)';
+});
+
+// Kullanıcının azaltma ile yarından önceki bir çıkış tarihine düşmesini engelleyen minimum süre
+const minAllowedKonaklamaSuresi = computed<number>(() => {
+  try {
+    const parts = (formData.value.eskiKnklmPlnTrh || props.selectedData?.KnklmPlnTrh || '').split('.').map(s => Number(s) || 0);
+    const base = parts.length === 3 && parts[0] && parts[1] && parts[2]
+      ? new Date(parts[2], parts[1] - 1, parts[0])
+      : (() => {
+          const grs = (props.selectedData?.KnklmGrsTrh || '').split('.').map(s => Number(s) || 0);
+          return new Date(grs[2] || new Date().getFullYear(), (grs[1] || (new Date().getMonth()+1)) - 1, grs[0] || new Date().getDate());
+        })();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1);
+    const diffDays = Math.ceil((minDate.getTime() - base.getTime()) / (1000*60*60*24));
+    return Math.max(1, diffDays);
+  } catch {
+    return 1;
+  }
 });
 
 async function saveDonemYenileme() {
@@ -795,7 +814,7 @@ function closeModal() {
   karaListe.value = false;
   karaListeDetay.value = '';
   ekBilgiler.value = {
-    kahvaltiDahil: true,
+    kahvaltiDahil: false,
     havluVerildi: false,
     prizVerildi: false
   };
@@ -1021,14 +1040,14 @@ const odaTipFiyatlari = ref<{
 // Ek Bilgiler Dialog
 const showEkBilgilerDialog = ref(false);
 const ekBilgiler = ref({
-  kahvaltiDahil: true,
+  kahvaltiDahil: false,
   havluVerildi: false,
   prizVerildi: false
 });
 
 // Ek Bilgilerin orijinal durumunu saklamak için
 const originalEkBilgiler = ref({
-  kahvaltiDahil: true,
+  kahvaltiDahil: false,
   havluVerildi: false,
   prizVerildi: false
 });
@@ -1270,11 +1289,38 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
     MstrFirma: newData.MstrFirma || '',
     KnklmOdaTip: newData.KnklmOdaTip || '',
     OdaYatak: mevcutOdaYatakObj,
-    KonaklamaSuresi: hesaplananKonaklamaSuresi, // 🔥 Kalan gün veya normal hesap
+    KonaklamaSuresi: (() => {
+      // Minimum: planlanan çıkış bugünden en erken 1 gün sonrası olmalı
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const minDate = new Date(today);
+      minDate.setDate(minDate.getDate() + 1);
+      const [plnGun = 0, plnAy = 0, plnYil = 0] = (newData.KnklmPlnTrh || '').split('.').map(s => Number(s) || 0);
+      const planlanan = plnGun && plnAy && plnYil ? new Date(plnYil, plnAy - 1, plnGun) : null;
+      if (planlanan && planlanan < minDate) {
+        // Planlanan çıkış yarından önce ise süveyi yarına sabitle
+        const girisParts = (newData.KnklmGrsTrh || '').split('.').map(s => Number(s) || 0);
+        const grs = new Date(girisParts[2] || minDate.getFullYear(), (girisParts[1] || (minDate.getMonth()+1)) - 1, girisParts[0] || minDate.getDate());
+        const diff = Math.ceil((minDate.getTime() - grs.getTime()) / (1000*60*60*24));
+        return Math.max(1, diff);
+      }
+      return hesaplananKonaklamaSuresi;
+    })(), // 🔥 Kalan gün veya min. 1 gün sonrası
     KonaklamaTipi: newData.KonaklamaTipi || '',
     HesaplananBedel: Number(newData.HesaplananBedel) || 0,
     ToplamBedel: Number(newData.KnklmNfyt) || 0, // 🔥 Sadece initialize'da set edilir
-    KnklmPlnTrh: newData.KnklmPlnTrh || '',
+    KnklmPlnTrh: (() => {
+      // Eğer planlanan çıkış tarihi yarından önce ise, yarın olarak yaz
+      const [plnGun = 0, plnAy = 0, plnYil = 0] = (newData.KnklmPlnTrh || '').split('.').map(s => Number(s) || 0);
+      const planlanan = plnGun && plnAy && plnYil ? new Date(plnYil, plnAy - 1, plnGun) : null;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1);
+      const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+      if (!planlanan || planlanan < minDate) {
+        return fmt(minDate);
+      }
+      return newData.KnklmPlnTrh || '';
+    })(),
     KnklmNot: newData.KnklmNot || '',
     OdemeVadesi: (() => {
       const formatted = convertDateFormat(newData.OdemeVadesi || '');
@@ -1373,6 +1419,17 @@ watch(() => props.modelValue, async (yeni) => {
 // Watch for KonaklamaSuresi changes to trigger calculations
 watch(() => formData.value.KonaklamaSuresi, (newSure, oldSure) => {
   if (newSure !== oldSure && newSure >= 1) {
+    // Azaltma yönünde ve minimumun altına düşüyorsa engelle ve uyar
+    if (typeof oldSure === 'number' && newSure < oldSure && newSure < minAllowedKonaklamaSuresi.value) {
+      formData.value.KonaklamaSuresi = Math.max(minAllowedKonaklamaSuresi.value, 1);
+      Notify.create({
+        type: 'warning',
+        message: 'Planlanan çıkış tarihi en erken yarın olabilir. Daha kısa süre seçemezsiniz.',
+        position: 'top',
+        timeout: 2500
+      });
+      return;
+    }
     void onKonaklamaSuresiChanged();
   }
 });
@@ -1605,6 +1662,24 @@ async function onKonaklamaSuresiChanged() {
     formData.value.KonaklamaTipi = 'GÜNLÜK';
     return;
   }
+  // Min planlanan çıkış = yarın kuralını enforce et
+  try {
+    const parts = (formData.value.eskiKnklmPlnTrh || props.selectedData?.KnklmPlnTrh || '').split('.').map(s => Number(s) || 0);
+    const base = parts.length === 3 && parts[0] && parts[1] && parts[2]
+      ? new Date(parts[2], parts[1] - 1, parts[0])
+      : (() => {
+          const grs = (props.selectedData?.KnklmGrsTrh || '').split('.').map(s => Number(s) || 0);
+          return new Date(grs[2] || new Date().getFullYear(), (grs[1] || (new Date().getMonth()+1)) - 1, grs[0] || new Date().getDate());
+        })();
+    const newDate = new Date(base);
+    newDate.setDate(newDate.getDate() + formData.value.KonaklamaSuresi);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1);
+    if (newDate < minDate) {
+      const diff = Math.ceil((minDate.getTime() - base.getTime()) / (1000*60*60*24));
+      formData.value.KonaklamaSuresi = Math.max(1, diff);
+    }
+  } catch { /* ignore */ }
   
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && formData.value.KnklmOdaTip) {
@@ -1845,8 +1920,10 @@ function updateEkNotlar() {
   }
   
   // 3. Kahvaltı durumu
-  if (formData.value.KonaklamaTipi === 'GÜNLÜK' && !ekBilgiler.value.kahvaltiDahil) {
-    notlar.push('Kahvaltısız');
+  if (formData.value.KonaklamaTipi === 'GÜNLÜK') {
+    if (ekBilgiler.value.kahvaltiDahil) {
+      notlar.push('Kahvaltı Verildi');
+    }
   }
   
   // 4. Ek Bilgiler
@@ -1870,9 +1947,9 @@ function updateEkNotlar() {
 
 // Notlardan Ek Bilgileri parse et ve checkbox'ları ayarla
 function parseEkBilgilerFromNotes(notlar: string) {
-  // Ek Bilgileri sıfırla
+  // Ek Bilgileri sıfırla (varsayılan kahvaltı false)
   ekBilgiler.value = {
-    kahvaltiDahil: formData.value.KonaklamaTipi === 'GÜNLÜK',
+    kahvaltiDahil: false,
     havluVerildi: false,
     prizVerildi: false
   };
@@ -1886,10 +1963,10 @@ function parseEkBilgilerFromNotes(notlar: string) {
     ekBilgiler.value.prizVerildi = true;
   }
   
-  if (notlar.includes('Kahvaltısız')) {
-    ekBilgiler.value.kahvaltiDahil = false;
-  } else if (formData.value.KonaklamaTipi === 'GÜNLÜK') {
+  if (notlar.includes('Kahvaltı Verildi') || notlar.includes('Kahvaltı')) {
     ekBilgiler.value.kahvaltiDahil = true;
+  } else if (notlar.includes('Kahvaltısız')) {
+    ekBilgiler.value.kahvaltiDahil = false;
   }
 }
 

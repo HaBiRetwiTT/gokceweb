@@ -998,14 +998,20 @@ export class MusteriController {
       return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
+  // Prod ortamında test uçlarını kapat
   @Get('test-endpoint')
   getTest() {
+    if (process.env.NODE_ENV === 'production') {
+      return { success: false, message: 'Endpoint disabled in production' };
+    }
     return { message: 'Test endpoint çalışıyor!' };
   }
 
-  // Basit test endpoint'i
   @Get('test-simple')
   async testSimple() {
+    if (process.env.NODE_ENV === 'production') {
+      return { success: false, message: 'Endpoint disabled in production' };
+    }
     try {
       return {
         success: true,
@@ -1015,7 +1021,7 @@ export class MusteriController {
     } catch (error) {
       return {
         success: false,
-        message: 'Test endpoint hatası: ' + error.message
+        message: 'Test endpoint hatası: ' + (error instanceof Error ? error.message : String(error))
       };
     }
   }
