@@ -6,7 +6,9 @@ import {
   HttpStatus,
   Get,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { IslemService } from './islem.service';
 
 interface IslemKayit {
@@ -231,6 +233,54 @@ export class IslemController {
         message:
           this.getErrorMessage(error) || 'Seçilen gün bakiyesi hesaplanamadı',
       };
+    }
+  }
+
+  // Detay PDF
+  @Get('detay-pdf')
+  async getDetayPDF(
+    @Query('tarih') tarih: string,
+    @Query('islemTuru') islemTuru: string,
+    @Query('islemYonu') islemYonu: string,
+    @Query('selectedYonu') selectedYonu: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const buffer = (await this.islemService.generateDetayPDF(tarih, islemTuru, islemYonu, selectedYonu)) as unknown as Buffer;
+      const fileName = `kasa-detay-${tarih || 'tum'}.pdf`;
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': buffer.length,
+      });
+      return res.send(buffer);
+    } catch (error: unknown) {
+      const msg = this.getErrorMessage(error) || 'Detay PDF oluşturulamadı';
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ success: false, message: msg });
+    }
+  }
+
+  // Detay Excel
+  @Get('detay-excel')
+  async getDetayExcel(
+    @Query('tarih') tarih: string,
+    @Query('islemTuru') islemTuru: string,
+    @Query('islemYonu') islemYonu: string,
+    @Query('selectedYonu') selectedYonu: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const buffer = (await this.islemService.generateDetayExcel(tarih, islemTuru, islemYonu, selectedYonu)) as unknown as Buffer;
+      const fileName = `kasa-detay-${tarih || 'tum'}.xlsx`;
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Length': buffer.length,
+      });
+      return res.send(buffer);
+    } catch (error: unknown) {
+      const msg = this.getErrorMessage(error) || 'Detay Excel oluşturulamadı';
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ success: false, message: msg });
     }
   }
 

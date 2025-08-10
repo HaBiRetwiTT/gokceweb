@@ -265,8 +265,8 @@
              <!-- Sağ Tablo - Detay İşlemler -->
              <q-card class="main-card">
                <q-card-section>
-                 <div class="table-container">
-                                       <q-table
+                  <div class="table-container">
+                   <q-table
                       :rows="detailTableData"
                       :columns="detailColumns"
                       :loading="detailLoading"
@@ -283,6 +283,22 @@
                        :rows-per-page="15"
                        @request="onDetailRequest"
                     >
+                      <!-- Başlık satırında 'Bilgi' sütununun hemen yanında ikon container -->
+                      <template v-slot:header-cell-islemBilgi="props">
+                        <q-th :props="props">
+                          <div class="row items-center no-wrap" style="gap:8px;">
+                            <span>Bilgi</span>
+                            <div class="report-icons">
+                              <q-btn round dense class="pdf-btn" @click="downloadKasaDetayPDF" :loading="kasaPdfLoading">
+                                <img src="/icons/adobe-pdf.png" alt="PDF" class="report-icon" />
+                              </q-btn>
+                              <q-btn round dense class="excel-btn" @click="downloadKasaDetayExcel" :loading="kasaExcelLoading">
+                                <img src="/icons/excel-xlsx.png" alt="Excel" class="report-icon" />
+                              </q-btn>
+                            </div>
+                          </div>
+                        </q-th>
+                      </template>
                      <!-- Tarih Sütunu -->
                      <template v-slot:body-cell-iKytTarihi="props">
                        <q-td :props="props">
@@ -357,6 +373,8 @@ import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
 import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
 import { isAxiosError } from 'axios'
+import type { AxiosResponse } from 'axios'
+import { api as apiInstance } from '../boot/axios'
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -399,6 +417,60 @@ interface DetailTableRow {
   islemBilgi: string
 }
 
+  // Detay tablo PDF indirme
+  async function downloadKasaDetayPDF() {
+    try {
+      kasaPdfLoading.value = true
+      const params = new URLSearchParams({
+        tarih: selectedDate.value || '',
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value,
+        selectedYonu: selectedIslemYonu.value
+      })
+      const response: AxiosResponse<Blob> = await apiInstance.get(`/islem/detay-pdf?${params.toString()}`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `kasa-detay-${selectedDate.value || 'tum'}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      /* ignore */
+    } finally {
+      kasaPdfLoading.value = false
+    }
+  }
+
+  // Detay tablo Excel indirme
+  async function downloadKasaDetayExcel() {
+    try {
+      kasaExcelLoading.value = true
+      const params = new URLSearchParams({
+        tarih: selectedDate.value || '',
+        islemTuru: selectedIslemTuru.value,
+        islemYonu: islemYonuForApi.value,
+        selectedYonu: selectedIslemYonu.value
+      })
+      const response: AxiosResponse<Blob> = await apiInstance.get(`/islem/detay-excel?${params.toString()}`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `kasa-detay-${selectedDate.value || 'tum'}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      /* ignore */
+    } finally {
+      kasaExcelLoading.value = false
+    }
+  }
+
 interface KasaDevirRow {
   nKasaNo?: number
   DevirTarihi: string
@@ -413,6 +485,10 @@ const detailTableData = ref<DetailTableRow[]>([])
 // Tüm veriyi saklamak için
 const allTableData = ref<TableRow[]>([])
 const allDetailTableData = ref<DetailTableRow[]>([])
+
+  // Rapor indirme durumları
+  const kasaPdfLoading = ref(false)
+  const kasaExcelLoading = ref(false)
 
 // Kasa devir verileri
 const kasaDevirData = ref<KasaDevirRow[]>([])
@@ -1206,6 +1282,15 @@ watch(selectedIslemYonu, () => {
 </script>
 
 <style scoped>
+.report-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.pdf-btn,
+.excel-btn {
+  padding: 8px !important;
+}
 .light-page-background {
   background: #f5f5f5;
   min-height: 100vh;

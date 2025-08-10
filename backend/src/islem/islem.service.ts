@@ -2,11 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DatabaseConfigService } from '../database/database-config.service';
+import * as PDFDocument from 'pdfkit';
+import * as ExcelJS from 'exceljs';
 
 // Types for stronger typing and to avoid any-unsafe lint warnings
 type KasaGunlukOzet = { tarih: string; gelir: number; gider: number };
 type DetayIslem = {
   id: number;
+  islemNo?: number;
   iKytTarihi: string;
   islemAltG: string;
   islemGrup: string;
@@ -220,9 +223,9 @@ export class IslemService {
       if (isIdentity) {
         const insertQuery = `
           INSERT INTO ${tableFullName} (nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (@0, @1, @2)
+          VALUES (@0, @1, CAST(@2 AS DECIMAL(18,2)))
         `;
-        const params = [nKytTarihi, aktifKullanici, kasaYekunFixed];
+        const params = [nKytTarihi, aktifKullanici, Number(kasaYekunFixed)];
         this.debugLog('📝 KasaDevir INSERT (IDENTITY) sorgusu:', insertQuery);
         this.debugLog('📝 Parametreler:', params);
         await this.dataSource.query(insertQuery, params);
@@ -237,9 +240,9 @@ export class IslemService {
 
         const insertQuery = `
           INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (@0, @1, @2, @3)
+          VALUES (CAST(@0 AS INT), @1, @2, CAST(@3 AS DECIMAL(18,2)))
         `;
-        const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
+        const params = [Number(nextId), nKytTarihi, aktifKullanici, Number(kasaYekunFixed)];
         this.debugLog('📝 KasaDevir INSERT (manuel nKasaNo) sorgusu:', insertQuery);
         this.debugLog('📝 Parametreler:', params);
         await this.dataSource.query(insertQuery, params);
@@ -406,6 +409,165 @@ export class IslemService {
       console.error('Detay işlemler getirme hatası:', message);
       throw new Error('Detay işlemler getirilemedi');
     }
+  }
+
+  // Detay PDF üretimi
+  async generateDetayPDF(
+    tarih: string,
+    islemTuru: string,
+    islemYonu: string,
+    selectedYonu: string,
+  ): Promise<Buffer> {
+    const data = await this.getDetayIslemler(tarih, islemTuru, islemYonu, selectedYonu, 1, 10000);
+    return await new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 36 });
+      let turkishFontLoaded = false;
+      try {
+        // Türkçe karakter uyumu için mevcut fontu kaydetmeye çalış
+        const fontPathCandidates = [
+          './fonts/DejaVuSans.ttf',
+          './backend/fonts/DejaVuSans.ttf',
+          require('path').join(process.cwd(), 'fonts/DejaVuSans.ttf'),
+          require('path').join(process.cwd(), 'backend/fonts/DejaVuSans.ttf')
+        ];
+        const fs = require('fs');
+        for (const p of fontPathCandidates) {
+          if (p && fs.existsSync(p)) {
+            doc.registerFont('Turkish', p);
+            doc.font('Turkish');
+            turkishFontLoaded = true;
+            break;
+          }
+        }
+      } catch {
+        // Varsayılan font kalsın
+      }
+      const chunks: Buffer[] = [];
+      doc.on('data', (c) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Başlık ve metinlerde daima Türkçe desteği olan fontu kullan (yüklendiyse)
+      if (turkishFontLoaded) {
+        doc.font('Turkish');
+      }
+      doc.fontSize(14).text('Detay İşlemler', { align: 'center' });
+      doc.moveDown(0.5);
+      const turLabelMap: Record<string, string> = {
+        cari: 'Cari',
+        nakit: 'Nakit',
+        kart: 'Kart',
+        eft: 'EFT',
+        acenta: 'Acenta',
+        depozito: 'Depozito',
+      };
+      const turLabel = turLabelMap[String(islemTuru).toLowerCase()] || islemTuru;
+      const yonLabel = String(islemYonu) === 'gelir-gider'
+        ? (String(selectedYonu) === 'gelir' ? 'GELİR' : 'GİDER')
+        : (String(selectedYonu) === 'gelir' ? 'Giren' : 'Çıkan');
+      doc.fontSize(10).text(`Tarih: ${tarih}  |  Tür: ${turLabel}  |  Yön: ${yonLabel}`);
+      doc.moveDown();
+
+      // Basit tablo yerleşimi: sabit kolon genişlikleri ve satır yüksekliği hesaplama
+      const marginLeft = doc.page.margins.left;
+      const marginRight = doc.page.margins.right;
+      const contentWidth = doc.page.width - marginLeft - marginRight;
+      const startX = marginLeft;
+      let y = doc.y + 4;
+
+      // Kolonlar: Tarih | No | Alt Grup | Grup | Tutar | Bilgi
+      const colWidths = {
+        tarih: 70,
+        no: 55,
+        altGrup: 140,
+        grup: 60,
+        tutar: 50,
+      } as const;
+      const colGap = 10; // Tutar ile Bilgi sütunu arasına ekstra boşluk
+      const usedWidth = colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap;
+      const bilgiWidth = Math.max(120, contentWidth - usedWidth - 5); // kalan genişlik (gap dahil)
+
+      // Hücre yazma yardımcı fonksiyonu
+      const writeCell = (text: string, x: number, width: number, align: 'left' | 'right' = 'left') => {
+        doc.text(text ?? '', x, y, { width, align });
+        return doc.heightOfString(text ?? '', { width });
+      };
+
+      // Başlık satırı
+      doc.fontSize(11).text('', startX, y); // y'yi kilitle
+      const headerHeight = Math.max(
+        writeCell('Tarih', startX, colWidths.tarih),
+        writeCell('İşlem No', startX + colWidths.tarih, colWidths.no),
+        writeCell('Cari Adı', startX + colWidths.tarih + colWidths.no, colWidths.altGrup),
+        writeCell('İşlem Tipi', startX + colWidths.tarih + colWidths.no + colWidths.altGrup, colWidths.grup),
+        writeCell('Tutar', startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup, colWidths.tutar, 'right'),
+        writeCell('Bilgi', startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap, bilgiWidth),
+      );
+      y += headerHeight + 6;
+      doc.moveTo(startX, y - 2).lineTo(startX + contentWidth, y - 2).strokeColor('#aaaaaa').lineWidth(0.5).stroke();
+
+      // Satırlar
+      doc.fontSize(10);
+      for (const r of data.data) {
+        // Sayfa sonu kontrol
+        const estimatedRowHeight = Math.max(
+          doc.heightOfString(String(r.iKytTarihi || ''), { width: colWidths.tarih }),
+          doc.heightOfString(String(r.islemNo ?? ''), { width: colWidths.no }),
+          doc.heightOfString(String(r.islemAltG || ''), { width: colWidths.altGrup }),
+          doc.heightOfString(String(r.islemGrup || ''), { width: colWidths.grup }),
+          doc.heightOfString((Number(r.islemTutar) || 0).toLocaleString('tr-TR'), { width: colWidths.tutar }),
+          doc.heightOfString(String(r.islemBilgi || ''), { width: bilgiWidth })
+        );
+        if (y + estimatedRowHeight > doc.page.height - doc.page.margins.bottom) {
+          doc.addPage();
+          y = doc.page.margins.top;
+        }
+
+        const h = Math.max(
+          writeCell(String(r.iKytTarihi || ''), startX, colWidths.tarih),
+          writeCell(String(r.islemNo ?? ''), startX + colWidths.tarih, colWidths.no),
+          writeCell(String(r.islemAltG || ''), startX + colWidths.tarih + colWidths.no, colWidths.altGrup),
+          writeCell(String(r.islemGrup || ''), startX + colWidths.tarih + colWidths.no + colWidths.altGrup, colWidths.grup),
+          writeCell((Number(r.islemTutar) || 0).toLocaleString('tr-TR'), startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup, colWidths.tutar, 'right'),
+          writeCell(String(r.islemBilgi || ''), startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap, bilgiWidth)
+        );
+        y += h + 6;
+      }
+
+      doc.end();
+    });
+  }
+
+  // Detay Excel üretimi
+  async generateDetayExcel(
+    tarih: string,
+    islemTuru: string,
+    islemYonu: string,
+    selectedYonu: string,
+  ): Promise<Buffer> {
+    const data = await this.getDetayIslemler(tarih, islemTuru, islemYonu, selectedYonu, 1, 10000);
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Detay İşlemler');
+    sheet.columns = [
+      { header: 'Tarih', key: 'iKytTarihi', width: 12 },
+      { header: 'İşlem No', key: 'islemNo', width: 10 },
+      { header: 'Alt Grup', key: 'islemAltG', width: 24 },
+      { header: 'Grup', key: 'islemGrup', width: 24 },
+      { header: 'Tutar', key: 'islemTutar', width: 12 },
+      { header: 'Bilgi', key: 'islemBilgi', width: 60 },
+    ];
+    data.data.forEach((r) => {
+      sheet.addRow({
+        iKytTarihi: r.iKytTarihi,
+        islemNo: r.islemNo ?? '',
+        islemAltG: r.islemAltG,
+        islemGrup: r.islemGrup,
+        islemTutar: Number(r.islemTutar) || 0,
+        islemBilgi: r.islemBilgi,
+      });
+    });
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   /**
