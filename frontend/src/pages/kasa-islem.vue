@@ -1064,7 +1064,8 @@ const onKasaDevretOnayla = async () => {
     }
 
     const kasaYekun = normalizeYekun(currentBakiye.value)
-    const response = await $api.post('/islem/kasa-devret', { kasaYekun })
+    const kullaniciAdi = localStorage.getItem('username') || ''
+    const response = await $api.post('/islem/kasa-devret', { kasaYekun, kullaniciAdi })
     if (response.data && response.data.success) {
       showKasaDevretDialog.value = false
       $q.notify({ type: 'positive', message: 'Kasa devri kaydedildi', position: 'top' })

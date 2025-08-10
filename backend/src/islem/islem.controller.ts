@@ -368,12 +368,12 @@ export class IslemController {
    * Kasa devret onayı ile tblKasaDevir'e kayıt atar
    */
   @Post('kasa-devret')
-  async kasaDevret(@Body() body: { kasaYekun: number }) {
+  async kasaDevret(@Body() body: { kasaYekun: number; kullaniciAdi?: string }) {
     try {
       if (typeof body.kasaYekun !== 'number' || isNaN(body.kasaYekun)) {
         throw new HttpException('Geçersiz kasa tutarı', HttpStatus.BAD_REQUEST);
       }
-      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun);
+      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun, body.kullaniciAdi);
       return { success: true, message: 'Kasa devri kaydedildi', sonuc };
     } catch (error: unknown) {
       console.error('❌ /islem/kasa-devret hatası:', error);

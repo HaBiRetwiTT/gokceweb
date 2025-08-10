@@ -194,7 +194,7 @@ export class IslemService {
   /**
    * Kasa devri kaydı ekler (tblKasaDevir)
    */
-  async saveKasaDevir(kasaYekun: number): Promise<{ success: boolean }> {
+  async saveKasaDevir(kasaYekun: number, overrideKullanici?: string): Promise<{ success: boolean }> {
     try {
       if (!Number.isFinite(kasaYekun)) {
         throw new Error('Geçersiz kasa tutarı');
@@ -215,8 +215,19 @@ export class IslemService {
         '.' +
         bugun.getFullYear();
 
-      // Aktif kullanıcı adı (tblPersonel.PrsnUsrNm)
-      const aktifKullanici = await this.getAktifKullaniciAdi();
+      // Aktif kullanıcı adı (tblPersonel.PrsnUsrNm) - override öncelikli
+      let aktifKullanici = (overrideKullanici && String(overrideKullanici).trim()) || await this.getAktifKullaniciAdi();
+      // Kullanıcıyı tblPersonel'de doğrula ve varsa PrsnUsrNm tam değeriyle yaz
+      try {
+        const prsnQuery = `SELECT TOP 1 PrsnUsrNm FROM ${this.dbConfig.getTableSchema()}.tblPersonel WHERE PrsnUsrNm = @0`;
+        const prsnUnknown = (await this.dataSource.query(prsnQuery, [aktifKullanici])) as unknown;
+        const prsn = prsnUnknown as Array<{ PrsnUsrNm: string }>;
+        if (prsn && prsn[0]?.PrsnUsrNm) {
+          aktifKullanici = prsn[0].PrsnUsrNm;
+        }
+      } catch {
+        // ignore
+      }
 
       // nKasaNo sütunu bazı ortamlarda IDENTITY, bazı ortamlarda manuel olabilir.
       // Dinamik tespit et ve uygun INSERT stratejisini uygula.
