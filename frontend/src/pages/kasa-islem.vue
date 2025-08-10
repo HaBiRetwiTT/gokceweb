@@ -1051,16 +1051,24 @@ const onKasaDevretClick = async () => {
 // Kasa devret onayla -> tblKasaDevir'e kaydet ve grid'i yenile
 const onKasaDevretOnayla = async () => {
   try {
-    // Sayısal olmayan formatları (₺, boşluk, nokta/virgül) normalize et
+    // Kasa yekun normalizasyonu: number ise direkt yuvarla; string ise TR/EN formatlarına göre dönüştür
     const normalizeYekun = (val: unknown): number => {
-      const s = (typeof val === 'number' || typeof val === 'string') ? String(val).trim() : ''
-      if (!s) return 0
-      const num = Number(s
-        .replace(/[₺\s]/g, '')
-        .replace(/\./g, '')
-        .replace(',', '.')
-      )
-      return Number.isFinite(num) ? Number(num.toFixed(2)) : 0
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        return Number(val.toFixed(2))
+      }
+      const raw = typeof val === 'string' ? val.trim() : ''
+      if (!raw) return 0
+      const cleaned = raw.replace(/[₺\s]/g, '')
+      let parsed = 0
+      if (cleaned.includes(',') && cleaned.match(/,\d{1,2}$/)) {
+        // TR biçimi: 161.310,48 → 161310.48
+        parsed = Number(cleaned.replace(/\./g, '').replace(',', '.'))
+      } else {
+        // EN biçimi: 161310.48 veya 161,310.48 → 161310.48
+        const noThousands = cleaned.replace(/,(?=\d{3}(?:\D|$))/g, '')
+        parsed = Number(noThousands)
+      }
+      return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : 0
     }
 
     const kasaYekun = normalizeYekun(currentBakiye.value)

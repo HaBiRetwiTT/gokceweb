@@ -200,10 +200,21 @@ export class IslemService {
         throw new Error('Geçersiz kasa tutarı');
       }
       // Nokta/virgül ve TL içeren stringleri normalize et
-      const normalizeKasaYekun = (val: number): string => {
-        const num = Number(val);
-        if (!Number.isFinite(num)) return '0.00';
-        return num.toFixed(2);
+      const normalizeKasaYekun = (val: number | string): string => {
+        if (typeof val === 'number') {
+          return Number.isFinite(val) ? val.toFixed(2) : '0.00';
+        }
+        const raw = String(val || '').trim();
+        if (!raw) return '0.00';
+        const cleaned = raw.replace(/[₺\s]/g, '');
+        let num = 0;
+        if (cleaned.includes(',') && /,\d{1,2}$/.test(cleaned)) {
+          num = Number(cleaned.replace(/\./g, '').replace(',', '.'));
+        } else {
+          const noThousands = cleaned.replace(/,(?=\d{3}(?:\D|$))/g, '');
+          num = Number(noThousands);
+        }
+        return Number.isFinite(num) ? num.toFixed(2) : '0.00';
       };
       const kasaYekunFixed = normalizeKasaYekun(kasaYekun);
       // Tarihi DD.MM.YYYY formatında hazırla (nchar(10))
