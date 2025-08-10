@@ -199,7 +199,13 @@ export class IslemService {
       if (!Number.isFinite(kasaYekun)) {
         throw new Error('Geçersiz kasa tutarı');
       }
-      const kasaYekunFixed = Number(parseFloat(String(kasaYekun)).toFixed(2));
+      // Nokta/virgül ve TL içeren stringleri normalize et
+      const normalizeKasaYekun = (val: number): string => {
+        const num = Number(val);
+        if (!Number.isFinite(num)) return '0.00';
+        return num.toFixed(2);
+      };
+      const kasaYekunFixed = normalizeKasaYekun(kasaYekun);
       // Tarihi DD.MM.YYYY formatında hazırla (nchar(10))
       const bugun = new Date();
       const nKytTarihi =
@@ -223,9 +229,9 @@ export class IslemService {
       if (isIdentity) {
         const insertQuery = `
           INSERT INTO ${tableFullName} (nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (@0, @1, CAST(@2 AS DECIMAL(18,2)))
+          VALUES (@0, @1, TRY_CONVERT(DECIMAL(18,2), CAST(@2 AS NVARCHAR(50))))
         `;
-        const params = [nKytTarihi, aktifKullanici, Number(kasaYekunFixed)];
+        const params = [nKytTarihi, aktifKullanici, String(kasaYekunFixed)];
         this.debugLog('📝 KasaDevir INSERT (IDENTITY) sorgusu:', insertQuery);
         this.debugLog('📝 Parametreler:', params);
         await this.dataSource.query(insertQuery, params);
@@ -240,9 +246,9 @@ export class IslemService {
 
         const insertQuery = `
           INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (CAST(@0 AS INT), @1, @2, CAST(@3 AS DECIMAL(18,2)))
+          VALUES (CAST(@0 AS BIGINT), @1, @2, TRY_CONVERT(DECIMAL(18,2), CAST(@3 AS NVARCHAR(50))))
         `;
-        const params = [Number(nextId), nKytTarihi, aktifKullanici, Number(kasaYekunFixed)];
+        const params = [String(nextId), nKytTarihi, aktifKullanici, String(kasaYekunFixed)];
         this.debugLog('📝 KasaDevir INSERT (manuel nKasaNo) sorgusu:', insertQuery);
         this.debugLog('📝 Parametreler:', params);
         await this.dataSource.query(insertQuery, params);

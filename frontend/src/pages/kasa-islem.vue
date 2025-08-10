@@ -1783,16 +1783,16 @@ watch(selectedIslemYonu, () => {
 }
 
 .kasa-table .q-table tbody tr {
-  height: 24px;
+  height: 16px;
 }
 
 .kasa-table .q-table th {
-  padding: 2px 6px;
+  padding: 1px 6px;
   font-size: 11px;
 }
 
 .kasa-table .q-table td {
-  padding: 2px 6px;
+  padding: 1px 6px;
 }
 
 /* Bilgi sütunu için word wrap */

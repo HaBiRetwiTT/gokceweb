@@ -4349,7 +4349,7 @@ onMounted(() => {
     selectedNormalMusteri.value = globalMusteri
     console.log('🔥 selectedNormalMusteri set:', selectedNormalMusteri.value?.MstrAdi)
     // Reactive güncelleme için kısa bekleme, sonra modal aç
-    setTimeout(() => {
+      setTimeout(() => {
       if (!selectedNormalMusteri.value) {
         console.warn('❌ Modal açılışı sırasında müşteri kayboldu, açılmayacak')
         return
