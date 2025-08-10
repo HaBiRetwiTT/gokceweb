@@ -318,7 +318,7 @@
       <!-- Not Alanı -->
       <div class="not-container">
         <q-input
-          v-model="giderNotu"
+          v-model="giderNotuDisplay"
           type="textarea"
           dense
           outlined
@@ -473,7 +473,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../boot/axios'
 const saving = ref(false)
@@ -561,8 +561,28 @@ const giderRowsSag = ref<GiderKategori[]>([])
 // Gelir satırları
 const gelirRows = ref<GelirKategori[]>([])
 
-// Gider notu
-const giderNotu = ref<string>('')
+// Notlar: kullanıcı (manuel) ve otomatik (seçimlerden)
+const userNotes = ref<string>('')
+const autoNotes = ref<string>('')
+// Tek textbox gösterimi için birleştirilmiş computed
+const giderNotuDisplay = computed<string>({
+  get: () => {
+    const user = (userNotes.value || '').trim()
+    const auto = (autoNotes.value || '').trim()
+    return [user, auto].filter(Boolean).join(' ').trim()
+  },
+  set: (val: string) => {
+    const currentAuto = autoNotes.value || ''
+    const incoming = val || ''
+    if (!currentAuto) {
+      userNotes.value = incoming
+      return
+    }
+    // Kullanıcının yazdığı metinden otomatik notları tamamen temizle
+    const sanitized = incoming.split(currentAuto).join('').trimEnd()
+    userNotes.value = sanitized
+  }
+})
 
 // Ödeme araçları interface'i
 interface OdemeAraclari {
@@ -615,7 +635,8 @@ function onIslemTipiChange() {
   })
   
   // Not alanını temizle
-  giderNotu.value = ''
+  userNotes.value = ''
+  autoNotes.value = ''
   
   // Ödeme araçlarını temizle
   odemeAraclari.value = {
@@ -656,7 +677,8 @@ function onCikanGirenChange() {
   })
   
   // Not alanını temizle
-  giderNotu.value = ''
+  userNotes.value = ''
+  autoNotes.value = ''
   
   // Ödeme araçlarını temizleme - Çıkan/Giren seçiminde temizleme
   // odemeAraclari.value = {
@@ -667,6 +689,7 @@ function onCikanGirenChange() {
   //   bankaEft: false,
   //   bankaEftTutar: ''
   // }
+  refreshAutoNotes()
 }
 
 // İşlem türü (TEDARİKÇİ/MÜŞTERİ) - Default seçimsiz
@@ -749,6 +772,8 @@ function onOdemeAraciChange() {
       bankaEftTutar: ''
     }
   }
+  // Otomatik notları güncelle
+  refreshAutoNotes()
 }
 
 // Nakit kasa checkbox değiştiğinde
@@ -784,6 +809,7 @@ function formatOdemeTutar(fieldName: keyof OdemeAraclari) {
       (odemeAraclari.value[fieldName] as string) = numericValue.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
     }
   }
+  refreshAutoNotes()
 }
 
 // Ödeme tutarı unformat
@@ -1040,16 +1066,19 @@ function onCheckboxChange(row: GiderKategori) {
     row.tutar = null
   }
   debugLog('Checkbox değişti:', row.giderAdi, row.selected)
+  refreshAutoNotes()
 }
 
 function onMiktarChange(row: GiderKategori) {
   // Miktar değiştiğinde yapılacak işlemler
   debugLog('Miktar değişti:', row.giderAdi, row.miktar)
+  refreshAutoNotes()
 }
 
 function onTutarChange(row: GiderKategori) {
   // Tutar değiştiğinde yapılacak işlemler
   debugLog('Tutar değişti:', row.giderAdi, row.tutar)
+  refreshAutoNotes()
 }
 
 function formatTutar(row: GiderKategori) {
@@ -1059,6 +1088,7 @@ function formatTutar(row: GiderKategori) {
       row.tutar = numericValue.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
     }
   }
+  refreshAutoNotes()
 }
 
 function unformatTutar(row: GiderKategori) {
@@ -1068,6 +1098,7 @@ function unformatTutar(row: GiderKategori) {
       row.tutar = numericValue.toString()
     }
   }
+  // Notları unformat sırasında değiştirmeyelim; gerçek değer değişince güncellenecek
 }
 
 // Gelir event handlers
@@ -1098,16 +1129,19 @@ function onGelirCheckboxChange(row: GelirKategori) {
     row.tutar = null
   }
   debugLog('Gelir checkbox değişti:', row.gelirAdi, row.selected)
+  refreshAutoNotes()
 }
 
 function onGelirMiktarChange(row: GelirKategori) {
   // Miktar değiştiğinde yapılacak işlemler
   debugLog('Gelir miktar değişti:', row.gelirAdi, row.miktar)
+  refreshAutoNotes()
 }
 
 function onGelirTutarChange(row: GelirKategori) {
   // Tutar değiştiğinde yapılacak işlemler
   debugLog('Gelir tutar değişti:', row.gelirAdi, row.tutar)
+  refreshAutoNotes()
 }
 
 function formatGelirTutar(row: GelirKategori) {
@@ -1176,7 +1210,8 @@ function temizleForm() {
   })
   
   // Not alanını temizle
-  giderNotu.value = ''
+  userNotes.value = ''
+  autoNotes.value = ''
   
      // İşlem tipini seçimsiz yap
    islemTipi.value = null
@@ -1207,6 +1242,7 @@ function temizleForm() {
     type: 'info',
     message: 'Form temizlendi'
   })
+  refreshAutoNotes()
 }
 
 async function onKaydet() {
@@ -1286,7 +1322,8 @@ async function handleGelirGiderKaydet() {
     islemBirim: 'Adet',
     islemDoviz: 'TL',
     islemKur: 1.00,
-    islemBilgi: giderNotu.value
+    // Tek kaynak: not textbox içeriği (giderNotuDisplay)
+    islemBilgi: (giderNotuDisplay.value || '').trim()
   }
 
   // 1. GELİR/GİDER kayıtları - Giren/Çıkan seçildiğinde bu kısım çalışmayacak
@@ -1433,7 +1470,8 @@ async function handleGirenCikanKaydet() {
     islemBirim: 'Adet',
     islemDoviz: 'TL',
     islemKur: 1.00,
-    islemBilgi: giderNotu.value
+    // Tek kaynak: not textbox içeriği (giderNotuDisplay)
+    islemBilgi: (giderNotuDisplay.value || '').trim()
   }
 
   // Combobox kontrolü
@@ -1479,6 +1517,8 @@ async function handleGirenCikanKaydet() {
   }
 
   // Ödeme kayıtlarını oluştur - Giren/Çıkan seçildiğinde sadece bu kayıtlar yapılacak
+  // Kaydetmeden hemen önce otomatik notları güncelle
+  refreshAutoNotes()
   // Combobox doluysa islemCrKod olarak seçilen cari kodu kullanılacak
   const comboboxDolu = Boolean(selectedComboboxValue.value);
   const seciliCariKod = comboboxDolu
@@ -1521,6 +1561,42 @@ async function handleGirenCikanKaydet() {
   // Formu temizle
   temizleForm()
 }
+
+// Yardımcı: Para formatı
+function formatTRY(value: number): string {
+  return Number(value || 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
+}
+
+// Otomatik not üretici
+function buildAutoNotes(): string {
+  const parts: string[] = []
+
+  // Sadece GELİR/GİDER modunda detay listeleri göster
+  if (islemTipi.value === 'gider') {
+    const secili = tumGiderRows.value.filter(r => r.selected && r.tutar !== null)
+    secili.forEach(r => {
+      const satirTutar = r.miktar * parseTutarDeger(r.tutar)
+      parts.push(`(${r.giderAdi} - ${formatTRY(satirTutar)})`)
+    })
+  } else if (islemTipi.value === 'gelir') {
+    const secili = gelirRows.value.filter(r => r.selected && r.tutar !== null)
+    secili.forEach(r => {
+      const satirTutar = r.miktar * parseTutarDeger(r.tutar)
+      parts.push(`(${r.gelirAdi} - ${formatTRY(satirTutar)})`)
+    })
+  }
+
+  return parts.join(' ')
+}
+
+function refreshAutoNotes() {
+  autoNotes.value = buildAutoNotes()
+}
+
+// İşlem tipi değiştiğinde notları güncelle
+watch(islemTipi, () => {
+  refreshAutoNotes()
+})
 
 
 

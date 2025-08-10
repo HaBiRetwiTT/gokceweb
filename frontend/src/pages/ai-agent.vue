@@ -19,4 +19,9 @@ import AIAgent from 'components/AIAgent.vue';
 .ai-agent-wrapper {
   padding: 20px;
 }
+
+/* Dark mode uyumu */
+.body--dark .ai-agent-page {
+  background: var(--q-dark);
+}
 </style> 

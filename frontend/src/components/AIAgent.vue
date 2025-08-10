@@ -389,6 +389,12 @@ onMounted(async () => {
   color: white;
 }
 
+/* Dark mode: header kartını koyu degrade ile uyumlu yap */
+.body--dark .ai-header-card {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  color: #e5e7eb;
+}
+
 .ai-header-section {
   padding: 20px;
 }
@@ -446,10 +452,18 @@ onMounted(async () => {
   color: var(--q-primary);
 }
 
+.body--dark .ai-feature-title {
+  color: #90caf9;
+}
+
 .ai-feature-description {
   margin: 0;
   color: #666;
   line-height: 1.5;
+}
+
+.body--dark .ai-feature-description {
+  color: #cbd5e1;
 }
 
 .ai-dialog-card {
@@ -501,6 +515,11 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
+.body--dark .ai-result-section,
+.body--dark .ai-suggestions-section {
+  background: #1f2937;
+}
+
 .ai-result-section h5,
 .ai-suggestions-section h5 {
   margin: 0 0 15px 0;
@@ -515,6 +534,12 @@ onMounted(async () => {
   border: 1px solid #ddd;
   max-height: 200px;
   overflow-y: auto;
+}
+
+.body--dark .ai-result-data {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e5e7eb;
 }
 
 .ai-result-data pre {
@@ -562,9 +587,17 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
+.body--dark .task-result {
+  background: #1f2937;
+}
+
 .task-result h6 {
   margin: 0 0 10px 0;
   color: var(--q-primary);
+}
+
+.body--dark .task-result h6 {
+  color: #93c5fd;
 }
 
 .task-result pre {
@@ -576,6 +609,12 @@ onMounted(async () => {
   padding: 10px;
   border-radius: 5px;
   border: 1px solid #ddd;
+}
+
+.body--dark .task-result pre {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e5e7eb;
 }
 
 /* Responsive Design */

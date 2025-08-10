@@ -18,8 +18,9 @@
                 <q-option-group v-model="odeme[0]!.tip" :options="odemeTipleri.map(opt => ({ ...opt, disable: !odeme[0]!.tutar || (odeme[0]!.odemeTipiGrup ? isComboDisabled(opt.value, odeme[0]!.odemeTipiGrup, 0) : false) }))" color="primary" inline dense class="q-mr-lg" />
               </div>
               <div class="row items-center q-mb-xs justify-between">
-                <div class="q-ml-lg">
-                  <q-option-group v-model="odeme[0]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[0]!.tutar || !odeme[0]!.tip || (odeme[0]!.tip ? isComboDisabled(odeme[0]!.tip, opt.value, 0) : false) }))" color="secondary" inline dense class="q-mr-lg" :disable="!odeme[0]!.tip || !odeme[0]!.tutar" />
+                <div class="q-ml-lg row items-center no-wrap">
+                  <q-option-group v-model="odeme[0]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[0]!.tutar || !odeme[0]!.tip || (odeme[0]!.tip ? isComboDisabled(odeme[0]!.tip, opt.value, 0) : false) }))" color="secondary" inline dense class="q-mr-md" :disable="!odeme[0]!.tip || !odeme[0]!.tutar" />
+                  <q-input v-if="odeme[0]?.odemeTipiGrup === 'ekhizmet'" v-model="odeme[0]!.ekHizmetNotu" dense outlined placeholder="Ek hizmet bilgisi girin..." style="max-width: 380px;" class="q-ml-sm" />
                 </div>
                 <div class="q-mr-lg">
                   <q-checkbox v-model="odeme[0]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[0]!.tutar" />
@@ -34,15 +35,16 @@
                   <q-input v-model="odeme[1]!.tutar" label="Tahsil Edilen (TL)" outlined dense class="tahsilat-input q-mr-md" style="max-width: 160px;" :input-style="{ textAlign: 'right' }" />
                   <q-option-group v-model="odeme[1]!.tip" :options="odemeTipleri.map(opt => ({ ...opt, disable: !odeme[1]?.tutar || (odeme[1]?.odemeTipiGrup ? isComboDisabled(opt.value, odeme[1]?.odemeTipiGrup, 1) : false) }))" color="primary" inline dense class="q-mr-lg" />
                 </div>
-                <div class="row items-center q-mb-xs justify-between">
-                  <div class="q-ml-lg">
-                    <q-option-group v-model="odeme[1]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[1]?.tutar || !odeme[1]?.tip || (odeme[1]?.tip ? isComboDisabled(odeme[1]?.tip, opt.value, 1) : false) }))" color="secondary" inline dense class="q-mr-lg" :disable="!odeme[1]?.tip || !odeme[1]?.tutar" />
-                  </div>
-                  <div class="q-mr-lg">
-                    <q-checkbox v-model="odeme[1]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[1]?.tutar" />
-                    <q-checkbox v-model="odeme[1]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[1]?.tutar" />
-                  </div>
+              <div class="row items-center q-mb-xs justify-between">
+                <div class="q-ml-lg row items-center no-wrap">
+                  <q-option-group v-model="odeme[1]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[1]?.tutar || !odeme[1]?.tip || (odeme[1]?.tip ? isComboDisabled(odeme[1]?.tip, opt.value, 1) : false) }))" color="secondary" inline dense class="q-mr-md" :disable="!odeme[1]?.tip || !odeme[1]?.tutar" />
+                  <q-input v-if="odeme[1]?.odemeTipiGrup === 'ekhizmet'" v-model="odeme[1]!.ekHizmetNotu" dense outlined placeholder="Ek hizmet bilgisi girin..." style="max-width: 380px;" class="q-ml-sm" />
                 </div>
+                <div class="q-mr-lg">
+                  <q-checkbox v-model="odeme[1]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[1]?.tutar" />
+                  <q-checkbox v-model="odeme[1]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[1]?.tutar" />
+                </div>
+              </div>
               </div>
             </transition>
             <transition name="expand-fade">
@@ -52,15 +54,16 @@
                   <q-input v-model="odeme[2]!.tutar" label="Tahsil Edilen (TL)" outlined dense class="tahsilat-input q-mr-md" style="max-width: 160px;" :input-style="{ textAlign: 'right' }" />
                   <q-option-group v-model="odeme[2]!.tip" :options="odemeTipleri.map(opt => ({ ...opt, disable: !odeme[2]?.tutar || (odeme[2]?.odemeTipiGrup ? isComboDisabled(opt.value, odeme[2]?.odemeTipiGrup, 2) : false) }))" color="primary" inline dense class="q-mr-lg" />
                 </div>
-                <div class="row items-center q-mb-xs justify-between">
-                  <div class="q-ml-lg">
-                    <q-option-group v-model="odeme[2]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[2]?.tutar || !odeme[2]?.tip || (odeme[2]?.tip ? isComboDisabled(odeme[2]?.tip, opt.value, 2) : false) }))" color="secondary" inline dense class="q-mr-lg" :disable="!odeme[2]?.tip || !odeme[2]?.tutar" />
-                  </div>
-                  <div class="q-mr-lg">
-                    <q-checkbox v-model="odeme[2]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[2]?.tutar" />
-                    <q-checkbox v-model="odeme[2]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[2]?.tutar" />
-                  </div>
+              <div class="row items-center q-mb-xs justify-between">
+                <div class="q-ml-lg row items-center no-wrap">
+                  <q-option-group v-model="odeme[2]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[2]?.tutar || !odeme[2]?.tip || (odeme[2]?.tip ? isComboDisabled(odeme[2]?.tip, opt.value, 2) : false) }))" color="secondary" inline dense class="q-mr-md" :disable="!odeme[2]?.tip || !odeme[2]?.tutar" />
+                  <q-input v-if="odeme[2]?.odemeTipiGrup === 'ekhizmet'" v-model="odeme[2]!.ekHizmetNotu" dense outlined placeholder="Ek hizmet bilgisi girin..." style="max-width: 380px;" class="q-ml-sm" />
                 </div>
+                <div class="q-mr-lg">
+                  <q-checkbox v-model="odeme[2]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[2]?.tutar" />
+                  <q-checkbox v-model="odeme[2]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[2]?.tutar" />
+                </div>
+              </div>
               </div>
             </transition>
             <transition name="expand-fade">
@@ -70,15 +73,16 @@
                   <q-input v-model="odeme[3]!.tutar" label="Tahsil Edilen (TL)" outlined dense class="tahsilat-input q-mr-md" style="max-width: 160px;" :input-style="{ textAlign: 'right' }" />
                   <q-option-group v-model="odeme[3]!.tip" :options="odemeTipleri.map(opt => ({ ...opt, disable: !odeme[3]?.tutar || (odeme[3]?.odemeTipiGrup ? isComboDisabled(opt.value, odeme[3]?.odemeTipiGrup, 3) : false) }))" color="primary" inline dense class="q-mr-lg" />
                 </div>
-                <div class="row items-center q-mb-xs justify-between">
-                  <div class="q-ml-lg">
-                    <q-option-group v-model="odeme[3]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[3]?.tutar || !odeme[3]?.tip || (odeme[3]?.tip ? isComboDisabled(odeme[3]?.tip, opt.value, 3) : false) }))" color="secondary" inline dense class="q-mr-lg" :disable="!odeme[3]?.tip || !odeme[3]?.tutar" />
-                  </div>
-                  <div class="q-mr-lg">
-                    <q-checkbox v-model="odeme[3]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[3]?.tutar" />
-                    <q-checkbox v-model="odeme[3]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[3]?.tutar" />
-                  </div>
+              <div class="row items-center q-mb-xs justify-between">
+                <div class="q-ml-lg row items-center no-wrap">
+                  <q-option-group v-model="odeme[3]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[3]?.tutar || !odeme[3]?.tip || (odeme[3]?.tip ? isComboDisabled(odeme[3]?.tip, opt.value, 3) : false) }))" color="secondary" inline dense class="q-mr-md" :disable="!odeme[3]?.tip || !odeme[3]?.tutar" />
+                  <q-input v-if="odeme[3]?.odemeTipiGrup === 'ekhizmet'" v-model="odeme[3]!.ekHizmetNotu" dense outlined placeholder="Ek hizmet bilgisi girin..." style="max-width: 380px;" class="q-ml-sm" />
                 </div>
+                <div class="q-mr-lg">
+                  <q-checkbox v-model="odeme[3]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[3]?.tutar" />
+                  <q-checkbox v-model="odeme[3]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[3]?.tutar" />
+                </div>
+              </div>
               </div>
             </transition>
             <transition name="expand-fade">
@@ -88,15 +92,16 @@
                   <q-input v-model="odeme[4]!.tutar" label="Tahsil Edilen (TL)" outlined dense class="tahsilat-input q-mr-md" style="max-width: 160px;" :input-style="{ textAlign: 'right' }" />
                   <q-option-group v-model="odeme[4]!.tip" :options="odemeTipleri.map(opt => ({ ...opt, disable: !odeme[4]?.tutar || (odeme[4]?.odemeTipiGrup ? isComboDisabled(opt.value, odeme[4]?.odemeTipiGrup, 4) : false) }))" color="primary" inline dense class="q-mr-lg" />
                 </div>
-                <div class="row items-center q-mb-xs justify-between">
-                  <div class="q-ml-lg">
-                    <q-option-group v-model="odeme[4]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[4]?.tutar || !odeme[4]?.tip || (odeme[4]?.tip ? isComboDisabled(odeme[4]?.tip, opt.value, 4) : false) }))" color="secondary" inline dense class="q-mr-lg" :disable="!odeme[4]?.tip || !odeme[4]?.tutar" />
-                  </div>
-                  <div class="q-mr-lg">
-                    <q-checkbox v-model="odeme[4]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[4]?.tutar" />
-                    <q-checkbox v-model="odeme[4]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[4]?.tutar" />
-                  </div>
+              <div class="row items-center q-mb-xs justify-between">
+                <div class="q-ml-lg row items-center no-wrap">
+                  <q-option-group v-model="odeme[4]!.odemeTipiGrup" :options="odemeTipiGrupOptions.map(opt => ({ ...opt, disable: !odeme[4]?.tutar || !odeme[4]?.tip || (odeme[4]?.tip ? isComboDisabled(odeme[4]?.tip, opt.value, 4) : false) }))" color="secondary" inline dense class="q-mr-md" :disable="!odeme[4]?.tip || !odeme[4]?.tutar" />
+                  <q-input v-if="odeme[4]?.odemeTipiGrup === 'ekhizmet'" v-model="odeme[4]!.ekHizmetNotu" dense outlined placeholder="Ek hizmet bilgisi girin..." style="max-width: 380px;" class="q-ml-sm" />
                 </div>
+                <div class="q-mr-lg">
+                  <q-checkbox v-model="odeme[4]!.fis" label="Fiş Kes" class="q-mr-md" color="secondary" dense :disable="!odeme[4]?.tutar" />
+                  <q-checkbox v-model="odeme[4]!.komisyon" label="Komisyon" color="secondary" dense :disable="!odeme[4]?.tutar" />
+                </div>
+              </div>
               </div>
             </transition>
             <div class="row items-start justify-center q-mb-md">
@@ -176,12 +181,22 @@ const odemeTipleri = [
   { label: 'Banka EFT', value: 'banka' }
 ];
 
-const getDefaultOdeme = () => ([
-  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '' },
-  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '' },
-  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '' },
-  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '' },
-  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '' }
+type OdemeKalemi = {
+  tip: string;
+  tutar: string | number;
+  fis: boolean;
+  komisyon: boolean;
+  odemeTipiGrup: string;
+  orijinalTutar: string | number;
+  ekHizmetNotu: string;
+};
+
+const getDefaultOdeme = (): OdemeKalemi[] => ([
+  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '', ekHizmetNotu: '' },
+  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '', ekHizmetNotu: '' },
+  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '', ekHizmetNotu: '' },
+  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '', ekHizmetNotu: '' },
+  { tip: '', tutar: '', fis: false, komisyon: false, odemeTipiGrup: '', orijinalTutar: '', ekHizmetNotu: '' }
 ]);
 const getDefaultDepozito = () => ({
   alinan: '',
@@ -189,7 +204,7 @@ const getDefaultDepozito = () => ({
   tip: 'nakit'
 });
 
-const odeme = ref(getDefaultOdeme());
+const odeme = ref<OdemeKalemi[]>(getDefaultOdeme());
 const odemeTipiGrupOptions = [
   { label: 'Konaklama', value: 'konaklama' },
   { label: 'Ek Hizmet', value: 'ekhizmet' }
@@ -314,7 +329,13 @@ const isKaydetDisabled = computed(() => {
 // Eski fiş yazdırma fonksiyonu - artık kullanılmıyor, çoklu fiş yazdırma için printMultipleFis kullanılıyor
 
 // Çoklu fiş yazdırma fonksiyonu - tek pencerede tüm fişleri yazdırır
-async function printMultipleFis(fisliOdemeler: Array<{ tutar: string | number; tip: string; odemeTipiGrup: string; index: number; komisyon?: boolean; orijinalTutar?: string | number; }>, islemNoList: number[], musteri: { MstrAdi?: string; OdaYatak?: string; KnklmOdaNo?: string; KnklmYtkNo?: string; }, islemKllnc: string, maxIslemno: number) {
+async function printMultipleFis(
+  fisliOdemeler: Array<{ tutar: string | number; tip: string; odemeTipiGrup: string; index: number; komisyon?: boolean; orijinalTutar?: string | number; ekHizmetNotu?: string }>,
+  islemNoList: number[],
+  musteri: { MstrAdi?: string; OdaYatak?: string; KnklmOdaNo?: string; KnklmYtkNo?: string; },
+  islemKllnc: string,
+  maxIslemno: number
+) {
   console.log('🖨️ Çoklu fiş yazdırma başlıyor...');
   
   // Tüm fişlerin HTML'ini hazırla
@@ -357,10 +378,12 @@ async function printMultipleFis(fisliOdemeler: Array<{ tutar: string | number; t
     console.log(`🔢 Fiş ${i + 1} için fiş no:`, fisNo, `(maxIslemno: ${maxIslemno} + 1 + index: ${i})`);
     
     // Fiş için gerekli verileri hazırla
-    const fisProps = {
+      const fisProps = {
       musteriAdi: musteri.MstrAdi || 'Bilinmeyen Müşteri',
       odaBilgisi: musteri.OdaYatak || (musteri.KnklmOdaNo && musteri.KnklmYtkNo ? `${musteri.KnklmOdaNo} - ${musteri.KnklmYtkNo}` : ''),
-      aciklama: odemeTipiGrupLabel,
+        aciklama: od.odemeTipiGrup === 'ekhizmet' && od.ekHizmetNotu
+          ? `Ek Hizmet - ${od.ekHizmetNotu}`
+          : odemeTipiGrupLabel,
       tutar: od.tutar,
       kalanBorc: formatCurrency(kalanBorc),
       sonOdemeTarihi: new Date().toLocaleDateString('tr-TR'),
@@ -604,7 +627,9 @@ async function onKaydet() {
         islemArac: odemeTipleri.find(o => o.value === od.tip)?.label || od.tip,
         islemTip: 'Giren',
         islemGrup: odemeTipiGrupOptions.find(o => o.value === od.odemeTipiGrup)?.label || od.odemeTipiGrup,
-        islemBilgi: 'Cari hesaba mahsuben tahsil edilen...',
+        islemBilgi: od.odemeTipiGrup === 'ekhizmet' && od.ekHizmetNotu
+          ? `Ek Hizmet - ${od.ekHizmetNotu}`
+          : 'Cari hesaba mahsuben tahsil edilen...',
         islemTutar: Number(od.tutar),
         MstrHspTip: musteri.MstrHspTip,
         MstrKnklmTip: musteri.KonaklamaTipi || musteri.KnklmTip,
