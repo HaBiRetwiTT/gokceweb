@@ -1146,6 +1146,8 @@ const refreshData = async () => {
   
   // Güncel bakiyeyi hesapla
   await loadGuncelBakiye()
+  // Kasa devir verilerini de yenile
+  await loadKasaDevirVerileri()
   
   debugLog('✅ Veri yenileme tamamlandı')
 }
