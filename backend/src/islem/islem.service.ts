@@ -651,6 +651,7 @@ export class IslemService {
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${schemaName}.${tableName} i
         ${whereCondition}
+        AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
       `;
 
       const bakiyeUnknown = (await this.dataSource.query(
@@ -734,6 +735,7 @@ export class IslemService {
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${schemaName}.${tableName} i
         ${whereCondition}
+        AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
         AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
       `;
 
