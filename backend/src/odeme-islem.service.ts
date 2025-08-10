@@ -72,6 +72,8 @@ export class OdemeIslemService {
     const islemNoList: number[] = [];
 
     await this.transactionService.executeInTransaction(async (queryRunner) => {
+      // Depozito tahsilatı sırasında kullanılan islemArac bilgisini cache'le
+      let lastDepositArac: string | null = null;
       for (const islem of dto.islemler) {
         this.logger.log(`Kayıt ekleniyor: ${JSON.stringify(islem)}`);
         // Eğer musteriNo undefined ise, TC'den çek
@@ -145,6 +147,46 @@ export class OdemeIslemService {
         } else {
           this.logger.warn('Stored procedure sonuç döndürmedi');
         }
+
+        // Depozito tahsilatı ise son kullanılan arac'ı cache'le
+        if (islem.islemBilgi && String(islem.islemBilgi).includes('=DEPOZİTO TAHSİLATI=')) {
+          lastDepositArac = islem.islemArac;
+        }
+      }
+
+      // Eğer bu transaction'da depozito tahsilatı yapıldıysa, ilgili müşterinin
+      // tblislem tablosunda islemBilgi LIKE '%DEPOZİTO ALACAĞI%' olan son kaydının islemArac alanını güncelle
+      try {
+        if (lastDepositArac && dto.islemler && dto.islemler.length > 0) {
+          // Müşteri TCN veya MusteriNo'dan cari kodu üret
+          const first = dto.islemler[0];
+          let musteriNo: number | undefined = first.musteriNo;
+          if (!musteriNo && first.MstrTCN) {
+            const musteriData = await this.getMusteriBilgiByTCN(first.MstrTCN, queryRunner);
+            musteriNo = musteriData?.MstrNo;
+          }
+          if (musteriNo) {
+            const cariKod = first.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
+            const schema = this.dbConfig.getTableSchema();
+            const updateQuery = `
+              WITH lastRow AS (
+                SELECT TOP (1) islemNo
+                FROM ${schema}.tblislem
+                WHERE islemCrKod = @1 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
+                ORDER BY islemNo DESC
+              )
+              UPDATE t
+              SET t.islemArac = @0
+              FROM ${schema}.tblislem AS t
+              INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
+            `;
+            await this.transactionService.executeQuery(queryRunner, updateQuery, [lastDepositArac, cariKod]);
+            this.logger.log('Depozito alacağı son kaydın islemArac alanı güncellendi');
+          }
+        }
+      } catch (e) {
+        this.logger.warn('Depozito alacağı islemArac güncelleme uyarısı:', e);
+        // Bu adım kritik değil; ana transaction'ı bozmayalım.
       }
     });
 
