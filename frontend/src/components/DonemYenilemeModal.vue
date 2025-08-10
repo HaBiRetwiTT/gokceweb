@@ -1307,11 +1307,8 @@ function fillFormFromSelectedData(newData: MusteriKonaklama) {
       const [plnGun = 0, plnAy = 0, plnYil = 0] = (newData.KnklmPlnTrh || '').split('.').map(s => Number(s) || 0);
       const planlanan = plnGun && plnAy && plnYil ? new Date(plnYil, plnAy - 1, plnGun) : null;
       if (planlanan && planlanan < minDate) {
-        // Planlanan çıkış yarından önce ise süveyi yarına sabitle
-        const girisParts = (newData.KnklmGrsTrh || '').split('.').map(s => Number(s) || 0);
-        const grs = new Date(girisParts[2] || minDate.getFullYear(), (girisParts[1] || (minDate.getMonth()+1)) - 1, girisParts[0] || minDate.getDate());
-        const diff = Math.ceil((minDate.getTime() - grs.getTime()) / (1000*60*60*24));
-        return Math.max(1, diff);
+        // Planlanan çıkış yarından önce ise kalan süreyi 1 güne sabitle
+        return 1;
       }
       return hesaplananKonaklamaSuresi;
     })(), // 🔥 Kalan gün veya min. 1 gün sonrası

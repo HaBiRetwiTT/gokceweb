@@ -474,6 +474,9 @@ watch(() => route.path, (newPath, oldPath) => {
     void loadTakvimData()
     // Tooltipleri zorla yeniden oluştur
     tooltipKey.value++
+    // Boş odalar tooltip cache'ini temizle ve tüm oda tipleri için yeniden yüklemeye izin ver
+    bosOdalarCache.value = {}
+    bosOdalarLoading.value = {}
   }
 </script>
 
