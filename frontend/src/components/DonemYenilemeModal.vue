@@ -659,11 +659,20 @@ async function saveDonemYenileme() {
       });
       return;
     }
-    if (formData.value.KnklmOdaTip === props.selectedData?.KnklmOdaTip) {
+    // Oda tipi değişmese de oda-yatak değişebilir. Sadece oda-yatak da farklıysa devam edelim.
+    const yeniOdaYatakStr = typeof formData.value.OdaYatak === 'string'
+      ? formData.value.OdaYatak
+      : (formData.value.OdaYatak && typeof formData.value.OdaYatak === 'object' ? formData.value.OdaYatak.value : '');
+    const yeniOdaYatak = (yeniOdaYatakStr || '').replace(' (mevcut)', '');
+    const eskiOdaYatak = props.selectedData ? `${props.selectedData.KnklmOdaNo}-${props.selectedData.KnklmYtkNo}` : '';
+
+    const sadeceOdaTipiAyniVeYatakFarkli = (formData.value.KnklmOdaTip === props.selectedData?.KnklmOdaTip) && (yeniOdaYatak && eskiOdaYatak && yeniOdaYatak !== eskiOdaYatak);
+
+    if (formData.value.KnklmOdaTip === props.selectedData?.KnklmOdaTip && !sadeceOdaTipiAyniVeYatakFarkli) {
       $q.notify({
         color: 'warning',
         icon: 'info',
-        message: 'Henüz Bir Oda Değişilkliği Yapmadınız!',
+        message: 'Henüz bir oda veya yatak değişikliği yapmadınız!',
         position: 'top',
         timeout: 3000
       });
@@ -1339,6 +1348,10 @@ watch(() => props.selectedData, async (newData) => {
   if (newData) {
     fillFormFromSelectedData(newData);
     await loadOdaTipleri();
+    // Oda tipi yüklendikten sonra ilk açılışta mevcut oda tipine göre boş odaları da yükle
+    if (formData.value.KnklmOdaTip) {
+      await loadBosOdalar();
+    }
     calculatePlannedDate();
     await onKonaklamaSuresiChanged();
     await onOdaYatakChange();

@@ -975,7 +975,20 @@ const onKasaDevretClick = async () => {
 // Kasa devret onayla -> tblKasaDevir'e kaydet ve grid'i yenile
 const onKasaDevretOnayla = async () => {
   try {
-    const response = await $api.post('/islem/kasa-devret', { kasaYekun: currentBakiye.value })
+    // Sayısal olmayan formatları (₺, boşluk, nokta/virgül) normalize et
+    const normalizeYekun = (val: unknown): number => {
+      const s = (typeof val === 'number' || typeof val === 'string') ? String(val).trim() : ''
+      if (!s) return 0
+      const num = Number(s
+        .replace(/[₺\s]/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.')
+      )
+      return Number.isFinite(num) ? Number(num.toFixed(2)) : 0
+    }
+
+    const kasaYekun = normalizeYekun(currentBakiye.value)
+    const response = await $api.post('/islem/kasa-devret', { kasaYekun })
     if (response.data && response.data.success) {
       showKasaDevretDialog.value = false
       $q.notify({ type: 'positive', message: 'Kasa devri kaydedildi', position: 'top' })

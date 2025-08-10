@@ -209,26 +209,41 @@ export class IslemService {
       // Aktif kullanıcı adı (tblPersonel.PrsnUsrNm)
       const aktifKullanici = await this.getAktifKullaniciAdi();
 
-      // Daima INSERT
-      // nKasaNo kimliği (tablo IDENTITY değil; bu yüzden yeni değer üret)
-      const nextIdQuery = `
-        SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
-        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir WITH (TABLOCKX)
-      `;
-      const nextIdResUnknown = (await this.dataSource.query(
-        nextIdQuery,
-      )) as unknown;
-      const nextIdRes = nextIdResUnknown as Array<{ nextId: number | string }>;
-      const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
+      // nKasaNo sütunu bazı ortamlarda IDENTITY, bazı ortamlarda manuel olabilir.
+      // Dinamik tespit et ve uygun INSERT stratejisini uygula.
+      const tableFullName = `${this.dbConfig.getTableSchema()}.tblKasaDevir`;
+      const identityCheckQuery = `SELECT COLUMNPROPERTY(OBJECT_ID('${tableFullName}'),'nKasaNo','IsIdentity') as isIdentity`;
+      const idChkUnknown = (await this.dataSource.query(identityCheckQuery)) as unknown;
+      const idChk = idChkUnknown as Array<{ isIdentity: number | string | null }>; 
+      const isIdentity = Number(idChk?.[0]?.isIdentity ?? 0) === 1;
 
-      const insertQuery = `
-        INSERT INTO ${this.dbConfig.getTableSchema()}.tblKasaDevir (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
-        VALUES (@0, @1, @2, @3)
-      `;
-      const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
-      this.debugLog('📝 KasaDevir INSERT sorgusu:', insertQuery);
-      this.debugLog('📝 Parametreler:', params);
-      await this.dataSource.query(insertQuery, params);
+      if (isIdentity) {
+        const insertQuery = `
+          INSERT INTO ${tableFullName} (nKytTarihi, nKasaDvrAln, nKasaYekun)
+          VALUES (@0, @1, @2)
+        `;
+        const params = [nKytTarihi, aktifKullanici, kasaYekunFixed];
+        this.debugLog('📝 KasaDevir INSERT (IDENTITY) sorgusu:', insertQuery);
+        this.debugLog('📝 Parametreler:', params);
+        await this.dataSource.query(insertQuery, params);
+      } else {
+        const nextIdQuery = `
+          SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
+          FROM ${tableFullName} WITH (TABLOCKX)
+        `;
+        const nextIdResUnknown = (await this.dataSource.query(nextIdQuery)) as unknown;
+        const nextIdRes = nextIdResUnknown as Array<{ nextId: number | string }>;
+        const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
+
+        const insertQuery = `
+          INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
+          VALUES (@0, @1, @2, @3)
+        `;
+        const params = [nextId, nKytTarihi, aktifKullanici, kasaYekunFixed];
+        this.debugLog('📝 KasaDevir INSERT (manuel nKasaNo) sorgusu:', insertQuery);
+        this.debugLog('📝 Parametreler:', params);
+        await this.dataSource.query(insertQuery, params);
+      }
 
       return { success: true };
     } catch (error: unknown) {

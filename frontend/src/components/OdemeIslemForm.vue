@@ -318,12 +318,35 @@ const showOdeme4 = computed(() => isOdemeValid(2));
 const showOdeme5 = computed(() => isOdemeValid(3));
 
 const isKaydetDisabled = computed(() => {
-  const odemeValid = odeme.value.some(item =>
-    !!item.tutar && !!item.tip && !!item.odemeTipiGrup
-  );
-  const depozitoValid =
-    (!!depozito.value.alinan || !!depozito.value.iade) && !!depozito.value.tip;
-  return !(odemeValid || depozitoValid);
+  // En az bir geçerli ödeme
+  const hasValidOdeme = odeme.value.some(item => !!item.tutar && !!item.tip && !!item.odemeTipiGrup);
+
+  // Herhangi bir ödeme container'ında eksik/parsiyel bilgi var mı?
+  const hasPartialInvalidOdeme = odeme.value.some(item => {
+    const f1 = !!item.tutar;
+    const f2 = !!item.tip;
+    const f3 = !!item.odemeTipiGrup;
+    const anyFilled = f1 || f2 || f3;
+    const allFilled = f1 && f2 && f3;
+    return anyFilled && !allFilled; // kısmi doldurulmuş ise geçersiz
+  });
+
+  // Depozito geçerli mi?
+  const depoAnyAmount = !!depozito.value.alinan || !!depozito.value.iade;
+  const depoTip = !!depozito.value.tip;
+  const depozitoValid = depoAnyAmount && depoTip;
+  // Ödeme konteynerlerinden herhangi biri kullanılıyor mu?
+  const paymentAnyFilled = odeme.value.some(item => !!item.tutar || !!item.tip || !!item.odemeTipiGrup);
+  // Depozito parsiyel/eksik mi? YALNIZCA hiçbir ödeme konteyneri kullanılmıyorken kontrol et
+  const validateDepositOnly = !paymentAnyFilled;
+  const depozitoPartialInvalid = validateDepositOnly && ((depoAnyAmount || depoTip) && !depozitoValid);
+
+  // Kural: herhangi bir parsiyel veri varsa buton devre dışı; aksi halde en az bir geçerli giriş olmalı
+  if (hasPartialInvalidOdeme || depozitoPartialInvalid) return true;
+  // En az bir geçerli ödeme veya (hiç ödeme yoksa) geçerli depozito olmalı
+  if (hasValidOdeme) return false;
+  if (validateDepositOnly && depozitoValid) return false;
+  return true;
 });
 
 // Eski fiş yazdırma fonksiyonu - artık kullanılmıyor, çoklu fiş yazdırma için printMultipleFis kullanılıyor
