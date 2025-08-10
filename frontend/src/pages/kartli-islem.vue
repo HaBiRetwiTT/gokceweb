@@ -185,7 +185,7 @@
         />
       </div>
 
-      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;" v-show="shouldShowSearchBox">
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;">
         <q-input
           ref="searchInputRef"
           v-model="searchText"
@@ -1196,6 +1196,7 @@ import OdemeIslemForm from '../components/OdemeIslemForm.vue';
 
 // Tip tanımları
 import type { DashboardStats, MusteriKonaklama, BorcluMusteri, AlacakliMusteri, BakiyesizHesaplar, CariHareket, KonaklamaGecmisi } from '../components/models';
+type SearchMusteriKonaklama = Partial<MusteriKonaklama> & { targetKart?: string };
 
 // QTable pagination event tipi
 // Quasar'ın bazı sürümlerinde QTableRequest tipi export edilmiyor, bu yüzden elle tanımlıyoruz
@@ -1328,7 +1329,7 @@ const displayedMusteriListesi = computed(() => {
   
   // Arama filtresi uygula
   if (searchText.value && searchText.value.length >= 3) {
-    baseList = filteredMusteriListesi.value;
+    baseList = filteredMusteriListesi.value as unknown as MusteriKonaklama[];
   }
   
   // Firma filtresi uygula
@@ -1420,7 +1421,7 @@ const displayedKonaklamaGecmisiListesi = computed(() => {
   return konaklamaGecmisiListesi.value
 })
 
-// 🔥 Arama kutusu görünürlük kontrolü
+// 🔥 Arama kutusu kontrol referansları
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 const isSearchFocused = ref<boolean>(false)
 
@@ -1434,23 +1435,6 @@ const normalMusteriClickTimeout = ref<number | null>(null)
 const borcluMusteriClickTimeout = ref<number | null>(null)
 const alacakliMusteriClickTimeout = ref<number | null>(null)
 const bakiyesizHesaplarClickTimeout = ref<number | null>(null)
-
-const shouldShowSearchBox = computed(() => {
-  // DEBUG logları kaldırıldı
-  if (isSearchFocused.value || (searchText.value && searchText.value.trim().length > 0)) {
-    return true;
-  }
-  if (showBorcluTable.value) {
-    return borcluMusteriListesi.value.length > borcluPagination.value.rowsPerPage;
-  }
-  if (showAlacakliTable.value) {
-    return alacakliMusteriListesi.value.length > alacakliPagination.value.rowsPerPage;
-  }
-  if (showBakiyesizHesaplarTable.value) {
-    return bakiyesizHesaplarListesi.value.length > bakiyesizHesaplarPagination.value.rowsPerPage;
-  }
-  return musteriListesi.value.length > pagination.value.rowsPerPage;
-});
 
 // Arama kutusu focus event handler
 function onSearchFocus() {
@@ -3576,49 +3560,53 @@ function getDateClass(dateStr: string): string {
 
 
 
-// Arama fonksiyonu
-function performSearch(searchValue: string) {
-  if (!searchValue || searchValue.length < 3) {
+// Global arama (backend) fonksiyonu
+async function performSearch(searchValue: string) {
+  if (!searchValue || searchValue.trim().length < 3) {
     filteredMusteriListesi.value = []
     filteredBorcluMusteriListesi.value = []
     filteredBakiyesizHesaplarListesi.value = []
     filteredCariHareketlerListesi.value = []
     return
   }
-  
-  const searchLower = searchValue.toLowerCase()
-  
-  // Normal müşteri listesi için arama
-  filteredMusteriListesi.value = musteriListesi.value.filter(musteri => {
-    return Object.values(musteri).some(value => {
-      if (value === null || value === undefined) return false
-      return String(value).toLowerCase().includes(searchLower)
+  // Arama aktifken alt grid tablolarını gizle
+  showKonaklamaGecmisi.value = false
+  showCariHareketler.value = false
+  try {
+    const { data } = await api.get('/dashboard/musteri-konaklama-search', {
+      params: { q: searchValue.trim(), page: 1, limit: 50 }
     })
-  })
-  
-  // Borçlu müşteri listesi için arama
-  filteredBorcluMusteriListesi.value = borcluMusteriListesi.value.filter(musteri => {
-    return Object.values(musteri).some(value => {
-      if (value === null || value === undefined) return false
-      return String(value).toLowerCase().includes(searchLower)
-    })
-  })
-  
-  // Bakiyesiz hesaplar listesi için arama
-  filteredBakiyesizHesaplarListesi.value = bakiyesizHesaplarListesi.value.filter(hesap => {
-    return Object.values(hesap).some(value => {
-      if (value === null || value === undefined) return false
-      return String(value).toLowerCase().includes(searchLower)
-    })
-  })
-  
-  // Cari hareketler listesi için arama
-  filteredCariHareketlerListesi.value = cariHareketlerListesi.value.filter(hareket => {
-    return Object.values(hareket).some(value => {
-      if (value === null || value === undefined) return false
-      return String(value).toLowerCase().includes(searchLower)
-    })
-  })
+    if (data && data.success) {
+      // Backend global arama sonuçları kart bağımsızdır. Normal tablo için direkt gösteriyoruz.
+      // Tip uyumu için yalnızca ortak alanları kullanıyoruz.
+      const rows: SearchMusteriKonaklama[] = (data.data || []) as SearchMusteriKonaklama[];
+      filteredMusteriListesi.value = rows.map((x) => ({
+        MstrTCN: x.MstrTCN || '',
+        MstrHspTip: x.MstrHspTip || '',
+        MstrFirma: x.MstrFirma || '',
+        MstrAdi: x.MstrAdi || '',
+        MstrTelNo: x.MstrTelNo || '',
+        KnklmOdaTip: x.KnklmOdaTip || '',
+        KnklmOdaNo: x.KnklmOdaNo || '',
+        KnklmYtkNo: x.KnklmYtkNo || '',
+        KnklmTip: x.KnklmTip || '',
+        KnklmNfyt: Number(x.KnklmNfyt || 0),
+        KnklmGrsTrh: x.KnklmGrsTrh || '',
+        KnklmPlnTrh: x.KnklmPlnTrh || '',
+        KnklmCksTrh: x.KnklmCksTrh || '',
+        KnklmNot: x.KnklmNot || ''
+      })) as unknown as MusteriKonaklama[]
+      // Diğer tablolar global arama kapsamı dışında tutulur
+      filteredBorcluMusteriListesi.value = []
+      filteredBakiyesizHesaplarListesi.value = []
+      filteredCariHareketlerListesi.value = []
+    } else {
+      filteredMusteriListesi.value = []
+    }
+  } catch (err) {
+    console.error('Global arama hatası:', err)
+    filteredMusteriListesi.value = []
+  }
 }
 
 // Arama değişikliği event handler
@@ -3630,9 +3618,12 @@ function onSearchChange(newValue: string | number | null) {
   if (!searchValue || searchValue.trim().length === 0) {
     // Arama metni temizlendi, focus durumuna göre görünürlük belirlenecek
     console.log('Arama metni temizlendi - görünürlük focus durumuna göre belirlenecek')
+    // Arama kapandıysa alt gridler eski davranışına dönebilir
+    showKonaklamaGecmisi.value = false
+    showCariHareketler.value = false
   }
   
-  performSearch(searchValue)
+  void performSearch(searchValue)
 }
 
 // 🔥 DİNAMİK BUTON FONKSİYONU
@@ -4269,6 +4260,10 @@ async function loadSelectedCardData(cardType: string) {
     await nextTick()
     
     void loadMusteriListesi()
+    // Eğer global arama aktifse (≥3 karakter), arama sonuçlarını (kart bağımsız) yansıt
+    if (searchText.value && searchText.value.trim().length >= 3) {
+      void performSearch(searchText.value)
+    }
   }
 }
 

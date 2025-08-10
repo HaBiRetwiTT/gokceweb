@@ -47,6 +47,30 @@ export class DashboardController {
     }
   }
 
+  // Global arama: karttan bağımsız v_MusteriKonaklama üzerinde arama
+  @Get('musteri-konaklama-search')
+  async searchMusteriKonaklama(
+    @Query('q') q: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50'
+  ) {
+    try {
+      if (!q || q.trim().length < 2) {
+        return { success: true, data: [], total: 0, page: 1, limit: parseInt(limit, 10) || 50 };
+      }
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 50;
+      const result = await this.dashboardService.searchMusteriKonaklama(q, pageNum, limitNum);
+      return { success: true, ...result };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Global arama başarısız: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Konaklama tiplerini getir
   @Get('konaklama-tipleri')
   async getKonaklamaTipleri() {

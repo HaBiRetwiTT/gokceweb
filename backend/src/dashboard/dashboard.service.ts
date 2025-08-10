@@ -101,6 +101,132 @@ export class DashboardService {
     this.dbConfig = new DatabaseConfigService();
   }
 
+  // Global arama: v_MusteriKonaklama üzerinde karttan bağımsız arama
+  async searchMusteriKonaklama(queryText: string, page = 1, limit = 50): Promise<{ data: MusteriKonaklamaData[] & { targetKart: string }[]; total: number; page: number; limit: number; }>
+  {
+    const views = this.dbConfig.getViews();
+    const offset = (Math.max(1, page) - 1) * Math.max(1, limit);
+    const pageSize = Math.max(1, Math.min(limit, 100));
+
+    if (!queryText || queryText.trim().length < 2) {
+      return { data: [], total: 0, page: Math.max(1, page), limit: pageSize };
+    }
+
+    // Telefon numarası aramalarında tire/boşluk temizleme için normalize edilmiş versiyon
+    const q = `%${queryText.trim()}%`;
+
+    // Toplam sayıyı hesapla
+    const countSql = `
+      WITH src AS (
+        SELECT v.MstrTCN, v.knklmNo
+        FROM ${views.musteriKonaklama} v
+        WHERE 
+          v.MstrTCN LIKE @0 OR 
+          v.MstrAdi LIKE @0 OR 
+          v.MstrTelNo LIKE @0 OR 
+          v.MstrFirma LIKE @0 OR 
+          v.KnklmOdaTip LIKE @0 OR 
+          CAST(v.KnklmOdaNo AS NVARCHAR(50)) LIKE @0 OR 
+          CAST(v.KnklmYtkNo AS NVARCHAR(50)) LIKE @0 OR 
+          v.KnklmTip LIKE @0
+      ), ranked AS (
+        SELECT 
+          s.MstrTCN,
+          s.knklmNo,
+          ROW_NUMBER() OVER (PARTITION BY s.MstrTCN ORDER BY s.knklmNo DESC) AS rn
+        FROM src s
+      )
+      SELECT COUNT(1) AS total FROM ranked WHERE rn = 1
+    `;
+
+    // Hedef kartı belirle: öncelik Bugün Çıkan > Süresi Dolan > Devam Eden > Yeni Müşteri > Yeni Giriş
+    const dataSql = `
+      WITH src AS (
+        SELECT 
+          v.MstrTCN,
+          v.MstrHspTip,
+          v.MstrFirma,
+          v.MstrAdi,
+          v.MstrTelNo,
+          v.KnklmOdaTip,
+          v.KnklmOdaNo,
+          v.KnklmYtkNo,
+          v.KnklmTip,
+          v.KnklmGrsTrh,
+          v.KnklmPlnTrh,
+          v.KnklmLfyt,
+          v.Knklmisk,
+          v.KnklmNfyt,
+          v.KnklmNot,
+          v.knklmNo,
+          -- Eğer view KnklmCksTrh içermiyorsa NULL kalır; mevcut kart kuralları diğer alanlarla da çalışır
+          CAST(NULL AS NVARCHAR(10)) AS KnklmCksTrh
+        FROM ${views.musteriKonaklama} v
+        WHERE 
+          v.MstrTCN LIKE @0 OR 
+          v.MstrAdi LIKE @0 OR 
+          v.MstrTelNo LIKE @0 OR 
+          v.MstrFirma LIKE @0 OR 
+          v.KnklmOdaTip LIKE @0 OR 
+          CAST(v.KnklmOdaNo AS NVARCHAR(50)) LIKE @0 OR 
+          CAST(v.KnklmYtkNo AS NVARCHAR(50)) LIKE @0 OR 
+          v.KnklmTip LIKE @0
+      ), ranked AS (
+        SELECT 
+          s.*,
+          ROW_NUMBER() OVER (PARTITION BY s.MstrTCN ORDER BY s.knklmNo DESC) AS rn
+        FROM src s
+      )
+      SELECT 
+        r.MstrTCN,
+        r.MstrHspTip,
+        r.MstrFirma,
+        r.MstrAdi,
+        r.MstrTelNo,
+        r.KnklmOdaTip,
+        r.KnklmOdaNo,
+        r.KnklmYtkNo,
+        r.KnklmTip,
+        r.KnklmGrsTrh,
+        r.KnklmPlnTrh,
+        r.KnklmLfyt,
+        r.Knklmisk,
+        r.KnklmNfyt,
+        r.KnklmNot,
+        r.knklmNo,
+        CASE 
+          WHEN TRY_CONVERT(date, r.KnklmCksTrh, 104) = CONVERT(date, GETDATE(), 104) THEN 'bugun-cikan'
+          WHEN r.KnklmCksTrh IS NULL AND TRY_CONVERT(date, r.KnklmPlnTrh, 104) <= CONVERT(date, GETDATE(), 104) THEN 'suresi-dolan'
+          WHEN r.KnklmCksTrh IS NULL THEN 'toplam-aktif'
+          WHEN r.KnklmNot LIKE 'Yeni Müşteri%' THEN 'yeni-musteri'
+          WHEN r.KnklmNot LIKE 'Yeni Giriş%' THEN 'yeni-giris'
+          ELSE 'toplam-aktif'
+        END AS targetKart
+      FROM ranked r
+      WHERE r.rn = 1
+      ORDER BY 
+        TRY_CONVERT(date, r.KnklmPlnTrh, 104) ASC,
+        r.KnklmTip DESC,
+        TRY_CONVERT(date, r.KnklmGrsTrh, 104) DESC
+      OFFSET @1 ROWS FETCH NEXT @2 ROWS ONLY
+    `;
+
+    try {
+      const countRes = await this.musteriRepository.query(countSql, [q]);
+      const total = Number(countRes?.[0]?.total || 0);
+
+      const data: (MusteriKonaklamaData & { targetKart: string })[] = await this.musteriRepository.query(
+        dataSql,
+        [q, offset, pageSize]
+      );
+
+      return { data, total, page: Math.max(1, page), limit: pageSize };
+    } catch (error) {
+      console.error('searchMusteriKonaklama hatası:', error);
+      throw new Error('Global arama başarısız');
+    }
+  }
+
   // sp_bOdGunMusteriListeY stored procedure'ünü çağır
   async getMusteriListesi(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
