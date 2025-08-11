@@ -330,6 +330,12 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/mevcut-rezerve'
   },
   {
+    title: 'Kat / Oda Planları',
+    caption: 'Kirli - Arızalı',
+    icon: 'grid_view',
+    link: '/oda-durum'
+  },
+  {
     title: 'AI Asistan',
     caption: 'Akıllı Öneriler',
     icon: 'smart_toy',

@@ -340,11 +340,11 @@
               :options="comboboxOptionsFiltered"
               dense
               outlined
-              placeholder="Yazarak Arama Yapabilirsiniz..."
+              :placeholder="comboboxPlaceholder"
               class="combobox-select"
               style="width: 400px;"
               clearable
-              :use-input="comboboxPopup"
+              use-input
               input-debounce="0"
               v-model:input-value="comboboxFilter"
               @filter="onComboboxFilter"
@@ -880,6 +880,7 @@ const comboboxOptions = ref<Array<{ label: string; value: string; bakiye?: strin
 const comboboxOptionsFiltered = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
 const comboboxFilter = ref('')
 const comboboxPopup = ref(false)
+const comboboxPlaceholder = computed(() => comboboxPopup.value ? 'Yazarak Arama Yapabilirsiniz...' : '')
 
 // Seçili combobox değeri
 const selectedComboboxValue = ref<{ label: string; value: string } | string>('')

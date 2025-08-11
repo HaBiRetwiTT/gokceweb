@@ -46,6 +46,62 @@ export class KonaklamaTakvimService {
     private dbConfig: DatabaseConfigService,
   ) {}
 
+  // Kat / Oda planı: Katlara göre oda numaralarını döndür
+  async getKatOdaPlan(): Promise<{ floors: number[]; floorToRooms: Record<string, { odaNo: number; odaTip: string; yatak: number; dolu: number; ariza: boolean; kirli: boolean }[]>; maxCols: number }> {
+    const schema = this.dbConfig.getTableSchema();
+    const sql = `
+      SELECT 
+        odYatOdaNo as OdaNo,
+        odYatOdaTip as OdaTip,
+        COUNT(*) as YatakSayisi,
+        SUM(CASE WHEN odYatDurum = 'DOLU' THEN 1 ELSE 0 END) as DoluSayisi,
+        MAX(CASE WHEN UPPER(LTRIM(RTRIM(odYatDurum))) IN ('ARIZA', 'ARIZALI') THEN 1 ELSE 0 END) as HasAriza,
+        MAX(CASE WHEN UPPER(LTRIM(RTRIM(odYatDurum))) IN ('KİRLİ', 'KIRLI', 'KIRLI ') THEN 1 ELSE 0 END) as HasKirli
+      FROM ${schema}.tblOdaYatak
+      WHERE odYatOdaNo IS NOT NULL AND odYatOdaNo <> ''
+      GROUP BY odYatOdaNo, odYatOdaTip
+    `;
+    const rows: Array<{ OdaNo: string | number; OdaTip: string | null; YatakSayisi: number | string | null; DoluSayisi: number | string | null; HasAriza: number | string | null; HasKirli: number | string | null }> = await this.musteriRepository.query(sql);
+    const floorToRooms: Record<string, { odaNo: number; odaTip: string; yatak: number; dolu: number; ariza: boolean; kirli: boolean }[]> = {};
+    for (const r of rows) {
+      const odaNoNum = Number(String(r.OdaNo).replace(/\D/g, ''));
+      if (!isFinite(odaNoNum)) continue;
+      const floor = String(String(odaNoNum).charAt(0));
+      if (!floorToRooms[floor]) floorToRooms[floor] = [];
+      const incomingTip = String(r.OdaTip || '').trim();
+      const yatakSayisiRaw = r.YatakSayisi ?? 0;
+      const doluSayisiRaw = r.DoluSayisi ?? 0;
+      const yatak = typeof yatakSayisiRaw === 'number' ? yatakSayisiRaw : Number(yatakSayisiRaw) || 0;
+      const dolu = typeof doluSayisiRaw === 'number' ? doluSayisiRaw : Number(doluSayisiRaw) || 0;
+      const arizaRaw = r.HasAriza ?? 0;
+      const ariza = (typeof arizaRaw === 'number' ? arizaRaw : Number(arizaRaw)) > 0;
+      const kirliRaw = r.HasKirli ?? 0;
+      const kirli = (typeof kirliRaw === 'number' ? kirliRaw : Number(kirliRaw)) > 0;
+      const existing = floorToRooms[floor].find(x => x.odaNo === odaNoNum);
+      if (!existing) {
+        floorToRooms[floor].push({ odaNo: odaNoNum, odaTip: incomingTip, yatak, dolu, ariza, kirli });
+      } else {
+        // Aynı odaNo birden fazla OdaTip ile gelirse, tip boş olanı doldur; yatak/dolu sayısını birleştir
+        if (!existing.odaTip && incomingTip) existing.odaTip = incomingTip;
+        existing.yatak = Math.max(existing.yatak, yatak);
+        existing.dolu = Math.max(existing.dolu, dolu);
+        existing.ariza = existing.ariza || ariza;
+        existing.kirli = existing.kirli || kirli;
+      }
+    }
+    const floors: number[] = [];
+    let maxCols = 0;
+    for (let k = 1; k <= 9; k++) {
+      const key = String(k);
+      floors.push(k);
+      const list = floorToRooms[key] || [];
+      list.sort((a, b) => a.odaNo - b.odaNo);
+      floorToRooms[key] = list;
+      if (list.length > maxCols) maxCols = list.length;
+    }
+    return { floors, floorToRooms, maxCols };
+  }
+
   /**
    * Oda doluluk takvimini getirir
    * @param baslangicTarihi Başlangıç tarihi (opsiyonel, varsayılan bugün)
@@ -78,6 +134,65 @@ export class KonaklamaTakvimService {
     } catch (error) {
       console.error('getOdaDolulukTakvimi hatası:', error);
       throw new Error('Konaklama takvimi alınamadı');
+    }
+  }
+
+  async setOdaArizaDurum(odaNo: number, ariza: boolean) {
+    if (!odaNo || !isFinite(Number(odaNo))) {
+      return { success: false, message: 'Geçersiz odaNo' };
+    }
+    const schema = this.dbConfig.getTableSchema();
+    const odaNoStr = String(odaNo);
+    if (ariza) {
+      // ARIZA EKLE: Odadaki tüm yatakların BOŞ olduğundan emin ol
+      const kontrolQuery = `
+        SELECT COUNT(*) AS cnt
+        FROM ${schema}.tblOdaYatak
+        WHERE odYatOdaNo = @0
+          AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
+      `;
+      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr]) as Array<{ cnt: number | string }>
+      const cnt = Number(kontrol?.[0]?.cnt ?? 0)
+      if (cnt > 0) {
+        return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
+      }
+      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'ARIZA' WHERE odYatOdaNo = @0`;
+      await this.musteriRepository.query(updateQuery, [odaNoStr]);
+      return { success: true, odaNo, ariza };
+    } else {
+      // ARIZA KALDIR: Odadaki tüm ARIZA yataklarını BOŞ yap
+      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) = 'ARIZA'`;
+      await this.musteriRepository.query(updateQuery, [odaNoStr]);
+      return { success: true, odaNo, ariza };
+    }
+  }
+
+  async setOdaKirliDurum(odaNo: number, kirli: boolean) {
+    if (!odaNo || !isFinite(Number(odaNo))) {
+      return { success: false, message: 'Geçersiz odaNo' };
+    }
+    const schema = this.dbConfig.getTableSchema();
+    const odaNoStr = String(odaNo);
+    if (kirli) {
+      // KİRLİ YAP: tüm yataklar BOŞ olmalı
+      const kontrolQuery = `
+        SELECT COUNT(*) AS cnt
+        FROM ${schema}.tblOdaYatak
+        WHERE odYatOdaNo = @0
+          AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
+      `;
+      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr]) as Array<{ cnt: number | string }>
+      const cnt = Number(kontrol?.[0]?.cnt ?? 0)
+      if (cnt > 0) {
+        return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
+      }
+      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'KİRLİ' WHERE odYatOdaNo = @0`;
+      await this.musteriRepository.query(updateQuery, [odaNoStr]);
+      return { success: true, odaNo, kirli };
+    } else {
+      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) IN ('KİRLİ','KIRLI')`;
+      await this.musteriRepository.query(updateQuery, [odaNoStr]);
+      return { success: true, odaNo, kirli };
     }
   }
 

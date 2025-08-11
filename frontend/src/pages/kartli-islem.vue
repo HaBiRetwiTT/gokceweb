@@ -3586,6 +3586,8 @@ function getDateClass(dateStr: string): string {
     isPast: date < todayStart,
     isToday: date.toDateString() === today.toDateString()
   })
+
+  
   
   if (date < todayStart) {
     console.log('🔥 Geçmiş tarih - past-date-highlight')
@@ -5510,6 +5512,9 @@ function bakiyeGuncelleHandler() {
   transform: scaleY(1.1);
   transition: all 0.3s ease;
 }
+
+/* Süresi Dolan kartı aktifken Oda-Yatak chip altına ince sarı çizgi */
+
 
 .body--dark .stats-group-divider:hover {
   background: linear-gradient(180deg, 

@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { KonaklamaTakvimService } from './konaklama-takvim.service';
 
 @Controller('konaklama-takvim')
@@ -14,5 +14,22 @@ export class KonaklamaTakvimController {
     const gunSayisiInt = gunSayisi ? parseInt(gunSayisi) : 32; // Varsayılan 32 gün
     console.log(`🎯 API çağrısı: gunSayisi param = ${gunSayisi}, parsed = ${gunSayisiInt}`);
     return this.konaklamaTakvimService.getOdaDolulukTakvimi(baslangicTarihi, gunSayisiInt);
+  }
+
+  @Get('kat-oda-plan')
+  async getKatOdaPlan() {
+    return this.konaklamaTakvimService.getKatOdaPlan();
+  }
+
+  @Post('oda-ariza')
+  async setOdaAriza(@Body() body: { odaNo: number; ariza: boolean }) {
+    const { odaNo, ariza } = body || ({} as { odaNo: number; ariza: boolean });
+    return this.konaklamaTakvimService.setOdaArizaDurum(odaNo, ariza);
+  }
+
+  @Post('oda-kirli')
+  async setOdaKirli(@Body() body: { odaNo: number; kirli: boolean }) {
+    const { odaNo, kirli } = body || ({} as { odaNo: number; kirli: boolean });
+    return this.konaklamaTakvimService.setOdaKirliDurum(odaNo, kirli);
   }
 }
