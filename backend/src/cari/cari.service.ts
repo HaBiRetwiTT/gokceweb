@@ -23,6 +23,7 @@ export class CariService {
       CariKod: string;
       CariAdi: string;
       CariBakiye: number | string | null;
+      CariVTCN?: string | null;
     }>
   > {
     try {
@@ -33,6 +34,7 @@ export class CariService {
         SELECT 
           c.CariKod,
           c.CariAdi,
+          c.CariVTCN,
           ISNULL(SUM(
             CASE 
               WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
@@ -44,7 +46,7 @@ export class CariService {
         LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
         WHERE (c.CariKod LIKE 'A%' OR c.CariKod LIKE 'CT%')
           AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
-        GROUP BY c.CariKod, c.CariAdi
+        GROUP BY c.CariKod, c.CariAdi, c.CariVTCN
         ORDER BY c.CariAdi ASC
       `;
 
@@ -55,6 +57,7 @@ export class CariService {
         CariKod: string;
         CariAdi: string;
         CariBakiye: number | string | null;
+        CariVTCN?: string | null;
       }>;
 
       this.debugLog('Tedarikçi listesi sonucu:', result);
@@ -74,6 +77,7 @@ export class CariService {
       CariKod: string;
       CariAdi: string;
       CariBakiye: number | string | null;
+      CariVTCN?: string | null;
     }>
   > {
     try {
@@ -84,6 +88,7 @@ export class CariService {
         SELECT 
           c.CariKod,
           c.CariAdi,
+          c.CariVTCN,
           ISNULL(SUM(
             CASE 
               WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
@@ -96,7 +101,7 @@ export class CariService {
         WHERE c.CariKod LIKE 'M%'
           AND c.CariAdi IS NOT NULL
           AND c.CariAdi <> ''
-        GROUP BY c.CariKod, c.CariAdi
+        GROUP BY c.CariKod, c.CariAdi, c.CariVTCN
         ORDER BY c.CariAdi ASC
       `;
 
@@ -108,6 +113,7 @@ export class CariService {
         CariKod: string;
         CariAdi: string;
         CariBakiye: number | string | null;
+        CariVTCN?: string | null;
       }>;
       this.debugLog('Müşteri sorgusu sonucu:', result.length, 'kayıt bulundu');
 

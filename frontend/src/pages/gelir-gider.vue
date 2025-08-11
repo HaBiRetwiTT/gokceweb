@@ -337,24 +337,41 @@
           <div class="combobox-container">
             <q-select
               v-model="selectedComboboxValue"
-              :options="comboboxOptions"
+              :options="comboboxOptionsFiltered"
               dense
               outlined
-              placeholder="Seçenek seçin..."
+              placeholder="Yazarak Arama Yapabilirsiniz..."
               class="combobox-select"
               style="width: 400px;"
               clearable
+              :use-input="comboboxPopup"
+              input-debounce="0"
+              v-model:input-value="comboboxFilter"
+              @filter="onComboboxFilter"
+              @popup-show="comboboxPopup = true"
+              @popup-hide="() => { comboboxPopup = false; comboboxFilter = '' }"
               @click="undefined"
               @update:model-value="onComboboxChange"
               @clear="onComboboxClear"
             >
               <template v-slot:option="scope">
                 <q-item v-bind="scope.itemProps">
+                  <!-- 1. Sütun: Adı (müşteri/tedarikçi) -->
                   <q-item-section>
                     <q-item-label>{{ scope.opt.label }}</q-item-label>
                     <q-item-label caption>
                       Bakiye: {{ scope.opt.bakiye ? formatBakiye(scope.opt.bakiye) : 'N/A' }}
                     </q-item-label>
+                  </q-item-section>
+                  <!-- 2. Sütun: Müşteri için TC No, Tedarikçi için VNo -->
+                  <q-item-section>
+                    <q-item-label caption>
+                      {{ islemTuru === 'musteri' ? 'TC No:' : 'VNo:' }} {{ scope.opt && scope.opt.vtc ? scope.opt.vtc : '-' }}
+                    </q-item-label>
+                  </q-item-section>
+                  <!-- 3. Sütun: Kod -->
+                  <q-item-section side>
+                    <q-item-label caption>Kod: {{ scope.opt.value }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </template>
@@ -493,6 +510,7 @@ interface GiderKategori {
   selected: boolean;
   miktar: number;
   tutar: string | null;
+  selectedAt?: number;
 }
 
 // Gelir kategorileri interface'i
@@ -502,6 +520,7 @@ interface GelirKategori {
   selected: boolean;
   miktar: number;
   tutar: string | null;
+  selectedAt?: number;
 }
 
 // Gider kategorileri listesi (görseldeki seçenekler)
@@ -569,18 +588,29 @@ const giderNotuDisplay = computed<string>({
   get: () => {
     const user = (userNotes.value || '').trim()
     const auto = (autoNotes.value || '').trim()
-    return [user, auto].filter(Boolean).join(' ').trim()
+    if (!auto && !user) return ''
+    if (!auto) return user
+    if (!user) return auto
+    return `${auto} -/- ${user}`
   },
   set: (val: string) => {
-    const currentAuto = autoNotes.value || ''
-    const incoming = val || ''
+    const currentAuto = (autoNotes.value || '').trim()
+    let incoming = (val || '').trim()
     if (!currentAuto) {
       userNotes.value = incoming
       return
     }
-    // Kullanıcının yazdığı metinden otomatik notları tamamen temizle
-    const sanitized = incoming.split(currentAuto).join('').trimEnd()
-    userNotes.value = sanitized
+    // Eğer metin currentAuto ile başlıyorsa onu çıkar ve '-/-' ayracını temizle
+    if (incoming.startsWith(currentAuto)) {
+      incoming = incoming.slice(currentAuto.length).trim()
+      if (incoming.startsWith('-/-')) {
+        incoming = incoming.slice(3).trim()
+      }
+    }
+    // Başta/sonda kalmış olası ayracı temizle
+    if (incoming.startsWith('-/-')) incoming = incoming.slice(3).trim()
+    if (incoming.endsWith('-/-')) incoming = incoming.slice(0, -3).trim()
+    userNotes.value = incoming
   }
 })
 
@@ -702,11 +732,14 @@ const cikanGiren = ref<'cikan' | 'giren' | null>(null)
 function onIslemTuruChange() {
   if (islemTuru.value === 'tedarikci') {
     comboboxOptions.value = tedarikciListesi.value
+    comboboxOptionsFiltered.value = tedarikciListesi.value
   } else if (islemTuru.value === 'musteri') {
     comboboxOptions.value = musteriListesi.value
+    comboboxOptionsFiltered.value = musteriListesi.value
   } else {
     // Hiçbir seçim yoksa combobox'ı temizle
     comboboxOptions.value = []
+    comboboxOptionsFiltered.value = []
   }
   // Seçili değeri temizle
   selectedComboboxValue.value = ''
@@ -734,6 +767,8 @@ function onComboboxChange() {
       return
     }
   }
+  // Seçim yapıldıysa filtre alanını temizle (placeholder görünmeyecek, input boş kalsın)
+  comboboxFilter.value = ''
 }
 
 // Combobox temizleme butonuna tıklandığında
@@ -774,6 +809,23 @@ function onOdemeAraciChange() {
   }
   // Otomatik notları güncelle
   refreshAutoNotes()
+}
+
+// QSelect filter handler: yazdıkça filtrele
+function onComboboxFilter(val: string, update: (cb: () => void) => void) {
+  update(() => {
+    const needle = (val || '').toLocaleLowerCase('tr-TR')
+    if (!needle) {
+      comboboxOptionsFiltered.value = [...comboboxOptions.value]
+    } else {
+      comboboxOptionsFiltered.value = comboboxOptions.value.filter(opt =>
+        (opt.label || '').toLocaleLowerCase('tr-TR').includes(needle) ||
+        (opt.value || '').toLocaleLowerCase('tr-TR').includes(needle)
+      )
+    }
+    // Seçim sonrası input alanındaki metni temizlemesin, yazmaya devam edilsin
+    comboboxFilter.value = val || ''
+  })
 }
 
 // Nakit kasa checkbox değiştiğinde
@@ -825,6 +877,9 @@ function unformatOdemeTutar(fieldName: keyof OdemeAraclari) {
 
 // Combobox seçenekleri
 const comboboxOptions = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
+const comboboxOptionsFiltered = ref<Array<{ label: string; value: string; bakiye?: string }>>([])
+const comboboxFilter = ref('')
+const comboboxPopup = ref(false)
 
 // Seçili combobox değeri
 const selectedComboboxValue = ref<{ label: string; value: string } | string>('')
@@ -840,12 +895,27 @@ interface CariResponse {
   CariKod: string;
   CariAdi: string;
   CariBakiye: string;
+  CariVTCN?: string; // API'de olabilir: birey için TCN, kurumsal için VNo
 }
 
 
 
 // Tüm gider satırlarını birleştiren computed
 const tumGiderRows = computed(() => [...giderRowsSol.value, ...giderRowsSag.value])
+
+// Liste geç yüklenirse, aktif seçime göre combobox seçeneklerini güncelle
+watch(musteriListesi, (yeni) => {
+  if (islemTuru.value === 'musteri') {
+    comboboxOptions.value = yeni
+    comboboxOptionsFiltered.value = yeni
+  }
+})
+watch(tedarikciListesi, (yeni) => {
+  if (islemTuru.value === 'tedarikci') {
+    comboboxOptions.value = yeni
+    comboboxOptionsFiltered.value = yeni
+  }
+})
 
 // Computed değerler
 const genelToplam = computed<number>(() => {
@@ -1014,7 +1084,8 @@ function loadGiderKategorileri() {
     giderAdi,
     selected: false,
     miktar: 1,
-    tutar: null
+    tutar: null,
+    selectedAt: 0
   }))
 
   // Sağ bölüm (11-20)
@@ -1023,7 +1094,8 @@ function loadGiderKategorileri() {
     giderAdi,
     selected: false,
     miktar: 1,
-    tutar: null
+    tutar: null,
+    selectedAt: 0
   }))
 }
 
@@ -1034,7 +1106,8 @@ function loadGelirKategorileri() {
     gelirAdi,
     selected: false,
     miktar: 1,
-    tutar: null
+    tutar: null,
+    selectedAt: 0
   }))
 }
 
@@ -1064,6 +1137,10 @@ function onCheckboxChange(row: GiderKategori) {
   if (!row.selected) {
     row.miktar = 1
     row.tutar = null
+    row.selectedAt = 0
+  }
+  if (row.selected) {
+    row.selectedAt = Date.now()
   }
   debugLog('Checkbox değişti:', row.giderAdi, row.selected)
   refreshAutoNotes()
@@ -1127,6 +1204,10 @@ function onGelirCheckboxChange(row: GelirKategori) {
   if (!row.selected) {
     row.miktar = 1
     row.tutar = null
+    row.selectedAt = 0
+  }
+  if (row.selected) {
+    row.selectedAt = Date.now()
   }
   debugLog('Gelir checkbox değişti:', row.gelirAdi, row.selected)
   refreshAutoNotes()
@@ -1573,13 +1654,17 @@ function buildAutoNotes(): string {
 
   // Sadece GELİR/GİDER modunda detay listeleri göster
   if (islemTipi.value === 'gider') {
-    const secili = tumGiderRows.value.filter(r => r.selected && r.tutar !== null)
+    const secili = tumGiderRows.value
+      .filter(r => r.selected && r.tutar !== null)
+      .sort((a, b) => (b.selectedAt || 0) - (a.selectedAt || 0))
     secili.forEach(r => {
       const satirTutar = r.miktar * parseTutarDeger(r.tutar)
       parts.push(`(${r.giderAdi} - ${formatTRY(satirTutar)})`)
     })
   } else if (islemTipi.value === 'gelir') {
-    const secili = gelirRows.value.filter(r => r.selected && r.tutar !== null)
+    const secili = gelirRows.value
+      .filter(r => r.selected && r.tutar !== null)
+      .sort((a, b) => (b.selectedAt || 0) - (a.selectedAt || 0))
     secili.forEach(r => {
       const satirTutar = r.miktar * parseTutarDeger(r.tutar)
       parts.push(`(${r.gelirAdi} - ${formatTRY(satirTutar)})`)
@@ -1631,7 +1716,8 @@ async function loadTedarikciListesi() {
     tedarikciListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
+      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00',
+      vtc: item.CariVTCN || ''
     }))
 
     debugLog('Tedarikçi listesi yüklendi:', tedarikciListesi.value)
@@ -1652,7 +1738,8 @@ async function loadTedarikciListesi() {
     tedarikciListesi.value = testData.map((item, index) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
+      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2),
+      vtc: 'V' + (1000000000 + Math.floor(Math.random() * 900000000)).toString()
     }))
 
     debugLog('Test verileri kullanılıyor:', tedarikciListesi.value)
@@ -1690,7 +1777,8 @@ async function loadMusteriListesi() {
     musteriListesi.value = data.map((item: CariResponse) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00'
+      bakiye: item.CariBakiye ? item.CariBakiye.toString() : '0.00',
+      vtc: item.CariVTCN || ''
     }))
 
     debugLog('Müşteri listesi yüklendi:', musteriListesi.value)
@@ -1711,7 +1799,8 @@ async function loadMusteriListesi() {
     musteriListesi.value = testData.map((item, index) => ({
       label: item.CariAdi,
       value: item.CariKod,
-      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2)
+      bakiye: ((Math.random() + index * 0.3) * 10000 - 5000).toFixed(2),
+      vtc: (10000000000 + Math.floor(Math.random() * 90000000000)).toString()
     }))
 
     debugLog('Test verileri kullanılıyor:', musteriListesi.value)
