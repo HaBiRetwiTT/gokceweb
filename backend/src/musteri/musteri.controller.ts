@@ -582,7 +582,21 @@ export class MusteriController {
         const musteriData_existing = await this.musteriService.getMusteriBilgiByTCN(String(donemData.MstrTCN));
         const musteriNo = musteriData_existing.MstrNo;
         
-        // 3. Yeni dönem konaklama kaydı yap (Transaction içinde)
+        // 3. Eski oda-yatak kaydını önce BOŞ yap (sıra düzeltildi)
+        // Güvenli karşılaştırma: eskiOdaYatak ≠ yeni OdaYatak ise boşalt
+        if (donemData.eskiOdaYatak) {
+          try {
+            const { odaNo: yeniOdaNo, yatakNo: yeniYatakNo } = this.musteriService['parseOdaYatak'](donemData.OdaYatak);
+            const { odaNo: eskiOdaNo, yatakNo: eskiYatakNo } = this.musteriService['parseOdaYatak'](donemData.eskiOdaYatak);
+            const yeniKod = `${yeniOdaNo}-${yeniYatakNo}`;
+            const eskiKod = `${eskiOdaNo}-${eskiYatakNo}`;
+            if (yeniKod !== eskiKod) {
+              await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
+            }
+          } catch {}
+        }
+
+        // 4. Yeni dönem konaklama kaydı yap (Transaction içinde)
         console.log('Yeni dönem konaklama kaydı yapılıyor (Transaction-Safe)...');
         const yeniKonaklamaData = {
           ...donemData,
@@ -599,10 +613,25 @@ export class MusteriController {
           yeniKonaklamaData,
           musteriNo
         );
+        // SP sonrası yeni oda durumunu doğrulama amaçlı ek loglar kaldırıldı
+
+        // 4.1 Yeni oda-yatak kaydını DOLU yap (stored procedure beklenen güncellemeyi yapmazsa güvence)
+        try {
+          const { odaNo: yeniOdaNo, yatakNo: yeniYatakNo } = this.musteriService['parseOdaYatak'](donemData.OdaYatak);
+          await this.musteriService.doluYapOdaYatakWithTransaction(queryRunner, `${yeniOdaNo}-${yeniYatakNo}`, kullaniciAdi);
+        } catch {}
         
-        // 🔥 Eğer eski oda-yatak bilgisi varsa, eski oda-yatak kaydını BOŞ yap
+        // 🔥 Eğer eski oda-yatak bilgisi varsa, POST-SP: sadece eski ≠ yeni ise BOŞ yap (ek güvenlik)
         if (donemData.eskiOdaYatak) {
-          await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
+          try {
+            const { odaNo: yeniOdaNo, yatakNo: yeniYatakNo } = this.musteriService['parseOdaYatak'](donemData.OdaYatak);
+            const { odaNo: eskiOdaNo, yatakNo: eskiYatakNo } = this.musteriService['parseOdaYatak'](donemData.eskiOdaYatak);
+            const yeniKod = `${yeniOdaNo}-${yeniYatakNo}`;
+            const eskiKod = `${eskiOdaNo}-${eskiYatakNo}`;
+            if (yeniKod !== eskiKod) {
+              await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
+            }
+          } catch {}
         }
         
         // 4. Yeni dönem işlem kaydı yap (Transaction içinde)

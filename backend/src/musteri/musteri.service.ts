@@ -600,18 +600,30 @@ export class MusteriService {
   }
 
   private generateSecOdYat(odaNo: string, yatakNo: string): string {
-    const ilkDigit = parseInt(odaNo.charAt(0));
-    
+    // Sadece rakamları kullan
+    const odaDigits = String(odaNo || '').replace(/\D/g, '');
+    const yatakDigits = String(yatakNo || '').replace(/\D/g, '');
+
+    if (!odaDigits || !yatakDigits) {
+      throw new Error(`Geçersiz oda/yatak numarası: odaNo='${odaNo}', yatakNo='${yatakNo}'`);
+    }
+
     // Blok belirleme: ilk digit < 6 ise A, >= 6 ise B
+    const ilkDigit = parseInt(odaDigits.charAt(0), 10);
     const blok = ilkDigit < 6 ? 'A' : 'B';
-    
-    // Kat belirleme: ilk digit
-    const kat = ilkDigit.toString().padStart(2, '0');
-    
+
+    // Kat belirleme:
+    // - 4 haneli oda numaralarında ilk 2 hane (ör: 1203 -> '12')
+    // - 3 haneli oda numaralarında ilk 1 hane (ör: 508 -> '5')
+    // - Diğer durumlarda ilk hane fallback
+    const katRaw = odaDigits.length >= 4 ? odaDigits.slice(0, 2) : odaDigits.charAt(0);
+    const kat = katRaw.padStart(2, '0');
+
     // Padding
-    const odaPadded = odaNo.padStart(4, '0');
-    const yatakPadded = yatakNo.padStart(2, '0');
-    
+    const odaPadded = odaDigits.padStart(4, '0');
+    const yatakPadded = yatakDigits.padStart(2, '0');
+
+    // OdYatKod = MER + {A|B} + {KK} + {OOOO} + {YY}
     return `MER${blok}${kat}${odaPadded}${yatakPadded}`;
   }
 
@@ -2831,6 +2843,50 @@ export class MusteriService {
       throw new Error(`Oda-yatak boşaltılamadı: ${odaYatakStrFormatted}`);
     }
   }
+
+  /**
+   * Oda-yatak DOLU yapma için transaction-safe helper
+   */
+  async doluYapOdaYatakWithTransaction(
+    queryRunner: QueryRunner,
+    odaYatakStr: string | { label?: string; value?: string },
+    kullaniciAdi?: string
+  ): Promise<void> {
+    try {
+      console.log('=== doluYapOdaYatakWithTransaction başlatıldı ===');
+      console.log('DOLU yapılacak oda-yatak:', odaYatakStr);
+      const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
+      const bugunTarihi = this.formatDate(new Date());
+      const kullaniciAdiFinal = kullaniciAdi || 'admin';
+      const schemaName = this.dbConfig.getTableSchema();
+      const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
+      const query = `
+        UPDATE ${schemaName}.tblOdaYatak 
+        SET odYatDurum = 'DOLU', 
+            odYatKllnc = @2, 
+            oKytTarihi = @3
+        WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
+      `;
+      await this.transactionService.executeQuery(queryRunner, query, [odaNo, yatakNo, kullaniciAdiFinal, bugunTarihi]);
+      console.log(`Oda ${odaNo}-${yatakNo} DOLU yapıldı (${bugunTarihi} - ${kullaniciAdiFinal}) (Transaction-Safe)`);
+
+      // Ek güvence: OdYatKod üzerinden de güncelle (SP'nin WHERE OdYatKod kullandığı senaryolar için)
+      const queryByKod = `
+        UPDATE ${schemaName}.tblOdaYatak 
+        SET odYatDurum = 'DOLU', 
+            odYatKllnc = @1, 
+            oKytTarihi = @2
+        WHERE OdYatKod = @0
+      `;
+      await this.transactionService.executeQuery(queryRunner, queryByKod, [secOdYat, kullaniciAdiFinal, bugunTarihi]);
+      console.log(`Oda ${secOdYat} (OdYatKod) DOLU yapıldı (${bugunTarihi} - ${kullaniciAdiFinal}) (Transaction-Safe)`);
+    } catch (error) {
+      console.error('Oda-yatak DOLU yapma hatası (Transaction):', error);
+      throw new Error(`Oda-yatak DOLU yapılamadı: ${typeof odaYatakStr === 'object' ? (odaYatakStr as any).value || (odaYatakStr as any).label : String(odaYatakStr)}`);
+    }
+  }
+
+  // Debug yardımcı fonksiyonu kaldırıldı
 
   /**
    * Mevcut konaklama kaydını sonlandırma (oda değişikliği için) - Transaction-Safe
