@@ -135,6 +135,12 @@ onMounted(async () => {
   const normalized: KatPlanRoom[] = raw
     .map(toKatPlanRoom)
     .filter((r): r is KatPlanRoom => !!r && r.odaNo > 0)
+    .sort((a, b) => {
+      const ra = (typeof a.yatak === 'number' && a.yatak > 0) ? (Number(a.dolu ?? 0) / a.yatak) : 0
+      const rb = (typeof b.yatak === 'number' && b.yatak > 0) ? (Number(b.dolu ?? 0) / b.yatak) : 0
+      if (ra !== rb) return ra - rb
+      return a.odaNo - b.odaNo
+    })
 
     // Odaları kolona böl: her hücreye bir liste (soldan sağa doldurma)
     const odas: KatPlanRoom[][] = []
