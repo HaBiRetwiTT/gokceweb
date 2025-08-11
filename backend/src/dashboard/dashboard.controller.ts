@@ -71,6 +71,24 @@ export class DashboardController {
     }
   }
 
+  // Oda numarası ile tek kayıt arama (tam 3 hane, aktif konaklama)
+  @Get('musteri-konaklama-search-by-oda')
+  async searchMusteriKonaklamaByOda(@Query('odaNo') odaNo: string) {
+    try {
+      if (!odaNo || !/^\d{3}$/.test(odaNo.trim())) {
+        return { success: true, data: [] };
+      }
+      const data = await this.dashboardService.searchByOdaNo(odaNo.trim());
+      return { success: true, data };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Oda no araması başarısız: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Konaklama tiplerini getir
   @Get('konaklama-tipleri')
   async getKonaklamaTipleri() {

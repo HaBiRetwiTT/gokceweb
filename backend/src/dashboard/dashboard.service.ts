@@ -227,6 +227,79 @@ export class DashboardService {
     }
   }
 
+  // Oda numarasıyla aktif konaklama arama (tam eşleşme, tek kayıt)
+  async searchByOdaNo(odaNo: string): Promise<MusteriKonaklamaData[]> {
+    const views = this.dbConfig.getViews();
+    const tables = this.dbConfig.getTables();
+
+    // Güvenlik: 3 haneli sayısal değilse boş sonuç döndür
+    if (!/^\d{3}$/.test(String(odaNo).trim())) {
+      return [];
+    }
+
+    // Not: Bazı kurulumlarda KnklmCksTrh view'da bulunmayabilir; bu yüzden NULL cast ediyoruz
+    const sql = `
+      WITH src AS (
+        SELECT 
+          v.MstrTCN,
+          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+          v.MstrFirma,
+          v.MstrAdi,
+          v.MstrTelNo,
+          v.KnklmOdaTip,
+          v.KnklmOdaNo,
+          v.KnklmYtkNo,
+          v.KnklmTip,
+          v.KnklmGrsTrh,
+          v.KnklmPlnTrh,
+          v.KnklmLfyt,
+          v.Knklmisk,
+          v.KnklmNfyt,
+          v.KnklmNot,
+          v.knklmNo,
+          CAST(NULL AS NVARCHAR(10)) AS KnklmCksTrh,
+          v.MstrNo
+        FROM ${views.musteriKonaklama} v
+        LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
+        WHERE v.MstrDurum = 'KALIYOR'
+          AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+          AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+          AND CAST(v.KnklmOdaNo AS NVARCHAR(50)) = @0
+      ), ranked AS (
+        SELECT 
+          s.*,
+          ROW_NUMBER() OVER (PARTITION BY s.MstrNo ORDER BY s.knklmNo DESC) AS rn
+        FROM src s
+      )
+      SELECT 
+        r.MstrTCN,
+        r.MstrHspTip,
+        r.MstrFirma,
+        r.MstrAdi,
+        r.MstrTelNo,
+        r.KnklmOdaTip,
+        r.KnklmOdaNo,
+        r.KnklmYtkNo,
+        r.KnklmTip,
+        r.KnklmGrsTrh,
+        r.KnklmPlnTrh,
+        r.KnklmLfyt,
+        r.Knklmisk,
+        r.KnklmNfyt,
+        r.KnklmNot
+      FROM ranked r
+      WHERE r.rn = 1
+    `;
+
+    try {
+      const data: MusteriKonaklamaData[] = await this.musteriRepository.query(sql, [String(odaNo).trim()]);
+      return data || [];
+    } catch (error) {
+      console.error('searchByOdaNo hatası:', error);
+      return [];
+    }
+  }
+
   // sp_bOdGunMusteriListeY stored procedure'ünü çağır
   async getMusteriListesi(knklmTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {

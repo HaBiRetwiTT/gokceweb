@@ -791,7 +791,9 @@
         <q-td :props="props">
           <q-badge 
             :color="getIslemTipColor(props.value)" 
+            :text-color="getIslemTipTextColor(props.value)"
             :label="props.value"
+            class="islem-tip-badge text-weight-bold"
           />
         </q-td>
       </template>
@@ -1396,6 +1398,53 @@ const displayedAlacakliMusteriListesi = computed(() => {
 const displayedCariHareketlerListesi = computed(() => {
   return cariHareketlerListesi.value;
 })
+function getIslemTipColor(val?: string | null): string {
+  const raw = (val ?? '').toString().trim();
+  if (!raw) return 'grey-5';
+
+  // Türkçe büyük harfe dönüştür ve diakritikleri kaldır (İ, ı, Ç vb.)
+  const upperTr = raw.toLocaleUpperCase('tr-TR');
+  const normalized = upperTr
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // diakritikleri temizle
+
+  switch (normalized) {
+    case 'GELIR':
+      return 'green-9'; // koyu yeşil
+    case 'GIDER':
+      return 'deep-orange-9'; // koyu turuncu
+    case 'GIREN':
+      return 'green-5'; // daha koyu yeşil, daha yüksek kontrast
+    case 'CIKAN':
+      return 'deep-orange-5'; // daha koyu turuncu, daha yüksek kontrast
+    default:
+      return 'grey-5';
+  }
+}
+
+function getIslemTipTextColor(val?: string | null): string {
+  const raw = (val ?? '').toString().trim();
+  if (!raw) return 'white';
+
+  const upperTr = raw.toLocaleUpperCase('tr-TR');
+  const normalized = upperTr
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // Açık zeminlerde koyu metin, koyu zeminlerde beyaz metin
+  switch (normalized) {
+    case 'GELIR':
+      return 'white'; // green-9 koyu -> beyaz metin
+    case 'GIDER':
+      return 'white'; // deep-orange-9 koyu -> beyaz metin
+    case 'GIREN':
+      return 'white'; // green-7 koyu -> beyaz metin
+    case 'CIKAN':
+      return 'white'; // deep-orange-7 koyu -> beyaz metin
+    default:
+      return 'white';
+  }
+}
 
 const displayedBakiyesizHesaplarListesi = computed(() => {
   let baseList = bakiyesizHesaplarListesi.value;
@@ -3075,22 +3124,14 @@ function getTipColor(tip: string): string {
   }
 }
 
-function getIslemTipColor(tip: string): string {
-  switch (tip) {
-    case 'GELİR': return 'green'
-    case 'Çıkan': return 'green'
-    case 'GİDER': return 'red'
-    case 'Giren': return 'red'
-    default: return 'blue'
-  }
-}
+// Eski getIslemTipColor fonksiyonu kaldırıldı; yukarıdaki yeni sürüm kullanılıyor
 
 function getIslemTutarClass(tip: string): string {
   switch (tip) {
     case 'GELİR': return 'text-green'
-    case 'Çıkan': return 'text-green'
+    case 'Çıkan': return 'text-red'
     case 'GİDER': return 'text-red'
-    case 'Giren': return 'text-red'
+    case 'Giren': return 'text-green'
     default: return 'text-blue'
   }
 }
@@ -3568,6 +3609,46 @@ async function performSearch(searchValue: string) {
     filteredBakiyesizHesaplarListesi.value = []
     filteredCariHareketlerListesi.value = []
     return
+  }
+  // 3 haneli sayısal ise: oda no araması (tek kayıt)
+  const trimmed = searchValue.trim()
+  if (/^\d{3}$/.test(trimmed)) {
+    showKonaklamaGecmisi.value = false
+    showCariHareketler.value = false
+    try {
+      const { data } = await api.get('/dashboard/musteri-konaklama-search-by-oda', {
+        params: { odaNo: trimmed }
+      })
+      if (data && data.success) {
+        const rows: SearchMusteriKonaklama[] = (data.data || []) as SearchMusteriKonaklama[]
+        filteredMusteriListesi.value = rows.map((x) => ({
+          MstrTCN: x.MstrTCN || '',
+          MstrHspTip: x.MstrHspTip || '',
+          MstrFirma: x.MstrFirma || '',
+          MstrAdi: x.MstrAdi || '',
+          MstrTelNo: x.MstrTelNo || '',
+          KnklmOdaTip: x.KnklmOdaTip || '',
+          KnklmOdaNo: x.KnklmOdaNo || '',
+          KnklmYtkNo: x.KnklmYtkNo || '',
+          KnklmTip: x.KnklmTip || '',
+          KnklmNfyt: Number(x.KnklmNfyt || 0),
+          KnklmGrsTrh: x.KnklmGrsTrh || '',
+          KnklmPlnTrh: x.KnklmPlnTrh || '',
+          KnklmCksTrh: x.KnklmCksTrh || '',
+          KnklmNot: x.KnklmNot || ''
+        })) as unknown as MusteriKonaklama[]
+        filteredBorcluMusteriListesi.value = []
+        filteredBakiyesizHesaplarListesi.value = []
+        filteredCariHareketlerListesi.value = []
+        return
+      }
+      filteredMusteriListesi.value = []
+      return
+    } catch (err) {
+      console.error('Oda no araması hatası:', err)
+      filteredMusteriListesi.value = []
+      return
+    }
   }
   // Arama aktifken alt grid tablolarını gizle
   showKonaklamaGecmisi.value = false
@@ -5358,6 +5439,10 @@ function bakiyeGuncelleHandler() {
 </script>
 
 <style scoped>
+.islem-tip-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+}
 .dashboard-table {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
