@@ -2948,6 +2948,24 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
           await router.push('/musteri-islem');
           return;
         }
+
+        // Aktif konaklama var: PlnTrh kontrolü ile mod seçim ipucu gönder
+        const parseDate = (val: string | null | undefined): Date | null => {
+          if (!val) return null
+          const [g, a, y] = val.split('.').map(n => Number(n) || 0)
+          if (!g || !a || !y) return null
+          const d = new Date(y, a - 1, g)
+          d.setHours(0,0,0,0)
+          return isNaN(d.getTime()) ? null : d
+        }
+        const today = new Date(); today.setHours(0,0,0,0)
+        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+        const pln = parseDate(row.KnklmPlnTrh)
+        const odaDegisikligiMi = Boolean(pln && pln.getTime() >= tomorrow.getTime())
+        // Modal içindeki buton seçiminde kullanılması için işaret bırak
+        // Not: DonemYenilemeModal zaten selectedData üzerinden karar verecek. Burada sadece geleceğe dönük genişletme için bayrak saklanabilir.
+        const rowWithHint = row as MusteriKonaklama & { __odaDegisikligiModeHint?: boolean };
+        rowWithHint.__odaDegisikligiModeHint = odaDegisikligiMi
       } catch {
         // Sessiz geç; hata durumunda mevcut akışla devam et
       }

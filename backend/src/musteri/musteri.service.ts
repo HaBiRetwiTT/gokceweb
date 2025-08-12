@@ -2563,6 +2563,7 @@ export class MusteriService {
       KnklmOdaTip: string;
       eskiKnklmPlnTrh: string; // Önceki kaydın planlanan tarihi (yeni kaydın giriş tarihi olacak)
       planlananCikisTarihi?: string; // Frontend'den gelen planlanan çıkış tarihi
+      KnklmPlnTrh?: string; // Formdan gelen Planlanan Çıkış Tarihi (DD.MM.YYYY)
       OdemeTakvimGunu?: number | null; // 🔥 Ö.T.G. alanı eklendi
       ekNotlar?: string;
       KnklmNot?: string; // Ek notlar alanı eklendi
@@ -2583,11 +2584,13 @@ export class MusteriService {
       // Giriş tarihi = önceki kaydın planlanan tarihi (eskiKnklmPlnTrh)
       const girisTarihi = konaklamaData.eskiKnklmPlnTrh;
       
-      // Çıkış tarihi hesaplaması - Geç Saat Konaklama kontrolü ile
+      // Çıkış tarihi belirleme: Daima formdan gelen değeri öncelikle kullan
       let planlananCikis: string;
-      
-      // Geç Saat Konaklama seçilmişse, planlanan çıkış tarihi giriş tarihi olur
-      if (konaklamaData.ekBilgiler?.geceKonaklama) {
+      const uiPlanned = (konaklamaData.KnklmPlnTrh || konaklamaData.planlananCikisTarihi || '').toString().trim();
+      if (uiPlanned) {
+        console.log('📅 Dönem yenilemede formdan gelen planlanan çıkış tarihi kullanılıyor:', uiPlanned);
+        planlananCikis = uiPlanned;
+      } else if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Dönem yenilemede Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
         planlananCikis = girisTarihi; // Aynı gün çıkış
       } else {

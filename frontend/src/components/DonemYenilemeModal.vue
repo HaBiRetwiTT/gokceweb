@@ -588,8 +588,36 @@ const veriYukleniyor = ref(false); // Veri yükleme sırasında watchers'ları d
 const odaTipleri = ref<{odaTipi: string, bosOdaSayisi: number}[]>([]);
 const odaTipleriFormatted = ref<{value: string, label: string, bosOdaSayisi: number}[]>([]);
 
-// 🔥 Dinamik buton isimleri - aktif karta göre değişir
+// 🔥 Dinamik buton isimleri - müşteri kayıt tarihine göre değişir
+function parseDateDDMMYYYY(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parts = value.split('.').map(s => Number(s) || 0);
+  if (parts.length !== 3) return null;
+  const [gun, ay, yil] = parts;
+  if (!gun || !ay || !yil) return null;
+  const d = new Date(yil, ay - 1, gun);
+  d.setHours(0, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function shouldUseOdaDegisikligiMode(): boolean {
+  // Kriter: En büyük knklmNo'lu kayıt (modalda gelen selectedData) aktif olmalı (KnklmCksTrh boş)
+  // ve KnklmPlnTrh >= yarın olmalı
+  const isActive = !((props.selectedData?.KnklmCksTrh || '').toString().trim());
+  const pln = parseDateDDMMYYYY(props.selectedData?.KnklmPlnTrh || '');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  return Boolean(isActive && pln && pln.getTime() >= tomorrow.getTime());
+}
+
 const donemYenileButtonLabel = computed(() => {
+  // Öncelik: seçili kaydın tarih kriteri
+  if (props.selectedData) {
+    return shouldUseOdaDegisikligiMode() ? 'ODA DEĞİŞİKLİ' : 'DÖNEM YENİLE';
+  }
+  // Geriye dönük uyumluluk: activeFilter'a göre
   if (
     props.activeFilter === 'yeni-musteri' ||
     props.activeFilter === 'yeni-giris' ||
@@ -601,6 +629,9 @@ const donemYenileButtonLabel = computed(() => {
 });
 
 const cikisYapButtonLabel = computed(() => {
+  if (props.selectedData) {
+    return shouldUseOdaDegisikligiMode() ? 'ERKEN ÇIKIŞ' : 'ÇIKIŞ YAP';
+  }
   if (
     props.activeFilter === 'yeni-musteri' ||
     props.activeFilter === 'yeni-giris' ||
