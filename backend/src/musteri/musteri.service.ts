@@ -2497,6 +2497,41 @@ export class MusteriService {
         );
         
         console.log('Depozito kaydı başarıyla eklendi (Transaction-Safe)');
+
+        // 🔥 DEPOZİTO TAHSİLATI ARACI VE TUTARINA GÖRE SON "=DEPOZİTO ALACAĞI=" KAYDINI GÜNCELLE
+        try {
+          const schemaName = this.dbConfig.getTableSchema();
+          const alinacakTutar = Number(islemData.depozito.bedel) || 0;
+          const tahsilatArac = 'Nakit Kasa(TL)'; // Yukarıda kullanılan islemArac değeri ile aynı
+          if (alinacakTutar > 0) {
+            // 1) İlgili müşterinin cari kodunu bul (zaten var): cariKod
+            // 2) En son "=DEPOZİTO ALACAĞI=" kaydını çek
+            const selectSql = `
+              SELECT TOP 1 islemNo, islemTutar
+              FROM ${schemaName}.tblislem WITH (UPDLOCK, ROWLOCK)
+              WHERE islemCrKod = @0 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
+              ORDER BY islemNo DESC`;
+            const rows: { islemNo: number; islemTutar: number }[] = await this.transactionService.executeQuery(queryRunner, selectSql, [cariKod]);
+            if (rows && rows.length > 0) {
+              const { islemNo, islemTutar } = rows[0];
+              const kalan = Number(islemTutar) - alinacakTutar;
+              if (kalan > 0) {
+                // 3a) UPDATE: Tutarı düş ve aracı tahsilat aracına eşitle
+                const updateSql = `
+                  UPDATE ${schemaName}.tblislem
+                  SET islemTutar = @0, islemArac = @1
+                  WHERE islemNo = @2`;
+                await this.transactionService.executeQuery(queryRunner, updateSql, [kalan, tahsilatArac, islemNo]);
+              } else {
+                // 3b) DELETE: Kalan ≤ 0 ise kaydı sil
+                const deleteSql = `DELETE FROM ${schemaName}.tblislem WHERE islemNo = @0`;
+                await this.transactionService.executeQuery(queryRunner, deleteSql, [islemNo]);
+              }
+            }
+          }
+        } catch (depError) {
+          console.warn('Depozito bakiyesi güncellenirken uyarı (devam ediliyor):', depError);
+        }
       }
       
       console.log('=== kaydetIslemWithTransaction tamamlandı (Transaction-Safe) ===');
