@@ -39,17 +39,17 @@ export class HotelRunnerService {
       const schema = this.dbConfig.getTableSchema();
 
       // 1) HR'den rezervasyonları çek
-      const url = `${this.baseUrl}${this.hrId}/reservations`;
-      const params: Record<string, string> = {};
+      // HotelRunner tarafında çalışan mevcut entegrasyona göre token ve hr_id query parametreleriyle gönderiliyor
+      // Base path: /api/v2/apps/reservations
+      const url = `${this.baseUrl}reservations`;
+      const params: Record<string, string> = {
+        token: this.token,
+        hr_id: this.hrId,
+      };
       if (win?.from) params['from'] = win.from;
       if (win?.to) params['to'] = win.to;
 
-      const resp = await firstValueFrom(
-        this.http.get(url, {
-          headers: { Authorization: `Bearer ${this.token}` },
-          params,
-        }),
-      );
+      const resp = await firstValueFrom(this.http.get(url, { params }));
 
       const items: any[] = resp.data?.data || resp.data?.reservations || [];
 
