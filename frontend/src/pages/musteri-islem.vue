@@ -290,6 +290,10 @@
                     <q-select
                       v-model="form.OdaYatak"
                       :options="odaYatakOptions"
+                      option-value="value"
+                      option-label="label"
+                      emit-value
+                      map-options
                       label="Oda No - Yatak No"
                       outlined
                       dense
@@ -298,6 +302,7 @@
                       :disable="!form.OdaTipi || guncellemeModuAktif"
                       :readonly="guncellemeModuAktif"
                       required
+                      :display-value="selectedOdaYatakDisplay"
                       class="kurumsal-responsive oda-select-field"
                       style="font-size: 0.75rem;"
                       @update:model-value="onOdaYatakChanged"
@@ -315,6 +320,9 @@
                             <q-item-label style="font-size: 0.75rem; line-height: 1.1;" :title="scope.opt.label">
                               {{ scope.opt.label }}
                             </q-item-label>
+                          </q-item-section>
+                          <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('kirli')">
+                            <q-chip color="amber-2" text-color="black" size="sm" dense label="Kirli" />
                           </q-item-section>
                         </q-item>
                       </template>
@@ -994,7 +1002,7 @@ const originalFirmaDetails = ref<{
 // Oda-Yatak dropdown için değişkenler
 const odaTipleriOptions = ref<{odaTipi: string, bosOdaSayisi: number}[]>([])
 const odaTipleriFormatted = ref<{value: string, label: string, bosOdaSayisi: number}[]>([])
-const bosOdalarOptions = ref<{label: string, value: string}[]>([])
+const bosOdalarOptions = ref<{label: string, value: string, durum?: string}[]>([])
 const odaYatakOptions = computed(() => bosOdalarOptions.value)
 const odaTipFiyatlari = ref<{OdLfytGun: number, OdLfytHft: number, OdLfytAyl: number, OdDpzt?: number} | null>(null)
 
@@ -1616,29 +1624,53 @@ async function submitForm() {
     }
   }
   
+  // 🔎 Kayıt öncesi oda-yatak müsaitlik kontrolü ve KİRLİ onayı
+  let kirliOnay = false
   try {
-    // Kullanıcı adını localStorage'dan al ve MstrKllnc'ye ata
-    const username = localStorage.getItem('username') || 'admin'
-    
-    // 🔥 Depozito dahil değilse bedeli sıfırla
-    const depozitoData = {
-      ...depozito.value,
-      bedel: depozito.value.dahil ? depozito.value.bedel : 0
+    const kontrol = await api.post('/musteri/oda-yatak-kontrol', { odaYatak: form.value.OdaYatak })
+    const msg = kontrol?.data?.data?.message
+    if (msg === 'KİRLİ') {
+      const ok = await new Promise<boolean>((resolve) => {
+        $q.dialog({
+          title: 'Onay',
+          message: 'Seçilen Oda için KİRLİ bilgisi kaldırılarak müşteri kaydı açılacak. ONAYLIYOR MUSUNUZ?',
+          ok: { label: 'EVET', color: 'primary' },
+          cancel: { label: 'HAYIR', color: 'grey' },
+          persistent: true
+        })
+        .onOk(() => resolve(true))
+        .onCancel(() => resolve(false))
+      })
+      if (!ok) { loading.value = false; return }
+      kirliOnay = true
     }
-    
-    const formData = {
-      ...form.value,
-      ...extraForm.value,
-      MstrKllnc: username,
-      MstrDurum: 'KALIYOR',
-      satisKanali: satisKanali.value || 'KAPIDAN',
-      planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
-      ekNotlar: ekNotlar.value,
-      ekBilgiler: ekBilgiler.value,
-      depozito: depozitoData
-    }
-    
-    const response = await api.post('/musteri/musteri-islem', formData)
+  } catch {
+    // kontrol hatası varsa, backend kayıt sırasında aynı kontrolü yapar
+  }
+
+  // Kullanıcı adını localStorage'dan al ve MstrKllnc'ye ata
+  const username = localStorage.getItem('username') || 'admin'
+
+  // 🔥 Depozito dahil değilse bedeli sıfırla
+  const depozitoData = {
+    ...depozito.value,
+    bedel: depozito.value.dahil ? depozito.value.bedel : 0
+  }
+
+  const formPayload = {
+    ...form.value,
+    ...extraForm.value,
+    MstrKllnc: username,
+    MstrDurum: 'KALIYOR',
+    satisKanali: satisKanali.value || 'KAPIDAN',
+    planlananCikisTarihi: planlananCikisTarihi.value, // Planlanan çıkış tarihini ekle
+    ekNotlar: ekNotlar.value,
+    ekBilgiler: ekBilgiler.value,
+    depozito: depozitoData
+  }
+
+  try {
+    const response = await api.post('/musteri/musteri-islem', { ...formPayload, kirliOnay: kirliOnay || undefined })
     if (response.data.success) {
       notify.value = response.data.message || 'Kayıt başarıyla eklendi!'
       
@@ -1753,6 +1785,29 @@ async function submitForm() {
     ) {
       const errorMessage = (error.response.data as { message: string }).message;
       notify.value = errorMessage;
+      if (errorMessage.includes('Seçilen Oda KİRLİ')) {
+        const ok = await new Promise<boolean>((resolve) => {
+          $q.dialog({
+            title: 'Onay',
+            message: 'Seçilen Oda için KİRLİ bilgisi kaldırılarak müşteri kaydı açılacak. ONAYLIYOR MUSUNUZ?',
+            ok: { label: 'EVET', color: 'primary' },
+            cancel: { label: 'HAYIR', color: 'grey' },
+            persistent: true
+          })
+          .onOk(() => resolve(true))
+          .onCancel(() => resolve(false))
+        })
+        if (ok) {
+          try {
+            const retry = await api.post('/musteri/musteri-islem', { ...formPayload, kirliOnay: true })
+            if (retry.data?.success) {
+              notify.value = retry.data.message || 'Kayıt başarıyla eklendi!'
+            }
+          } catch (e) {
+            console.warn('Retry after KİRLİ onay failed:', e)
+          }
+        }
+      }
       if (errorMessage.includes('artık dolu') || errorMessage.includes('bulunamadı')) {
         await clearOdaYatakAndRefresh();
       }
@@ -2097,9 +2152,10 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
         // Ek notları yükle
         ekNotlar.value = musteriData.KnklmNot || ''
         
-        // Güncelleme modunu aktif et
-        musteriDurumu.value = musteriData.musteriDurumu || 'KALIYOR'
-        guncellemeModuAktif.value = true
+        // Çift tıklama ile yönlendirmede Güncelleme modu AKTİF OLMAYACAK
+        // Her zaman yeni giriş hazırlığı yap
+        musteriDurumu.value = 'YENI'
+        guncellemeModuAktif.value = false
         
         // Ek bilgiler formunu aç
         showExtraFields.value = true
@@ -2117,7 +2173,7 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
           console.error('Ödeme vadesi yüklenirken hata:', error)
         }
         
-        notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Güncelleme modu aktif'
+        notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Yeni Giriş için hazır'
         
         // localStorage ve prevPage işaretini temizle
         localStorage.removeItem('selectedMusteriForIslem')
@@ -2841,6 +2897,14 @@ function getSelectedOdaYatakTooltip(): string {
   
   return selected ? `Seçilen: ${selected.label}` : ''
 }
+
+// Combobox inputunda Kirli metnini gizleyerek görüntülenecek değer
+  const selectedOdaYatakDisplay = computed(() => {
+    if (!form.value.OdaYatak) return ''
+    const selected = bosOdalarOptions.value.find(o => o.value === form.value.OdaYatak)
+    const label = selected?.label || String(form.value.OdaYatak)
+    return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]/gi, '')
+  })
 
 
 

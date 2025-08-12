@@ -34,7 +34,12 @@
     >
       <template v-slot:body-cell="props">
         <q-td :props="props" :class="props.col.name === 'kat' ? ['kat-sticky-td', rowHasSuresiDolan(props.row) ? 'kat-has-stripe' : ''] : ''">
-          <div v-if="props.col.name === 'kat'" class="text-weight-bold">{{ props.row.kat }}. KAT</div>
+          <div v-if="props.col.name === 'kat'" class="kat-cell">
+            <div class="text-weight-bold">{{ props.row.kat }}.KAT</div>
+            <div v-if="countSuresiDolanInRow(props.row) > 0" class="suresi-dolan-count">
+              {{ countSuresiDolanInRow(props.row) }}
+            </div>
+          </div>
           <div v-else class="oda-cell">
             <div v-for="room in props.row.odas[props.col.index] || []"
                  :key="room && typeof room === 'object' ? room.odaNo : room"
@@ -90,7 +95,7 @@ type KatPlanRoom = { odaNo: number; odaTip: string; yatak?: number; dolu?: numbe
 type KatPlanResponse = { floors: number[]; floorToRooms: Record<string, KatPlanRoom[]>; maxCols: number }
 
 const columns = ref<{ name: string; label: string; field: string; align: 'left' | 'center'; index?: number; headerStyle?: string; style?: string }[]>([
-  { name: 'kat', label: 'Kat', field: 'kat', align: 'left', headerStyle: 'width: 58px; min-width:58px; max-width:58px;', style: 'width:100px;' }
+  { name: 'kat', label: 'Kat', field: 'kat', align: 'left', headerStyle: 'width: 50px; min-width:50px; max-width:50px;', style: 'width:92px;' }
 ])
 
 type TableRow = { kat: number; odas: KatPlanRoom[][] }
@@ -620,12 +625,44 @@ function rowHasSuresiDolan(row: { odas: Array<Array<{ odaNo: number }>> } | Reco
   }
 }
 
+function countSuresiDolanInRow(row: { odas: Array<Array<{ odaNo: number }>> } | Record<string, unknown>): number {
+  try {
+    const arr = (row as Record<string, unknown>).odas as Array<Array<{ odaNo: number }>>
+    if (!Array.isArray(arr)) return 0
+    let count = 0
+    for (const cell of arr) {
+      if (!Array.isArray(cell)) continue
+      for (const room of cell) {
+        if (room && typeof room === 'object' && typeof room.odaNo === 'number') {
+          if (suresiDolanOdaSet.value.has(room.odaNo)) count++
+        }
+      }
+    }
+    return count
+  } catch {
+    return 0
+  }
+}
+
 function reloadPage(): void {
   location.reload()
 }
 </script>
 
 <style scoped>
+.kat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.suresi-dolan-count {
+  font-size: 11px;
+  font-weight: 700; /* koyu */
+  color: #000000; /* koyu renk */
+}
 .oda-cell {
   display: flex;
   flex-direction: column;
@@ -704,9 +741,8 @@ function reloadPage(): void {
   position: absolute;
   left: 6px;
   right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 22px; /* şerit yüksekliği (biraz daha kalın) */
+  top: 4px;
+  height: 60px; /* iki satırı kapsayacak yükseklik (başlık + alt sayı) */
   background: #fdd835; /* sarı şerit */
   border-radius: 4px;
   z-index: 0;

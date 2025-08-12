@@ -159,7 +159,36 @@ export class MusteriController {
           musteriData.OdaYatak as string | { label?: string; value?: string }
         );
         if (!musaitlikKontrol.musait) {
-          throw new Error(musaitlikKontrol.message);
+          // KİRLİ ise kullanıcı onayı gerektirir
+          if (musaitlikKontrol.message === 'KİRLİ') {
+            const onay = Boolean(musteriData?.kirliOnay);
+            if (!onay) {
+              throw new Error('Seçilen Oda KİRLİ. Lütfen onay verin veya başka oda seçin.');
+            }
+            // Onay verildiyse, devam etmeden önce odanın KİRLİ bilgisini temizle (BOŞ yap)
+            // Lokal parse: "626-1" veya { value: '626-1' }
+            let odaNo = '', yatakNo = '';
+            const raw = musteriData.OdaYatak;
+            if (typeof raw === 'string') {
+              const parts = raw.split('-');
+              odaNo = parts[0]?.trim() || '';
+              yatakNo = parts[1]?.trim() || '';
+            } else if (raw && typeof raw === 'object') {
+              const val = String(raw.value || raw.label || '');
+              const parts = val.split('-');
+              odaNo = parts[0]?.trim() || '';
+              yatakNo = parts[1]?.trim() || '';
+            }
+            const schemaName = this.dbConfig.getTableSchema();
+            const bugunTarihi = this.formatDate(new Date());
+            await this.transactionService.executeQuery(
+              queryRunner,
+              `UPDATE ${schemaName}.tblOdaYatak SET odYatDurum = 'BOŞ', odYatKllnc = @2, oKytTarihi = @3 WHERE odYatOdaNo = @0 AND odYatYtkNo = @1`,
+              [odaNo, yatakNo, kullaniciAdi, bugunTarihi]
+            );
+          } else {
+            throw new Error(musaitlikKontrol.message);
+          }
         }
         
         // 2. TC kimlik kontrolü yap

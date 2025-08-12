@@ -7,12 +7,12 @@
     @click="handleClick"
     :class="{ 'active-menu-item': isActive }"
   >
-    <q-item-section
+      <q-item-section
       v-if="icon"
       avatar
     >
       <q-icon :name="icon" :style="iconColor ? `color: ${iconColor}` : ''" />
-      <q-tooltip v-if="mini" style="min-width: 250px; text-align: center; font-size: 1em; color:cyan;">{{ title }}</q-tooltip>
+      <q-tooltip v-if="mini" style="min-width: 250px; text-align: center; font-size: 1em; color:cyan; white-space: nowrap;">{{ title }}</q-tooltip>
     </q-item-section>
 
     <q-item-section v-if="!mini">

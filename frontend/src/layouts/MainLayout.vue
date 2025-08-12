@@ -29,6 +29,11 @@
         </q-toolbar-title>
 
         <div class="row items-center q-gutter-sm">
+          <!-- Tarih/Saat Göstergesi -->
+          <div class="row items-center q-mr-sm header-clock">
+            <q-icon name="schedule" size="16px" class="q-mr-xs" />
+            <span>{{ dateTimeDisplay }}</span>
+          </div>
           <!-- YENİ: Refresh Butonu -->
           <q-btn
             flat
@@ -277,6 +282,28 @@ import { api } from '../boot/axios';
 const router = useRouter();
 const $q = useQuasar();
 
+// Canlı tarih-saat göstergesi
+const dateTimeDisplay = ref('');
+let dateTimeIntervalId: number | null = null;
+
+function pad2(value: number): string {
+  return value.toString().padStart(2, '0');
+}
+
+function updateDateTime(): void {
+  const now = new Date();
+  const weekdayRaw = new Intl.DateTimeFormat('tr-TR', { weekday: 'long' }).format(now);
+  const weekday = weekdayRaw.charAt(0).toLocaleUpperCase('tr-TR') + weekdayRaw.slice(1);
+  const dd = pad2(now.getDate());
+  const mm = pad2(now.getMonth() + 1);
+  const yyyy = now.getFullYear();
+  const hh = pad2(now.getHours());
+  const mi = pad2(now.getMinutes());
+  const ss = pad2(now.getSeconds());
+  // Format: Pazartesi, 12.08.2025   14:22:05 (gün adı, sonra virgül; tarih ve saat arasında üç boşluk)
+  dateTimeDisplay.value = `${weekday}, ${dd}.${mm}.${yyyy}   ${hh}:${mi}:${ss}`;
+}
+
 // Tüm menü linklerini tanımla
 const allLinksList: EssentialLinkProps[] = [
   {
@@ -312,6 +339,12 @@ const allLinksList: EssentialLinkProps[] = [
     iconColor: '#64B5F6'
   },
   {
+    title: 'Kat/Oda Planı',
+    caption: 'Kirli - Arızalı',
+    icon: 'grid_view',
+    link: '/oda-durum'
+  },
+  {
     title: 'Gelir/Gider Kayıt',
     caption: 'Extra İşlemler',
     icon: 'receipt',
@@ -328,12 +361,6 @@ const allLinksList: EssentialLinkProps[] = [
     caption: 'Mevcut - Rezerve',
     icon: 'calendar_month',
     link: '/mevcut-rezerve'
-  },
-  {
-    title: 'Kat / Oda Planları',
-    caption: 'Kirli - Arızalı',
-    icon: 'grid_view',
-    link: '/oda-durum'
   },
   {
     title: 'AI Asistan',
@@ -983,11 +1010,35 @@ onMounted(() => {
   }
   
   // showOdemeIslemModal ile ilgili event listener ve state tanımı kaldırıldı.
+  
+  // Tarih/Saat başlangıç ve periyodik güncelleme
+  updateDateTime();
+  dateTimeIntervalId = window.setInterval(updateDateTime, 1000);
+});
+
+onUnmounted(() => {
+  if (dateTimeIntervalId) {
+    clearInterval(dateTimeIntervalId);
+    dateTimeIntervalId = null;
+  }
 });
 
 </script>
 
 <style scoped>
+.header-clock {
+  color: #ffffff;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.body--dark .header-clock {
+  color: #ffffff;
+}
+
+.header-clock span {
+  white-space: pre;
+}
 .logo-container {
   display: flex;
   align-items: center;

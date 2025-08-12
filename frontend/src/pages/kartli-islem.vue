@@ -2926,8 +2926,31 @@ function onRowDoubleClick(evt: Event, row: MusteriKonaklama) {
     sessionStorage.setItem('prevPage', 'kartli-islem');
     void router.push('/musteri-islem');
   } else {
-    // Modal açılış akışı - ödeme vadesi hesaplama
+    // Modal açılışından ÖNCE aktif konaklama kontrolü yap
     const modalAcilisAkisi = async () => {
+      try {
+        // Backend'den doğrudan aktif konaklama (KnklmCksTrh boş) kontrolü
+        const tcn = row.MstrTCN || ''
+        const aktifKonaklamaResp = await api.get(`/musteri/mevcut-konaklama/${encodeURIComponent(tcn)}`)
+        const aktifKonaklama = aktifKonaklamaResp?.data?.data || null
+        // Eğer aktif konaklama YOKSA (null/undefined), dönem yenileme modalını açma; musteri-islem'e yönlendir
+        if (!aktifKonaklama) {
+          // Aktif konaklama yok → musteri-islem sayfasına yönlendir ve yeni giriş hazırlığı yap
+          // Seçili müşteri bilgisini global state'e koy
+          window.kartliIslemSelectedNormalMusteri = {
+            MstrTCN: row.MstrTCN,
+            MstrAdi: row.MstrAdi,
+            MstrTelNo: row.MstrTelNo || '',
+            MstrDurum: 'AYRILDI',
+            customerNote: 'Yeni Giriş Hazırlığı'
+          } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
+          sessionStorage.setItem('prevPage', 'kartli-islem');
+          await router.push('/musteri-islem');
+          return;
+        }
+      } catch {
+        // Sessiz geç; hata durumunda mevcut akışla devam et
+      }
       let odemeVadesi = '';
       
       // 1. Önce borçlu müşteri listesinden TC ile eşleştirme yap

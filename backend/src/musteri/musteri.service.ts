@@ -742,8 +742,19 @@ export class MusteriService {
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
       
-      // Ödeme takip günü - frontend'den gelen değer varsa onu kullan, yoksa boş bırak
-      const odmTkvGun = konaklamaData.OdemeTakvimGunu ? konaklamaData.OdemeTakvimGunu.toString() : '';
+      // Ödeme takip günü
+      // - Öncelik: frontend'den gelen değer
+      // - Eğer boş ve konaklama süresi 30 ise: planlanan çıkış tarihinin gün değeri
+      let odmTkvGun = '';
+      if (konaklamaData.OdemeTakvimGunu !== undefined && konaklamaData.OdemeTakvimGunu !== null) {
+        odmTkvGun = String(konaklamaData.OdemeTakvimGunu);
+      } else if (konaklamaData.KonaklamaSuresi === 30) {
+        const gunParcasi = (planlananCikis || '').split('.')?.[0] || '';
+        const gunSayisi = Number(gunParcasi);
+        if (!Number.isNaN(gunSayisi) && gunSayisi > 0) {
+          odmTkvGun = String(gunSayisi);
+        }
+      }
       
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
@@ -1189,10 +1200,16 @@ export class MusteriService {
       
       const odaYatakDurum = result[0];
       
-      if (odaYatakDurum.OdYatDurum === 'BOŞ') {
+      const durumNorm = (odaYatakDurum.OdYatDurum || '').toString().trim().toUpperCase();
+      if (durumNorm === 'BOŞ') {
         return {
           musait: true,
           message: 'Oda-yatak müsait'
+        };
+      } else if (durumNorm === 'KİRLİ' || durumNorm === 'KIRLI') {
+        return {
+          musait: false,
+          message: 'KİRLİ' // Frontend bu mesajı özel uyarı için kullanacak
         };
       } else {
         const dolulukBilgisi = odaYatakDurum.OdYatKllnc ? 
@@ -1376,8 +1393,19 @@ export class MusteriService {
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
       
-      // Ödeme takip günü - frontend'den gelen değer varsa onu kullan, yoksa boş bırak
-      const odmTkvGun = konaklamaData.OdemeTakvimGunu ? konaklamaData.OdemeTakvimGunu.toString() : '';
+      // Ödeme takip günü
+      // - Öncelik: frontend'den gelen değer
+      // - Eğer boş ve konaklama süresi 30 ise: planlanan çıkış tarihinin gün değeri
+      let odmTkvGun = '';
+      if (konaklamaData.OdemeTakvimGunu !== undefined && konaklamaData.OdemeTakvimGunu !== null) {
+        odmTkvGun = String(konaklamaData.OdemeTakvimGunu);
+      } else if (konaklamaData.KonaklamaSuresi === 30) {
+        const gunParcasi = (planlananCikis || '').split('.')?.[0] || '';
+        const gunSayisi = Number(gunParcasi);
+        if (!Number.isNaN(gunSayisi) && gunSayisi > 0) {
+          odmTkvGun = String(gunSayisi);
+        }
+      }
       
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
@@ -2826,14 +2854,14 @@ export class MusteriService {
       const schemaName = this.dbConfig.getTableSchema();
       const query = `
         UPDATE ${schemaName}.tblOdaYatak 
-        SET odYatDurum = 'BOŞ', 
+        SET odYatDurum = 'KİRLİ', 
             odYatKllnc = @2, 
             oKytTarihi = @3
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
       
       await this.transactionService.executeQuery(queryRunner, query, [odaNo, yatakNo, kullaniciAdiFinal, bugunTarihi]);
-      console.log(`Oda ${odaNo}-${yatakNo} başarıyla boşaltıldı (${bugunTarihi} - ${kullaniciAdiFinal}) (Transaction-Safe)`);
+      console.log(`Oda ${odaNo}-${yatakNo} KİRLİ yapıldı (${bugunTarihi} - ${kullaniciAdiFinal}) (Transaction-Safe)`);
       
     } catch (error) {
       console.error('Oda-yatak boşaltma hatası (Transaction):', error);
@@ -3066,7 +3094,7 @@ export class MusteriService {
       `;
       await this.transactionService.executeQuery(queryRunner, updateKonaklamaQuery, [musteriNo, cikisTarihi]);
 
-      // 2. Oda-yatak kaydını BOŞ yap
+      // 2. Oda-yatak kaydını KİRLİ yap
       await this.bosaltOdaYatakWithTransaction(queryRunner, body.odaYatak, body.kullaniciAdi);
 
       // 3. tblislem'e GİDER kaydı ekle

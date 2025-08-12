@@ -157,6 +157,10 @@
                       <q-select
                         v-model="formData.OdaYatak"
                         :options="bosOdalar"
+                        option-value="value"
+                        option-label="label"
+                        emit-value
+                        map-options
                         label="Oda No - Yatak No"
                         outlined
                         dense
@@ -164,6 +168,7 @@
                         label-color="green-6"
                         :disable="!formData.KnklmOdaTip"
                         required
+                        :display-value="selectedOdaYatakDisplay"
                         class="kurumsal-responsive oda-select-field"
                         style="font-size: 0.75rem;"
                         @update:model-value="onOdaYatakChange"
@@ -181,6 +186,9 @@
                               <q-item-label style="font-size: 0.75rem; line-height: 1.1;" :title="scope.opt.label">
                                 {{ scope.opt.label }}
                               </q-item-label>
+                            </q-item-section>
+                            <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('kirli')">
+                              <q-chip color="amber-2" text-color="black" size="sm" dense label="Kirli" />
                             </q-item-section>
                           </q-item>
                         </template>
@@ -1039,12 +1047,32 @@ const showModal = computed({
   set: (value) => emit('update:modelValue', value)
 });
 
-const bosOdalar = ref<{value: string, label: string}[]>([]);
+const bosOdalar = ref<{value: string, label: string, durum?: string}[]>([]);
 const odaTipFiyatlari = ref<{
   OdLfytGun?: number;
   OdLfytHft?: number;
   OdLfytAyl?: number;
 } | null>(null);
+
+// Combobox inputunda Kirli metnini gizleyerek görüntülenecek değer
+const selectedOdaYatakDisplay = computed(() => {
+  let value = '';
+  const current = formData.value.OdaYatak as unknown;
+  if (typeof current === 'string') {
+    value = current;
+  } else if (
+    current &&
+    typeof current === 'object' &&
+    'value' in (current as Record<string, unknown>) &&
+    typeof (current as { value?: unknown }).value === 'string'
+  ) {
+    value = String((current as { value?: string }).value);
+  }
+  if (!value) return '';
+  const selected = bosOdalar.value.find(o => o.value === value);
+  const label = selected?.label || value;
+  return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]/gi, '');
+});
 
 // Ek Bilgiler Dialog
 const showEkBilgilerDialog = ref(false);
@@ -1432,12 +1460,7 @@ watch(() => formData.value.KonaklamaSuresi, (newSure, oldSure) => {
     // Azaltma yönünde ve minimumun altına düşüyorsa engelle ve uyar
     if (typeof oldSure === 'number' && newSure < oldSure && newSure < minAllowedKonaklamaSuresi.value) {
       formData.value.KonaklamaSuresi = Math.max(minAllowedKonaklamaSuresi.value, 1);
-      Notify.create({
-        type: 'warning',
-        message: 'Planlanan çıkış tarihi en erken yarın olabilir. Daha kısa süre seçemezsiniz.',
-        position: 'top',
-        timeout: 2500
-      });
+      // Uyarı mesajı gösterme (sessiz düzelt)
       return;
     }
     void onKonaklamaSuresiChanged();
@@ -1666,11 +1689,14 @@ async function onOdaYatakChange() {
 async function onKonaklamaSuresiChanged() {
   const sure = formData.value.KonaklamaSuresi;
   
-  // Konaklama süresi kontrolü
-  if (sure < 1 || sure > 30) {
+  // Konaklama süresi kontrolü: <1 ise 1'e, >30 ise 30'a sabitle
+  if (sure < 1) {
     formData.value.KonaklamaSuresi = 1;
     formData.value.KonaklamaTipi = 'GÜNLÜK';
     return;
+  }
+  if (sure > 30) {
+    formData.value.KonaklamaSuresi = 30;
   }
   // Min planlanan çıkış = yarın kuralını enforce et
   try {
@@ -1853,7 +1879,20 @@ function calculatePlannedDate() {
   );
   
   const newDate = new Date(baseDate);
-  newDate.setDate(newDate.getDate() + formData.value.KonaklamaSuresi);
+  if (formData.value.KonaklamaSuresi === 30) {
+    // Özel kural: 30 gün için giriş gününü koru, ayı +1 yap (yıl devrini handle et)
+    const dayKeep = baseDate.getDate();
+    const nextMonth = baseDate.getMonth() + 1; // 0-based
+    const nextYear = baseDate.getFullYear() + Math.floor(nextMonth / 12);
+    const monthIndex = nextMonth % 12;
+    // Ay sonu taşmalarını engelle: mevcut ayda 31 ve sonraki ay 30 ise, JS otomatik düzeltir; bu isteniyorsa bırak.
+    // Eğer aynı günü zorunlu tutmak istiyorsak, min(day, lastDayOfTargetMonth) yapabiliriz.
+    const lastDayOfTargetMonth = new Date(nextYear, monthIndex + 1, 0).getDate();
+    const safeDay = Math.min(dayKeep, lastDayOfTargetMonth);
+    newDate.setFullYear(nextYear, monthIndex, safeDay);
+  } else {
+    newDate.setDate(newDate.getDate() + formData.value.KonaklamaSuresi);
+  }
   
   const day = String(newDate.getDate()).padStart(2, '0');
   const month = String(newDate.getMonth() + 1).padStart(2, '0');
