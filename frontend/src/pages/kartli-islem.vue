@@ -3246,7 +3246,7 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
     console.log('🔥 Ham bakiye:', hamBakiye);
     
     // Net bakiye = Ham bakiye - Depozito bakiyesi
-    const netBakiye = hamBakiye - depozitoBakiye;
+    const netBakiye = hamBakiye //- depozitoBakiye;
     
     console.log('🔥 Net bakiye hesaplandı:', netBakiye);
     
