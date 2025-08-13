@@ -15,11 +15,11 @@
         bordered
         square
         dense
-        :pagination="{ rowsPerPage: 20 }"
+        :pagination="{ sortBy: 'grsTrh', descending: false, rowsPerPage: 20 }"
       >
         <template v-slot:body-cell-adSoyad="props">
           <q-td :props="props">
-            {{ props.row.adSoyad }}<span v-if="props.row.ulkeKodu"> ({{ props.row.ulkeKodu }})</span>
+            <span v-if="props.row.ulkeKodu">({{ props.row.ulkeKodu }})  -  </span>{{ props.row.adSoyad }}
           </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
@@ -57,15 +57,23 @@ const loading = ref(false)
 const rows = ref<PendingRow[]>([])
 
 const columns = [
-  { name: 'actions', label: 'İşlem', field: 'actions', align: 'left' as const },
-  { name: 'kanal', label: 'Acenta', field: 'kanal', align: 'left' as const },
-  { name: 'hrNumber', label: 'HR No', field: 'hrNumber', align: 'left' as const },
-  { name: 'adSoyad', label: 'Ad Soyad', field: 'adSoyad', align: 'left' as const },
-  { name: 'odaTipiProj', label: 'Oda Tipi', field: 'odaTipiProj', align: 'left' as const },
-  { name: 'grsTrh', label: 'Giriş', field: 'grsTrh', align: 'left' as const },
-  { name: 'cksTrh', label: 'Çıkış', field: 'cksTrh', align: 'left' as const },
-  { name: 'ucret', label: 'Ücret', field: (r: PendingRow) => `${Number(r.ucret||0).toFixed(2)} ${r.odemeDoviz||''}`, align: 'right' as const },
-  { name: 'paidStatus', label: 'Ödeme', field: 'paidStatus', align: 'left' as const },
+  { name: 'actions', label: 'İşlem', field: 'actions', align: 'left' as const, sortable: false },
+  { name: 'kanal', label: 'Acenta', field: 'kanal', align: 'left' as const, sortable: true },
+  { name: 'hrNumber', label: 'HR No', field: 'hrNumber', align: 'left' as const, sortable: true },
+  { name: 'adSoyad', label: 'Ad Soyad', field: 'adSoyad', align: 'left' as const, sortable: true },
+  { name: 'odaTipiProj', label: 'Oda Tipi', field: 'odaTipiProj', align: 'left' as const, sortable: true },
+  { name: 'grsTrh', label: 'Giriş', field: 'grsTrh', align: 'left' as const, sortable: true },
+  { name: 'cksTrh', label: 'Çıkış', field: 'cksTrh', align: 'left' as const, sortable: true },
+  {
+    name: 'ucret',
+    label: 'Ücret',
+    field: (r: PendingRow) => Number(r.ucret || 0),
+    format: (val: number, r: PendingRow) => `${val.toFixed(2)} ${r.odemeDoviz || ''}`,
+    align: 'right' as const,
+    sortable: true,
+    sort: (a: number, b: number) => a - b
+  },
+  { name: 'paidStatus', label: 'Ödeme', field: 'paidStatus', align: 'left' as const, sortable: true },
 ]
 
 async function loadData() {
