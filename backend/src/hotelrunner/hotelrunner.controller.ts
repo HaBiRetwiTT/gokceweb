@@ -13,7 +13,7 @@ export class HotelRunnerController {
     @Query('to') to?: string,
   ) {
     const result = await this.hrService.fetchAndStoreReservations({ from, to });
-    return { success: true, inserted: result.inserted, updated: result.updated };
+    return { success: true, inserted: result.inserted, updated: result.updated, rawUpserted: result.rawUpserted };
   }
 }
 
