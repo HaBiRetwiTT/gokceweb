@@ -12,9 +12,9 @@ type FetchWindow = { from?: string; to?: string };
 @Injectable()
 export class HotelRunnerService {
   private readonly baseUrl = 'https://app.hotelrunner.com/api/v2/apps/';
-  // Güvenlik için bunları .env'e almak önerilir; şu an kullanıcı isteği gereği sabit alıyoruz
-  private readonly token = 'rc-JzxDFUSTAi2Vnj0TjWptAsFbGP13zDgXqteaS';
-  private readonly hrId = '606881361';
+  // Kimlik bilgileri .env üzerinden alınır (readonly, deklarasyonda set edilir)
+  private readonly token: string = process.env.HOTELRUNNER_TOKEN || process.env.HR_TOKEN || '';
+  private readonly hrId: string = process.env.HOTELRUNNER_ID || process.env.HR_ID || '';
 
   constructor(
     private readonly http: HttpService,
@@ -314,6 +314,69 @@ export class HotelRunnerService {
 
       return { inserted: structuredInserted.count, updated: structuredUpdated.count, rawUpserted: rawUpserted.count };
     });
+  }
+
+  // Bekleyen rezervasyonlar: grsTrh <= bugün ve durum = 'confirmed'
+  async getPendingReservations(): Promise<any[]> {
+    const schema = this.dbConfig.getTableSchema();
+    return await this.tx.executeInTransaction(async (qr) => {
+      const sql = `
+        SELECT 
+          hrResId,
+          adSoyad,
+          ulkeKodu,
+          grsTrh,
+          cksTrh,
+          odaTipiProj,
+          kanal,
+          paidStatus,
+          ucret,
+          odemeDoviz,
+          durum
+        FROM ${schema}.tblHRzvn
+        WHERE durum = 'confirmed'
+          AND TRY_CONVERT(date, grsTrh, 104) <= CAST(GETDATE() AS date)
+        ORDER BY TRY_CONVERT(date, grsTrh, 104) ASC, adSoyad ASC`;
+      const rows = await this.tx.executeQuery(qr, sql, []);
+      return rows || [];
+    });
+  }
+
+  // HotelRunner portalına No-Show bildiren basit proxy (belgelenmiş resmi endpoint olmayabilir; örnek varsayım)
+  async markReservationNoShow(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
+    try {
+      const url = `${this.baseUrl}reservations/fire`;
+      const params: Record<string, string> = {
+        token: this.token,
+        hr_id: this.hrId,
+        hr_number: hrResId,
+        event: 'cancel',
+        cancel_reason: 'no_show',
+      };
+      const resp = await firstValueFrom(this.http.put(url, {}, { params }));
+      return { success: true, message: 'HR portalına No-Show bildirildi.', data: resp.data, status: resp.status };
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'No-Show bildirimi başarısız';
+      return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
+    }
+  }
+
+  // HotelRunner portalında Check-in (confirm) olayı
+  async markReservationCheckIn(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
+    try {
+      const url = `${this.baseUrl}reservations/fire`;
+      const params: Record<string, string> = {
+        token: this.token,
+        hr_id: this.hrId,
+        hr_number: hrResId,
+        event: 'confirm',
+      };
+      const resp = await firstValueFrom(this.http.put(url, {}, { params }));
+      return { success: true, message: 'HR portalında Check-in (confirm) bildirildi.', data: resp.data, status: resp.status };
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Check-in bildirimi başarısız';
+      return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
+    }
   }
 }
 

@@ -363,6 +363,12 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/mevcut-rezerve'
   },
   {
+    title: 'Bekleyen Rezervasyon',
+    caption: 'Ckeck-in - No Show',
+    icon: 'hourglass_empty',
+    link: '/rezerve-giris'
+  },
+  {
     title: 'AI Asistan',
     caption: 'Akıllı Öneriler',
     icon: 'smart_toy',

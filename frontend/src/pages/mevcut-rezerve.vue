@@ -138,7 +138,7 @@
                         :max-height="null"
                         :max-width="null"
                       >
-                        <div class="konaklama-tooltip">
+                        <div class="konaklama-tooltip upper-tooltip">
                           <div class="tooltip-header q-mb-xs">
                             <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
                           </div>
@@ -195,13 +195,13 @@
                         anchor="center right" 
                         self="center left"
                         :offset="[10, 0]"
-                        class="bg-dark text-white shadow-2 custom-large-tooltip"
+                        class="reservation-tooltip-root shadow-2 custom-large-tooltip"
                         style="font-size: 0.65rem;"
                         :content-style="{ width: '600px' }"
                         :max-height="null"
                         :max-width="null"
                       >
-                        <div class="konaklama-tooltip">
+                        <div class="konaklama-tooltip reservation-tooltip">
                           <div class="tooltip-header q-mb-xs">
                             <strong>{{ formatTarihDetay(doluluk.tarih) }} • Rezervasyonlar</strong>
                           </div>
@@ -941,6 +941,17 @@ watch(() => route.path, (newPath, oldPath) => {
   overflow: hidden !important;
 }
 
+/* Rezervasyon tooltip renk teması */
+:deep(.reservation-tooltip-root .q-tooltip__content) {
+  background: #f2db07 !important; /* sarı zemin */
+  color: #212121 !important;      /* koyu gri/siyah metin */
+}
+.reservation-tooltip .tooltip-row,
+.reservation-tooltip .tooltip-item,
+.reservation-tooltip .tooltip-header {
+  color: #212121 !important;
+}
+
 .konaklama-tooltip {
   padding: 0.5rem;
   line-height: 1.4;
@@ -982,10 +993,17 @@ watch(() => route.path, (newPath, oldPath) => {
 }
 
 /* Rezervasyonlar arasında ince ayırıcı çizgi */
-.tooltip-item:not(:last-child) {
+.reservation-tooltip .tooltip-item:not(:last-child) {
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   padding-bottom: 6px;
   margin-bottom: 6px;
+}
+
+/* Üst bölüm (mevcut konaklama) tooltip satırlarında çizgi olmasın */
+.upper-tooltip .tooltip-item:not(:last-child) {
+  border-bottom: none !important;
+  padding-bottom: 2px !important;
+  margin-bottom: 2px !important;
 }
 
 .tooltip-row {
