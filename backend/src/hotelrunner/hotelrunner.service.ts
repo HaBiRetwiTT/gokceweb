@@ -353,7 +353,6 @@ export class HotelRunnerService {
           ORDER BY r.updatedAt DESC
         ) rw
         WHERE z.durum = 'confirmed'
-          AND TRY_CONVERT(date, z.grsTrh, 104) <= CAST(GETDATE() AS date)
         ORDER BY TRY_CONVERT(date, z.grsTrh, 104) ASC, z.adSoyad ASC`;
       const rows = await this.tx.executeQuery(qr, sql, []);
       return rows || [];

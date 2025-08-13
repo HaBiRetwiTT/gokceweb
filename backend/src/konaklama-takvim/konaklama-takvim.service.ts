@@ -442,9 +442,25 @@ export class KonaklamaTakvimService {
   private async getRezervasyonToplamHaritasi(): Promise<Map<string, number>> {
     const schema = this.dbConfig.getTableSchema();
     const sql = `
-      SELECT odaTipiProj, COUNT(*) AS cnt
+      SELECT 
+        odaTipiProj,
+        SUM(
+          CASE 
+            WHEN TRY_CONVERT(date, grsTrh, 104) IS NOT NULL 
+             AND TRY_CONVERT(date, cksTrh, 104) IS NOT NULL 
+            THEN 
+              CASE 
+                WHEN DATEDIFF(day, TRY_CONVERT(date, grsTrh, 104), TRY_CONVERT(date, cksTrh, 104)) >= 0 
+                THEN DATEDIFF(day, TRY_CONVERT(date, grsTrh, 104), TRY_CONVERT(date, cksTrh, 104)) + 1 
+                ELSE 0 
+              END
+            ELSE 0 
+          END
+        ) AS cnt
       FROM ${schema}.tblHRzvn
-      WHERE durum = 'confirmed' AND odaTipiProj IS NOT NULL AND LTRIM(RTRIM(odaTipiProj)) <> ''
+      WHERE durum = 'confirmed' 
+        AND odaTipiProj IS NOT NULL 
+        AND LTRIM(RTRIM(odaTipiProj)) <> ''
       GROUP BY odaTipiProj
     `;
     const rows = await this.musteriRepository.query(sql) as Array<{ odaTipiProj: string | null; cnt: number | string | null }>;
