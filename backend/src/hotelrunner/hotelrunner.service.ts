@@ -31,6 +31,25 @@ export class HotelRunnerService {
     return `${dd}.${mm}.${yyyy}`;
   }
 
+  private truncateValue(value: unknown, maxLen: number): string {
+    const s = (value ?? '').toString();
+    return s.length > maxLen ? s.slice(0, maxLen) : s;
+  }
+
+  private normalizeCountry(input: unknown, maxLen = 3): string {
+    const raw = (input ?? '').toString().trim();
+    if (!raw) return '';
+    // Örnek: "Turkey (TR)" → TR
+    const parenCode = /\(([A-Za-z]{2,3})\)/.exec(raw)?.[1];
+    if (parenCode) return this.truncateValue(parenCode.toUpperCase(), maxLen);
+    // "TR" veya "TUR" gibi zaten kod ise
+    if (/^[A-Za-z]{2,3}$/.test(raw)) return this.truncateValue(raw.toUpperCase(), maxLen);
+    // Harf/digit karışık veya ülke adı: sadece ilk 3 büyük harf
+    const lettersOnly = raw.replace(/[^A-Za-z]/g, '').toUpperCase();
+    if (lettersOnly.length >= 2) return this.truncateValue(lettersOnly, maxLen);
+    return this.truncateValue(raw.toUpperCase(), maxLen);
+  }
+
   private computePaidStatus(it: any): string {
     const totalCandidates = [
       it.total,
@@ -116,43 +135,49 @@ export class HotelRunnerService {
         rawUpserted.count += 1;
 
         // 3) RAW -> STRUCTURED dönüşümü ve upsert tblHRzvn
-        const musteriTCKN = (it.guest?.identity_no || it.guest?.national_id || it.guest_national_id || '').toString();
-        const adSoyad = [
+        const musteriTCKN = this.truncateValue(
+          it.guest?.identity_no || it.guest?.national_id || it.guest_national_id || '',
+          20,
+        );
+        const adSoyad = this.truncateValue([
           it.guest?.first_name || it.firstname,
           it.guest?.last_name || it.lastname,
         ]
           .filter(Boolean)
           .join(' ')
-          .trim();
-        const email = (it.guest?.email || it.address?.email || '').toString();
-        const tel = (it.guest?.phone || it.address?.phone || '').toString();
-        const ulke = (
-          it.guest?.country || it.address?.country_code || it.country || it.address?.country || ''
-        ).toString();
+          .trim(), 150);
+        const email = this.truncateValue(it.guest?.email || it.address?.email || '', 150);
+        const tel = this.truncateValue(it.guest?.phone || it.address?.phone || '', 50);
+        const ulke = this.normalizeCountry(
+          it.guest?.country || it.address?.country_code || it.country || it.address?.country || '',
+          3,
+        );
 
-        const odaTipiHR = (
-          it.room_kind || it.room_type || it.rooms?.[0]?.name || it.rooms?.[0]?.name_presentation || ''
-        ).toString();
+        const odaTipiHR = this.truncateValue(
+          it.room_kind || it.room_type || it.rooms?.[0]?.name || it.rooms?.[0]?.name_presentation || '',
+          100,
+        );
 
-        const hrCode = (
-          it.code || it.room_code || it.room?.code || it.rate_code || it.rate_plan_code || it.inv_code || it.rooms?.[0]?.rate_code || ''
-        ).toString();
+        const hrCode = this.truncateValue(
+          it.code || it.room_code || it.room?.code || it.rate_code || it.rate_plan_code || it.inv_code || it.rooms?.[0]?.rate_code || '',
+          100,
+        );
 
         let odaTipiProj = '';
         if (hrCode) {
           const mapSql = `SELECT TOP 1 projectOdaTip FROM ${schema}.tblHRRoomTypeMap WHERE hrCode = @0 AND aktif = 1`;
           const mapRes = await this.tx.executeQuery(queryRunner, mapSql, [hrCode]);
-          odaTipiProj = (mapRes?.[0]?.projectOdaTip || '').toString();
+          odaTipiProj = this.truncateValue((mapRes?.[0]?.projectOdaTip || '').toString(), 100);
         }
 
         const grsTrh = this.toDdMmYyyy(it.checkin_date || it.checkin || it.arrival_date || it.rooms?.[0]?.checkin_date);
         const cksTrh = this.toDdMmYyyy(it.checkout_date || it.checkout || it.departure_date || it.rooms?.[0]?.checkout_date);
-        const doviz = (it.currency || it.rooms?.[0]?.currency || '').toString();
+        const doviz = this.truncateValue((it.currency || it.rooms?.[0]?.currency || '').toString().toUpperCase(), 3);
         const ucret = Number(
           it.total || it.item_total || it.sub_total || it.total_price || it.price || it.amount || it.rooms?.[0]?.total || 0,
         ) || 0;
-        const kanal = (it.channel || it.source || it.channel_display || '').toString();
-        const durum = (it.status || it.state || '').toString();
+        const kanal = this.truncateValue((it.channel || it.source || it.channel_display || '').toString(), 100);
+        const durum = this.truncateValue((it.status || it.state || '').toString(), 50);
         const paidStatus = this.computePaidStatus(it);
 
         const existsSql = `SELECT COUNT(1) as cnt FROM ${schema}.tblHRzvn WHERE hrResId = @0`;
