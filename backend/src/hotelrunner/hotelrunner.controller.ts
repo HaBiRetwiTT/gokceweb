@@ -56,6 +56,18 @@ export class HotelRunnerController {
   async markCheckInPut(@Body() body: { hrResId: string }) {
     return this.markCheckIn(body);
   }
+
+  // Lokal olarak sadece durum bilgisini değiştir (checked_in | no_show)
+  @Post('local-status')
+  async updateLocalStatus(@Body() body: { hrResId: string; status: 'checked_in' | 'no_show' }) {
+    const hrResId = (body?.hrResId || '').toString();
+    const status = (body?.status || '').toString() as 'checked_in' | 'no_show';
+    if (!hrResId || (status !== 'checked_in' && status !== 'no_show')) {
+      return { success: false, message: 'Geçersiz parametreler' };
+    }
+    const result = await this.hrService.updateLocalReservationStatus(hrResId, status);
+    return result;
+  }
 }
 
 

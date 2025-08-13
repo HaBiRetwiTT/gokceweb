@@ -13,8 +13,8 @@ type FetchWindow = { from?: string; to?: string };
 export class HotelRunnerService {
   private readonly baseUrl = 'https://app.hotelrunner.com/api/v2/apps/';
   // Kimlik bilgileri .env üzerinden alınır (readonly, deklarasyonda set edilir)
-  private readonly token: string = process.env.HOTELRUNNER_TOKEN || process.env.HR_TOKEN || '';
-  private readonly hrId: string = process.env.HOTELRUNNER_ID || process.env.HR_ID || '';
+  private readonly token: string = process.env.HOTELRUNNER_TOKEN || process.env.HR_TOKEN || process.env.token || '';
+  private readonly hrId: string = process.env.HOTELRUNNER_ID || process.env.HR_ID || process.env.hr_id ||'';
 
   constructor(
     private readonly http: HttpService,
@@ -239,7 +239,12 @@ export class HotelRunnerService {
         const durum = this.truncateValue((it.status || it.state || '').toString(), 50);
         const paidStatus = this.computePaidStatus(it);
 
-        const existsSql = `SELECT COUNT(1) as cnt FROM ${schema}.tblHRzvn WHERE hrResId = @0`;
+        // Lokal olarak 'checked_in' veya 'no_show' yapılan kayıtları HR senkronu ile EZME
+        const existsSql = `
+          SELECT COUNT(1) as cnt
+          FROM ${schema}.tblHRzvn WITH (NOLOCK)
+          WHERE hrResId = @0
+            AND ISNULL(durum,'') NOT IN ('checked_in','no_show')`;
         const ex = await this.tx.executeQuery(queryRunner, existsSql, [hrResId]);
         const cnt = Number(ex?.[0]?.cnt || 0);
 
@@ -322,39 +327,81 @@ export class HotelRunnerService {
     return await this.tx.executeInTransaction(async (qr) => {
       const sql = `
         SELECT 
-          hrResId,
-          adSoyad,
-          ulkeKodu,
-          grsTrh,
-          cksTrh,
-          odaTipiProj,
-          kanal,
-          paidStatus,
-          ucret,
-          odemeDoviz,
-          durum
-        FROM ${schema}.tblHRzvn
-        WHERE durum = 'confirmed'
-          AND TRY_CONVERT(date, grsTrh, 104) <= CAST(GETDATE() AS date)
-        ORDER BY TRY_CONVERT(date, grsTrh, 104) ASC, adSoyad ASC`;
+          z.hrResId,
+          COALESCE(
+            JSON_VALUE(rw.rawJson,'$.hr_number'),
+            JSON_VALUE(rw.rawJson,'$.voucher_number'),
+            JSON_VALUE(rw.rawJson,'$.rooms[0].voucher_number')
+          ) AS hrNumber,
+          z.adSoyad,
+          z.ulkeKodu,
+          z.grsTrh,
+          z.cksTrh,
+          z.odaTipiProj,
+          z.kanal,
+          z.paidStatus,
+          z.ucret,
+          z.odemeDoviz,
+          z.durum
+        FROM ${schema}.tblHRzvn z
+        OUTER APPLY (
+          SELECT TOP 1 rawJson
+          FROM ${schema}.tblHRzvnRaw r
+          WHERE r.hrResId = z.hrResId
+          ORDER BY r.updatedAt DESC
+        ) rw
+        WHERE z.durum = 'confirmed'
+          AND TRY_CONVERT(date, z.grsTrh, 104) <= CAST(GETDATE() AS date)
+        ORDER BY TRY_CONVERT(date, z.grsTrh, 104) ASC, z.adSoyad ASC`;
       const rows = await this.tx.executeQuery(qr, sql, []);
       return rows || [];
     });
   }
 
+  // tblHRzvnRaw.rawJson içinden hr_number'ı çözer
+  private async resolveHrNumber(hrResId: string): Promise<string> {
+    const schema = this.dbConfig.getTableSchema();
+    try {
+      return await this.tx.executeInTransaction(async (qr) => {
+        const sql = `SELECT TOP 1 rawJson FROM ${schema}.tblHRzvnRaw WHERE hrResId = @0 ORDER BY updatedAt DESC`;
+        const rows = await this.tx.executeQuery(qr, sql, [hrResId]);
+        const raw = rows?.[0]?.rawJson as string | undefined;
+        if (!raw) return hrResId;
+        try {
+          const obj = JSON.parse(raw);
+          const hrNumber = obj?.hr_number; // Sadece hr_number kullan
+          return (hrNumber || '').toString();
+        } catch {
+          return hrResId;
+        }
+      });
+    } catch {
+      return hrResId;
+    }
+  }
+
   // HotelRunner portalına No-Show bildiren basit proxy (belgelenmiş resmi endpoint olmayabilir; örnek varsayım)
   async markReservationNoShow(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
     try {
+      if (!this.token || !this.hrId) {
+        return { success: false, message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).', data: null, status: 500 };
+      }
+      const hrNumber = await this.resolveHrNumber(hrResId);
+      if (!hrNumber) {
+        return { success: false, message: 'hr_number bulunamadı (Raw JSON içinde yok).', data: null, status: 400 };
+      }
       const url = `${this.baseUrl}reservations/fire`;
       const params: Record<string, string> = {
         token: this.token,
         hr_id: this.hrId,
-        hr_number: hrResId,
+        hr_number: hrNumber,
         event: 'cancel',
         cancel_reason: 'no_show',
       };
       const resp = await firstValueFrom(this.http.put(url, {}, { params }));
-      return { success: true, message: 'HR portalına No-Show bildirildi.', data: resp.data, status: resp.status };
+      const ok = resp?.data?.status === 'success' || resp?.status < 400;
+      const msg = ok ? 'HR portalına No-Show bildirildi.' : (resp?.data?.error || 'HR yanıtı başarısız');
+      return { success: ok, message: msg, data: resp.data, status: resp.status };
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || 'No-Show bildirimi başarısız';
       return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
@@ -364,19 +411,38 @@ export class HotelRunnerService {
   // HotelRunner portalında Check-in (confirm) olayı
   async markReservationCheckIn(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
     try {
+      if (!this.token || !this.hrId) {
+        return { success: false, message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).', data: null, status: 500 };
+      }
+      const hrNumber = await this.resolveHrNumber(hrResId);
+      if (!hrNumber) {
+        return { success: false, message: 'hr_number bulunamadı (Raw JSON içinde yok).', data: null, status: 400 };
+      }
       const url = `${this.baseUrl}reservations/fire`;
       const params: Record<string, string> = {
         token: this.token,
         hr_id: this.hrId,
-        hr_number: hrResId,
+        hr_number: hrNumber,
         event: 'confirm',
       };
       const resp = await firstValueFrom(this.http.put(url, {}, { params }));
-      return { success: true, message: 'HR portalında Check-in (confirm) bildirildi.', data: resp.data, status: resp.status };
+      const ok = resp?.data?.status === 'success' || resp?.status < 400;
+      const msg = ok ? 'HR portalında Check-in (confirm) bildirildi.' : (resp?.data?.error || 'HR yanıtı başarısız');
+      return { success: ok, message: msg, data: resp.data, status: resp.status };
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || 'Check-in bildirimi başarısız';
       return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
     }
+  }
+
+  // Lokal durum güncellemesi
+  async updateLocalReservationStatus(hrResId: string, status: 'checked_in' | 'no_show'): Promise<{ success: boolean; message: string }> {
+    const schema = this.dbConfig.getTableSchema();
+    return await this.tx.executeInTransaction(async (qr) => {
+      const sql = `UPDATE ${schema}.tblHRzvn SET durum = @1, updatedAt = @2 WHERE hrResId = @0`;
+      await this.tx.executeQuery(qr, sql, [hrResId, status, this.toDdMmYyyy(new Date())]);
+      return { success: true, message: `Lokal durum güncellendi: ${status}` };
+    });
   }
 }
 
