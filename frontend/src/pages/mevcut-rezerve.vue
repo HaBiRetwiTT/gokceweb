@@ -26,6 +26,8 @@
                   color="lime-2"
                   @click="refreshAll"
                   class="refresh-btn"
+                  :loading="syncing"
+                  :disable="syncing"
                 />
                 Oda Tipi
               </th>
@@ -67,6 +69,9 @@
                   <div class="oda-tipi-adi">{{ odaTipi.odaTipi }}</div>
                   <div class="konaklama-toplam">
                     Toplam Konaklama: {{ getTotalKonaklama(odaTipi) }}
+                  </div>
+                  <div class="konaklama-toplam">
+                    Rezervasyonlar: {{ odaTipi as any && (odaTipi as any).totalRezervasyonSayisi !== undefined ? (odaTipi as any).totalRezervasyonSayisi : getTotalRezervasyon(odaTipi) }}
                   </div>
                 </div>
                 <!-- Oda tipi hover tooltip: Boş oda-yatak listesi -->
@@ -113,86 +118,125 @@
                   'dolu': doluluk.dolu,
                   'bos': !doluluk.dolu
                 }"
-                :style="getHucreStyle(doluluk)"
-                :data-gradient-color="doluluk.dolu ? calculateGradientColor(doluluk.bosYatakSayisi, doluluk.konaklamaDetaylari.length) : ''"
               >
                 <div class="doluluk-indicator">
                   <!-- Ana İçerik - Sadece dolu hücrelerde göster -->
                   <div v-if="doluluk.dolu" class="hucre-content">
-                    <!-- Dolu Yatak Sayısı -->
-                    <div class="dolu-sayisi">
-                      D: {{ doluluk.konaklamaDetaylari.length }}
-                    </div>
-                    
-                    <!-- Boş Yatak Sayısı -->
-                    <div class="bos-sayisi" :class="{ 'sifir-deger': doluluk.bosYatakSayisi === 0 }">
-                      B: {{ doluluk.bosYatakSayisi }}
-                    </div>
-                    
-                    <!-- Rezerve Sayısı -->
-                    <div class="rezerve-sayisi sifir-deger">
-                      R: 0
-                    </div>
-                    
-                    <!-- Toplam Sayısı -->
-                    <div class="toplam-sayisi sifir-deger">
-                      T: 0
-                    </div>
-                  </div>
-                  
-                  <!-- Tooltip -->
-                  <q-tooltip 
-                    :key="'kon-' + tooltipKey + '-' + doluluk.tarih + '-' + odaTipi.odaTipi"
-                    v-if="doluluk.dolu && doluluk.konaklamaDetaylari.length > 0"
-                    anchor="center right" 
-                    self="center left"
-                    :offset="[10, 0]"
-                    class="bg-dark text-white shadow-2 custom-large-tooltip"
-                    style="font-size: 0.65rem;"
-                    :max-height="null"
-                    :max-width="null"
-                  >
-                    <div class="konaklama-tooltip">
-                      <div class="tooltip-header q-mb-xs">
-                        <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
-                      </div>
-                      <div class="tooltip-columns">
-                        <div 
-                          v-for="columnIndex in getColumnCount(doluluk.konaklamaDetaylari)"
-                          :key="columnIndex"
-                          class="tooltip-column"
-                        >
-                          <div 
-                            v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 28, columnIndex * 28)" 
-                            :key="(columnIndex - 1) * 28 + index"
-                            class="tooltip-item q-mb-xs"
-                            :class="{ 'aylik-konaklama-satir': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' }"
-                          >
-                            <div class="tooltip-row">
-                              <div class="oda-yatak-col">
-                                {{ detay.odaNo }}-{{ detay.yatakNo }}
-                              </div>
-                              <div class="tip-col">
-                                <span 
-                                  :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
-                                >
-                                  {{ detay.konaklamaTipi }}
-                                </span>
-                              </div>
-                              <div class="musteri-col">
-                                {{ detay.musteriAdi }}
+                    <div class="cell-top" :style="getTopStyle(doluluk)">
+                      <div class="dolu-sayisi">D: {{ doluluk.konaklamaDetaylari.length }}</div>
+                      <div class="bos-sayisi" :class="{ 'sifir-deger': doluluk.bosYatakSayisi === 0 }">B: {{ doluluk.bosYatakSayisi }}</div>
+                      <!-- Tooltip: YALNIZCA ÜST BÖLÜMDE AKTİF -->
+                      <q-tooltip 
+                        :key="'kon-' + tooltipKey + '-' + doluluk.tarih + '-' + odaTipi.odaTipi"
+                        v-if="doluluk.konaklamaDetaylari.length > 0"
+                        anchor="center right" 
+                        self="center left"
+                        :offset="[10, 0]"
+                        class="bg-dark text-white shadow-2 custom-large-tooltip"
+                        style="font-size: 0.65rem;"
+                        :content-style="{ width: '600px' }"
+                        :max-height="null"
+                        :max-width="null"
+                      >
+                        <div class="konaklama-tooltip">
+                          <div class="tooltip-header q-mb-xs">
+                            <strong>{{ formatTarihDetay(doluluk.tarih) }}</strong>
+                          </div>
+                          <div class="tooltip-columns">
+                            <div 
+                              v-for="columnIndex in getColumnCount(doluluk.konaklamaDetaylari)"
+                              :key="columnIndex"
+                              class="tooltip-column"
+                            >
+                              <div 
+                                v-for="(detay, index) in doluluk.konaklamaDetaylari.slice((columnIndex - 1) * 28, columnIndex * 28)" 
+                                :key="(columnIndex - 1) * 28 + index"
+                                class="tooltip-item q-mb-xs"
+                                :class="{ 'aylik-konaklama-satir': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' }"
+                              >
+                                <div class="tooltip-row">
+                                  <div class="oda-yatak-col">
+                                    {{ detay.odaNo }}-{{ detay.yatakNo }}
+                                  </div>
+                                  <div class="tip-col">
+                                    <span 
+                                      :class="{ 'aylik-konaklama': detay.konaklamaTipi?.toUpperCase() === 'AYLIK' || detay.konaklamaTipi === 'Aylık' }"
+                                    >
+                                      {{ detay.konaklamaTipi }}
+                                    </span>
+                                  </div>
+                                  <div class="musteri-col">
+                                    {{ detay.musteriAdi }}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </q-tooltip>
                     </div>
-                  </q-tooltip>
+                    <div class="cell-bottom" :style="getBottomStyle(doluluk)">
+                      <div 
+                        v-if="(doluluk as any).rezervasyonSayisi && (doluluk as any).rezervasyonSayisi > 0"
+                        class="rezerve-sayisi neutral-stat"
+                      >
+                        R: {{ (doluluk as any).rezervasyonSayisi }}
+                      </div>
+                      <div 
+                        v-if="(doluluk as any).rezervasyonSayisi && (doluluk as any).rezervasyonSayisi > 0"
+                        class="toplam-sayisi neutral-stat"
+                        :class="{ 'k-critical': Number((doluluk as any).toplamBosEksiRez ?? 0) < 10 }"
+                      >
+                        K: {{ (doluluk as any).toplamBosEksiRez ?? 0 }}
+                      </div>
+                      <!-- Alt bölüm tooltip: yalnızca R>0 iken rezervasyon detaylarını göster -->
+                      <q-tooltip 
+                        v-if="(doluluk as any).rezervasyonSayisi && (doluluk as any).rezervasyonSayisi > 0"
+                        anchor="center right" 
+                        self="center left"
+                        :offset="[10, 0]"
+                        class="bg-dark text-white shadow-2 custom-large-tooltip"
+                        style="font-size: 0.65rem;"
+                        :content-style="{ width: '600px' }"
+                        :max-height="null"
+                        :max-width="null"
+                      >
+                        <div class="konaklama-tooltip">
+                          <div class="tooltip-header q-mb-xs">
+                            <strong>{{ formatTarihDetay(doluluk.tarih) }} • Rezervasyonlar</strong>
+                          </div>
+                          <div class="tooltip-columns">
+                            <div class="tooltip-column">
+                              <div 
+                                v-for="(rez, idx) in (doluluk as any).rezervasyonDetaylari"
+                                :key="idx"
+                                class="tooltip-item q-mb-xs"
+                              >
+                                <div class="tooltip-row">
+                                  <div class="oda-yatak-col">{{ rez.kanal || '-' }}</div>
+                                  <div class="tip-col">{{ rez.hrResId }}</div>
+                                  <div class="musteri-col">
+                                    {{ rez.adSoyad }}<span v-if="rez.ulkeKodu && rez.ulkeKodu !== 'TR'"> ({{ rez.ulkeKodu }})</span>
+                                    — <span class="nowrap">{{ shortDate(rez.grsTrh) }}→{{ shortDate(rez.cksTrh) }}</span>
+                                    <span v-if="Number(rez.ucret) > 0 && rez.odemeDoviz" class="nowrap"> • {{ Number(rez.ucret).toFixed(2) }} {{ rez.odemeDoviz }}</span>
+                                    <span v-if="rez.paidStatus" class="nowrap"> • {{ String(rez.paidStatus).toUpperCase() }}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </q-tooltip>
+                    </div>
+                  </div>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
+        <q-inner-loading :showing="syncing">
+          <q-spinner-dots size="48px" color="indigo-6" />
+        </q-inner-loading>
       </div>
 
     </div>
@@ -245,8 +289,26 @@ interface TakvimData {
   }>
 }
 
+// Rezervasyon alanlarını da içeren doluluk hücresi tipi (alt bölümde kullanılır)
+type DolulukCell = TakvimData['odaTipleri'][0]['dolulukTarihleri'][0] & {
+  rezervasyonSayisi?: number
+  toplamBosEksiRez?: number
+  rezervasyonDetaylari?: Array<{
+    hrResId: string
+    adSoyad: string
+    grsTrh: string
+    cksTrh: string
+    kanal?: string
+    paidStatus?: string
+    ulkeKodu?: string
+    ucret?: number
+    odemeDoviz?: string
+  }>
+}
+
 // Reactive state
 const loading = ref(true)
+const syncing = ref(false)
 const error = ref<string | null>(null)
 const takvimData = ref<TakvimData | null>(null)
 const route = useRoute()
@@ -329,6 +391,36 @@ async function loadTakvimData() {
   }
 }
 
+// YYYY-MM-DD (ISO) formatında tarih üret
+function toISODate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// HR rezervasyonlarını günün tarihine uygun aralıkla senkronize et (bugün → bugün+31)
+async function syncHotelRunnerForCurrentWindow(): Promise<void> {
+  try {
+    const from = new Date()
+    const to = new Date()
+    to.setDate(to.getDate() + 31)
+    await api.get('/hotelrunner/sync-reservations', {
+      params: {
+        from: toISODate(from),
+        to: toISODate(to)
+      }
+    })
+  } catch (e: unknown) {
+    if (e instanceof Error) {
+      console.error('HR senkron hatası:', e.message)
+    } else {
+      console.error('HR senkron hatası:', e)
+    }
+    // Sessiz geç; takvim yine de yüklensin
+  }
+}
+
 // Tarih yardımcı fonksiyonları
 function parseDate(dateStr: string): Date {
   const parts = dateStr.split('.')
@@ -382,11 +474,41 @@ function formatTarihDetay(tarih: string): string {
   return `${gun}, ${gunSayisi} ${ay}`
 }
 
+// Sadece tooltipte kullanılan kısa tarih: DD.MM.YY
+function shortDate(dateStr: string | number | null | undefined): string {
+  if (!dateStr) return ''
+  const s = String(dateStr)
+  const parts = s.split('.')
+  if (parts.length === 3) {
+    const dd = parts[0].padStart(2, '0')
+    const mm = parts[1].padStart(2, '0')
+    const yy = parts[2].slice(-2)
+    return `${dd}.${mm}.${yy}`
+  }
+  // Fallback ISO -> DD.MM.YY
+  const d = new Date(s)
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = String(d.getFullYear()).slice(-2)
+  return `${dd}.${mm}.${yy}`
+}
+
 // Oda tipindeki toplam konaklama sayısını hesapla
 function getTotalKonaklama(odaTipi: TakvimData['odaTipleri'][0]): number {
   return odaTipi.dolulukTarihleri.reduce((total: number, doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][0]) => {
     return total + (doluluk.konaklamaDetaylari?.length || 0)
   }, 0)
+}
+
+// Oda tipi için toplam rezervasyon (32 günlük penceredeki tüm günlerin toplamı)
+function getTotalRezervasyon(odaTipi: TakvimData['odaTipleri'][0]): number {
+  const cells = odaTipi.dolulukTarihleri as unknown as DolulukCell[]
+  let sum = 0
+  for (const cell of cells) {
+    const r = Number(cell.rezervasyonSayisi ?? 0)
+    if (Number.isFinite(r)) sum += r
+  }
+  return sum
 }
 
 // Boş yatak oranına göre gradient renk hesapla (red -> orange -> yellow -> green)
@@ -426,20 +548,40 @@ function calculateGradientColor(bosYatak: number, doluYatak: number): string {
   }
 }
 
-// Hücre için gradient background style hesapla
-function getHucreStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][0]): Record<string, string> {
-  if (!doluluk.dolu) {
-    return {} // Boş hücreler için stil yok
-  }
-  
+// Üst bölüm için zemin (gradient) stili hesapla
+
+// Üst bölüm için zemin (gradient) stili hesapla
+function getTopStyle(doluluk: TakvimData['odaTipleri'][0]['dolulukTarihleri'][0]): Record<string, string> {
+  if (!doluluk.dolu) return {};
   const doluSayisi = doluluk.konaklamaDetaylari.length
   const bosSayisi = doluluk.bosYatakSayisi
   const gradientColor = calculateGradientColor(bosSayisi, doluSayisi)
-  
   return {
     backgroundColor: gradientColor,
     background: `${gradientColor} !important`,
     backgroundImage: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor}dd 100%) !important`
+  }
+}
+
+// Alt bölüm için zemin (gradient) stili hesapla (R>0 ise K değerine göre)
+function getBottomStyle(doluluk: DolulukCell): Record<string, string> {
+  const r = Number(doluluk?.rezervasyonSayisi || 0)
+  if (r <= 0) {
+    // Sayfa zemini ile aynı: şeffaf bırak
+    return { background: 'transparent' }
+  }
+  const k = Number(doluluk?.toplamBosEksiRez || 0)
+  const d = Number(Array.isArray(doluluk?.konaklamaDetaylari) ? doluluk.konaklamaDetaylari.length : 0)
+  // Kapasiteyi üst bölümdeki hesap mantığına benzer şekilde tahmin etmek için B+ D = kapasite varsayımı
+  const b = Number(doluluk?.bosYatakSayisi || 0)
+  const kapasite = Math.max(1, b + d) // 0 bölmeye karşı koruma
+  // K, yeni boşluk sayısı olarak kabul edilir; dolu = kapasite - K
+  const yeniDolu = Math.max(0, kapasite - k)
+  const renk = calculateGradientColor(k, yeniDolu)
+  return {
+    backgroundColor: renk,
+    background: `${renk} !important`,
+    backgroundImage: `linear-gradient(135deg, ${renk} 0%, ${renk}dd 100%) !important`
   }
 }
 
@@ -469,14 +611,22 @@ watch(() => route.path, (newPath, oldPath) => {
   }
 }, { immediate: false })
 
-  function refreshAll() {
-    // Veriyi yenile
-    void loadTakvimData()
-    // Tooltipleri zorla yeniden oluştur
-    tooltipKey.value++
-    // Boş odalar tooltip cache'ini temizle ve tüm oda tipleri için yeniden yüklemeye izin ver
-    bosOdalarCache.value = {}
-    bosOdalarLoading.value = {}
+  async function refreshAll() {
+    try {
+      syncing.value = true
+      Notify.create({ type: 'info', message: 'HOTEL RUNNER Portalından Rezervasyonlar Sorgulanıyor...', position: 'top', timeout: 1200 })
+      await syncHotelRunnerForCurrentWindow()
+    } finally {
+      // Veriyi yenile
+      await loadTakvimData()
+      // Tooltipleri zorla yeniden oluştur
+      tooltipKey.value++
+      // Boş odalar tooltip cache'ini temizle ve tüm oda tipleri için yeniden yüklemeye izin ver
+      bosOdalarCache.value = {}
+      bosOdalarLoading.value = {}
+      Notify.create({ type: 'positive', message: 'Takvim güncellendi', position: 'top', timeout: 1000 })
+      syncing.value = false
+    }
   }
 </script>
 
@@ -627,15 +777,15 @@ watch(() => route.path, (newPath, oldPath) => {
 
 .oda-tipi-cell {
   background: #f8f9fa;
-  padding: 1.35rem;
+  padding: 1.13rem;
   width: 135px;
   border-right: 1px solid #e0e0e0; /* Tarih sütunu ile arasında border */
-  border-bottom: 1px solid rgba(224, 224, 224, 0.3); /* Satırlar arası hafif border */
+  border-bottom: 2px solid rgba(224, 224, 224, 0.6); /* Satırlar arası daha belirgin border */
   cursor: pointer; /* Tooltip hedefinde el işareti */
 }
 
 /* Boş odalar tooltip içerik stilleri */
-.bos-odalar-tooltip-content {}
+
 
 .bos-odalar-list {
   max-height: 300px;
@@ -693,12 +843,14 @@ watch(() => route.path, (newPath, oldPath) => {
 /* Doluluk Hücreleri */
 .doluluk-cell {
   width: 36px; /* Çok dar hücreler */
-  height: 40px; /* Daha düşük */
+  height: 74px !important; /* Satır yüksekliği azaltıldı */
   border: none; /* Border kaldırıldı */
-  border-bottom: 1px solid rgba(224, 224, 224, 0.3); /* Satırlar arası hafif border */
+  border-bottom: 2px solid rgba(224, 224, 224, 0.6); /* Satırlar arası daha belirgin border */
   box-shadow: 0 0 0 1px rgba(224, 224, 224, 0.5); /* Border yerine shadow */
   padding: 0;
   position: relative;
+  box-sizing: border-box;
+  background: transparent !important; /* Hücre zemini tamamen şeffaf */
 }
 
 .doluluk-cell.bos {
@@ -716,34 +868,60 @@ watch(() => route.path, (newPath, oldPath) => {
   height: 100%;
   width: 100%;
   cursor: pointer;
+  background: transparent !important;
 }
 
 .hucre-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.1rem;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 0;
   height: 100%;
   width: 100%;
+  background: transparent !important;
+}
+
+.cell-top,
+.cell-bottom {
+  width: 100%;
+  height: 50%;
+  display: flex;
+  flex-direction: column; /* D/B ve R/T ayrı satırlarda */
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.cell-top {
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* D ve B ayrı satırlar */
+  place-items: center;
+}
+
+.cell-bottom {
+  background: transparent !important; /* kesinlikle zemin yok */
+  border-top: 2px solid rgba(0, 0, 0, 0.37); /* Üst ve alt bölüm arasına daha belirgin çizgi */
 }
 
 .dolu-sayisi {
   color: #ffffff;
-  font-size: 0.8rem; /* 0.7rem'den 0.8rem'e artırıldı */
-  font-weight: 600; /* 700'den 400'e düşürüldü - daha silik */
+  font-size: 0.78rem;
+  font-weight: 700;
   line-height: 1;
   text-align: center;
-  opacity: 0.6; /* Daha silik görünüm */
+  opacity: 0.85;
+  width: 100%;
 }
 
 .bos-sayisi {
   color: #ffffff;
-  font-size: 0.8rem; /* 0.7rem'den 0.8rem'e artırıldı */
-  font-weight: 800; /* 700'den 800'e artırıldı - daha belirgin */
+  font-size: 0.78rem;
+  font-weight: 800;
   line-height: 1;
   text-align: center;
-  opacity: 1; /* Tam opak - daha belirgin */
+  opacity: 1;
+  width: 100%;
 }
 
 /* Tooltip Stilleri - Quasar Override */
@@ -757,7 +935,8 @@ watch(() => route.path, (newPath, oldPath) => {
 :deep(.custom-large-tooltip .q-tooltip__content) {
   max-width: none !important;
   max-height: none !important;
-  width: auto !important;
+  width: 640px !important; /* Sabit genişlik */
+  min-width: 640px !important;
   height: auto !important;
   overflow: hidden !important;
 }
@@ -802,12 +981,23 @@ watch(() => route.path, (newPath, oldPath) => {
   margin-bottom: 0.2rem;
 }
 
+/* Rezervasyonlar arasında ince ayırıcı çizgi */
+.tooltip-item:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
 .tooltip-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.65rem;
   line-height: 1.2;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .oda-yatak-col {
@@ -954,22 +1144,59 @@ watch(() => route.path, (newPath, oldPath) => {
 }
 
 .rezerve-sayisi {
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 800;
+  color: #263238;
+  font-size: 0.78rem;
+  font-weight: 700;
   opacity: 1;
   line-height: 1;
   text-align: center;
 }
 
 .toplam-sayisi {
-  color: #ffffff;
-  font-size: 0.8rem;
+  color: #263238;
+  font-size: 0.78rem;
   font-weight: 800;
   opacity: 1;
   line-height: 1;
   text-align: center;
 }
+
+/* K kritik (K < 10) olduğunda kırmızıya boya */
+.k-critical {
+  color: #eff532 !important;
+  font-weight: 900 !important;
+}
+
+/* Nötr sınıf daha baskın olduğundan özgüllüğü artır */
+.neutral-stat.k-critical {
+  color: #eff532 !important;
+  font-weight: 900 !important;
+}
+
+.body--dark .neutral-stat.k-critical {
+  color: #eff532 !important; /* dark mod için daha canlı kırmızı */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+  font-weight: 900 !important;
+}
+
+/* R ve T satırlarını D/B renklendirmesinden muaf tutmak için nötr tema */
+.neutral-stat {
+  opacity: 1 !important;
+  color: #3d39a1 !important; /* daha koyu sarı */
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  font-weight: 300;
+}
+
+/* Dark mode'da R/T metinlerini belirginleştir */
+.body--dark .neutral-stat {
+  color: #3d39a1 !important; /* daha koyu sarı */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85) !important; /* koyu zeminde okunabilirlik */
+  font-weight: 300;
+}
+
+/* Koyu zemin varyantı kaldırıldı; R/T her zaman sayfa zemininde görünecek */
 
 .body--dark .rezerve-sayisi {
   color: #ffffff;
@@ -994,12 +1221,18 @@ watch(() => route.path, (newPath, oldPath) => {
 
 /* Dark mode için doluluk cell shadow */
 .body--dark .doluluk-cell {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); /* Dark mode için açık shadow */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Dark mode için açık border */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) !important; /* Dark mode için açık shadow */
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25) !important; /* Dark mode için daha belirgin border */
+  background: transparent !important; /* dark modda da zemin yok */
 }
 
 .body--dark .oda-tipi-cell {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Dark mode için açık border */
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25); /* Dark mode için daha belirgin border */
+}
+
+/* Dark mode'da üst-alt bölüm ayracı görünür olsun */
+.body--dark .cell-bottom {
+  border-top: 2px solid rgba(255, 255, 255, 0.39);
 }
 
 .body--dark .refresh-btn {

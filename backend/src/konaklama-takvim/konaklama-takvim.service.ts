@@ -19,8 +19,12 @@ export interface OdaTipDoluluk {
     dolu: boolean;
     konaklamaDetaylari: KonaklamaDetay[];
     bosYatakSayisi: number;
+    rezervasyonSayisi?: number;
+    toplamBosEksiRez?: number;
+    rezervasyonDetaylari?: Array<{ hrResId: string; adSoyad: string; grsTrh: string; cksTrh: string; kanal?: string; paidStatus?: string; ulkeKodu?: string; ucret?: number; odemeDoviz?: string }>;
   }[];
   maxPlanlananTarih: string | null;
+  totalRezervasyonSayisi?: number;
 }
 
 export interface KonaklamaTakvimData {
@@ -124,8 +128,14 @@ export class KonaklamaTakvimService {
       // Oda tiplerini gruplandır ve her tip için max tarih bul
       const odaTipGruplari = this.groupByOdaTipi(aktifKonaklamalar);
       
+      // HR rezervasyonlarını getir ve 32 günlük pencereye göre odaTipiProj + gün bazında say
+      const startISO = this.parseDate(gunler[0]);
+      const endISO = this.parseDate(gunler[gunler.length - 1]);
+      const rezervasyonHaritasi = await this.getRezervasyonSayilariHaritasi(startISO, endISO, gunler);
+      const toplamRezHaritasi = await this.getRezervasyonToplamHaritasi();
+
       // Her oda tipi için doluluk durumunu hesapla
-      const odaTipleri = await this.calculateOdaDoluluk(odaTipGruplari, gunler);
+      const odaTipleri = await this.calculateOdaDoluluk(odaTipGruplari, gunler, rezervasyonHaritasi, toplamRezHaritasi);
       
       return {
         gunler,
@@ -315,6 +325,140 @@ export class KonaklamaTakvimService {
   }
 
   /**
+   * Oda tipi isimlerini karşılaştırma için normalize eder:
+   * - trim, fazla boşlukları tek boşluğa indirger
+   * - TR yerelinde uppercase
+   * - Unicode diakritiklerini kaldırır (Ç→C, Ş→S, Ğ→G, Ü→U, Ö→O, İ/ı→I)
+   */
+  private normalizeRoomTypeName(input: string | null | undefined): string {
+    if (!input) return '';
+    let s = String(input).trim().replace(/\s+/g, ' ');
+    // Önce TR yereline göre uppercase
+    s = s.toLocaleUpperCase('tr-TR');
+    // Diakritikleri kaldır
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return s;
+  }
+
+  /**
+   * HR rezervasyonlarını (tblHRzvn) okuyup odaTipiProj + gün bazında sayıları döndürür
+   * Yalnızca durum='confirmed' kayıtlar dahil edilir.
+   * @returns Map<odaTipiProj, Map<DD.MM.YYYY, number>>
+   */
+  private async getRezervasyonSayilariHaritasi(startISO: string, endISO: string, gunler: string[]): Promise<Map<string, Map<string, string | number>>> {
+    const schema = this.dbConfig.getTableSchema();
+    const resultMap = new Map<string, Map<string, string | number>>();
+
+    // Güvenli tarih parametreleri oluştur
+    const startParam = startISO; // YYYY-MM-DD
+    const endParam = endISO;     // YYYY-MM-DD
+
+    const sql = `
+      SELECT 
+        hrResId,
+        adSoyad,
+        kanal,
+        paidStatus,
+        ulkeKodu,
+        ucret,
+        odemeDoviz,
+        odaTipiProj,
+        grsTrh,
+        cksTrh
+      FROM ${schema}.tblHRzvn
+      WHERE durum = 'confirmed'
+        AND odaTipiProj IS NOT NULL AND LTRIM(RTRIM(odaTipiProj)) <> ''
+        AND TRY_CONVERT(date, grsTrh, 104) IS NOT NULL
+        AND TRY_CONVERT(date, cksTrh, 104) IS NOT NULL
+    `;
+
+    const rows = await this.musteriRepository.query(sql) as Array<{ hrResId: string | null; adSoyad: string | null; kanal: string | null; paidStatus: string | null; ulkeKodu: string | null; ucret: number | string | null; odemeDoviz: string | null; odaTipiProj: string | null; grsTrh: string | null; cksTrh: string | null }>;
+
+    // Günler set'i oluştur (DD.MM.YYYY)
+    const validGunler = new Set(gunler);
+
+    for (const r of rows) {
+      const tip = this.normalizeRoomTypeName((r.odaTipiProj || ''));
+      if (!tip) continue;
+      const girisISO = this.parseDate(r.grsTrh || '');
+      const cikisISO = this.parseDate(r.cksTrh || '');
+      const giris = new Date(girisISO);
+      const cikis = new Date(cikisISO);
+      if (isNaN(giris.getTime()) || isNaN(cikis.getTime())) continue;
+
+      // Pencereye göre clamp et
+      const pencereBas = new Date(startISO);
+      const pencereBit = new Date(endISO);
+      // Checkout gününü DAHİL ET (inclusive)
+      const cikisIncl = new Date(cikis.getFullYear(), cikis.getMonth(), cikis.getDate());
+      const bas = giris > pencereBas ? giris : pencereBas;
+      // bit = min(cikisIncl, pencereBit) ve iterasyonda <= kullanacağız
+      const bit = (cikisIncl < pencereBit ? cikisIncl : pencereBit);
+      if (bas > bit) continue; // Pencereyle kesişmiyor
+      
+      // Gün gün dolaş ve sayaçları artır
+      for (
+        let d = new Date(bas.getFullYear(), bas.getMonth(), bas.getDate());
+        d <= bit;
+        d.setDate(d.getDate() + 1)
+      ) {
+        const key = this.formatDateForDisplay(d); // DD.MM.YYYY
+        if (!validGunler.has(key)) continue;
+        let tipMap = resultMap.get(tip);
+        if (!tipMap) {
+          tipMap = new Map<string, string | number>();
+          resultMap.set(tip, tipMap);
+        }
+        const countKey = `${key}__COUNT`;
+        const listKey = `${key}__LIST`;
+        const prev = Number(tipMap.get(countKey) || 0);
+        tipMap.set(countKey, prev + 1);
+        // Listeyi JSON string olarak sakla
+        const detay = {
+          hrResId: r.hrResId || '',
+          adSoyad: r.adSoyad || '',
+          grsTrh: r.grsTrh || '',
+          cksTrh: r.cksTrh || '',
+          kanal: r.kanal || '',
+          paidStatus: r.paidStatus || '',
+          ulkeKodu: (r.ulkeKodu || '').toString().trim(),
+          ucret: typeof r.ucret === 'number' ? r.ucret : Number(r.ucret) || 0,
+          odemeDoviz: r.odemeDoviz || ''
+        };
+        const prevList = String(tipMap.get(listKey) || '[]');
+        const arr = JSON.parse(prevList) as any[];
+        arr.push(detay);
+        tipMap.set(listKey, JSON.stringify(arr));
+      }
+    }
+
+    return resultMap;
+  }
+
+  /**
+   * Oda tipi bazında (odaTipiProj) tüm confirmed rezervasyonların TEKİL SAYISINI döndürür
+   * Map<odaTipiProj, totalCount>
+   */
+  private async getRezervasyonToplamHaritasi(): Promise<Map<string, number>> {
+    const schema = this.dbConfig.getTableSchema();
+    const sql = `
+      SELECT odaTipiProj, COUNT(*) AS cnt
+      FROM ${schema}.tblHRzvn
+      WHERE durum = 'confirmed' AND odaTipiProj IS NOT NULL AND LTRIM(RTRIM(odaTipiProj)) <> ''
+      GROUP BY odaTipiProj
+    `;
+    const rows = await this.musteriRepository.query(sql) as Array<{ odaTipiProj: string | null; cnt: number | string | null }>;
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = this.normalizeRoomTypeName(r.odaTipiProj || '');
+      if (!key) continue;
+      const n = typeof r.cnt === 'number' ? r.cnt : Number(r.cnt) || 0;
+      map.set(key, n);
+    }
+    return map;
+  }
+
+  /**
    * Konaklamaları oda tipine göre gruplandırır
    */
   private groupByOdaTipi(konaklamalar: AktifKonaklamaRow[]): { [odaTipi: string]: AktifKonaklamaRow[] } {
@@ -335,7 +479,12 @@ export class KonaklamaTakvimService {
   /**
    * Her oda tipi için doluluk durumunu hesaplar
    */
-  private async calculateOdaDoluluk(odaTipGruplari: { [odaTipi: string]: AktifKonaklamaRow[] }, gunler: string[]): Promise<OdaTipDoluluk[]> {
+  private async calculateOdaDoluluk(
+    odaTipGruplari: { [odaTipi: string]: AktifKonaklamaRow[] },
+    gunler: string[],
+    rezervasyonHaritasi: Map<string, Map<string, string | number>>,
+    toplamRezHaritasi: Map<string, number>,
+  ): Promise<OdaTipDoluluk[]> {
     const odaTipleri: OdaTipDoluluk[] = [];
 
     // Tüm oda tiplerini envanterden al; aktif konaklaması olmayan tipler de listelenecek
@@ -364,6 +513,7 @@ export class KonaklamaTakvimService {
       });
       
       // Doluluk durumunu hesapla - her gün için kontrol et
+      const tipKey = this.normalizeRoomTypeName(odaTipi);
       const dolulukTarihleri = gunler.map(gunTarihi => {
         // DD.MM.YYYY formatını ISO'ya çevir
         const gunDate = new Date(this.parseDate(gunTarihi));
@@ -384,8 +534,10 @@ export class KonaklamaTakvimService {
               return;
             }
             
-            // Gün, giriş ve çıkış tarihleri arasında mı?
-            if (gunDate >= girisTarih && gunDate <= cikisTarih) {
+            // Gün, giriş ve çıkış (çıkarılış günü dahil olacak biçimde +1 gün) arasında mı?
+            const cikisPlusOne = new Date(cikisTarih);
+            cikisPlusOne.setDate(cikisPlusOne.getDate() + 1);
+            if (gunDate >= girisTarih && gunDate < cikisPlusOne) {
               konaklamaDetaylari.push({
                 musteriAdi: konaklama.MstrAdi || 'Bilinmeyen',
                 odaNo: konaklama.KnklmOdaNo || '-',
@@ -438,11 +590,18 @@ export class KonaklamaTakvimService {
           return odaA - odaB;
         });
         
+        const tipMap = rezervasyonHaritasi.get(tipKey);
+        const rSayisi = Number(tipMap?.get(`${gunTarihi}__COUNT`) || 0);
+        const listJson = String(tipMap?.get(`${gunTarihi}__LIST`) || '[]');
+        const rezervasyonDetaylari = JSON.parse(listJson) as Array<{ hrResId: string; adSoyad: string; grsTrh: string; cksTrh: string; kanal?: string; paidStatus?: string }>;
         return {
           tarih: gunTarihi,
           dolu: konaklamaDetaylari.length > 0,
           konaklamaDetaylari,
-          bosYatakSayisi: -1 // placeholder, hemen aşağıda gerçek değerle güncellenecek
+          bosYatakSayisi: -1, // placeholder, hemen aşağıda gerçek değerle güncellenecek
+          rezervasyonSayisi: rSayisi,
+          toplamBosEksiRez: 0,
+          rezervasyonDetaylari
         };
       });
       
@@ -461,12 +620,16 @@ export class KonaklamaTakvimService {
           const hesaplananBos = kapasite - doluluk.konaklamaDetaylari.length;
           doluluk.bosYatakSayisi = hesaplananBos < 0 ? 0 : hesaplananBos;
         }
+        const r = doluluk.rezervasyonSayisi || 0;
+        const t = doluluk.bosYatakSayisi - r;
+        doluluk.toplamBosEksiRez = t < 0 ? 0 : t;
       });
       
       odaTipleri.push({
         odaTipi,
         dolulukTarihleri,
-        maxPlanlananTarih: maxPlanlananTarih ? this.formatDate(maxPlanlananTarih) : null
+        maxPlanlananTarih: maxPlanlananTarih ? this.formatDate(maxPlanlananTarih) : null,
+        totalRezervasyonSayisi: toplamRezHaritasi.get(tipKey) || 0
       });
     }
     
