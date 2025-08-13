@@ -50,6 +50,33 @@ export class HotelRunnerService {
     return this.truncateValue(raw.toUpperCase(), maxLen);
   }
 
+  private extractNationalId(it: any): string {
+    const candidateValues: Array<unknown> = [
+      it.guest?.identity_no,
+      it.guest?.identityNo,
+      it.guest?.national_id,
+      it.guest?.nationalId,
+      it.guest_national_id,
+      it.guestNationalId,
+      it.billing_address?.tax_id,
+      it.billing_address?.taxId,
+      it.tax_id,
+      it.address?.tax_id,
+      it.address?.taxId,
+    ];
+    for (const cand of candidateValues) {
+      if (cand === undefined || cand === null) continue;
+      const raw = String(cand).trim();
+      if (!raw) continue;
+      const digits = raw.replace(/\D/g, '');
+      if (digits.length === 11) return this.truncateValue(digits, 20); // TCKN
+      if (digits.length === 10) return this.truncateValue(digits, 20); // VKN
+    }
+    // Son çare: guest_national_id ham değer (maskesiz değilse)
+    const fallback = (it.guest_national_id ?? '').toString().trim();
+    return this.truncateValue(fallback, 20);
+  }
+
   private computePaidStatus(it: any): string {
     const totalCandidates = [
       it.total,
@@ -135,10 +162,7 @@ export class HotelRunnerService {
         rawUpserted.count += 1;
 
         // 3) RAW -> STRUCTURED dönüşümü ve upsert tblHRzvn
-        const musteriTCKN = this.truncateValue(
-          it.guest?.identity_no || it.guest?.national_id || it.guest_national_id || '',
-          20,
-        );
+        const musteriTCKN = this.extractNationalId(it);
         const adSoyad = this.truncateValue([
           it.guest?.first_name || it.firstname,
           it.guest?.last_name || it.lastname,
