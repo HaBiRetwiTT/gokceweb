@@ -44,7 +44,9 @@ interface PendingRow {
   adSoyad?: string
   ulkeKodu?: string
   grsTrh?: string
+  grsKey?: string
   cksTrh?: string
+  cksKey?: string
   odaTipiProj?: string
   kanal?: string
   paidStatus?: string
@@ -62,8 +64,8 @@ const columns = [
   { name: 'hrNumber', label: 'HR No', field: 'hrNumber', align: 'left' as const, sortable: true },
   { name: 'adSoyad', label: 'Ad Soyad', field: 'adSoyad', align: 'left' as const, sortable: true },
   { name: 'odaTipiProj', label: 'Oda Tipi', field: 'odaTipiProj', align: 'left' as const, sortable: true },
-  { name: 'grsTrh', label: 'Giriş', field: 'grsTrh', align: 'left' as const, sortable: true },
-  { name: 'cksTrh', label: 'Çıkış', field: 'cksTrh', align: 'left' as const, sortable: true },
+  { name: 'grsTrh', label: 'Giriş', field: 'grsTrh', align: 'left' as const, sortable: true, sort: (a: string, b: string, rowA: PendingRow, rowB: PendingRow) => (rowA.grsKey || '').localeCompare(rowB.grsKey || '') },
+  { name: 'cksTrh', label: 'Çıkış', field: 'cksTrh', align: 'left' as const, sortable: true, sort: (a: string, b: string, rowA: PendingRow, rowB: PendingRow) => (rowA.cksKey || '').localeCompare(rowB.cksKey || '') },
   {
     name: 'ucret',
     label: 'Ücret',
