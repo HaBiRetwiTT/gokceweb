@@ -72,9 +72,44 @@ export class HotelRunnerService {
       if (digits.length === 11) return this.truncateValue(digits, 20); // TCKN
       if (digits.length === 10) return this.truncateValue(digits, 20); // VKN
     }
+    // Rooms -> guests içindeki kimlik/pasaport alanlarına bak
+    if (Array.isArray(it.rooms)) {
+      for (const r of it.rooms) {
+        if (!Array.isArray(r.guests)) continue;
+        for (const g of r.guests) {
+          const guestCand = [
+            g?.identity_no,
+            g?.identityNo,
+            g?.national_id,
+            g?.nationalId,
+            g?.passport_no,
+            g?.passportNo,
+            g?.document_no,
+            g?.documentNo,
+            g?.id_number,
+            g?.idNumber,
+          ];
+          for (const c of guestCand) {
+            if (c === undefined || c === null) continue;
+            const raw = String(c).trim();
+            if (!raw) continue;
+            const digits = raw.replace(/\D/g, '');
+            if (digits.length === 11) return this.truncateValue(digits, 20);
+            if (digits.length === 10) return this.truncateValue(digits, 20);
+            // Pasaport gibi alfanümerik değerler
+            if (/^[A-Za-z0-9]{5,}$/.test(raw)) return this.truncateValue(raw, 20);
+          }
+        }
+      }
+    }
     // Son çare: guest_national_id ham değer (maskesiz değilse)
     const fallback = (it.guest_national_id ?? '').toString().trim();
-    return this.truncateValue(fallback, 20);
+    if (fallback) return this.truncateValue(fallback, 20);
+    // En son fallback: telefonu rakamlara çevirip 6+ hane ise kullan
+    const tel = (it.guest?.phone || it.address?.phone || '').toString();
+    const telDigits = tel.replace(/\D/g, '');
+    if (telDigits.length >= 6) return this.truncateValue(telDigits, 20);
+    return '';
   }
 
   private computePaidStatus(it: any): string {
