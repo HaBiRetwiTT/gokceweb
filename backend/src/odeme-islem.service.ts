@@ -149,7 +149,10 @@ export class OdemeIslemService {
         }
 
         // Depozito tahsilatı ise son kullanılan arac'ı cache'le
-        if (islem.islemBilgi && String(islem.islemBilgi).includes('=DEPOZİTO TAHSİLATI=')) {
+        if (
+          islem.islemBilgi &&
+          String(islem.islemBilgi).includes('=DEPOZİTO TAHSİLATI=')
+        ) {
           lastDepositArac = islem.islemArac;
         }
       }
@@ -162,11 +165,17 @@ export class OdemeIslemService {
           const first = dto.islemler[0];
           let musteriNo: number | undefined = first.musteriNo;
           if (!musteriNo && first.MstrTCN) {
-            const musteriData = await this.getMusteriBilgiByTCN(first.MstrTCN, queryRunner);
+            const musteriData = await this.getMusteriBilgiByTCN(
+              first.MstrTCN,
+              queryRunner,
+            );
             musteriNo = musteriData?.MstrNo;
           }
           if (musteriNo) {
-            const cariKod = first.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
+            const cariKod =
+              first.MstrHspTip === 'Kurumsal'
+                ? `MK${musteriNo}`
+                : `MB${musteriNo}`;
             const schema = this.dbConfig.getTableSchema();
             const updateQuery = `
               WITH lastRow AS (
@@ -180,8 +189,14 @@ export class OdemeIslemService {
               FROM ${schema}.tblislem AS t
               INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
             `;
-            await this.transactionService.executeQuery(queryRunner, updateQuery, [lastDepositArac, cariKod]);
-            this.logger.log('Depozito alacağı son kaydın islemArac alanı güncellendi');
+            await this.transactionService.executeQuery(
+              queryRunner,
+              updateQuery,
+              [lastDepositArac, cariKod],
+            );
+            this.logger.log(
+              'Depozito alacağı son kaydın islemArac alanı güncellendi',
+            );
           }
         }
       } catch (e) {

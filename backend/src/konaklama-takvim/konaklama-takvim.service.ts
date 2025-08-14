@@ -161,7 +161,7 @@ export class KonaklamaTakvimService {
         WHERE odYatOdaNo = @0
           AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
       `;
-      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr]) as Array<{ cnt: number | string }>
+      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr])
       const cnt = Number(kontrol?.[0]?.cnt ?? 0)
       if (cnt > 0) {
         return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
@@ -191,7 +191,7 @@ export class KonaklamaTakvimService {
         WHERE odYatOdaNo = @0
           AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
       `;
-      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr]) as Array<{ cnt: number | string }>
+      const kontrol = await this.musteriRepository.query(kontrolQuery, [odaNoStr])
       const cnt = Number(kontrol?.[0]?.cnt ?? 0)
       if (cnt > 0) {
         return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
@@ -372,7 +372,7 @@ export class KonaklamaTakvimService {
         AND TRY_CONVERT(date, cksTrh, 104) IS NOT NULL
     `;
 
-    const rows = await this.musteriRepository.query(sql) as Array<{ hrResId: string | null; adSoyad: string | null; kanal: string | null; paidStatus: string | null; ulkeKodu: string | null; ucret: number | string | null; odemeDoviz: string | null; odaTipiProj: string | null; grsTrh: string | null; cksTrh: string | null }>;
+    const rows = await this.musteriRepository.query(sql);
 
     // Günler set'i oluştur (DD.MM.YYYY)
     const validGunler = new Set(gunler);
@@ -463,7 +463,7 @@ export class KonaklamaTakvimService {
         AND LTRIM(RTRIM(odaTipiProj)) <> ''
       GROUP BY odaTipiProj
     `;
-    const rows = await this.musteriRepository.query(sql) as Array<{ odaTipiProj: string | null; cnt: number | string | null }>;
+    const rows = await this.musteriRepository.query(sql);
     const map = new Map<string, number>();
     for (const r of rows) {
       const key = this.normalizeRoomTypeName(r.odaTipiProj || '');
@@ -665,7 +665,7 @@ export class KonaklamaTakvimService {
         FROM tblOdaYatak
         WHERE odYatOdaTip IS NOT NULL AND LTRIM(RTRIM(odYatOdaTip)) <> ''
       `;
-      const result = (await this.musteriRepository.query(query)) as Array<{ odaTipi: string }>;
+      const result = (await this.musteriRepository.query(query));
       return result.map(r => r.odaTipi).filter(Boolean);
     } catch (error) {
       console.error('getTumOdaTipleri hatası:', error);

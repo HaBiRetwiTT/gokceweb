@@ -9,9 +9,11 @@ import { DatabaseConfigService } from '../database/database-config.service';
 @Module({
   imports: [HttpModule],
   controllers: [HotelRunnerController],
-  providers: [HotelRunnerService, DatabaseTransactionService, DatabaseConfigService],
+  providers: [
+    HotelRunnerService,
+    DatabaseTransactionService,
+    DatabaseConfigService,
+  ],
   exports: [HotelRunnerService],
 })
 export class HotelRunnerModule {}
-
-

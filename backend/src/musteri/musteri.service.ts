@@ -1266,11 +1266,14 @@ export class MusteriService {
       
       const tables = this.dbConfig.getTables();
       
-      // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
+      // Mevcut konaklama kaydının KnklmCksTrh'ni güncelle
+      // Kural: Eğer KnklmPlnTrh = KnklmGrsTrh ise (geç saat konaklama; aynı gün çıkış)
+      //        KnklmCksTrh mutlaka KnklmGrsTrh olarak set edilsin.
+      //        Aksi halde KnklmPlnTrh olarak set edilsin.
       const query = `
-        UPDATE ${tables.konaklama} 
-        SET KnklmCksTrh = KnklmPlnTrh
-        WHERE KnklmMstrNo = @0 
+        UPDATE ${tables.konaklama}
+        SET KnklmCksTrh = CASE WHEN KnklmPlnTrh = KnklmGrsTrh THEN KnklmGrsTrh ELSE KnklmPlnTrh END
+        WHERE KnklmMstrNo = @0
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1
       `;
@@ -2565,10 +2568,13 @@ export class MusteriService {
       
       const schemaName = this.dbConfig.getTableSchema();
       
-      // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
+      // Mevcut konaklama kaydının KnklmCksTrh'ni güncelle
+      // Kural: Eğer KnklmPlnTrh = KnklmGrsTrh ise (geç saat konaklama; aynı gün çıkış)
+      //        KnklmCksTrh mutlaka KnklmGrsTrh olarak set edilsin.
+      //        Aksi halde KnklmPlnTrh olarak set edilsin.
       const query = `
         UPDATE ${schemaName}.tblKonaklama 
-        SET KnklmCksTrh = KnklmPlnTrh
+        SET KnklmCksTrh = CASE WHEN KnklmPlnTrh = KnklmGrsTrh THEN KnklmGrsTrh ELSE KnklmPlnTrh END
         WHERE KnklmMstrNo = @0 
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1

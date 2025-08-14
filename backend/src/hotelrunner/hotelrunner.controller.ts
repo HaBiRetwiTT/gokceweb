@@ -13,7 +13,12 @@ export class HotelRunnerController {
     @Query('to') to?: string,
   ) {
     const result = await this.hrService.fetchAndStoreReservations({ from, to });
-    return { success: true, inserted: result.inserted, updated: result.updated, rawUpserted: result.rawUpserted };
+    return {
+      success: true,
+      inserted: result.inserted,
+      updated: result.updated,
+      rawUpserted: result.rawUpserted,
+    };
   }
 
   // Bekleyen (check-in zamanı gelmiş/geçmiş ve confirmed kalan) rezervasyonlar
@@ -59,15 +64,18 @@ export class HotelRunnerController {
 
   // Lokal olarak sadece durum bilgisini değiştir (checked_in | no_show)
   @Post('local-status')
-  async updateLocalStatus(@Body() body: { hrResId: string; status: 'checked_in' | 'no_show' }) {
+  async updateLocalStatus(
+    @Body() body: { hrResId: string; status: 'checked_in' | 'no_show' },
+  ) {
     const hrResId = (body?.hrResId || '').toString();
     const status = (body?.status || '').toString() as 'checked_in' | 'no_show';
     if (!hrResId || (status !== 'checked_in' && status !== 'no_show')) {
       return { success: false, message: 'Geçersiz parametreler' };
     }
-    const result = await this.hrService.updateLocalReservationStatus(hrResId, status);
+    const result = await this.hrService.updateLocalReservationStatus(
+      hrResId,
+      status,
+    );
     return result;
   }
 }
-
-

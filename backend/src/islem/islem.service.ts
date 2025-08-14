@@ -194,7 +194,10 @@ export class IslemService {
   /**
    * Kasa devri kaydı ekler (tblKasaDevir)
    */
-  async saveKasaDevir(kasaYekun: number, overrideKullanici?: string): Promise<{ success: boolean }> {
+  async saveKasaDevir(
+    kasaYekun: number,
+    overrideKullanici?: string,
+  ): Promise<{ success: boolean }> {
     try {
       if (!Number.isFinite(kasaYekun)) {
         throw new Error('Geçersiz kasa tutarı');
@@ -227,11 +230,15 @@ export class IslemService {
         bugun.getFullYear();
 
       // Aktif kullanıcı adı (tblPersonel.PrsnUsrNm) - override öncelikli
-      let aktifKullanici = (overrideKullanici && String(overrideKullanici).trim()) || await this.getAktifKullaniciAdi();
+      let aktifKullanici =
+        (overrideKullanici && String(overrideKullanici).trim()) ||
+        (await this.getAktifKullaniciAdi());
       // Kullanıcıyı tblPersonel'de doğrula ve varsa PrsnUsrNm tam değeriyle yaz
       try {
         const prsnQuery = `SELECT TOP 1 PrsnUsrNm FROM ${this.dbConfig.getTableSchema()}.tblPersonel WHERE PrsnUsrNm = @0`;
-        const prsnUnknown = (await this.dataSource.query(prsnQuery, [aktifKullanici])) as unknown;
+        const prsnUnknown = (await this.dataSource.query(prsnQuery, [
+          aktifKullanici,
+        ])) as unknown;
         const prsn = prsnUnknown as Array<{ PrsnUsrNm: string }>;
         if (prsn && prsn[0]?.PrsnUsrNm) {
           aktifKullanici = prsn[0].PrsnUsrNm;
@@ -244,8 +251,12 @@ export class IslemService {
       // Dinamik tespit et ve uygun INSERT stratejisini uygula.
       const tableFullName = `${this.dbConfig.getTableSchema()}.tblKasaDevir`;
       const identityCheckQuery = `SELECT COLUMNPROPERTY(OBJECT_ID('${tableFullName}'),'nKasaNo','IsIdentity') as isIdentity`;
-      const idChkUnknown = (await this.dataSource.query(identityCheckQuery)) as unknown;
-      const idChk = idChkUnknown as Array<{ isIdentity: number | string | null }>; 
+      const idChkUnknown = (await this.dataSource.query(
+        identityCheckQuery,
+      )) as unknown;
+      const idChk = idChkUnknown as Array<{
+        isIdentity: number | string | null;
+      }>;
       const isIdentity = Number(idChk?.[0]?.isIdentity ?? 0) === 1;
 
       if (isIdentity) {
@@ -262,16 +273,28 @@ export class IslemService {
           SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
           FROM ${tableFullName} WITH (TABLOCKX)
         `;
-        const nextIdResUnknown = (await this.dataSource.query(nextIdQuery)) as unknown;
-        const nextIdRes = nextIdResUnknown as Array<{ nextId: number | string }>;
+        const nextIdResUnknown = (await this.dataSource.query(
+          nextIdQuery,
+        )) as unknown;
+        const nextIdRes = nextIdResUnknown as Array<{
+          nextId: number | string;
+        }>;
         const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
 
         const insertQuery = `
           INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
           VALUES (CAST(@0 AS BIGINT), @1, @2, TRY_CONVERT(DECIMAL(18,2), CAST(@3 AS NVARCHAR(50))))
         `;
-        const params = [String(nextId), nKytTarihi, aktifKullanici, String(kasaYekunFixed)];
-        this.debugLog('📝 KasaDevir INSERT (manuel nKasaNo) sorgusu:', insertQuery);
+        const params = [
+          String(nextId),
+          nKytTarihi,
+          aktifKullanici,
+          String(kasaYekunFixed),
+        ];
+        this.debugLog(
+          '📝 KasaDevir INSERT (manuel nKasaNo) sorgusu:',
+          insertQuery,
+        );
         this.debugLog('📝 Parametreler:', params);
         await this.dataSource.query(insertQuery, params);
       }
@@ -446,7 +469,14 @@ export class IslemService {
     islemYonu: string,
     selectedYonu: string,
   ): Promise<Buffer> {
-    const data = await this.getDetayIslemler(tarih, islemTuru, islemYonu, selectedYonu, 1, 10000);
+    const data = await this.getDetayIslemler(
+      tarih,
+      islemTuru,
+      islemYonu,
+      selectedYonu,
+      1,
+      10000,
+    );
     return await new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', margin: 36 });
       let turkishFontLoaded = false;
@@ -456,7 +486,7 @@ export class IslemService {
           './fonts/DejaVuSans.ttf',
           './backend/fonts/DejaVuSans.ttf',
           require('path').join(process.cwd(), 'fonts/DejaVuSans.ttf'),
-          require('path').join(process.cwd(), 'backend/fonts/DejaVuSans.ttf')
+          require('path').join(process.cwd(), 'backend/fonts/DejaVuSans.ttf'),
         ];
         const fs = require('fs');
         for (const p of fontPathCandidates) {
@@ -489,11 +519,19 @@ export class IslemService {
         acenta: 'Acenta',
         depozito: 'Depozito',
       };
-      const turLabel = turLabelMap[String(islemTuru).toLowerCase()] || islemTuru;
-      const yonLabel = String(islemYonu) === 'gelir-gider'
-        ? (String(selectedYonu) === 'gelir' ? 'GELİR' : 'GİDER')
-        : (String(selectedYonu) === 'gelir' ? 'Giren' : 'Çıkan');
-      doc.fontSize(10).text(`Tarih: ${tarih}  |  Tür: ${turLabel}  |  Yön: ${yonLabel}`);
+      const turLabel =
+        turLabelMap[String(islemTuru).toLowerCase()] || islemTuru;
+      const yonLabel =
+        String(islemYonu) === 'gelir-gider'
+          ? String(selectedYonu) === 'gelir'
+            ? 'GELİR'
+            : 'GİDER'
+          : String(selectedYonu) === 'gelir'
+            ? 'Giren'
+            : 'Çıkan';
+      doc
+        .fontSize(10)
+        .text(`Tarih: ${tarih}  |  Tür: ${turLabel}  |  Yön: ${yonLabel}`);
       doc.moveDown();
 
       // Basit tablo yerleşimi: sabit kolon genişlikleri ve satır yüksekliği hesaplama
@@ -512,11 +550,22 @@ export class IslemService {
         tutar: 50,
       } as const;
       const colGap = 10; // Tutar ile Bilgi sütunu arasına ekstra boşluk
-      const usedWidth = colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap;
+      const usedWidth =
+        colWidths.tarih +
+        colWidths.no +
+        colWidths.altGrup +
+        colWidths.grup +
+        colWidths.tutar +
+        colGap;
       const bilgiWidth = Math.max(120, contentWidth - usedWidth - 5); // kalan genişlik (gap dahil)
 
       // Hücre yazma yardımcı fonksiyonu
-      const writeCell = (text: string, x: number, width: number, align: 'left' | 'right' = 'left') => {
+      const writeCell = (
+        text: string,
+        x: number,
+        width: number,
+        align: 'left' | 'right' = 'left',
+      ) => {
         doc.text(text ?? '', x, y, { width, align });
         return doc.heightOfString(text ?? '', { width });
       };
@@ -526,38 +575,113 @@ export class IslemService {
       const headerHeight = Math.max(
         writeCell('Tarih', startX, colWidths.tarih),
         writeCell('İşlem No', startX + colWidths.tarih, colWidths.no),
-        writeCell('Cari Adı', startX + colWidths.tarih + colWidths.no, colWidths.altGrup),
-        writeCell('İşlem Tipi', startX + colWidths.tarih + colWidths.no + colWidths.altGrup, colWidths.grup),
-        writeCell('Tutar', startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup, colWidths.tutar, 'right'),
-        writeCell('Bilgi', startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap, bilgiWidth),
+        writeCell(
+          'Cari Adı',
+          startX + colWidths.tarih + colWidths.no,
+          colWidths.altGrup,
+        ),
+        writeCell(
+          'İşlem Tipi',
+          startX + colWidths.tarih + colWidths.no + colWidths.altGrup,
+          colWidths.grup,
+        ),
+        writeCell(
+          'Tutar',
+          startX +
+            colWidths.tarih +
+            colWidths.no +
+            colWidths.altGrup +
+            colWidths.grup,
+          colWidths.tutar,
+          'right',
+        ),
+        writeCell(
+          'Bilgi',
+          startX +
+            colWidths.tarih +
+            colWidths.no +
+            colWidths.altGrup +
+            colWidths.grup +
+            colWidths.tutar +
+            colGap,
+          bilgiWidth,
+        ),
       );
       y += headerHeight + 6;
-      doc.moveTo(startX, y - 2).lineTo(startX + contentWidth, y - 2).strokeColor('#aaaaaa').lineWidth(0.5).stroke();
+      doc
+        .moveTo(startX, y - 2)
+        .lineTo(startX + contentWidth, y - 2)
+        .strokeColor('#aaaaaa')
+        .lineWidth(0.5)
+        .stroke();
 
       // Satırlar
       doc.fontSize(10);
       for (const r of data.data) {
         // Sayfa sonu kontrol
         const estimatedRowHeight = Math.max(
-          doc.heightOfString(String(r.iKytTarihi || ''), { width: colWidths.tarih }),
+          doc.heightOfString(String(r.iKytTarihi || ''), {
+            width: colWidths.tarih,
+          }),
           doc.heightOfString(String(r.islemNo ?? ''), { width: colWidths.no }),
-          doc.heightOfString(String(r.islemAltG || ''), { width: colWidths.altGrup }),
-          doc.heightOfString(String(r.islemGrup || ''), { width: colWidths.grup }),
-          doc.heightOfString((Number(r.islemTutar) || 0).toLocaleString('tr-TR'), { width: colWidths.tutar }),
-          doc.heightOfString(String(r.islemBilgi || ''), { width: bilgiWidth })
+          doc.heightOfString(String(r.islemAltG || ''), {
+            width: colWidths.altGrup,
+          }),
+          doc.heightOfString(String(r.islemGrup || ''), {
+            width: colWidths.grup,
+          }),
+          doc.heightOfString(
+            (Number(r.islemTutar) || 0).toLocaleString('tr-TR'),
+            { width: colWidths.tutar },
+          ),
+          doc.heightOfString(String(r.islemBilgi || ''), { width: bilgiWidth }),
         );
-        if (y + estimatedRowHeight > doc.page.height - doc.page.margins.bottom) {
+        if (
+          y + estimatedRowHeight >
+          doc.page.height - doc.page.margins.bottom
+        ) {
           doc.addPage();
           y = doc.page.margins.top;
         }
 
         const h = Math.max(
           writeCell(String(r.iKytTarihi || ''), startX, colWidths.tarih),
-          writeCell(String(r.islemNo ?? ''), startX + colWidths.tarih, colWidths.no),
-          writeCell(String(r.islemAltG || ''), startX + colWidths.tarih + colWidths.no, colWidths.altGrup),
-          writeCell(String(r.islemGrup || ''), startX + colWidths.tarih + colWidths.no + colWidths.altGrup, colWidths.grup),
-          writeCell((Number(r.islemTutar) || 0).toLocaleString('tr-TR'), startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup, colWidths.tutar, 'right'),
-          writeCell(String(r.islemBilgi || ''), startX + colWidths.tarih + colWidths.no + colWidths.altGrup + colWidths.grup + colWidths.tutar + colGap, bilgiWidth)
+          writeCell(
+            String(r.islemNo ?? ''),
+            startX + colWidths.tarih,
+            colWidths.no,
+          ),
+          writeCell(
+            String(r.islemAltG || ''),
+            startX + colWidths.tarih + colWidths.no,
+            colWidths.altGrup,
+          ),
+          writeCell(
+            String(r.islemGrup || ''),
+            startX + colWidths.tarih + colWidths.no + colWidths.altGrup,
+            colWidths.grup,
+          ),
+          writeCell(
+            (Number(r.islemTutar) || 0).toLocaleString('tr-TR'),
+            startX +
+              colWidths.tarih +
+              colWidths.no +
+              colWidths.altGrup +
+              colWidths.grup,
+            colWidths.tutar,
+            'right',
+          ),
+          writeCell(
+            String(r.islemBilgi || ''),
+            startX +
+              colWidths.tarih +
+              colWidths.no +
+              colWidths.altGrup +
+              colWidths.grup +
+              colWidths.tutar +
+              colGap,
+            bilgiWidth,
+          ),
         );
         y += h + 6;
       }
@@ -573,7 +697,14 @@ export class IslemService {
     islemYonu: string,
     selectedYonu: string,
   ): Promise<Buffer> {
-    const data = await this.getDetayIslemler(tarih, islemTuru, islemYonu, selectedYonu, 1, 10000);
+    const data = await this.getDetayIslemler(
+      tarih,
+      islemTuru,
+      islemYonu,
+      selectedYonu,
+      1,
+      10000,
+    );
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Detay İşlemler');
     sheet.columns = [
@@ -690,7 +821,11 @@ export class IslemService {
       await queryRunner.startTransaction();
 
       try {
-        const results: Array<{ index: number; success: boolean; message: string }> = [];
+        const results: Array<{
+          index: number;
+          success: boolean;
+          message: string;
+        }> = [];
 
         for (let i = 0; i < kayitlar.length; i++) {
           const k = kayitlar[i] || {};
@@ -755,16 +890,19 @@ export class IslemService {
             islemKur,
           ];
 
-          this.debugLog(`➡️ [${i + 1}/${kayitlar.length}] islemEkle çağrılıyor`, {
-            iKytTarihi,
-            islemKllnc,
-            islemCrKod,
-            islemArac,
-            islemTip,
-            islemGrup,
-            islemAltG,
-            islemTutar,
-          });
+          this.debugLog(
+            `➡️ [${i + 1}/${kayitlar.length}] islemEkle çağrılıyor`,
+            {
+              iKytTarihi,
+              islemKllnc,
+              islemCrKod,
+              islemArac,
+              islemTip,
+              islemGrup,
+              islemAltG,
+              islemTutar,
+            },
+          );
 
           await queryRunner.query(execQuery, params);
           results.push({ index: i, success: true, message: 'OK' });
@@ -775,7 +913,10 @@ export class IslemService {
         return results;
       } catch (innerError) {
         await queryRunner.rollbackTransaction();
-        console.error('❌ İşlem kayıtları yazılamadı, rollback yapıldı:', innerError);
+        console.error(
+          '❌ İşlem kayıtları yazılamadı, rollback yapıldı:',
+          innerError,
+        );
         throw innerError;
       } finally {
         await queryRunner.release();

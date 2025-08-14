@@ -13,8 +13,13 @@ type FetchWindow = { from?: string; to?: string };
 export class HotelRunnerService {
   private readonly baseUrl = 'https://app.hotelrunner.com/api/v2/apps/';
   // Kimlik bilgileri .env üzerinden alınır (readonly, deklarasyonda set edilir)
-  private readonly token: string = process.env.HOTELRUNNER_TOKEN || process.env.HR_TOKEN || process.env.token || '';
-  private readonly hrId: string = process.env.HOTELRUNNER_ID || process.env.HR_ID || process.env.hr_id ||'';
+  private readonly token: string =
+    process.env.HOTELRUNNER_TOKEN ||
+    process.env.HR_TOKEN ||
+    process.env.token ||
+    '';
+  private readonly hrId: string =
+    process.env.HOTELRUNNER_ID || process.env.HR_ID || process.env.hr_id || '';
 
   constructor(
     private readonly http: HttpService,
@@ -43,7 +48,8 @@ export class HotelRunnerService {
     const parenCode = /\(([A-Za-z]{2,3})\)/.exec(raw)?.[1];
     if (parenCode) return this.truncateValue(parenCode.toUpperCase(), maxLen);
     // "TR" veya "TUR" gibi zaten kod ise
-    if (/^[A-Za-z]{2,3}$/.test(raw)) return this.truncateValue(raw.toUpperCase(), maxLen);
+    if (/^[A-Za-z]{2,3}$/.test(raw))
+      return this.truncateValue(raw.toUpperCase(), maxLen);
     // Harf/digit karışık veya ülke adı: sadece ilk 3 büyük harf
     const lettersOnly = raw.replace(/[^A-Za-z]/g, '').toUpperCase();
     if (lettersOnly.length >= 2) return this.truncateValue(lettersOnly, maxLen);
@@ -97,7 +103,8 @@ export class HotelRunnerService {
             if (digits.length === 11) return this.truncateValue(digits, 20);
             if (digits.length === 10) return this.truncateValue(digits, 20);
             // Pasaport gibi alfanümerik değerler
-            if (/^[A-Za-z0-9]{5,}$/.test(raw)) return this.truncateValue(raw, 20);
+            if (/^[A-Za-z0-9]{5,}$/.test(raw))
+              return this.truncateValue(raw, 20);
           }
         }
       }
@@ -122,7 +129,10 @@ export class HotelRunnerService {
       it.amount,
       it.rooms?.[0]?.total,
     ];
-    const total = Number(totalCandidates.find((v: any) => v !== undefined && v !== null) || 0) || 0;
+    const total =
+      Number(
+        totalCandidates.find((v: any) => v !== undefined && v !== null) || 0,
+      ) || 0;
 
     let paid = 0;
     if (it.paid_amount !== undefined && it.paid_amount !== null) {
@@ -138,7 +148,9 @@ export class HotelRunnerService {
     return 'UNPAID';
   }
 
-  async fetchAndStoreReservations(win?: FetchWindow): Promise<{ inserted: number; updated: number; rawUpserted: number }> {
+  async fetchAndStoreReservations(
+    win?: FetchWindow,
+  ): Promise<{ inserted: number; updated: number; rawUpserted: number }> {
     const structuredInserted = { count: 0 };
     const structuredUpdated = { count: 0 };
     const rawUpserted = { count: 0 };
@@ -159,7 +171,9 @@ export class HotelRunnerService {
       const items: any[] = resp.data?.data || resp.data?.reservations || [];
 
       for (const it of items) {
-        const hrResId = String(it.id || it.ReservationId || it.reservation_id || '');
+        const hrResId = String(
+          it.id || it.ReservationId || it.reservation_id || '',
+        );
         if (!hrResId) continue;
 
         // 2) RAW tabloya yaz (idempotent upsert)
@@ -168,7 +182,9 @@ export class HotelRunnerService {
         const rawJson = JSON.stringify(it);
 
         const rawExistsSql = `SELECT COUNT(1) as cnt FROM ${schema}.tblHRzvnRaw WHERE hrResId = @0`;
-        const rawEx = await this.tx.executeQuery(queryRunner, rawExistsSql, [hrResId]);
+        const rawEx = await this.tx.executeQuery(queryRunner, rawExistsSql, [
+          hrResId,
+        ]);
         const rawCnt = Number(rawEx?.[0]?.cnt || 0);
         if (rawCnt > 0) {
           const rawUpdateSql = `
@@ -198,45 +214,103 @@ export class HotelRunnerService {
 
         // 3) RAW -> STRUCTURED dönüşümü ve upsert tblHRzvn
         const musteriTCKN = this.extractNationalId(it);
-        const adSoyad = this.truncateValue([
-          it.guest?.first_name || it.firstname,
-          it.guest?.last_name || it.lastname,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .trim(), 150);
-        const email = this.truncateValue(it.guest?.email || it.address?.email || '', 150);
-        const tel = this.truncateValue(it.guest?.phone || it.address?.phone || '', 50);
+        const adSoyad = this.truncateValue(
+          [
+            it.guest?.first_name || it.firstname,
+            it.guest?.last_name || it.lastname,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .trim(),
+          150,
+        );
+        const email = this.truncateValue(
+          it.guest?.email || it.address?.email || '',
+          150,
+        );
+        const tel = this.truncateValue(
+          it.guest?.phone || it.address?.phone || '',
+          50,
+        );
         const ulke = this.normalizeCountry(
-          it.guest?.country || it.address?.country_code || it.country || it.address?.country || '',
+          it.guest?.country ||
+            it.address?.country_code ||
+            it.country ||
+            it.address?.country ||
+            '',
           3,
         );
 
         const odaTipiHR = this.truncateValue(
-          it.room_kind || it.room_type || it.rooms?.[0]?.name || it.rooms?.[0]?.name_presentation || '',
+          it.room_kind ||
+            it.room_type ||
+            it.rooms?.[0]?.name ||
+            it.rooms?.[0]?.name_presentation ||
+            '',
           100,
         );
 
         const hrCode = this.truncateValue(
-          it.code || it.room_code || it.room?.code || it.rate_code || it.rate_plan_code || it.inv_code || it.rooms?.[0]?.rate_code || '',
+          it.code ||
+            it.room_code ||
+            it.room?.code ||
+            it.rate_code ||
+            it.rate_plan_code ||
+            it.inv_code ||
+            it.rooms?.[0]?.rate_code ||
+            '',
           100,
         );
 
         let odaTipiProj = '';
         if (hrCode) {
           const mapSql = `SELECT TOP 1 projectOdaTip FROM ${schema}.tblHRRoomTypeMap WHERE hrCode = @0 AND aktif = 1`;
-          const mapRes = await this.tx.executeQuery(queryRunner, mapSql, [hrCode]);
-          odaTipiProj = this.truncateValue((mapRes?.[0]?.projectOdaTip || '').toString(), 100);
+          const mapRes = await this.tx.executeQuery(queryRunner, mapSql, [
+            hrCode,
+          ]);
+          odaTipiProj = this.truncateValue(
+            (mapRes?.[0]?.projectOdaTip || '').toString(),
+            100,
+          );
         }
 
-        const grsTrh = this.toDdMmYyyy(it.checkin_date || it.checkin || it.arrival_date || it.rooms?.[0]?.checkin_date);
-        const cksTrh = this.toDdMmYyyy(it.checkout_date || it.checkout || it.departure_date || it.rooms?.[0]?.checkout_date);
-        const doviz = this.truncateValue((it.currency || it.rooms?.[0]?.currency || '').toString().toUpperCase(), 3);
-        const ucret = Number(
-          it.total || it.item_total || it.sub_total || it.total_price || it.price || it.amount || it.rooms?.[0]?.total || 0,
-        ) || 0;
-        const kanal = this.truncateValue((it.channel || it.source || it.channel_display || '').toString(), 100);
-        const durum = this.truncateValue((it.status || it.state || '').toString(), 50);
+        const grsTrh = this.toDdMmYyyy(
+          it.checkin_date ||
+            it.checkin ||
+            it.arrival_date ||
+            it.rooms?.[0]?.checkin_date,
+        );
+        const cksTrh = this.toDdMmYyyy(
+          it.checkout_date ||
+            it.checkout ||
+            it.departure_date ||
+            it.rooms?.[0]?.checkout_date,
+        );
+        const doviz = this.truncateValue(
+          (it.currency || it.rooms?.[0]?.currency || '')
+            .toString()
+            .toUpperCase(),
+          3,
+        );
+        const ucret =
+          Number(
+            it.total ||
+              it.item_total ||
+              it.sub_total ||
+              it.total_price ||
+              it.price ||
+              it.amount ||
+              it.rooms?.[0]?.total ||
+              0,
+          ) || 0;
+        const kanal = this.truncateValue(
+          (it.channel || it.source || it.channel_display || '').toString(),
+          100,
+        );
+        const durum = this.truncateValue(
+          (it.status || it.state || '').toString(),
+          50,
+        );
         const paidStatus = this.computePaidStatus(it);
 
         // Lokal olarak 'checked_in' veya 'no_show' yapılan kayıtları HR senkronu ile EZME
@@ -245,7 +319,9 @@ export class HotelRunnerService {
           FROM ${schema}.tblHRzvn WITH (NOLOCK)
           WHERE hrResId = @0
             AND ISNULL(durum,'') NOT IN ('checked_in','no_show')`;
-        const ex = await this.tx.executeQuery(queryRunner, existsSql, [hrResId]);
+        const ex = await this.tx.executeQuery(queryRunner, existsSql, [
+          hrResId,
+        ]);
         const cnt = Number(ex?.[0]?.cnt || 0);
 
         if (cnt > 0) {
@@ -317,7 +393,11 @@ export class HotelRunnerService {
         }
       }
 
-      return { inserted: structuredInserted.count, updated: structuredUpdated.count, rawUpserted: rawUpserted.count };
+      return {
+        inserted: structuredInserted.count,
+        updated: structuredUpdated.count,
+        rawUpserted: rawUpserted.count,
+      };
     });
   }
 
@@ -382,14 +462,29 @@ export class HotelRunnerService {
   }
 
   // HotelRunner portalına No-Show bildiren basit proxy (belgelenmiş resmi endpoint olmayabilir; örnek varsayım)
-  async markReservationNoShow(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
+  async markReservationNoShow(hrResId: string): Promise<{
+    success: boolean;
+    message: string;
+    data?: any;
+    status?: number;
+  }> {
     try {
       if (!this.token || !this.hrId) {
-        return { success: false, message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).', data: null, status: 500 };
+        return {
+          success: false,
+          message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).',
+          data: null,
+          status: 500,
+        };
       }
       const hrNumber = await this.resolveHrNumber(hrResId);
       if (!hrNumber) {
-        return { success: false, message: 'hr_number bulunamadı (Raw JSON içinde yok).', data: null, status: 400 };
+        return {
+          success: false,
+          message: 'hr_number bulunamadı (Raw JSON içinde yok).',
+          data: null,
+          status: 400,
+        };
       }
       const url = `${this.baseUrl}reservations/fire`;
       const params: Record<string, string> = {
@@ -401,23 +496,53 @@ export class HotelRunnerService {
       };
       const resp = await firstValueFrom(this.http.put(url, {}, { params }));
       const ok = resp?.data?.status === 'success' || resp?.status < 400;
-      const msg = ok ? 'HR portalına No-Show bildirildi.' : (resp?.data?.error || 'HR yanıtı başarısız');
-      return { success: ok, message: msg, data: resp.data, status: resp.status };
+      const msg = ok
+        ? 'HR portalına No-Show bildirildi.'
+        : resp?.data?.error || 'HR yanıtı başarısız';
+      return {
+        success: ok,
+        message: msg,
+        data: resp.data,
+        status: resp.status,
+      };
     } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'No-Show bildirimi başarısız';
-      return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'No-Show bildirimi başarısız';
+      return {
+        success: false,
+        message: msg,
+        data: error?.response?.data,
+        status: error?.response?.status,
+      };
     }
   }
 
   // HotelRunner portalında Check-in (confirm) olayı
-  async markReservationCheckIn(hrResId: string): Promise<{ success: boolean; message: string; data?: any; status?: number }> {
+  async markReservationCheckIn(hrResId: string): Promise<{
+    success: boolean;
+    message: string;
+    data?: any;
+    status?: number;
+  }> {
     try {
       if (!this.token || !this.hrId) {
-        return { success: false, message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).', data: null, status: 500 };
+        return {
+          success: false,
+          message: 'HR kimlik bilgileri eksik (TOKEN/HR_ID).',
+          data: null,
+          status: 500,
+        };
       }
       const hrNumber = await this.resolveHrNumber(hrResId);
       if (!hrNumber) {
-        return { success: false, message: 'hr_number bulunamadı (Raw JSON içinde yok).', data: null, status: 400 };
+        return {
+          success: false,
+          message: 'hr_number bulunamadı (Raw JSON içinde yok).',
+          data: null,
+          status: 400,
+        };
       }
       const url = `${this.baseUrl}reservations/fire`;
       const params: Record<string, string> = {
@@ -428,23 +553,43 @@ export class HotelRunnerService {
       };
       const resp = await firstValueFrom(this.http.put(url, {}, { params }));
       const ok = resp?.data?.status === 'success' || resp?.status < 400;
-      const msg = ok ? 'HR portalında Check-in (confirm) bildirildi.' : (resp?.data?.error || 'HR yanıtı başarısız');
-      return { success: ok, message: msg, data: resp.data, status: resp.status };
+      const msg = ok
+        ? 'HR portalında Check-in (confirm) bildirildi.'
+        : resp?.data?.error || 'HR yanıtı başarısız';
+      return {
+        success: ok,
+        message: msg,
+        data: resp.data,
+        status: resp.status,
+      };
     } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'Check-in bildirimi başarısız';
-      return { success: false, message: msg, data: error?.response?.data, status: error?.response?.status };
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Check-in bildirimi başarısız';
+      return {
+        success: false,
+        message: msg,
+        data: error?.response?.data,
+        status: error?.response?.status,
+      };
     }
   }
 
   // Lokal durum güncellemesi
-  async updateLocalReservationStatus(hrResId: string, status: 'checked_in' | 'no_show'): Promise<{ success: boolean; message: string }> {
+  async updateLocalReservationStatus(
+    hrResId: string,
+    status: 'checked_in' | 'no_show',
+  ): Promise<{ success: boolean; message: string }> {
     const schema = this.dbConfig.getTableSchema();
     return await this.tx.executeInTransaction(async (qr) => {
       const sql = `UPDATE ${schema}.tblHRzvn SET durum = @1, updatedAt = @2 WHERE hrResId = @0`;
-      await this.tx.executeQuery(qr, sql, [hrResId, status, this.toDdMmYyyy(new Date())]);
+      await this.tx.executeQuery(qr, sql, [
+        hrResId,
+        status,
+        this.toDdMmYyyy(new Date()),
+      ]);
       return { success: true, message: `Lokal durum güncellendi: ${status}` };
     });
   }
 }
-
-

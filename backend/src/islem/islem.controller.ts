@@ -246,7 +246,12 @@ export class IslemController {
     @Res() res: Response,
   ) {
     try {
-      const buffer = (await this.islemService.generateDetayPDF(tarih, islemTuru, islemYonu, selectedYonu)) as unknown as Buffer;
+      const buffer = (await this.islemService.generateDetayPDF(
+        tarih,
+        islemTuru,
+        islemYonu,
+        selectedYonu,
+      )) as unknown as Buffer;
       const fileName = `kasa-detay-${tarih || 'tum'}.pdf`;
       res.set({
         'Content-Type': 'application/pdf',
@@ -256,7 +261,9 @@ export class IslemController {
       return res.send(buffer);
     } catch (error: unknown) {
       const msg = this.getErrorMessage(error) || 'Detay PDF oluşturulamadı';
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ success: false, message: msg });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: msg });
     }
   }
 
@@ -270,17 +277,25 @@ export class IslemController {
     @Res() res: Response,
   ) {
     try {
-      const buffer = (await this.islemService.generateDetayExcel(tarih, islemTuru, islemYonu, selectedYonu)) as unknown as Buffer;
+      const buffer = (await this.islemService.generateDetayExcel(
+        tarih,
+        islemTuru,
+        islemYonu,
+        selectedYonu,
+      )) as unknown as Buffer;
       const fileName = `kasa-detay-${tarih || 'tum'}.xlsx`;
       res.set({
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${fileName}"`,
         'Content-Length': buffer.length,
       });
       return res.send(buffer);
     } catch (error: unknown) {
       const msg = this.getErrorMessage(error) || 'Detay Excel oluşturulamadı';
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ success: false, message: msg });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: msg });
     }
   }
 
@@ -373,7 +388,10 @@ export class IslemController {
       if (typeof body.kasaYekun !== 'number' || isNaN(body.kasaYekun)) {
         throw new HttpException('Geçersiz kasa tutarı', HttpStatus.BAD_REQUEST);
       }
-      const sonuc = await this.islemService.saveKasaDevir(body.kasaYekun, body.kullaniciAdi);
+      const sonuc = await this.islemService.saveKasaDevir(
+        body.kasaYekun,
+        body.kullaniciAdi,
+      );
       return { success: true, message: 'Kasa devri kaydedildi', sonuc };
     } catch (error: unknown) {
       console.error('❌ /islem/kasa-devret hatası:', error);
