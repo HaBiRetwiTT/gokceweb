@@ -105,6 +105,7 @@ export class DashboardService {
   async searchMusteriKonaklama(queryText: string, page = 1, limit = 50): Promise<{ data: MusteriKonaklamaData[] & { targetKart: string }[]; total: number; page: number; limit: number; }>
   {
     const views = this.dbConfig.getViews();
+    const tables = this.dbConfig.getTables();
     const offset = (Math.max(1, page) - 1) * Math.max(1, limit);
     const pageSize = Math.max(1, Math.min(limit, 100));
 
@@ -159,8 +160,15 @@ export class DashboardService {
           v.KnklmNfyt,
           v.KnklmNot,
           v.knklmNo,
-          -- Eğer view KnklmCksTrh içermiyorsa NULL kalır; mevcut kart kuralları diğer alanlarla da çalışır
-          CAST(NULL AS NVARCHAR(10)) AS KnklmCksTrh
+          -- Çıkış tarihi: Aktif kayıttan gelmiyorsa müşterinin en son çıkışlı konaklama kaydından al
+          (
+            SELECT TOP 1 k.KnklmCksTrh
+            FROM ${tables.konaklama} k
+            INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
+            WHERE m.MstrTCN = v.MstrTCN
+              AND k.KnklmCksTrh IS NOT NULL AND k.KnklmCksTrh <> ''
+            ORDER BY k.knklmNo DESC
+          ) AS KnklmCksTrh
         FROM ${views.musteriKonaklama} v
         WHERE 
           v.MstrTCN LIKE @0 OR 
@@ -194,6 +202,7 @@ export class DashboardService {
         r.KnklmNfyt,
         r.KnklmNot,
         r.knklmNo,
+        r.KnklmCksTrh,
         CASE 
           WHEN TRY_CONVERT(date, r.KnklmCksTrh, 104) = CONVERT(date, GETDATE(), 104) THEN 'bugun-cikan'
           WHEN r.KnklmCksTrh IS NULL AND TRY_CONVERT(date, r.KnklmPlnTrh, 104) <= CONVERT(date, GETDATE(), 104) THEN 'suresi-dolan'
@@ -824,6 +833,7 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
+          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
@@ -905,6 +915,7 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
+          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
@@ -961,6 +972,7 @@ export class DashboardService {
             FROM ${tables.konaklama} k2 
             WHERE k2.knklmMstrNo = k.knklmMstrNo
           )
+        
       `;
 
       const parameters: string[] = [];
@@ -1026,6 +1038,7 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
+          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN

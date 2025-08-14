@@ -829,6 +829,10 @@ function getOdaYatakValue(odaYatak: string | { value: string; label: string } | 
 
 // SessionStorage'dan TC kimlik auto-fill kontrolü
 async function checkAndApplyAutoFillTCKimlik() {
+  // Rezervasyon prefill varsa TC auto-fill'i tamamen atla
+  if (sessionStorage.getItem('reservationCheckIn')) {
+    return
+  }
   const autoFillTC = sessionStorage.getItem('autoFillTCKimlik');
   if (autoFillTC) {
     // SessionStorage'dan TC kimlik numarasını sil (tek kullanımlık)
@@ -924,7 +928,9 @@ const currentTime = ref(new Date())
     { label: 'KAPIDAN', value: 'KAPIDAN' },
     { label: 'ONLINE', value: 'ONLINE' }
   ]
-  const satisKanali = ref<string | null>('KAPIDAN')
+const satisKanali = ref<string | null>('KAPIDAN')
+// Rezervasyondan prefill edildiğinde otomatik fiyat hesaplarını geçici olarak devre dışı bırak
+const reservationPrefillActive = ref<boolean>(false)
   
   // Satış kanalı yerel saklama: başlangıçta yükle
   onMounted(() => {
@@ -1065,6 +1071,10 @@ const selectedKaraListeMusteri = ref<{
 
 // Fiyat hesaplama fonksiyonu
 async function hesaplaBedel() {
+  // Rezervasyon prefill aktifse otomatik hesaplamayı atla
+  if (reservationPrefillActive.value) {
+    return
+  }
   if (!form.value.OdaTipi || !form.value.KonaklamaSuresi || !form.value.KonaklamaTipi) {
     form.value.HesaplananBedel = 0
     form.value.ToplamBedel = 0
@@ -1457,18 +1467,57 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
-  // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
-  await checkAndApplyAutoFillTCKimlik()
+  // rezerve-giris'ten gelen prefill varsa önce onu uygula
+  try {
+    const prefillStr = sessionStorage.getItem('reservationCheckIn')
+    if (prefillStr) {
+      const pre = JSON.parse(prefillStr)
+      // Ad Soyad
+      form.value.MstrAdi = pre.adSoyad || ''
+      // Oda Tipi
+      form.value.OdaTipi = pre.odaTipiProj || ''
+      // Konaklama Süresi (çıkış tarihi - bugün)
+      form.value.KonaklamaSuresi = Number(pre.konaklamaSuresi || 1) || 1
+      // Toplam Konaklama Bedeli
+      form.value.ToplamBedel = Number(pre.toplamBedel || 0)
+      form.value.HesaplananBedel = Number(pre.toplamBedel || 0)
+      // Satış kanalı combobox'ını ayarla ve kalıcı kaydet
+      if (pre.kanal && typeof pre.kanal === 'string') {
+        try {
+          localStorage.setItem('satisKanali', pre.kanal)
+        } catch (e) {
+          console.warn('satisKanali setItem hatası:', e)
+        }
+        satisKanali.value = pre.kanal
+      }
+      // Kaynağı temizle
+      sessionStorage.removeItem('reservationCheckIn')
+      // Prefill aktif bayrağı (kullanıcı alanları değiştirene kadar hesaplama yapılmasın)
+      reservationPrefillActive.value = true
+      try { localStorage.removeItem('selectedMusteriForIslem') } catch { /* ignore */ }
+    }
+  } catch (e) {
+    console.warn('reservationCheckIn prefill parse hatası:', e)
+  }
 
-  // Sadece önceki sayfa kartli-islem ise müşteri otomatik yüklensin
+  // SessionStorage'dan TC kimlik auto-fill kontrolü (rezervasyon prefill yoksa)
+  if (!reservationPrefillActive.value) {
+    await checkAndApplyAutoFillTCKimlik()
+  }
+
+  // Öncelik: rezerve-giris prefill varsa KARTLI-İŞLEM otomatik yüklemeyi atla
   const prevPage = sessionStorage.getItem('prevPage')
-  if (prevPage === 'kartli-islem') {
-    await checkAndApplySelectedMusteriFromKartliIslem()
-  } else if (sessionStorage.getItem('autoFillTCKimlik')) {
-    // Eski akış desteği: sadece TC auto-fill geldiğinde seçili müşteri yükleme denenebilir
-    await checkAndApplySelectedMusteriFromKartliIslem()
+  if (!reservationPrefillActive.value) {
+    if (prevPage === 'kartli-islem') {
+      await checkAndApplySelectedMusteriFromKartliIslem()
+    } else if (sessionStorage.getItem('autoFillTCKimlik')) {
+      // Eski akış desteği: sadece TC auto-fill geldiğinde seçili müşteri yükleme denenebilir
+      await checkAndApplySelectedMusteriFromKartliIslem()
+    } else {
+      debugLog('🔍 Önceki sayfa kartli-islem değil, otomatik müşteri yükleme atlandı. prevPage=', prevPage)
+    }
   } else {
-    debugLog('🔍 Önceki sayfa kartli-islem değil, otomatik müşteri yükleme atlandı. prevPage=', prevPage)
+    debugLog('🔄 Rezervasyon prefill aktif, kartli-islem otomatik yükleme atlandı')
   }
   
   await loadOdaTipleri()

@@ -257,6 +257,21 @@ export class MusteriController {
         
         await this.musteriService.kaydetIslemWithTransaction(queryRunner, islemDataWithExtras, musteriNo);
         
+        // 3. Eğer rezerve-giris yönlendirmesi ile geldiyse ve hrResId varsa, tblHRzvn durumunu 'checked_in' yap
+        try {
+          const hrResId = String(musteriData?.hrResId || '').trim();
+          if (hrResId) {
+            const schema = this.dbConfig.getTableSchema();
+            await this.transactionService.executeQuery(
+              queryRunner,
+              `UPDATE ${schema}.tblHRzvn SET durum = 'checked_in', updatedAt = @1 WHERE hrResId = @0`,
+              [hrResId, this.formatDate(new Date())]
+            );
+          }
+        } catch (e) {
+          console.warn('tblHRzvn durum güncelleme atlandı:', e instanceof Error ? e.message : e);
+        }
+        
         return {
           success: true,
           message: message,

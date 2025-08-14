@@ -1473,6 +1473,9 @@ const displayedKonaklamaGecmisiListesi = computed(() => {
 // 🔥 Arama kutusu kontrol referansları
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 const isSearchFocused = ref<boolean>(false)
+// Arama isteklerini kontrol etmek için sıralı kimlik ve AbortController
+let searchRequestSeq = 0
+let activeSearchController: AbortController | null = null
 
 // 🔥 Alt grid animasyon kontrolü
 const cariHareketlerKey = ref<string>('cari-empty')
@@ -1721,16 +1724,8 @@ const columns = computed(() => {
   }
   ]
   
-  // 🔥 Çıkış tarihi sütunu sadece çıkış yapan kartlarda görünür
-  const cikisYapanKartlar = ['cikis-yapanlar', 'bugun-cikan']
-  
-  if (currentFilter.value && cikisYapanKartlar.includes(currentFilter.value)) {
-    // Çıkış yapan kartlar için çıkış tarihi sütununu ekle
-    return baseColumns
-  } else {
-    // Diğer kartlar için çıkış tarihi sütununu çıkar
-    return baseColumns.filter(col => col.name !== 'KnklmCksTrh')
-  }
+  // İstek: Üst gridde de "Çıkış Tarihi" sütunu her zaman görünsün
+  return baseColumns
 })
 
 // Borçlu müşteriler tablosu için
@@ -3646,6 +3641,12 @@ function getDateClass(dateStr: string): string {
 
 // Global arama (backend) fonksiyonu
 async function performSearch(searchValue: string) {
+  // Bu isteğe bir sıra numarası ata ve önceki isteği iptal et
+  const mySeq = ++searchRequestSeq
+  if (activeSearchController) {
+    try { activeSearchController.abort() } catch { /* no-op */ }
+  }
+  activeSearchController = new AbortController()
   if (!searchValue || searchValue.trim().length < 3) {
     filteredMusteriListesi.value = []
     filteredBorcluMusteriListesi.value = []
@@ -3660,10 +3661,13 @@ async function performSearch(searchValue: string) {
     showCariHareketler.value = false
     try {
       const { data } = await api.get('/dashboard/musteri-konaklama-search-by-oda', {
-        params: { odaNo: trimmed }
+        params: { odaNo: trimmed },
+        signal: activeSearchController.signal
       })
       if (data && data.success) {
         const rows: SearchMusteriKonaklama[] = (data.data || []) as SearchMusteriKonaklama[]
+        // Yalnızca en güncel isteğin sonucunu uygula
+        if (mySeq !== searchRequestSeq) return
         filteredMusteriListesi.value = rows.map((x) => ({
           MstrTCN: x.MstrTCN || '',
           MstrHspTip: x.MstrHspTip || '',
@@ -3685,10 +3689,16 @@ async function performSearch(searchValue: string) {
         filteredCariHareketlerListesi.value = []
         return
       }
+      if (mySeq !== searchRequestSeq) return
       filteredMusteriListesi.value = []
       return
     } catch (err) {
+      // İptal hatalarını sessizce yut
+      if (err && typeof err === 'object' && 'name' in err && (err as { name?: string }).name === 'CanceledError') {
+        return
+      }
       console.error('Oda no araması hatası:', err)
+      if (mySeq !== searchRequestSeq) return
       filteredMusteriListesi.value = []
       return
     }
@@ -3698,12 +3708,15 @@ async function performSearch(searchValue: string) {
   showCariHareketler.value = false
   try {
     const { data } = await api.get('/dashboard/musteri-konaklama-search', {
-      params: { q: searchValue.trim(), page: 1, limit: 50 }
+      params: { q: searchValue.trim(), page: 1, limit: 50 },
+      signal: activeSearchController.signal
     })
     if (data && data.success) {
       // Backend global arama sonuçları kart bağımsızdır. Normal tablo için direkt gösteriyoruz.
       // Tip uyumu için yalnızca ortak alanları kullanıyoruz.
       const rows: SearchMusteriKonaklama[] = (data.data || []) as SearchMusteriKonaklama[];
+      // Yalnızca en güncel isteğin sonucunu uygula
+      if (mySeq !== searchRequestSeq) return
       filteredMusteriListesi.value = rows.map((x) => ({
         MstrTCN: x.MstrTCN || '',
         MstrHspTip: x.MstrHspTip || '',
@@ -3725,10 +3738,15 @@ async function performSearch(searchValue: string) {
       filteredBakiyesizHesaplarListesi.value = []
       filteredCariHareketlerListesi.value = []
     } else {
+      if (mySeq !== searchRequestSeq) return
       filteredMusteriListesi.value = []
     }
   } catch (err) {
+    if (err && typeof err === 'object' && 'name' in err && (err as { name?: string }).name === 'CanceledError') {
+      return
+    }
     console.error('Global arama hatası:', err)
+    if (mySeq !== searchRequestSeq) return
     filteredMusteriListesi.value = []
   }
 }
@@ -3745,6 +3763,11 @@ function onSearchChange(newValue: string | number | null) {
     // Arama kapandıysa alt gridler eski davranışına dönebilir
     showKonaklamaGecmisi.value = false
     showCariHareketler.value = false
+    // Arama temizlenince filtrelenmiş listeleri de boşalt
+    filteredMusteriListesi.value = []
+    filteredBorcluMusteriListesi.value = []
+    filteredBakiyesizHesaplarListesi.value = []
+    filteredCariHareketlerListesi.value = []
   }
   
   void performSearch(searchValue)
