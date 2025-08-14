@@ -204,8 +204,8 @@ export class DashboardService {
         r.knklmNo,
         r.KnklmCksTrh,
         CASE 
-          WHEN r.KnklmCksTrh = FORMAT(GETDATE(), 'dd.MM.yyyy') THEN 'bugun-cikan'
-          WHEN r.KnklmCksTrh IS NULL AND r.KnklmPlnTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy') THEN 'suresi-dolan'
+          WHEN TRY_CONVERT(date, r.KnklmCksTrh, 104) = CONVERT(date, GETDATE(), 104) THEN 'bugun-cikan'
+          WHEN r.KnklmCksTrh IS NULL AND TRY_CONVERT(date, r.KnklmPlnTrh, 104) <= CONVERT(date, GETDATE(), 104) THEN 'suresi-dolan'
           WHEN r.KnklmCksTrh IS NULL THEN 'toplam-aktif'
           WHEN r.KnklmNot LIKE 'Yeni Müşteri%' THEN 'yeni-musteri'
           WHEN r.KnklmNot LIKE 'Yeni Giriş%' THEN 'yeni-giris'
@@ -214,9 +214,9 @@ export class DashboardService {
       FROM ranked r
       WHERE r.rn = 1
       ORDER BY 
-        r.KnklmPlnTrh ASC,
+        TRY_CONVERT(date, r.KnklmPlnTrh, 104) ASC,
         r.KnklmTip DESC,
-        r.KnklmGrsTrh DESC
+        TRY_CONVERT(date, r.KnklmGrsTrh, 104) DESC
       OFFSET @1 ROWS FETCH NEXT @2 ROWS ONLY
     `;
 
@@ -349,8 +349,8 @@ export class DashboardService {
         WHERE v.MstrDurum = 'KALIYOR' 
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-          AND v.KnklmGrsTrh < FORMAT(GETDATE(), 'dd.MM.yyyy')
-          AND v.KnklmPlnTrh > FORMAT(GETDATE(), 'dd.MM.yyyy')
+          AND CONVERT(Date, v.KnklmGrsTrh, 104) < GETDATE()
+          AND CONVERT(Date, v.KnklmPlnTrh, 104) > GETDATE()
       `;
 
       const parameters: string[] = [];
@@ -360,7 +360,7 @@ export class DashboardService {
         parameters.push(knklmTipi);
       }
 
-      query += ` ORDER BY v.KnklmPlnTrh, v.KnklmTip DESC, v.KnklmGrsTrh DESC`;
+      query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
       this.debugLog('View sorgusu sonucu:', result.length, 'kayıt bulundu');
@@ -637,7 +637,7 @@ export class DashboardService {
             SUM(KnklmNfyt) as ToplamGelir,
             AVG(KnklmNfyt) as OrtalamaGelir
           FROM AktifKonaklamalar
-          WHERE KnklmPlnTrh > FORMAT(GETDATE(), 'dd.MM.yyyy')
+          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
             AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
             AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
             AND rn = 1
@@ -646,7 +646,7 @@ export class DashboardService {
           -- Yeni müşteri istatistikleri
           SELECT COUNT(*) as YeniMusteriKonaklama
           FROM AktifKonaklamalar
-          WHERE KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy')
+          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
             AND KnklmNot LIKE '%- Yeni Müşteri:%'
             AND rn = 1
         ),
@@ -654,7 +654,7 @@ export class DashboardService {
           -- Yeni giriş istatistikleri
           SELECT COUNT(*) as YeniGirisKonaklama
           FROM AktifKonaklamalar
-          WHERE KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy')
+          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
             AND KnklmNot LIKE '%- Yeni Giriş:%'
             AND rn = 1
         ),
@@ -662,11 +662,11 @@ export class DashboardService {
           -- Devam eden konaklama istatistikleri
           SELECT COUNT(*) as DevamEdenKonaklama
           FROM AktifKonaklamalar
-          WHERE KnklmPlnTrh > FORMAT(GETDATE(), 'dd.MM.yyyy')
+          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
             AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
             AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
-            AND NOT (KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy') AND KnklmNot LIKE '%- Yeni Müşteri:%')
-            AND NOT (KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy') AND KnklmNot LIKE '%- Yeni Giriş:%')
+            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Müşteri:%')
+            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Giriş:%')
             AND rn = 1
         ),
         SuresiDolanStats AS (
@@ -676,7 +676,7 @@ export class DashboardService {
           WHERE v.MstrDurum = 'KALIYOR' 
             AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-            AND v.KnklmPlnTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy')
+            AND CONVERT(Date, v.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
             AND v.knklmNo = (
               SELECT MAX(v2.knklmNo) 
               FROM ${views.musteriKonaklama} v2 
@@ -690,7 +690,7 @@ export class DashboardService {
           SELECT COUNT(*) as BugünCikanKonaklama
           FROM ${tables.konaklama} k
           INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
-          WHERE k.knklmCksTrh = FORMAT(GETDATE(), 'dd.MM.yyyy')
+          WHERE CONVERT(Date, k.knklmCksTrh, 104) = CONVERT(Date, GETDATE(), 104)
             AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
             AND k.knklmNo = (
               SELECT MAX(k2.knklmNo) 
@@ -767,7 +767,7 @@ export class DashboardService {
         SELECT 
           KnklmOdaTip,
           COUNT(*) as DoluOdaSayisi,
-          COUNT(CASE WHEN KnklmPlnTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy') THEN 1 END) as SuresiGecentOda
+          COUNT(CASE WHEN CONVERT(Date, KnklmPlnTrh, 104) <= GETDATE() THEN 1 END) as SuresiGecentOda
         FROM ${views.musteriKonaklama} 
         WHERE MstrDurum = 'KALIYOR' 
           AND KnklmCksTrh = ''
@@ -839,11 +839,11 @@ export class DashboardService {
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
         WHERE ak.rn = 1
-          AND ak.KnklmPlnTrh > FORMAT(GETDATE(), 'dd.MM.yyyy')
+          AND CONVERT(Date, ak.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
           AND ak.KnklmNot NOT LIKE '%- Yeni Giriş:%'
-          AND NOT (ak.KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy') AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
-          AND NOT (ak.KnklmGrsTrh = FORMAT(GETDATE(), 'dd.MM.yyyy') AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
+          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
+          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
       `;
 
       const parameters: string[] = [];
@@ -921,7 +921,7 @@ export class DashboardService {
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
         WHERE ak.rn = 1
-          AND ak.KnklmPlnTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy')
+          AND CONVERT(Date, ak.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
       `;
 
       const parameters: string[] = [];
@@ -931,7 +931,7 @@ export class DashboardService {
         parameters.push(knklmTipi);
       }
 
-      query += ` ORDER BY ak.KnklmPlnTrh, ak.KnklmTip DESC, ak.KnklmGrsTrh DESC`;
+      query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 
@@ -965,7 +965,7 @@ export class DashboardService {
           ISNULL(k.knklmKrLst, '') as KnklmKrLst
         FROM ${tables.konaklama} k
         INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
-        WHERE k.knklmCksTrh = FORMAT(GETDATE(), 'dd.MM.yyyy')
+        WHERE CONVERT(Date, k.knklmCksTrh, 104) = CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
           AND k.knklmNo = (
             SELECT MAX(k2.knklmNo) 
@@ -982,7 +982,7 @@ export class DashboardService {
         parameters.push(knklmTipi);
       }
 
-      query += ` ORDER BY k.knklmCksTrh, k.knklmTip DESC, k.knklmGrsTrh DESC`;
+      query += ` ORDER BY CONVERT(Date, k.knklmCksTrh, 104), k.knklmTip DESC, CONVERT(Date, k.knklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
       this.debugLog('getBugunCikanMusteri sonucu:', result.length, 'kayıt bulundu');

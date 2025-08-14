@@ -420,6 +420,8 @@ async function proceedToMusteriIslemWithPrefill(row: PendingRow) {
     toplamBedel: Number(row.ucret || 0)
   }
   try {
+    // 🔥 REZERVASYON PREFILL ÖNCESİNDE KARTLI-ISLEM VERISINI TEMIZLE
+    localStorage.removeItem('selectedMusteriForIslem')
     sessionStorage.setItem('reservationCheckIn', JSON.stringify(payload))
     sessionStorage.setItem('prevPage', 'rezerve-giris')
   } catch { /* ignore */ }

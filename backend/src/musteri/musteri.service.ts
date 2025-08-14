@@ -1067,65 +1067,22 @@ export class MusteriService {
     }
   }
 
-  // Sadece boş odaların bulunduğu oda tiplerini getir (gerçek zamanlı boş oda sayısı ile)
+  // Sadece boş odaların bulunduğu oda tiplerini getir (basitleştirilmiş ve hızlı)
   async getBosOdaTipleri(): Promise<{odaTipi: string, bosOdaSayisi: number}[]> {
     try {
       const tables = this.dbConfig.getTables();
-      const views = this.dbConfig.getViews();
       
-      // 🔥 OPTİMİZE EDİLMİŞ CTE SORGUSU: Daha verimli bakiye hesaplama
+      // Basit ve hızlı sorgu: Sadece tblOdaYatak'tan oda tiplerini getir
       const query = `
-        WITH ToplamYataklar AS (
-          -- Her oda tipi için toplam yatak sayısı (BOŞ + DOLU)
-          SELECT 
-            OdYatOdaTip,
-            COUNT(*) as ToplamYatak
-          FROM ${tables.odaYatak} 
-          WHERE OdYatOdaTip IS NOT NULL 
-            AND OdYatOdaTip != '' 
-            AND OdYatDurum IN ('BOŞ', 'DOLU')
-          GROUP BY OdYatOdaTip
-        ),
-        AktifKonaklamalar AS (
-          -- Bugün aktif olan konaklamalar - ROW_NUMBER ile optimize edilmiş
-          SELECT 
-            v.KnklmOdaTip,
-            COUNT(*) as DoluYatak
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-            AND v.KnklmPlnTrh IS NOT NULL
-            AND v.KnklmPlnTrh <> ''
-            AND v.KnklmGrsTrh IS NOT NULL
-            AND v.KnklmGrsTrh <> ''
-            AND v.KnklmGrsTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy')
-            AND v.KnklmPlnTrh >= FORMAT(GETDATE(), 'dd.MM.yyyy')
-            AND v.knklmNo = (
-              SELECT MAX(v2.knklmNo) 
-              FROM ${views.musteriKonaklama} v2 
-              WHERE v2.MstrTCN = v.MstrTCN
-                AND v2.MstrDurum = 'KALIYOR'
-                AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
-            )
-          GROUP BY v.KnklmOdaTip
-        ),
-        BosOdaHesaplama AS (
-          -- Boş oda hesaplama - tek seferde tüm hesaplamalar
-          SELECT 
-            t.OdYatOdaTip as OdaTipi,
-            ISNULL(t.ToplamYatak, 0) as ToplamYatak,
-            ISNULL(a.DoluYatak, 0) as DoluYatak,
-            ISNULL(t.ToplamYatak, 0) - ISNULL(a.DoluYatak, 0) as BosOdaSayisi
-          FROM ToplamYataklar t
-          LEFT JOIN AktifKonaklamalar a ON t.OdYatOdaTip = a.KnklmOdaTip
-        )
         SELECT 
-          OdaTipi,
-          BosOdaSayisi
-        FROM BosOdaHesaplama
-        WHERE BosOdaSayisi > 0
-        ORDER BY OdaTipi
+          OdYatOdaTip as OdaTipi,
+          COUNT(*) as BosOdaSayisi
+        FROM ${tables.odaYatak} 
+        WHERE OdYatOdaTip IS NOT NULL 
+          AND OdYatOdaTip != '' 
+          AND OdYatDurum = 'BOŞ'
+        GROUP BY OdYatOdaTip
+        ORDER BY OdYatOdaTip
       `;
       
       const result: { OdaTipi: string; BosOdaSayisi: number }[] = await this.odaYatakRepository.query(query);

@@ -829,10 +829,6 @@ function getOdaYatakValue(odaYatak: string | { value: string; label: string } | 
 
 // SessionStorage'dan TC kimlik auto-fill kontrolü
 async function checkAndApplyAutoFillTCKimlik() {
-  // Rezervasyon prefill varsa TC auto-fill'i tamamen atla
-  if (sessionStorage.getItem('reservationCheckIn')) {
-    return
-  }
   const autoFillTC = sessionStorage.getItem('autoFillTCKimlik');
   if (autoFillTC) {
     // SessionStorage'dan TC kimlik numarasını sil (tek kullanımlık)
@@ -1467,11 +1463,56 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
+  // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
+  await checkAndApplyAutoFillTCKimlik()
+
   // rezerve-giris'ten gelen prefill varsa önce onu uygula
+  let hasReservationPrefill = false
   try {
     const prefillStr = sessionStorage.getItem('reservationCheckIn')
+    debugLog('🔥 sessionStorage\'dan reservationCheckIn kontrol ediliyor:', prefillStr)
     if (prefillStr) {
+      hasReservationPrefill = true
       const pre = JSON.parse(prefillStr)
+      debugLog('🔥 Rezervasyon prefill parse edildi:', pre)
+      
+      // 🔥 REZERVASYON PREFILL VARSA SADECE GEREKSIZ ALANLARI TEMIZLE
+      // Form'u tamamen temizleme, sadece gerekli alanları sıfırla
+      form.value.MstrTCN = ''
+      form.value.MstrTelNo = ''
+      form.value.OdaYatak = ''
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+      extraForm.value = {
+        MstrDgmTarihi: '',
+        MstrTel2: '',
+        MstrEposta: '',
+        MstrMeslek: '',
+        MstrYakini: '',
+        MstrYknTel: '',
+        MstrFirma: '',
+        MstrVD: '',
+        MstrVno: '',
+        MstrFrmTel: '',
+        MstrFrmMdr: '',
+        MstrMdrTel: '',
+        MstrAdres: '',
+        MstrNot: ''
+      }
+      ekBilgiler.value = {
+        kahvaltiDahil: false,
+        havluVerildi: false,
+        prizVerildi: false,
+        geceKonaklama: false
+      }
+      depozito.value = { dahil: true, bedel: 0 }
+      ekNotlar.value = ''
+      musteriDurumu.value = ''
+      guncellemeModuAktif.value = false
+      veriYukleniyor.value = false
+      showExtraFields.value = false
+      bosOdalarOptions.value = []
+      notify.value = ''
+      
       // Ad Soyad
       form.value.MstrAdi = pre.adSoyad || ''
       // Oda Tipi
@@ -1490,24 +1531,32 @@ onMounted(async () => {
         }
         satisKanali.value = pre.kanal
       }
+      
+      debugLog('🔥 Form alanları dolduruldu:', {
+        MstrAdi: form.value.MstrAdi,
+        OdaTipi: form.value.OdaTipi,
+        KonaklamaSuresi: form.value.KonaklamaSuresi,
+        ToplamBedel: form.value.ToplamBedel,
+        HesaplananBedel: form.value.HesaplananBedel,
+        satisKanali: satisKanali.value
+      })
+      
       // Kaynağı temizle
       sessionStorage.removeItem('reservationCheckIn')
       // Prefill aktif bayrağı (kullanıcı alanları değiştirene kadar hesaplama yapılmasın)
       reservationPrefillActive.value = true
-      try { localStorage.removeItem('selectedMusteriForIslem') } catch { /* ignore */ }
+      debugLog('🔥 Rezervasyon prefill uygulandı, kartli-islem müşteri yükleme atlanacak')
+    } else {
+      debugLog('🔥 sessionStorage\'da reservationCheckIn bulunamadı')
     }
   } catch (e) {
     console.warn('reservationCheckIn prefill parse hatası:', e)
+    debugLog('🔥 Rezervasyon prefill parse hatası:', e)
   }
 
-  // SessionStorage'dan TC kimlik auto-fill kontrolü (rezervasyon prefill yoksa)
-  if (!reservationPrefillActive.value) {
-    await checkAndApplyAutoFillTCKimlik()
-  }
-
-  // Öncelik: rezerve-giris prefill varsa KARTLI-İŞLEM otomatik yüklemeyi atla
-  const prevPage = sessionStorage.getItem('prevPage')
-  if (!reservationPrefillActive.value) {
+  // Sadece rezervasyon prefill YOKSA ve önceki sayfa kartli-islem ise müşteri otomatik yüklensin
+  if (!hasReservationPrefill) {
+    const prevPage = sessionStorage.getItem('prevPage')
     if (prevPage === 'kartli-islem') {
       await checkAndApplySelectedMusteriFromKartliIslem()
     } else if (sessionStorage.getItem('autoFillTCKimlik')) {
@@ -1517,7 +1566,10 @@ onMounted(async () => {
       debugLog('🔍 Önceki sayfa kartli-islem değil, otomatik müşteri yükleme atlandı. prevPage=', prevPage)
     }
   } else {
-    debugLog('🔄 Rezervasyon prefill aktif, kartli-islem otomatik yükleme atlandı')
+    debugLog('🔥 Rezervasyon prefill mevcut, kartli-islem müşteri yükleme atlandı')
+    // 🔥 REZERVASYON PREFILL VARSA LOCALSTORAGE'DAKI KARTLI-ISLEM VERISINI TEMIZLE
+    localStorage.removeItem('selectedMusteriForIslem')
+    debugLog('🔥 selectedMusteriForIslem localStorage\'dan temizlendi')
   }
   
   await loadOdaTipleri()
@@ -1933,6 +1985,8 @@ function clearForm() {
   }
 }
 
+
+
 function toggleExtraFields() {
   showExtraFields.value = !showExtraFields.value
 }
@@ -2121,6 +2175,13 @@ function onTCNInput() {
 async function checkAndApplySelectedMusteriFromKartliIslem() {
   try {
     debugLog('🔥 checkAndApplySelectedMusteriFromKartliIslem fonksiyonu çağrıldı')
+    
+    // 🔥 EK GÜVENLİK: Eğer rezervasyon prefill varsa hiç çalışma
+    if (sessionStorage.getItem('reservationCheckIn')) {
+      debugLog('🔥 Rezervasyon prefill mevcut, kartli-islem müşteri yükleme iptal edildi')
+      return
+    }
+    
     // Güvenlik: kartli-islem menşei YOKSA sadece TC auto-fill varsa devam et
     const prevPage = sessionStorage.getItem('prevPage')
     const hasAutoFillTC = !!sessionStorage.getItem('autoFillTCKimlik')
