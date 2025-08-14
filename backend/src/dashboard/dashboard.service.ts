@@ -2724,7 +2724,12 @@ export class DashboardService {
         // Geçersiz tarih ise orijinal string'i döndür
         return dateString;
       }
-      return date.toLocaleDateString('tr-TR');
+      // Europe/Istanbul saat diliminde dd.MM.yyyy formatı
+      const tr = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
+      const d = tr.getDate().toString().padStart(2, '0');
+      const m = (tr.getMonth() + 1).toString().padStart(2, '0');
+      const y = tr.getFullYear();
+      return `${d}.${m}.${y}`;
     } catch {
       // Hata durumunda orijinal string'i döndür
       return dateString;

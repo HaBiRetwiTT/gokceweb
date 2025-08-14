@@ -563,9 +563,11 @@ export class MusteriService {
 
   // Helper fonksiyonlar
   private formatDate(date: Date): string {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
+    // Railway UTC saat farkını bertaraf etmek için tarihi Europe/Istanbul zaman diliminde hesapla
+    const inTR = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
+    const day = inTR.getDate().toString().padStart(2, '0');
+    const month = (inTR.getMonth() + 1).toString().padStart(2, '0');
+    const year = inTR.getFullYear();
     return `${day}.${month}.${year}`;
   }
 
@@ -593,9 +595,10 @@ export class MusteriService {
   }
 
   private formatTime(date: Date): string {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
+    const inTR = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
+    const hours = inTR.getHours().toString().padStart(2, '0');
+    const minutes = inTR.getMinutes().toString().padStart(2, '0');
+    const seconds = inTR.getSeconds().toString().padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
   }
 

@@ -12,6 +12,12 @@ function debugLog(...args: unknown[]): void {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Railway/Node containerlarında TZ'yi zorunlu olarak Europe/Istanbul yap
+  try {
+    process.env.TZ = 'Europe/Istanbul';
+  } catch {
+    // ignore
+  }
   
   // Add global validation pipe
   app.useGlobalPipes(new ValidationPipe());

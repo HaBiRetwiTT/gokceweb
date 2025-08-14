@@ -1414,9 +1414,9 @@ function getIslemTipColor(val?: string | null): string {
     case 'GIDER':
       return 'deep-orange-9'; // koyu turuncu
     case 'GIREN':
-      return 'green-5'; // daha koyu yeşil, daha yüksek kontrast
+      return 'deep-orange-6'; // turuncu (swap)
     case 'CIKAN':
-      return 'deep-orange-5'; // daha koyu turuncu, daha yüksek kontrast
+      return 'green-5'; // yeşil (swap)
     default:
       return 'grey-5';
   }
@@ -1438,9 +1438,9 @@ function getIslemTipTextColor(val?: string | null): string {
     case 'GIDER':
       return 'white'; // deep-orange-9 koyu -> beyaz metin
     case 'GIREN':
-      return 'white'; // green-7 koyu -> beyaz metin
+      return 'white'; // deep-orange-5 orta koyuluk -> beyaz metin (swap)
     case 'CIKAN':
-      return 'white'; // deep-orange-7 koyu -> beyaz metin
+      return 'white'; // green-5 orta koyuluk -> beyaz metin (swap)
     default:
       return 'white';
   }
@@ -2710,7 +2710,13 @@ function setupDataChangeListeners() {
 
   // Header'daki yenile butonundan gelen event
   window.addEventListener('refreshKartliIslemStats', () => {
-    
+    // Yenile butonu tıklandığında alt grid tabloları gizle
+    showCariHareketler.value = false
+    showKonaklamaGecmisi.value = false
+    selectedNormalMusteri.value = null
+    selectedBorcluMusteri.value = null
+    cariHareketlerListesi.value = []
+    konaklamaGecmisiListesi.value = []
     void updateStatsOnly();
   });
 
@@ -2764,6 +2770,8 @@ function cleanupDataChangeListeners() {
 async function refreshData() {
   // Konaklama geçmişi tablosunu gizle (modal işlemlerinden sonra güncel olmayabilir)
   showKonaklamaGecmisi.value = false
+  // Cari hareketler tablosunu da gizle (yenile butonundan gelmiş olabilir)
+  showCariHareketler.value = false
   selectedNormalMusteri.value = null
   window.kartliIslemSelectedNormalMusteri = null
   selectedCustomer.value = null
@@ -3163,12 +3171,16 @@ function getTipColor(tip: string): string {
 // Eski getIslemTipColor fonksiyonu kaldırıldı; yukarıdaki yeni sürüm kullanılıyor
 
 function getIslemTutarClass(tip: string): string {
-  switch (tip) {
-    case 'GELİR': return 'text-green'
-    case 'Çıkan': return 'text-red'
-    case 'GİDER': return 'text-red'
-    case 'Giren': return 'text-green'
-    default: return 'text-blue'
+  const raw = (tip ?? '').toString().trim()
+  if (!raw) return 'text-grey-7'
+  const upperTr = raw.toLocaleUpperCase('tr-TR')
+  const normalized = upperTr.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  switch (normalized) {
+    case 'GELIR': return 'text-green-7'
+    case 'GIDER': return 'text-deep-orange-9'
+    case 'GIREN': return 'text-deep-orange-6'
+    case 'CIKAN': return 'text-green-5'
+    default: return 'text-grey-7'
   }
 }
 
