@@ -563,11 +563,9 @@ export class MusteriService {
 
   // Helper fonksiyonlar
   private formatDate(date: Date): string {
-    // Railway UTC saat farkını bertaraf etmek için tarihi Europe/Istanbul zaman diliminde hesapla
-    const inTR = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
-    const day = inTR.getDate().toString().padStart(2, '0');
-    const month = (inTR.getMonth() + 1).toString().padStart(2, '0');
-    const year = inTR.getFullYear();
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
     return `${day}.${month}.${year}`;
   }
 
@@ -595,10 +593,9 @@ export class MusteriService {
   }
 
   private formatTime(date: Date): string {
-    const inTR = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
-    const hours = inTR.getHours().toString().padStart(2, '0');
-    const minutes = inTR.getMinutes().toString().padStart(2, '0');
-    const seconds = inTR.getSeconds().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
   }
 
@@ -1076,10 +1073,6 @@ export class MusteriService {
       const tables = this.dbConfig.getTables();
       const views = this.dbConfig.getViews();
       
-      // Bugünün tarihini al
-      const bugun = new Date();
-      const bugunStr = this.formatDateForComparison(bugun);
-      
       // 🔥 OPTİMİZE EDİLMİŞ CTE SORGUSU: Daha verimli bakiye hesaplama
       const query = `
         WITH ToplamYataklar AS (
@@ -1106,8 +1099,8 @@ export class MusteriService {
             AND v.KnklmPlnTrh <> ''
             AND v.KnklmGrsTrh IS NOT NULL
             AND v.KnklmGrsTrh <> ''
-            AND CONVERT(Date, v.KnklmGrsTrh, 104) <= '${bugunStr}'
-            AND CONVERT(Date, v.KnklmPlnTrh, 104) >= '${bugunStr}'
+            AND v.KnklmGrsTrh <= FORMAT(GETDATE(), 'dd.MM.yyyy')
+            AND v.KnklmPlnTrh >= FORMAT(GETDATE(), 'dd.MM.yyyy')
             AND v.knklmNo = (
               SELECT MAX(v2.knklmNo) 
               FROM ${views.musteriKonaklama} v2 
@@ -1146,13 +1139,7 @@ export class MusteriService {
     }
   }
 
-  // Tarih formatını SQL karşılaştırması için uygun hale getir
-  private formatDateForComparison(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
+
 
   async getBosOdalar(odaTipi: string): Promise<{ value: string; label: string }[]> {
     try {
@@ -1269,14 +1256,11 @@ export class MusteriService {
       
       const tables = this.dbConfig.getTables();
       
-      // Mevcut konaklama kaydının KnklmCksTrh'ni güncelle
-      // Kural: Eğer KnklmPlnTrh = KnklmGrsTrh ise (geç saat konaklama; aynı gün çıkış)
-      //        KnklmCksTrh mutlaka KnklmGrsTrh olarak set edilsin.
-      //        Aksi halde KnklmPlnTrh olarak set edilsin.
+      // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
       const query = `
-        UPDATE ${tables.konaklama}
-        SET KnklmCksTrh = CASE WHEN KnklmPlnTrh = KnklmGrsTrh THEN KnklmGrsTrh ELSE KnklmPlnTrh END
-        WHERE KnklmMstrNo = @0
+        UPDATE ${tables.konaklama} 
+        SET KnklmCksTrh = KnklmPlnTrh
+        WHERE KnklmMstrNo = @0 
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1
       `;
@@ -2571,13 +2555,10 @@ export class MusteriService {
       
       const schemaName = this.dbConfig.getTableSchema();
       
-      // Mevcut konaklama kaydının KnklmCksTrh'ni güncelle
-      // Kural: Eğer KnklmPlnTrh = KnklmGrsTrh ise (geç saat konaklama; aynı gün çıkış)
-      //        KnklmCksTrh mutlaka KnklmGrsTrh olarak set edilsin.
-      //        Aksi halde KnklmPlnTrh olarak set edilsin.
+      // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
       const query = `
         UPDATE ${schemaName}.tblKonaklama 
-        SET KnklmCksTrh = CASE WHEN KnklmPlnTrh = KnklmGrsTrh THEN KnklmGrsTrh ELSE KnklmPlnTrh END
+        SET KnklmCksTrh = KnklmPlnTrh
         WHERE KnklmMstrNo = @0 
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1

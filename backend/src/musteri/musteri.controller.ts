@@ -66,11 +66,10 @@ export class MusteriController {
       console.warn('Geçersiz tarih:', date);
       return '';
     }
-    // Europe/Istanbul zaman dilimiyle tarih hesapla (UTC offset farklarını bertaraf etmek için)
-    const trDate = new Date(dateObj.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
-    const day = trDate.getDate().toString().padStart(2, '0');
-    const month = (trDate.getMonth() + 1).toString().padStart(2, '0');
-    const year = trDate.getFullYear();
+    
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = dateObj.getFullYear();
     return `${day}.${month}.${year}`;
   }
 

@@ -714,11 +714,9 @@ export class KonaklamaTakvimService {
    * Date objesini DD.MM.YYYY formatına çevirir
    */
   private formatDate(date: Date): string {
-    // Railway UTC saat farkını bertaraf etmek için Europe/Istanbul saat dilimini kullan
-    const inTR = new Date(date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }));
-    const day = inTR.getDate().toString().padStart(2, '0');
-    const month = (inTR.getMonth() + 1).toString().padStart(2, '0');
-    const year = inTR.getFullYear();
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
     return `${day}.${month}.${year}`;
   }
 
