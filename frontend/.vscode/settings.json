@@ -12,5 +12,9 @@
     "typescript",
     "vue"
   ],
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "cursor.chat.alwaysApplyCode": true,
+  "cursor.chat.autoApplyCodeActions": true,
+  "cursor.general.enableDiffMode": true,
+  "cursor.diff.autoAccept": false
 }
