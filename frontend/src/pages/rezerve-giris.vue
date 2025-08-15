@@ -10,8 +10,6 @@
           input-debounce="300"
           dense
           outlined
-          clearable
-          clear-icon="close"
           :options="searchOptions"
           option-disable="disable"
           option-label="MstrAdi"
@@ -22,20 +20,12 @@
           menu-anchor="bottom left"
           menu-self="top left"
           fit
+          placeholder="3 rakam(oda arama) yada en az 7 karakter giriniz"
           @filter="onSearchFilter"
-          @clear="clearSearch"
           @update:model-value="onSearchSelect"
         >
           <template v-slot:prepend>
             <q-icon name="search" />
-          </template>
-          <template v-slot:append>
-            <q-icon
-              name="close"
-              class="cursor-pointer text-grey-6"
-              v-show="searchText && searchText.length > 0"
-              @click="clearSearch"
-            />
           </template>
           <template v-slot:before-options>
             <div class="row text-caption text-grey-7 q-px-sm q-pt-sm q-pb-xs reservation-search-header">
@@ -66,6 +56,22 @@
             </q-item>
           </template>
         </q-select>
+        
+        <!-- Temizleme Butonu -->
+        <q-btn 
+          v-show="searchText && searchText.length > 0"
+          color="grey-6" 
+          icon="clear" 
+          size="sm"
+          flat
+          dense
+          @click="clearSearch"
+        >
+          <q-tooltip class="bg-grey-7 text-white text-body2" :delay="300">
+            Arama metnini ve sonuçları temizle
+          </q-tooltip>
+        </q-btn>
+        
         <q-btn color="primary" icon="refresh" label="Yenile" dense @click="refresh" :loading="loading" />
       </div>
     </div>
@@ -146,6 +152,8 @@ const loading = ref(false)
 const rows = ref<PendingRow[]>([])
 const router = useRouter()
 
+
+
 // Global arama combobox state
 type SearchResult = {
   MstrTCN: string
@@ -204,7 +212,12 @@ async function performGlobalSearch(term: string) {
   }
   searchAbort = new AbortController()
   const query = term?.trim() || ''
-  if (query.length < 3) {
+  
+  // 3 haneli sayı ise oda araması (istisna)
+  if (/^\d{3}$/.test(query)) {
+    // Oda araması için devam et
+  } else if (query.length < 7) {
+    // 3 haneli sayı değilse en az 7 karakter gerekli
     searchOptions.value = []
     return
   }
@@ -279,15 +292,19 @@ function onSearchSelect() {
   searchModel.value = null
 }
 
+// Arama metnini ve sonuçları temizle
+function clearSearch() {
+  searchText.value = ''
+  searchOptions.value = []
+  searchModel.value = null
+}
+
 function formatCurrency(v?: number | null): string {
   const n = Number(v || 0)
   return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function clearSearch() {
-  searchText.value = ''
-  searchOptions.value = []
-}
+
 
 function parseDateDDMMYYYY(s?: string | null): Date | null {
   if (!s) return null

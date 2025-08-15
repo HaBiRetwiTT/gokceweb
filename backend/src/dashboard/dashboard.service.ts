@@ -109,7 +109,11 @@ export class DashboardService {
     const offset = (Math.max(1, page) - 1) * Math.max(1, limit);
     const pageSize = Math.max(1, Math.min(limit, 100));
 
-    if (!queryText || queryText.trim().length < 2) {
+    // 3 haneli sayı ise oda araması (istisna)
+    if (/^\d{3}$/.test(queryText.trim())) {
+      // Oda araması için devam et
+    } else if (!queryText || queryText.trim().length < 7) {
+      // 3 haneli sayı değilse en az 7 karakter gerekli
       return { data: [], total: 0, page: Math.max(1, page), limit: pageSize };
     }
 
@@ -160,14 +164,19 @@ export class DashboardService {
           v.KnklmNfyt,
           v.KnklmNot,
           v.knklmNo,
-          -- Çıkış tarihi: Aktif kayıttan gelmiyorsa müşterinin en son çıkışlı konaklama kaydından al
+          -- Çıkış tarihi: Müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanı
           (
-            SELECT TOP 1 k.KnklmCksTrh
-            FROM ${tables.konaklama} k
-            INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
-            WHERE m.MstrTCN = v.MstrTCN
-              AND k.KnklmCksTrh IS NOT NULL AND k.KnklmCksTrh <> ''
-            ORDER BY k.knklmNo DESC
+            SELECT k2.KnklmCksTrh
+            FROM ${tables.konaklama} k2
+            INNER JOIN (
+              SELECT 
+                knklmMstrNo,
+                MAX(knklmNo) as maxKnklmNo
+              FROM ${tables.konaklama}
+              GROUP BY knklmMstrNo
+            ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+            INNER JOIN ${tables.musteri} m2 ON k2.knklmMstrNo = m2.MstrNo
+            WHERE m2.MstrTCN = v.MstrTCN
           ) AS KnklmCksTrh
         FROM ${views.musteriKonaklama} v
         WHERE 
@@ -266,7 +275,20 @@ export class DashboardService {
           v.KnklmNfyt,
           v.KnklmNot,
           v.knklmNo,
-          CAST(NULL AS NVARCHAR(10)) AS KnklmCksTrh,
+          -- Müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanı
+          (
+            SELECT k2.KnklmCksTrh
+            FROM ${tables.konaklama} k2
+            INNER JOIN (
+              SELECT 
+                knklmMstrNo,
+                MAX(knklmNo) as maxKnklmNo
+              FROM ${tables.konaklama}
+              GROUP BY knklmMstrNo
+            ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+            INNER JOIN ${tables.musteri} m2 ON k2.knklmMstrNo = m2.MstrNo
+            WHERE m2.MstrTCN = v.MstrTCN
+          ) AS KnklmCksTrh,
           v.MstrNo
         FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
@@ -833,11 +855,25 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
+          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+        LEFT JOIN (
+          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
@@ -915,11 +951,25 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
+          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+        LEFT JOIN (
+          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
       `;
@@ -1038,11 +1088,25 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
+          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+        LEFT JOIN (
+          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot LIKE '%- Yeni Müşteri:%'
@@ -1110,10 +1174,25 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
+          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+        LEFT JOIN (
+          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot LIKE '%- Yeni Giriş:%'

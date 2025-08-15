@@ -197,7 +197,7 @@
           @focus="onSearchFocus"
           @blur="onSearchBlur"
           debounce="300"
-          placeholder="En az 3 karakter girin"
+          placeholder="En az 3 rakam yada 7 karakter"
         >
           <template v-slot:prepend>
             <q-icon name="search" />
@@ -1329,8 +1329,8 @@ const odemeMusteriAdi = computed(() => {
 const displayedMusteriListesi = computed(() => {
   let baseList = musteriListesi.value;
   
-  // Arama filtresi uygula
-  if (searchText.value && searchText.value.length >= 3) {
+  // Arama filtresi uygula - 3 haneli oda araması veya 7+ karakter araması
+  if (searchText.value && (searchText.value.length >= 7 || /^\d{3}$/.test(searchText.value.trim()))) {
     baseList = filteredMusteriListesi.value as unknown as MusteriKonaklama[];
   }
   
@@ -1346,7 +1346,7 @@ const displayedBorcluMusteriListesi = computed(() => {
   let baseList = borcluMusteriListesi.value;
   
   // Arama filtresi uygula
-  if (searchText.value && searchText.value.length >= 3) {
+  if (searchText.value && searchText.value.length >= 7) {
     baseList = filteredBorcluMusteriListesi.value;
   }
   
@@ -1363,7 +1363,11 @@ const displayedBorcluMusteriListesi = computed(() => {
 
 // Alacaklı müşteri filtreleme computed property
 const filteredAlacakliMusteriListesi = computed(() => {
-  if (!searchText.value || searchText.value.length < 3) {
+  // 3 haneli sayı ise oda araması (istisna)
+  if (/^\d{3}$/.test(searchText.value.trim())) {
+    return alacakliMusteriListesi.value
+  } else if (!searchText.value || searchText.value.length < 7) {
+    // 3 haneli sayı değilse en az 7 karakter gerekli
     return alacakliMusteriListesi.value
   }
   
@@ -1380,7 +1384,7 @@ const displayedAlacakliMusteriListesi = computed(() => {
   let baseList = alacakliMusteriListesi.value;
   
   // Arama filtresi uygula
-  if (searchText.value && searchText.value.length >= 3) {
+  if (searchText.value && searchText.value.length >= 7) {
     baseList = filteredAlacakliMusteriListesi.value;
   }
   
@@ -1414,9 +1418,9 @@ function getIslemTipColor(val?: string | null): string {
     case 'GIDER':
       return 'deep-orange-9'; // koyu turuncu
     case 'GIREN':
-      return 'green-5'; // daha koyu yeşil, daha yüksek kontrast
+      return 'deep-orange-5'; // 🔥 SWAP: GİREN artık turuncu
     case 'CIKAN':
-      return 'deep-orange-5'; // daha koyu turuncu, daha yüksek kontrast
+      return 'green-5'; // 🔥 SWAP: ÇIKAN artık yeşil
     default:
       return 'grey-5';
   }
@@ -1450,7 +1454,7 @@ const displayedBakiyesizHesaplarListesi = computed(() => {
   let baseList = bakiyesizHesaplarListesi.value;
   
   // Arama filtresi uygula
-  if (searchText.value && searchText.value.length >= 3) {
+  if (searchText.value && searchText.value.length >= 7) {
     baseList = filteredBakiyesizHesaplarListesi.value;
   }
   
@@ -2764,6 +2768,8 @@ function cleanupDataChangeListeners() {
 async function refreshData() {
   // Konaklama geçmişi tablosunu gizle (modal işlemlerinden sonra güncel olmayabilir)
   showKonaklamaGecmisi.value = false
+  // 🔥 Cari hareketler tablosunu da gizle (yenileme sırasında her durumda gizlensin)
+  showCariHareketler.value = false
   selectedNormalMusteri.value = null
   window.kartliIslemSelectedNormalMusteri = null
   selectedCustomer.value = null
@@ -3165,9 +3171,9 @@ function getTipColor(tip: string): string {
 function getIslemTutarClass(tip: string): string {
   switch (tip) {
     case 'GELİR': return 'text-green'
-    case 'Çıkan': return 'text-red'
+    case 'Çıkan': return 'text-green' // 🔥 SWAP: Çıkan artık yeşil
     case 'GİDER': return 'text-red'
-    case 'Giren': return 'text-green'
+    case 'Giren': return 'text-orange' // 🔥 SWAP: Giren artık turuncu
     default: return 'text-blue'
   }
 }
@@ -3641,31 +3647,43 @@ function getDateClass(dateStr: string): string {
 
 // Global arama (backend) fonksiyonu
 async function performSearch(searchValue: string) {
+  console.log('🔍 performSearch çağrıldı:', searchValue);
+  
   // Bu isteğe bir sıra numarası ata ve önceki isteği iptal et
   const mySeq = ++searchRequestSeq
   if (activeSearchController) {
     try { activeSearchController.abort() } catch { /* no-op */ }
   }
   activeSearchController = new AbortController()
-  if (!searchValue || searchValue.trim().length < 3) {
+  
+  // 3 haneli sayı değilse en az 7 karakter gerekli
+  if (!/^\d{3}$/.test(searchValue.trim()) && (!searchValue || searchValue.trim().length < 7)) {
+    console.log('❌ Arama kriterleri karşılanmıyor:', searchValue);
     filteredMusteriListesi.value = []
     filteredBorcluMusteriListesi.value = []
     filteredBakiyesizHesaplarListesi.value = []
     filteredCariHareketlerListesi.value = []
     return
   }
+  
+  console.log('✅ Arama kriterleri karşılandı, devam ediliyor');
   // 3 haneli sayısal ise: oda no araması (tek kayıt)
   const trimmed = searchValue.trim()
   if (/^\d{3}$/.test(trimmed)) {
+    console.log('🔍 3 haneli oda araması yapılıyor:', trimmed);
     showKonaklamaGecmisi.value = false
     showCariHareketler.value = false
     try {
+      console.log('🔍 Oda araması API çağrısı:', `/dashboard/musteri-konaklama-search-by-oda?odaNo=${trimmed}`);
       const { data } = await api.get('/dashboard/musteri-konaklama-search-by-oda', {
         params: { odaNo: trimmed },
         signal: activeSearchController.signal
       })
       if (data && data.success) {
+        console.log('🔍 Oda araması API yanıtı:', data);
         const rows: SearchMusteriKonaklama[] = (data.data || []) as SearchMusteriKonaklama[]
+        console.log('🔍 Bulunan oda kayıtları:', rows.length);
+        
         // Yalnızca en güncel isteğin sonucunu uygula
         if (mySeq !== searchRequestSeq) return
         filteredMusteriListesi.value = rows.map((x) => ({
@@ -3684,6 +3702,8 @@ async function performSearch(searchValue: string) {
           KnklmCksTrh: x.KnklmCksTrh || '',
           KnklmNot: x.KnklmNot || ''
         })) as unknown as MusteriKonaklama[]
+        console.log('🔍 filteredMusteriListesi güncellendi:', filteredMusteriListesi.value.length);
+        
         filteredBorcluMusteriListesi.value = []
         filteredBakiyesizHesaplarListesi.value = []
         filteredCariHareketlerListesi.value = []
