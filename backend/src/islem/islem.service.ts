@@ -1776,14 +1776,14 @@ export class IslemService {
   /**
    * İşlem kaydını arşivler ve siler
    */
-  async silIslem(islemNo: number): Promise<any> {
+  async silIslem(islemNo: number, username?: string): Promise<any> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tblIslem = this.dbConfig.getTableName('tblislem');
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
-      // Aktif kullanıcı bilgisini al (localStorage'dan)
-      const aktifKullanici = process.env.ACTIVE_USER || 'Sistem';
+      // Aktif kullanıcı bilgisini al (parametre olarak gelen username veya fallback)
+      const aktifKullanici = username || await this.getAktifKullaniciAdi();
 
       // Önce tblislem tablosundan kaydı çek
       const islemRecord = await this.dataSource.query(
@@ -1891,29 +1891,33 @@ export class IslemService {
 
   /**
    * tblislemARV tablosundan belirli bir islemNo'dan sonraki kaydı getirir
+   * Basit sıralama bazlı navigasyon kullanır
    */
   async getIslemARVSonraki(islemNo: number): Promise<any> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
-      const query = `
-        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+      // Basit yaklaşım: mevcut islemNo'dan büyük olan en küçük islemNo'yu bul
+      const nextRecordQuery = `
+        SELECT TOP 1 *
+        FROM ${schemaName}.${tblIslemARV}
         WHERE islemNo > @0
         ORDER BY islemNo ASC
       `;
 
-      const result = await this.dataSource.query(query, [islemNo]);
+      const nextRecordResult = await this.dataSource.query(nextRecordQuery, [islemNo]);
 
-      if (!result || result.length === 0) {
+      if (!nextRecordResult || nextRecordResult.length === 0) {
+        this.debugLog(`ℹ️ Sonraki arşiv kaydı bulunamadı: islemNo=${islemNo} (bu son kayıt olabilir)`);
         return null;
       }
 
       this.debugLog(
-        `✅ Sonraki arşiv kaydı getirildi: islemNo=${result[0].islemNo}`,
+        `✅ Sonraki arşiv kaydı getirildi: mevcut=${islemNo}, sonraki=${nextRecordResult[0].islemNo}`,
       );
 
-      return result[0];
+      return nextRecordResult[0];
     } catch (error) {
       console.error('❌ Sonraki arşiv kaydı getirme hatası:', error);
       throw new Error(`Sonraki arşiv kaydı getirilemedi: ${error.message}`);
@@ -1922,29 +1926,33 @@ export class IslemService {
 
   /**
    * tblislemARV tablosundan belirli bir islemNo'dan önceki kaydı getirir
+   * Basit sıralama bazlı navigasyon kullanır
    */
   async getIslemARVOnceki(islemNo: number): Promise<any> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
-      const query = `
-        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+      // Basit yaklaşım: mevcut islemNo'dan küçük olan en büyük islemNo'yu bul
+      const previousRecordQuery = `
+        SELECT TOP 1 *
+        FROM ${schemaName}.${tblIslemARV}
         WHERE islemNo < @0
         ORDER BY islemNo DESC
       `;
 
-      const result = await this.dataSource.query(query, [islemNo]);
+      const previousRecordResult = await this.dataSource.query(previousRecordQuery, [islemNo]);
 
-      if (!result || result.length === 0) {
+      if (!previousRecordResult || previousRecordResult.length === 0) {
+        this.debugLog(`ℹ️ Önceki arşiv kaydı bulunamadı: islemNo=${islemNo} (bu ilk kayıt olabilir)`);
         return null;
       }
 
       this.debugLog(
-        `✅ Önceki arşiv kaydı getirildi: islemNo=${result[0].islemNo}`,
+        `✅ Önceki arşiv kaydı getirildi: mevcut=${islemNo}, önceki=${previousRecordResult[0].islemNo}`,
       );
 
-      return result[0];
+      return previousRecordResult[0];
     } catch (error) {
       console.error('❌ Önceki arşiv kaydı getirme hatası:', error);
       throw new Error(`Önceki arşiv kaydı getirilemedi: ${error.message}`);
@@ -1960,75 +1968,71 @@ export class IslemService {
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
       const tblIslem = this.dbConfig.getTableName('tblislem');
 
-      // Önce tblislemARV tablosundan kaydı çek
-      const arsivRecord = await this.dataSource.query(
+      // Arşiv kaydını getir
+      const arvRecord = await this.dataSource.query(
         `SELECT * FROM ${schemaName}.${tblIslemARV} WHERE islemNo = @0`,
         [islemNo],
       );
 
-      if (!arsivRecord || arsivRecord.length === 0) {
-        throw new Error(
-          `tblislemARV tablosunda islemNo ${islemNo} bulunamadı.`,
-        );
+      if (!arvRecord || arvRecord.length === 0) {
+        throw new Error('Arşiv kaydı bulunamadı');
       }
 
-      const dataToRestore = arsivRecord[0];
+      const arvData = arvRecord[0];
 
-      // tblislem tablosuna kaydı geri yükle (islemNo otomatik üretilecek)
-      const restoreQuery = `
-          INSERT INTO ${schemaName}.${tblIslem} (
-            iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3,
-            islemOzel4, islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod,
-            islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar
-          ) VALUES (
-            @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16
-          )
-        `;
+      // tblislem tablosuna geri yükle
+      const insertQuery = `
+        INSERT INTO ${schemaName}.${tblIslem} (
+          iKytTarihi, islemKllnc, islemCrKod, islemOzel1, islemOzel2,
+          islemOzel3, islemOzel4, islemArac, islemTip, islemGrup,
+          islemAltG, islemBilgi, islemMiktar, islemBirim, islemTutar,
+          islemDoviz, islemKur
+        ) VALUES (
+          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9,
+          @10, @11, @12, @13, @14, @15, @16
+        )
+      `;
 
-      const restoreParams = [
-        dataToRestore.iKytTarihi,
-        dataToRestore.islemKllnc,
-        dataToRestore.islemOzel1,
-        dataToRestore.islemOzel2,
-        dataToRestore.islemOzel3,
-        dataToRestore.islemOzel4,
-        dataToRestore.islemBirim,
-        dataToRestore.islemDoviz,
-        dataToRestore.islemKur,
-        dataToRestore.islemBilgi,
-        dataToRestore.islemCrKod,
-        dataToRestore.islemArac,
-        dataToRestore.islemTip,
-        dataToRestore.islemGrup,
-        dataToRestore.islemAltG,
-        dataToRestore.islemMiktar,
-        dataToRestore.islemTutar,
+      const insertParams = [
+        arvData.iKytTarihi,
+        arvData.islemKllnc,
+        arvData.islemCrKod,
+        arvData.islemOzel1,
+        arvData.islemOzel2,
+        arvData.islemOzel3,
+        arvData.islemOzel4,
+        arvData.islemArac,
+        arvData.islemTip,
+        arvData.islemGrup,
+        arvData.islemAltG,
+        arvData.islemBilgi,
+        arvData.islemMiktar,
+        arvData.islemBirim,
+        arvData.islemTutar,
+        arvData.islemDoviz,
+        arvData.islemKur,
       ];
 
-      const result = await this.dataSource.query(restoreQuery, restoreParams);
+      const insertResult = await this.dataSource.query(insertQuery, insertParams);
 
-      this.debugLog(
-        `✅ Arşiv kaydı başarıyla geri yüklendi: islemNo=${islemNo}`,
+      if (!insertResult || insertResult.affectedRows === 0) {
+        throw new Error('İşlem geri yüklenemedi');
+      }
+
+      // Arşiv kaydını sil
+      const deleteResult = await this.dataSource.query(
+        `DELETE FROM ${schemaName}.${tblIslemARV} WHERE islemNo = @0`,
+        [islemNo],
       );
 
-      // Arşiv kaydını tblislemARV tablosundan sil
-      const deleteArsivQuery = `
-          DELETE FROM ${schemaName}.${tblIslemARV} 
-          WHERE islemNo = @0
-        `;
-
-      await this.dataSource.query(deleteArsivQuery, [islemNo]);
-
       this.debugLog(
-        `✅ Arşiv kaydı tblislemARV tablosundan silindi: islemNo=${islemNo}`,
+        `✅ Arşiv kaydı başarıyla geri yüklendi ve arşivden silindi: islemNo=${islemNo}`,
       );
 
       return {
         success: true,
-        islemNo: islemNo,
         message: 'Arşiv kaydı başarıyla geri yüklendi ve arşivden silindi',
-        restored: true,
-        affectedRows: result && result.affectedRows ? result.affectedRows : 0,
+        affectedRows: insertResult.affectedRows || 0,
       };
     } catch (error) {
       console.error('❌ Arşiv kaydı geri yükleme hatası:', error);

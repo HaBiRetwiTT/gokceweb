@@ -711,8 +711,11 @@ export class IslemController {
   /**
    * İşlem kaydını arşivler ve siler
    */
-  @Delete('sil/:islemNo')
-  async silIslem(@Param('islemNo') islemNo: string) {
+  @Post('sil/:islemNo')
+  async silIslem(
+    @Param('islemNo') islemNo: string,
+    @Body() body: { username?: string }
+  ) {
     try {
       if (!islemNo) {
         throw new HttpException(
@@ -730,8 +733,9 @@ export class IslemController {
       }
 
       this.debugLog('Silinecek işlem:', islemNoNum);
+      this.debugLog('Kullanıcı bilgisi:', body.username);
 
-      const sonuc = await this.islemService.silIslem(islemNoNum);
+      const sonuc = await this.islemService.silIslem(islemNoNum, body.username);
       return {
         success: true,
         message: 'İşlem başarıyla arşivlendi ve silindi',

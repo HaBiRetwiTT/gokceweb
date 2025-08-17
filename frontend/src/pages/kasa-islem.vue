@@ -372,7 +372,7 @@
                  icon="navigate_before" 
                  color="primary"
                  @click="goToPreviousArchiveRecord"
-                 :disabled="archiveNavigationIndex <= 0"
+                 :disabled="false"
                  title="Önceki arşiv kaydı"
                />
                <q-btn 
@@ -1033,8 +1033,6 @@ const showKaynakIslemContainer = ref(false)
 // Arşiv modu için gerekli değişkenler
 const isArchiveMode = ref(false)
 const currentArchiveRecord = ref<IslemDetay | null>(null)
-const archiveNavigationIndex = ref(0)
-const archiveRecords = ref<IslemDetay[]>([])
 
 // İşlem detay modal gezdirme için
 const islemDetayModalRef = ref<HTMLElement | null>(null)
@@ -1836,8 +1834,25 @@ const onDeleteIslem = async () => {
   try {
     console.log('🗑️ Silme işlemi başlıyor... islemNo:', selectedIslemDetay.value.islemNo)
 
-    // Backend'e silme isteği gönder
-    const response = await api.delete(`/islem/sil/${selectedIslemDetay.value.islemNo}`)
+    // Önce tblislemRST tablosunda kayıt var mı kontrol et ve sil
+    if (selectedIslemDetay.value.islemNo) {
+      try {
+        console.log('🔍 tblislemRST kaydı aranıyor...')
+        const rstResponse = await api.delete(`/islem/islem-rst-sil/${selectedIslemDetay.value.islemNo}`)
+        if (rstResponse.data.success) {
+          console.log('✅ tblislemRST kaydı silindi:', selectedIslemDetay.value.islemNo)
+        }
+      } catch (rstError) {
+        console.log('ℹ️ tblislemRST kaydı bulunamadı veya silinemedi:', rstError)
+      }
+    }
+
+           // Aktif kullanıcı bilgisini al
+       const username = localStorage.getItem('username') || 'Bilinmeyen Kullanıcı'
+       console.log('👤 Aktif kullanıcı (SİL):', username)
+
+       // Backend'e silme isteği gönder (username ile birlikte)
+       const response = await api.post(`/islem/sil/${selectedIslemDetay.value.islemNo}`, { username })
     
     console.log('✅ Silme yanıtı:', response.data)
 
@@ -1853,28 +1868,28 @@ const onDeleteIslem = async () => {
       
       // Başarı mesajı göster
       $q.notify({
-    type: 'positive',
+        type: 'positive',
         message: 'İşlem başarıyla arşivlendi ve silindi!',
         position: 'top'
       })
     } else {
       console.error('❌ Backend silme başarısız:', response.data.message)
       $q.notify({
-      type: 'negative',
+        type: 'negative',
         message: `Silme başarısız: ${response.data.message}`,
-    position: 'top'
-  })
-}
+        position: 'top'
+      })
+    }
 
   } catch (error: unknown) {
     console.error('❌ Silme hatası:', error)
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
     
-          $q.notify({
-        type: 'negative',
-        message: `Silme hatası: ${errorMessage}`,
-        position: 'top'
-      })
+    $q.notify({
+      type: 'negative',
+      message: `Silme hatası: ${errorMessage}`,
+      position: 'top'
+    })
   }
 }
 
@@ -1979,8 +1994,6 @@ const onArchiveForm = async () => {
         // Arşiv modunu aktifleştir
         isArchiveMode.value = true
         currentArchiveRecord.value = response.data.sonuc
-        archiveRecords.value = [response.data.sonuc]
-        archiveNavigationIndex.value = 0
         
         // Sağdaki container'ları gizle (arşiv modunda sadece arşiv verileri görünsün)
         showKaynakIslemContainer.value = false
@@ -2038,8 +2051,6 @@ const onArchiveForm = async () => {
       // Arşiv modunu deaktifleştir
       isArchiveMode.value = false
       currentArchiveRecord.value = null
-      archiveRecords.value = []
-      archiveNavigationIndex.value = 0
       
       // Form alanlarını normal haline getir
       restoreFormToNormal()
@@ -2208,24 +2219,30 @@ const goToNextArchiveRecord = async () => {
   try {
     if (!currentArchiveRecord.value) return
     
-    console.log('🔍 Sonraki arşiv kaydına gidiliyor...')
+    console.log('🔍 Sonraki arşiv kaydına gidiliyor... islemNo:', currentArchiveRecord.value.islemNo)
     
     const response = await api.get(`/islem/islem-arv-sonraki/${currentArchiveRecord.value.islemNo}`)
     
     if (response.data.success && response.data.sonuc) {
       console.log('✅ Sonraki arşiv kaydı getirildi:', response.data.sonuc)
       
+      // currentArchiveRecord'ı doğrudan backend'den gelen yeni kayıtla güncelle
       currentArchiveRecord.value = response.data.sonuc
-      archiveRecords.value.push(response.data.sonuc)
-      archiveNavigationIndex.value++
       
       // Form alanlarını yeni arşiv verisiyle doldur
       populateFormWithArchiveData(response.data.sonuc)
+      
+      // Başarı mesajı göster
+      $q.notify({
+        type: 'positive',
+        message: `Sonraki arşiv kaydına gidildi (Kayıt No: ${response.data.sonuc.islemNo})`,
+        position: 'top'
+      })
     } else {
-      console.log('ℹ️ Sonraki arşiv kaydı bulunamadı')
+      console.log('ℹ️ Sonraki arşiv kaydı bulunamadı - bu son kayıt')
       $q.notify({
         type: 'info',
-        message: 'Sonraki arşiv kaydı bulunamadı',
+        message: 'Bu son arşiv kaydı - daha fazla kayıt bulunmuyor',
         position: 'top'
       })
     }
@@ -2242,27 +2259,37 @@ const goToNextArchiveRecord = async () => {
 }
 
 // Arşiv kayıtları arasında geri git
-const goToPreviousArchiveRecord = () => {
+const goToPreviousArchiveRecord = async () => {
   try {
-    if (archiveNavigationIndex.value <= 0) {
-      console.log('ℹ️ Geri gidilecek kayıt bulunamadı')
+    if (!currentArchiveRecord.value) return
+    
+    console.log('🔍 Önceki arşiv kaydına gidiliyor... islemNo:', currentArchiveRecord.value.islemNo)
+    
+    const response = await api.get(`/islem/islem-arv-onceki/${currentArchiveRecord.value.islemNo}`)
+    
+    if (response.data.success && response.data.sonuc) {
+      console.log('✅ Önceki arşiv kaydı getirildi:', response.data.sonuc)
+      
+      // currentArchiveRecord'ı doğrudan backend'den gelen yeni kayıtla güncelle
+      currentArchiveRecord.value = response.data.sonuc
+      
+      // Form alanlarını önceki arşiv verisiyle doldur
+      populateFormWithArchiveData(response.data.sonuc)
+      
+      // Başarı mesajı göster
       $q.notify({
-        type: 'info',
-        message: 'Geri gidilecek kayıt bulunamadı',
+        type: 'positive',
+        message: `Önceki arşiv kaydına gidildi (Kayıt No: ${response.data.sonuc.islemNo})`,
         position: 'top'
       })
-      return
+    } else {
+      console.log('ℹ️ Önceki arşiv kaydı bulunamadı - bu ilk kayıt')
+      $q.notify({
+        type: 'info',
+        message: 'Bu ilk arşiv kaydı - daha önce kayıt bulunmuyor',
+        position: 'top'
+      })
     }
-    
-    console.log('🔍 Önceki arşiv kaydına gidiliyor...')
-    
-    archiveNavigationIndex.value--
-    currentArchiveRecord.value = archiveRecords.value[archiveNavigationIndex.value]
-    
-    // Form alanlarını önceki arşiv verisiyle doldur
-    populateFormWithArchiveData(currentArchiveRecord.value)
-    
-    console.log('✅ Önceki arşiv kaydına gidildi:', currentArchiveRecord.value)
   } catch (error) {
     console.error('❌ Önceki arşiv kaydına gitme hatası:', error)
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
@@ -2300,8 +2327,7 @@ const closeBothForms = async () => {
     if (isArchiveMode.value) {
       isArchiveMode.value = false
       currentArchiveRecord.value = null
-      archiveRecords.value = []
-      archiveNavigationIndex.value = 0
+
       restoreFormToNormal()
     }
     
