@@ -30,12 +30,48 @@
                 <div class="radio-group-container">
                   <div class="radio-group">
                     <div class="radio-options">
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="cari" label="Cari" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'cari'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="nakit" label="Nakit" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'nakit'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="kart" label="Kart" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'kart'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="eft" label="EFT" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'eft'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="acenta" label="Acenta" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'acenta'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
+                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="depozito" label="Depozito" @update:model-value="onIslemTuruChange" />
+                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'depozito'" class="rst-count-display">
+                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
+                          <span class="rst-count-indicator">⚠️</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -265,6 +301,9 @@
              <!-- Sağ Tablo - Detay İşlemler -->
              <q-card class="main-card">
                <q-card-section>
+                  <!-- Debug Butonu -->
+
+                  
                   <div class="table-container">
                    <q-table
                       :rows="detailTableData"
@@ -311,13 +350,38 @@
                      <!-- İşlem No Sütunu -->
                      <template v-slot:body-cell-islemNo="props">
                        <q-td :props="props" class="text-weight-medium">
-                         <div class="row items-center no-wrap">
-                           <span v-if="rstIslemNoList.includes(props.row.islemNo)" 
-                                 class="rst-marker-icon q-mr-sm">
-                             ⚠️
-                           </span>
-                           {{ props.value }}
-                         </div>
+                         <!-- Sadece değişen kayıtlarda indikatör göster -->
+                         <q-tooltip v-if="rstIslemNoList.includes(props.row.islemNo)" 
+                                   class="rst-differences-tooltip" 
+                                   :delay="100"
+                                   :offset="[0, 10]">
+                           <div class="tooltip-content">
+                             <div class="tooltip-title">Değişiklik Detayları</div>
+                             <div v-if="rstDifferences[props.row.islemNo]" class="differences-table">
+                               <div class="differences-header">
+                                 <div class="differences-cell">Alan Adı</div>
+                                 <div class="differences-cell">Orijinal Değer</div>
+                                 <div class="differences-cell">Değiştirilen Değer</div>
+                               </div>
+                               <div v-for="diff in rstDifferences[props.row.islemNo]" 
+                                    :key="diff.fieldName" 
+                                    class="differences-row">
+                                 <div class="differences-cell">{{ diff.fieldName }}</div>
+                                 <div class="differences-cell">{{ diff.originalValue }}</div>
+                                 <div class="differences-cell">{{ diff.changedValue }}</div>
+                               </div>
+                             </div>
+                             <div v-else class="loading-differences">
+                               <q-spinner size="16px" color="warning" />
+                               <span>Farklar yükleniyor...</span>
+                             </div>
+                           </div>
+                         </q-tooltip>
+                         <span v-if="rstIslemNoList.includes(props.row.islemNo)"
+                               class="rst-marker-icon"
+                               @mouseenter="loadDifferencesOnHover(props.row.islemNo)">
+                           ⚠️
+                         </span>
                        </q-td>
                      </template>
 
@@ -349,21 +413,6 @@
                        color="primary"
                        icon="chevron_right"
                        size="sm"
-                     />
-                   </div>
-                   
-                   <!-- Debug Info -->
-                   <div class="q-mt-sm text-center">
-                     <span class="q-ml-sm text-caption">
-                       tblislemRST'de bulunan kayıtlar: {{ rstIslemNoList.length }} adet
-                     </span>
-                     <q-btn 
-                       flat 
-                       dense 
-                       color="warning" 
-                       label="Test Marker" 
-                       @click="testMarkerHighlighting"
-                       class="q-ml-sm"
                      />
                    </div>
                  </div>
@@ -1610,25 +1659,25 @@ const onDetailRowDblClick = async (evt: Event, row: IslemDetay) => {
         if (aktarimResponse.data.success) {
           console.log('✅ İşlem RST tablosuna başarıyla aktarıldı')
           
-          // tblislem tablosundan veriyi getir
-          const response = await api.get(`/islem/detay/${row.islemNo}`)
-          
-          if (response.data.success) {
+    // tblislem tablosundan veriyi getir
+    const response = await api.get(`/islem/detay/${row.islemNo}`)
+    
+    if (response.data.success) {
             // Önce orijinal veriyi kaynak işlem detayına kopyala (değişiklik kontrolü için)
             kaynakIslemDetay.value = { ...response.data.data }
             console.log('✅ Orijinal veri kaynak işlem detayına kopyalandı:', kaynakIslemDetay.value)
             
             // Sonra form için veriyi ayarla
-            selectedIslemDetay.value = response.data.data
-            
-            // Orijinal değerleri sakla
-            originalIslemArac.value = response.data.data.islemArac
-            originalIslemTip.value = response.data.data.islemTip
+      selectedIslemDetay.value = response.data.data
+      
+      // Orijinal değerleri sakla
+      originalIslemArac.value = response.data.data.islemArac
+      originalIslemTip.value = response.data.data.islemTip
             
             // Sağdaki readonly container'ları gizle
             showKaynakIslemContainer.value = false
-            
-            showIslemDetayDialog.value = true
+      
+      showIslemDetayDialog.value = true
     } else {
       Notify.create({
         type: 'negative',
@@ -1905,7 +1954,7 @@ const onDeleteIslem = async () => {
       
       // Başarı mesajı göster
       $q.notify({
-        type: 'positive',
+    type: 'positive',
         message: 'İşlem başarıyla arşivlendi ve silindi!',
         position: 'top'
       })
@@ -1914,9 +1963,9 @@ const onDeleteIslem = async () => {
       $q.notify({
         type: 'negative',
         message: `Silme başarısız: ${response.data.message}`,
-        position: 'top'
-      })
-    }
+    position: 'top'
+  })
+}
 
   } catch (error: unknown) {
     console.error('❌ Silme hatası:', error)
@@ -2390,6 +2439,14 @@ const detailColumns: QTableColumn[] = [
     align: 'left',
     sortable: true,
     style: 'width: 100px'
+  },
+          {
+          name: 'islemNo',
+          label: 'D.',
+          field: 'islemNo',
+          align: 'center',
+          sortable: true,
+          style: 'max-width: 40px'
   },
   {
     name: 'islemAltG',
@@ -3057,6 +3114,13 @@ const onDateSelected = (date: string) => {
 // tblislemRST tablosundaki islemNo değerlerini saklamak için
 const rstIslemNoList = ref<number[]>([])
 
+// RST farkları için ref
+const rstDifferences = ref<Record<number, Array<{
+  fieldName: string
+  originalValue: string
+  changedValue: string
+}>>>({})
+
 // tblislemRST tablosundan tüm islemNo değerlerini getir
 const loadRstIslemNoList = async () => {
   try {
@@ -3092,7 +3156,9 @@ const loadRstIslemNoList = async () => {
     
     if (JSON.stringify(newList) !== JSON.stringify(currentList)) {
       rstIslemNoList.value = rstList
-      // Highlighting'i hemen uygula
+      console.log('✅ rstIslemNoList güncellendi, highlighting uygulanacak')
+      
+      // Hemen highlighting uygula
       await nextTick()
       applyDirectHighlighting()
     }
@@ -3101,6 +3167,120 @@ const loadRstIslemNoList = async () => {
     rstIslemNoList.value = []
   }
 }
+
+// tblislemRST ve tblislem arasındaki farkları getir
+const getRstDifferences = async (islemNo: number) => {
+  try {
+    console.log(`🔍 Farklar yükleniyor, islemNo: ${islemNo}`)
+    
+    // tblislemRST kontrolü yap
+    const rstCheckResponse = await api.get(`/islem/islem-rst-kontrol/${islemNo}`)
+    if (!rstCheckResponse.data.success || !rstCheckResponse.data.exists) {
+      console.log(`ℹ️ islemNo ${islemNo} tblislemRST'de bulunamadı`)
+      return null
+    }
+    
+    // tblislemRST tablosundan orijinal kaydı getir
+    const rstResponse = await api.get(`/islem/islem-rst-detay/${islemNo}`)
+    if (!rstResponse.data.success) {
+      console.log(`❌ islemNo ${islemNo} için tblislemRST kaydı getirilemedi`)
+      return null
+    }
+    
+    const originalRecord = rstResponse.data.data
+    
+    // tblislem tablosundan güncel kaydı doğrudan backend'den getir
+    const currentResponse = await api.get(`/islem/detay/${islemNo}`)
+    if (!currentResponse.data.success) {
+      console.log(`❌ islemNo ${islemNo} için tblislem kaydı getirilemedi`)
+      return null
+    }
+    
+    const currentRecord = currentResponse.data.data
+    
+    // Gerçek farkları hesapla - her alanı karşılaştır
+    const differences: Array<{
+      fieldName: string
+      originalValue: string
+      changedValue: string
+    }> = []
+    
+    // Karşılaştırılacak alanlar (islemBilgi hariç)
+    const fieldsToCompare: Array<{ key: keyof IslemDetay, displayName: string }> = [
+      { key: 'iKytTarihi', displayName: 'Kayıt Tarihi' },
+      { key: 'islemKllnc', displayName: 'İşlem Kullanıcı' },
+      { key: 'islemOzel1', displayName: 'İşlem Özel 1' },
+      { key: 'islemOzel2', displayName: 'İşlem Özel 2' },
+      { key: 'islemOzel3', displayName: 'İşlem Özel 3' },
+      { key: 'islemOzel4', displayName: 'İşlem Özel 4' },
+      { key: 'islemBirim', displayName: 'İşlem Birim' },
+      { key: 'islemDoviz', displayName: 'İşlem Döviz' },
+      { key: 'islemKur', displayName: 'İşlem Kur' },
+      { key: 'islemCrKod', displayName: 'İşlem Cari Kod' },
+      { key: 'islemArac', displayName: 'İşlem Aracı' },
+      { key: 'islemTip', displayName: 'İşlem Tipi' },
+      { key: 'islemGrup', displayName: 'İşlem Grubu' },
+      { key: 'islemAltG', displayName: 'İşlem Alt Grubu' },
+      { key: 'islemMiktar', displayName: 'İşlem Miktar' },
+      { key: 'islemTutar', displayName: 'İşlem Tutar' }
+    ]
+    
+    // Her alanı karşılaştır
+    fieldsToCompare.forEach(field => {
+      const originalValue = originalRecord[field.key]
+      const currentValue = currentRecord[field.key]
+      
+      // Değerleri normalize et
+      const normalizedOriginal = normalizeValue(originalValue)
+      const normalizedCurrent = normalizeValue(currentValue)
+      
+      // Eğer farklıysa listeye ekle
+      if (normalizedOriginal !== normalizedCurrent) {
+        differences.push({
+          fieldName: field.displayName,
+          originalValue: String(originalValue || ''),
+          changedValue: String(currentValue || '')
+        })
+      }
+    })
+    
+    console.log(`✅ Farklar hesaplandı: ${differences.length} alan`)
+    console.log(`📋 Orijinal kayıt (tblislemRST):`, originalRecord)
+    console.log(`📋 Güncel kayıt (tblislem):`, currentRecord)
+    console.log(`📋 Bulunan farklar:`, differences)
+    
+    return differences
+    
+  } catch (error) {
+    console.error('❌ Fark bilgileri alınırken hata:', error)
+    return null
+  }
+}
+
+// Bu fonksiyonlar şu anda kullanılmıyor, gerektiğinde tekrar eklenebilir
+
+// Hover'da farkları yükle
+const loadDifferencesOnHover = async (islemNo: number) => {
+  console.log(`🖱️ Hover event tetiklendi, islemNo: ${islemNo}`)
+  
+  // Eğer farklar zaten yüklenmişse tekrar yükleme
+  if (rstDifferences.value[islemNo]) {
+    console.log(`✅ Farklar zaten yüklenmiş: ${islemNo}`)
+    return
+  }
+  
+  console.log(`🔄 Farklar yükleniyor...`)
+  // Farkları yükle
+  const differences = await getRstDifferences(islemNo)
+  if (differences) {
+    rstDifferences.value[islemNo] = differences
+    console.log(`✅ Farklar yüklendi ve cache'e eklendi:`, differences)
+  } else {
+    console.log(`❌ Farklar yüklenemedi`)
+  }
+}
+
+
 
 // Ana detay tablo verisi (allDetailTableData) değiştiğinde tblislemRST listesini güncelle
 // Sadece gerçek veri değişikliklerinde çalışır, pagination değişikliklerinde çalışmaz
@@ -3113,15 +3293,23 @@ watch(allDetailTableData, async (newData, oldData) => {
   }
 }, { deep: true })
 
-// rstIslemNoList değiştiğinde sadece highlighting uygula, tablo yenileme yapma
-watch(rstIslemNoList, () => {
-  // Template otomatik olarak highlighting yapacak, sadece log tutalım
-  console.log(`🔄 rstIslemNoList güncellendi: ${rstIslemNoList.value.length} kayıt`)
+// rstIslemNoList değiştiğinde highlighting uygula
+watch(rstIslemNoList, async (newList, oldList) => {
+  console.log(`🔄 rstIslemNoList güncellendi: ${newList.length} kayıt`)
+  console.log(`📋 Yeni liste:`, newList)
+  console.log(`📋 Eski liste:`, oldList)
+  
+  // Force table re-render to ensure highlighting is applied
+  await nextTick()
+  console.log('🔄 nextTick completed, table should be re-rendered')
+  
+  // DOM manipülasyonu ile highlighting uygula
+  applyDirectHighlighting()
 }, { deep: true })
 
 
 
-// DOM manipülasyonu ile highlighting uygula
+// DOM manipülasyonu ile highlighting uygula (sadece sol kenar için)
 const applyDirectHighlighting = () => {
   const tableElement = document.querySelector('.detail-table')
   if (!tableElement) {
@@ -3137,42 +3325,43 @@ const applyDirectHighlighting = () => {
     row.classList.remove('rst-row-with-marker')
   })
   
-  // Sadece marker class'ı uygula
-  let highlightedCount = 0
+  console.log('🧹 Tüm satırlardan rst-row-with-marker class temizlendi')
+  console.log('📋 rstIslemNoList:', rstIslemNoList.value)
+  
+  // Şimdi sadece gerekli satırlara marker class'ı ekle
   allRows.forEach((row: Element, index: number) => {
-    // islemNo sütununu bul (genellikle ilk sütun ama daha güvenli olmak için)
-    const cells = row.querySelectorAll('td')
+    if (index === 0) return // Header satırını atla
     
-    for (const cell of cells) {
+    // islemNo hücresini bul - tüm hücreleri kontrol et
+    const cells = row.querySelectorAll('td')
+    let islemNoFound = false
+    
+    cells.forEach((cell: Element) => {
+      if (islemNoFound) return // Zaten bulundu
+      
       const cellText = cell.textContent?.trim()
-      if (cellText && !isNaN(parseInt(cellText))) {
+      if (cellText) {
         const islemNo = parseInt(cellText)
-        if (rstIslemNoList.value.includes(islemNo)) {
+        if (!isNaN(islemNo) && rstIslemNoList.value.includes(islemNo)) {
           row.classList.add('rst-row-with-marker')
-          highlightedCount++
-          console.log(`🎯 Satır ${index + 1} işaretlendi: islemNo ${islemNo}`)
-          break
+          console.log(`✅ Satır ${index} için rst-row-with-marker class eklendi, islemNo: ${islemNo}`)
+          islemNoFound = true
         }
       }
-    }
+    })
   })
   
-  console.log(`✅ Toplam ${highlightedCount} satır marker ile işaretlendi`)
-  console.log(`📋 rstIslemNoList:`, rstIslemNoList.value)
+  console.log('💡 Sol kenar çizgisi ve marker uygulandı')
 }
 
-// Test marker highlighting
-const testMarkerHighlighting = () => {
-  console.log('🧪 Test marker highlighting başlatılıyor...')
-  console.log('📋 Mevcut rstIslemNoList:', rstIslemNoList.value)
-  applyDirectHighlighting()
-}
+
 
 // Highlighting için daha stabil row class fonksiyonu
 const getStableRowClass = (props: { row: IslemDetay }) => {
   // Artık sadece sol kenar çizgisi için kullanılıyor
   const isHighlighted = rstIslemNoList.value.includes(props.row.islemNo)
   if (isHighlighted) {
+    console.log(`🎨 Row class applied for islemNo ${props.row.islemNo}: rst-row-with-marker`)
     return 'rst-row-with-marker'
   }
   return ''
@@ -3467,6 +3656,8 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
 .radio-options .q-radio {
   margin-bottom: 2px;
 }
+
+
 
 .table-container {
   overflow-x: auto;
@@ -4367,6 +4558,46 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
     color: #000000 !important;
   }
 
+  /* Radio button with RST count display layout */
+  .radio-with-rst {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+  }
+
+  /* RST Kayıt Sayısı Gösterimi Stilleri */
+  .rst-count-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    background-color: rgba(255, 193, 7, 0.1);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    margin-left: 4px;
+  }
+
+  .rst-count-number {
+    font-size: 11px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .rst-count-indicator {
+    font-size: 12px;
+  }
+
+  /* Dark mode için RST count display stilleri */
+  .body--dark .rst-count-display {
+    background-color: rgba(255, 193, 7, 0.15);
+    border-color: rgba(255, 193, 7, 0.4);
+  }
+
+  .body--dark .rst-count-number {
+    color: #fff;
+  }
+
   /* tblislemRST'de bulunan kayıtlar için sadece sol kenar marker */
   /* Full row background/font coloring removed as per user request */
 
@@ -4399,6 +4630,86 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
   .body--dark .rst-marker-icon {
     background-color: #ffc107;
     color: #000;
+  }
+
+  /* RST Differences Tooltip Styles */
+  .rst-differences-tooltip {
+    max-width: 600px !important;
+  }
+
+  .tooltip-content {
+    padding: 8px;
+  }
+
+  .tooltip-title {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #333;
+    text-align: center;
+  }
+
+  .body--dark .tooltip-title {
+    color: #fff;
+  }
+
+  .differences-table {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .differences-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    background-color: #f5f5f5;
+    font-weight: bold;
+    font-size: 12px;
+  }
+
+  .body--dark .differences-header {
+    background-color: #424242;
+  }
+
+  .differences-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid #ddd;
+    font-size: 11px;
+  }
+
+  .differences-cell {
+    padding: 4px 6px;
+    border-right: 1px solid #ddd;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .differences-cell:last-child {
+    border-right: none;
+  }
+
+  .differences-row:nth-child(even) {
+    border-top: 1px solid #ddd;
+    background-color: #fafafa;
+  }
+
+  .body--dark .differences-row:nth-child(even) {
+    background-color: #2a2a2a;
+  }
+
+  .loading-differences {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    padding: 16px;
+    color: #666;
+    font-size: 12px;
+  }
+
+  .body--dark .loading-differences {
+    color: #ccc;
   }
 
 
