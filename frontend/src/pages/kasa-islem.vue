@@ -30,48 +30,12 @@
                 <div class="radio-group-container">
                   <div class="radio-group">
                     <div class="radio-options">
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="cari" label="Cari" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'cari'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="nakit" label="Nakit" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'nakit'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="kart" label="Kart" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'kart'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="eft" label="EFT" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'eft'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="acenta" label="Acenta" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'acenta'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
-                      <div class="radio-with-rst">
                       <q-radio v-model="selectedIslemTuru" val="depozito" label="Depozito" @update:model-value="onIslemTuruChange" />
-                        <div v-if="rstIslemNoList.length > 0 && selectedIslemTuru === 'depozito'" class="rst-count-display">
-                          <span class="rst-count-number">({{ rstIslemNoList.length }})</span>
-                          <span class="rst-count-indicator">⚠️</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1602,6 +1566,23 @@ const onDetailRequest = (props: any) => {
       if (aValue > bValue) return descending ? -1 : 1
       return 0
     })
+  } else {
+    // Manuel sıralama yoksa, varsayılan sıralamayı uygula
+    // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
+    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
+      // Önce RST durumuna göre sırala (RST kayıtları önce)
+      const aIsRst = rstIslemNoList.value.includes(a.islemNo)
+      const bIsRst = rstIslemNoList.value.includes(b.islemNo)
+      
+      if (aIsRst !== bIsRst) {
+        return aIsRst ? -1 : 1 // RST kayıtları önce
+      }
+      
+      // RST durumu aynıysa, Cari Adı'na göre artan sırala
+      const aCariAdi = String(a.islemAltG || '').toLowerCase()
+      const bCariAdi = String(b.islemAltG || '').toLowerCase()
+      return aCariAdi.localeCompare(bCariAdi, 'tr')
+    })
   }
   
   // Sıralanmış verileri güncelle
@@ -2563,16 +2544,23 @@ const loadDetailTableData = async (tarih: string) => {
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
-       // Verileri islemNo'ya göre azalan sırala (fallback: islemTutar)
+       // Önce RST verilerini yükle, sonra sırala
+       await loadRstIslemNoList()
+       
+       // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
        allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-         const aNo = a.islemNo ?? 0
-         const bNo = b.islemNo ?? 0
-         if (aNo !== 0 || bNo !== 0) {
-           return (bNo) - (aNo)
+         // Önce RST durumuna göre sırala (RST kayıtları önce)
+         const aIsRst = rstIslemNoList.value.includes(a.islemNo)
+         const bIsRst = rstIslemNoList.value.includes(b.islemNo)
+         
+         if (aIsRst !== bIsRst) {
+           return aIsRst ? -1 : 1 // RST kayıtları önce
          }
-         const aVal = parseFloat(String(a.islemTutar)) || 0
-         const bVal = parseFloat(String(b.islemTutar)) || 0
-         return bVal - aVal
+         
+         // RST durumu aynıysa, Cari Adı'na göre artan sırala
+         const aCariAdi = String(a.islemAltG || '').toLowerCase()
+         const bCariAdi = String(b.islemAltG || '').toLowerCase()
+         return aCariAdi.localeCompare(bCariAdi, 'tr')
        })
        
        // Detay tablo pagination için toplam kayıt sayısını ayarla
@@ -3293,11 +3281,34 @@ watch(allDetailTableData, async (newData, oldData) => {
   }
 }, { deep: true })
 
-// rstIslemNoList değiştiğinde highlighting uygula
+// rstIslemNoList değiştiğinde highlighting uygula ve verileri yeniden sırala
 watch(rstIslemNoList, async (newList, oldList) => {
   console.log(`🔄 rstIslemNoList güncellendi: ${newList.length} kayıt`)
   console.log(`📋 Yeni liste:`, newList)
   console.log(`📋 Eski liste:`, oldList)
+  
+  // Eğer RST listesi değiştiyse, verileri yeniden sırala
+  if (allDetailTableData.value.length > 0) {
+    // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
+    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
+      // Önce RST durumuna göre sırala (RST kayıtları önce)
+      const aIsRst = newList.includes(a.islemNo)
+      const bIsRst = newList.includes(b.islemNo)
+      
+      if (aIsRst !== bIsRst) {
+        return aIsRst ? -1 : 1 // RST kayıtları önce
+      }
+      
+      // RST durumu aynıysa, Cari Adı'na göre artan sırala
+      const aCariAdi = String(a.islemAltG || '').toLowerCase()
+      const bCariAdi = String(b.islemAltG || '').toLowerCase()
+      return aCariAdi.localeCompare(bCariAdi, 'tr')
+    })
+    
+    // Tablo verilerini güncelle
+    updateDetailTableData()
+    console.log('🔄 Veriler yeniden sıralandı ve tablo güncellendi')
+  }
   
   // Force table re-render to ensure highlighting is applied
   await nextTick()
