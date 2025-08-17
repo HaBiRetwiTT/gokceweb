@@ -7,6 +7,9 @@ import {
   Get,
   Query,
   Res,
+  Param,
+  Delete,
+  Put,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { IslemService } from './islem.service';
@@ -398,6 +401,472 @@ export class IslemController {
       const msg = this.getErrorMessage(error);
       throw new HttpException(
         msg || 'Kasa devri kaydedilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislem tablosundan belirli kaydı getirir
+   */
+  @Get('detay/:islemNo')
+  async getIslemDetay(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const data = await this.islemService.getIslemDetay(islemNoNum);
+      return {
+        success: true,
+        data: data,
+        message: 'İşlem detayı başarıyla getirildi',
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        message: this.getErrorMessage(error) || 'İşlem detayı getirilemedi',
+      };
+    }
+  }
+
+  /**
+   * tblislem tablosundan islemGrup distinct listesi getirir
+   */
+  @Get('islem-gruplari')
+  async getIslemGruplari() {
+    try {
+      const data = await this.islemService.getIslemGruplari();
+      return {
+        success: true,
+        data: data,
+        message: 'İşlem grupları başarıyla getirildi',
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        message: this.getErrorMessage(error) || 'İşlem grupları getirilemedi',
+      };
+    }
+  }
+
+  /**
+   * tblCari tablosundan CariAdi listesi getirir
+   */
+  @Get('cari-hesaplar')
+  async getCariHesaplar() {
+    try {
+      const data = await this.islemService.getCariHesaplar();
+      return {
+        success: true,
+        data: data,
+        message: 'Cari hesaplar başarıyla getirildi',
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        message: this.getErrorMessage(error) || 'Cari hesaplar getirilemedi',
+      };
+    }
+  }
+
+  /**
+   * tblislemRST tablosunda islemNo kontrolü yapar
+   */
+  @Get('islem-rst-kontrol/:islemNo')
+  async checkIslemRST(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const exists = await this.islemService.checkIslemRSTExists(islemNoNum);
+      return {
+        success: true,
+        exists: exists,
+        message: exists
+          ? 'İşlem RST tablosunda mevcut'
+          : 'İşlem RST tablosunda bulunamadı',
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        message: this.getErrorMessage(error) || 'İşlem RST kontrolü yapılamadı',
+      };
+    }
+  }
+
+  /**
+   * tblislem tablosundan kaydı tblislemRST tablosuna aktarır
+   */
+  @Post('islem-rst-aktar')
+  async aktarIslemRST(@Body() body: { islemNo: number }) {
+    try {
+      if (!body.islemNo || isNaN(body.islemNo)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.aktarIslemRST(body.islemNo);
+      return {
+        success: true,
+        message: 'İşlem RST tablosuna başarıyla aktarıldı',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-rst-aktar hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İşlem RST tablosuna aktarılamadı',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemRST tablosundan belirli kaydı getirir
+   */
+  @Get('islem-rst-detay/:islemNo')
+  async getIslemRSTDetay(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const data = await this.islemService.getIslemRSTDetay(islemNoNum);
+      return {
+        success: true,
+        data: data,
+        message: 'İşlem RST detayı başarıyla getirildi',
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        message: this.getErrorMessage(error) || 'İşlem RST detayı getirilemedi',
+      };
+    }
+  }
+
+  /**
+   * tblislemRST tablosundan belirli kaydı siler
+   */
+  @Delete('islem-rst-sil/:islemNo')
+  async silIslemRST(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.silIslemRST(islemNoNum);
+      return {
+        success: true,
+        message: 'İşlem RST tablosundan başarıyla silindi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-rst-sil hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İşlem RST tablosundan silinemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislem tablosunda mevcut kaydı günceller
+   */
+  @Put('guncelle/:islemNo')
+  async guncelleIslem(
+    @Param('islemNo') islemNo: string,
+    @Body()
+    body: {
+      iKytTarihi: string;
+      islemKllnc: string;
+      islemOzel1: string;
+      islemOzel2: string;
+      islemOzel3: string;
+      islemOzel4: string;
+      islemBirim: string;
+      islemDoviz: string;
+      islemKur: number;
+      islemBilgi: string;
+      islemCrKod: string;
+      islemArac: string;
+      islemTip: string;
+      islemGrup: string;
+      islemAltG: string;
+      islemMiktar: number;
+      islemTutar: number;
+    },
+  ) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      this.debugLog('Güncellenecek işlem:', { islemNo: islemNoNum, ...body });
+
+      const sonuc = await this.islemService.guncelleIslem(islemNoNum, body);
+      return {
+        success: true,
+        message: 'İşlem başarıyla güncellendi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/guncelle hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İşlem güncellenirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemRST tablosundaki verileri tblislem tablosuna geri yükler
+   */
+  @Post('islem-rst-reset')
+  async resetIslemFromRST(@Body() body: { islemNo: number }) {
+    try {
+      if (!body.islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const sonuc = await this.islemService.resetIslemFromRST(body.islemNo);
+      return {
+        success: true,
+        message: 'İşlem başarıyla orijinal verilerle güncellendi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-rst-reset hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İşlem orijinal verilerle güncellenirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * İşlem kaydını arşivler ve siler
+   */
+  @Delete('sil/:islemNo')
+  async silIslem(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      this.debugLog('Silinecek işlem:', islemNoNum);
+
+      const sonuc = await this.islemService.silIslem(islemNoNum);
+      return {
+        success: true,
+        message: 'İşlem başarıyla arşivlendi ve silindi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/sil hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İşlem silinirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan en büyük islemNo'ya sahip kaydı getirir
+   */
+  @Get('islem-arv-en-buyuk')
+  async getIslemARVEnBuyuk() {
+    try {
+      const sonuc = await this.islemService.getIslemARVEnBuyuk();
+      return {
+        success: true,
+        message: "En büyük islemNo'ya sahip arşiv kaydı getirildi",
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-arv-en-buyuk hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Arşiv kaydı getirilirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir islemNo'dan sonraki kaydı getirir
+   */
+  @Get('islem-arv-sonraki/:islemNo')
+  async getIslemARVSonraki(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.getIslemARVSonraki(islemNoNum);
+      return {
+        success: true,
+        message: 'Sonraki arşiv kaydı getirildi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-arv-sonraki hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Sonraki arşiv kaydı getirilirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir islemNo'dan önceki kaydı getirir
+   */
+  @Get('islem-arv-onceki/:islemNo')
+  async getIslemARVOnceki(@Param('islemNo') islemNo: string) {
+    try {
+      if (!islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const islemNoNum = parseInt(islemNo, 10);
+      if (isNaN(islemNoNum)) {
+        throw new HttpException(
+          'Geçersiz işlem numarası',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.getIslemARVOnceki(islemNoNum);
+      return {
+        success: true,
+        message: 'Önceki arşiv kaydı getirildi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-arv-onceki hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Önceki arşiv kaydı getirilirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir kaydı tblislem tablosuna geri yükler ve arşivden siler
+   */
+  @Post('islem-arv-geri-yukle')
+  async geriYukleIslemARV(@Body() body: { islemNo: number }) {
+    try {
+      if (!body.islemNo) {
+        throw new HttpException(
+          'İşlem numarası gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.geriYukleIslemARV(body.islemNo);
+      return {
+        success: true,
+        message: 'Arşiv kaydı başarıyla geri yüklendi ve arşivden silindi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/islem-arv-geri-yukle hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Arşiv kaydı geri yüklenirken hata oluştu',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

@@ -1099,6 +1099,97 @@ export class IslemService {
   }
 
   /**
+   * tblislem tablosundan belirli kaydı getirir
+   */
+  async getIslemDetay(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+
+      const query = `
+        SELECT 
+          islemNo,
+          iKytTarihi,
+          islemKllnc,
+          islemOzel1,
+          islemOzel2,
+          islemOzel3,
+          islemOzel4,
+          islemBirim,
+          islemDoviz,
+          islemKur,
+          islemBilgi,
+          islemCrKod,
+          islemArac,
+          islemTip,
+          islemGrup,
+          islemAltG,
+          islemMiktar,
+          islemTutar
+        FROM ${schemaName}.${tableName}
+        WHERE islemNo = @0
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+
+      if (result && result.length > 0) {
+        return result[0];
+      } else {
+        throw new Error('İşlem bulunamadı');
+      }
+    } catch (error) {
+      this.debugLog('❌ getIslemDetay hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * tblislem tablosundan islemGrup distinct listesi getirir
+   */
+  async getIslemGruplari(): Promise<string[]> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+
+      const query = `
+        SELECT DISTINCT islemGrup
+        FROM ${schemaName}.${tableName}
+        WHERE islemGrup IS NOT NULL AND islemGrup <> ''
+        ORDER BY islemGrup
+      `;
+
+      const result = await this.dataSource.query(query);
+      return result.map((row: any) => row.islemGrup);
+    } catch (error) {
+      this.debugLog('❌ getIslemGruplari hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * tblCari tablosundan CariAdi listesi getirir
+   */
+  async getCariHesaplar(): Promise<string[]> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblCari');
+
+      const query = `
+        SELECT CariAdi
+        FROM ${schemaName}.${tableName}
+        WHERE CariAdi IS NOT NULL AND CariAdi <> ''
+        ORDER BY CariAdi
+      `;
+
+      const result = await this.dataSource.query(query);
+      return result.map((row: any) => row.CariAdi);
+    } catch (error) {
+      this.debugLog('❌ getCariHesaplar hatası:', error);
+      throw error;
+    }
+  }
+
+  /**
    * tblKasaDevir tablosundan sayfalanmış verileri getirir
    */
   async getKasaDevirVerileri(
@@ -1365,6 +1456,583 @@ export class IslemService {
       const message = error instanceof Error ? error.message : String(error);
       console.error('❌ Kasa aktarımı genel hatası:', message);
       throw error; // Zaten formatlanmış hata mesajını tekrar formatlamaya gerek yok
+    }
+  }
+
+  /**
+   * tblislemRST tablosunda islemNo kontrolü yapar
+   */
+  async checkIslemRSTExists(islemNo: number): Promise<boolean> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislemRST');
+
+      const query = `
+        SELECT COUNT(*) as count
+        FROM ${schemaName}.${tableName}
+        WHERE islemNo = @0
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+      const count = result[0]?.count || 0;
+
+      this.debugLog(
+        `🔍 tblislemRST kontrolü: islemNo=${islemNo}, count=${count}`,
+      );
+      return count > 0;
+    } catch (error) {
+      console.error('❌ tblislemRST kontrol hatası:', error);
+      throw new Error('İşlem RST kontrolü yapılamadı');
+    }
+  }
+
+  /**
+   * tblislem tablosundan kaydı tblislemRST tablosuna aktarır
+   */
+  async aktarIslemRST(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const islemTableName = this.dbConfig.getTableName('tblislem');
+      const islemRSTTableName = this.dbConfig.getTableName('tblislemRST');
+
+      // Önce tblislem tablosundan kaydı getir
+      const getIslemQuery = `
+        SELECT *
+        FROM ${schemaName}.${islemTableName}
+        WHERE islemNo = @0
+      `;
+
+      const islemResult = await this.dataSource.query(getIslemQuery, [islemNo]);
+
+      if (!islemResult || islemResult.length === 0) {
+        throw new Error(`İşlem numarası ${islemNo} bulunamadı`);
+      }
+
+      const islemData = islemResult[0];
+
+      // tblislemRST tablosuna aktar
+      const insertQuery = `
+        INSERT INTO ${schemaName}.${islemRSTTableName} (
+          islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, islemOzel4,
+          islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, islemArac, islemTip,
+          islemGrup, islemAltG, islemMiktar, islemTutar
+        ) VALUES (
+          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17
+        )
+      `;
+
+      const insertParams = [
+        islemData.islemNo,
+        islemData.iKytTarihi,
+        islemData.islemKllnc,
+        islemData.islemOzel1,
+        islemData.islemOzel2,
+        islemData.islemOzel3,
+        islemData.islemOzel4,
+        islemData.islemBirim,
+        islemData.islemDoviz,
+        islemData.islemKur,
+        islemData.islemBilgi,
+        islemData.islemCrKod,
+        islemData.islemArac,
+        islemData.islemTip,
+        islemData.islemGrup,
+        islemData.islemAltG,
+        islemData.islemMiktar,
+        islemData.islemTutar,
+      ];
+
+      await this.dataSource.query(insertQuery, insertParams);
+
+      this.debugLog(
+        `✅ İşlem ${islemNo} başarıyla tblislemRST tablosuna aktarıldı`,
+      );
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'İşlem RST tablosuna başarıyla aktarıldı',
+      };
+    } catch (error) {
+      console.error('❌ İşlem RST aktarım hatası:', error);
+      throw new Error(`İşlem RST tablosuna aktarılamadı: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemRST tablosundan belirli kaydı getirir
+   */
+  async getIslemRSTDetay(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislemRST');
+
+      const query = `
+        SELECT *
+        FROM ${schemaName}.${tableName}
+        WHERE islemNo = @0
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+
+      if (!result || result.length === 0) {
+        throw new Error(`İşlem RST numarası ${islemNo} bulunamadı`);
+      }
+
+      this.debugLog(
+        `✅ İşlem RST detayı başarıyla getirildi: islemNo=${islemNo}`,
+      );
+      return result[0];
+    } catch (error) {
+      console.error('❌ İşlem RST detay getirme hatası:', error);
+      throw new Error(`İşlem RST detayı getirilemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemRST tablosundan belirli kaydı siler
+   */
+  async silIslemRST(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislemRST');
+
+      const query = `
+        DELETE FROM ${schemaName}.${tableName}
+        WHERE islemNo = @0
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+
+      this.debugLog(`✅ İşlem RST başarıyla silindi: islemNo=${islemNo}`);
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'İşlem RST tablosundan başarıyla silindi',
+      };
+    } catch (error) {
+      console.error('❌ İşlem RST silme hatası:', error);
+      throw new Error(`İşlem RST tablosundan silinemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislem tablosunda mevcut kaydı günceller
+   */
+  async guncelleIslem(islemNo: number, updateData: any): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+
+      const query = `
+        UPDATE ${schemaName}.${tableName}
+        SET 
+          iKytTarihi = @1,
+          islemKllnc = @2,
+          islemOzel1 = @3,
+          islemOzel2 = @4,
+          islemOzel3 = @5,
+          islemOzel4 = @6,
+          islemBirim = @7,
+          islemDoviz = @8,
+          islemKur = @9,
+          islemBilgi = @10,
+          islemCrKod = @11,
+          islemArac = @12,
+          islemTip = @13,
+          islemGrup = @14,
+          islemAltG = @15,
+          islemMiktar = @16,
+          islemTutar = @17
+        WHERE islemNo = @0
+      `;
+
+      const params = [
+        islemNo,
+        updateData.iKytTarihi,
+        updateData.islemKllnc,
+        updateData.islemOzel1,
+        updateData.islemOzel2,
+        updateData.islemOzel3,
+        updateData.islemOzel4,
+        updateData.islemBirim,
+        updateData.islemDoviz,
+        updateData.islemKur,
+        updateData.islemBilgi,
+        updateData.islemCrKod,
+        updateData.islemArac,
+        updateData.islemTip,
+        updateData.islemGrup,
+        updateData.islemAltG,
+        updateData.islemMiktar,
+        updateData.islemTutar,
+      ];
+
+      const result = await this.dataSource.query(query, params);
+
+      this.debugLog(`✅ İşlem başarıyla güncellendi: islemNo=${islemNo}`);
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'İşlem başarıyla güncellendi',
+        affectedRows: result && result.affectedRows ? result.affectedRows : 0,
+      };
+    } catch (error) {
+      console.error('❌ İşlem güncelleme hatası:', error);
+      throw new Error(`İşlem güncellenemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemRST tablosundaki verileri tblislem tablosuna geri yükler
+   */
+  async resetIslemFromRST(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslemRST = this.dbConfig.getTableName('tblislemRST');
+      const tblIslem = this.dbConfig.getTableName('tblislem');
+
+      // tblislemRST'den ilgili kaydı çek
+      const rstRecord = await this.dataSource.query(
+        `SELECT * FROM ${schemaName}.${tblIslemRST} WHERE islemNo = @0`,
+        [islemNo],
+      );
+
+      if (!rstRecord || rstRecord.length === 0) {
+        throw new Error(
+          `tblislemRST tablosunda islemNo ${islemNo} bulunamadı.`,
+        );
+      }
+
+      const dataToUpdate = rstRecord[0];
+
+      // tblislem tablosunu güncelle
+      const query = `
+        UPDATE ${schemaName}.${tblIslem}
+        SET
+          iKytTarihi = @1,
+          islemKllnc = @2,
+          islemOzel1 = @3,
+          islemOzel2 = @4,
+          islemOzel3 = @5,
+          islemOzel4 = @6,
+          islemBirim = @7,
+          islemDoviz = @8,
+          islemKur = @9,
+          islemBilgi = @10,
+          islemCrKod = @11,
+          islemArac = @12,
+          islemTip = @13,
+          islemGrup = @14,
+          islemAltG = @15,
+          islemMiktar = @16,
+          islemTutar = @17
+        WHERE islemNo = @0
+      `;
+
+      const params = [
+        islemNo,
+        dataToUpdate.iKytTarihi,
+        dataToUpdate.islemKllnc,
+        dataToUpdate.islemOzel1,
+        dataToUpdate.islemOzel2,
+        dataToUpdate.islemOzel3,
+        dataToUpdate.islemOzel4,
+        dataToUpdate.islemBirim,
+        dataToUpdate.islemDoviz,
+        dataToUpdate.islemKur,
+        dataToUpdate.islemBilgi,
+        dataToUpdate.islemCrKod,
+        dataToUpdate.islemArac,
+        dataToUpdate.islemTip,
+        dataToUpdate.islemGrup,
+        dataToUpdate.islemAltG,
+        dataToUpdate.islemMiktar,
+        dataToUpdate.islemTutar,
+      ];
+
+      const result = await this.dataSource.query(query, params);
+
+      this.debugLog(
+        `✅ İşlem başarıyla orijinal verilerle güncellendi: islemNo=${islemNo}`,
+      );
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'İşlem başarıyla orijinal verilerle güncellendi',
+        affectedRows: result && result.affectedRows ? result.affectedRows : 0,
+      };
+    } catch (error) {
+      console.error('❌ İşlem resetleme hatası:', error);
+      throw new Error(
+        `İşlem orijinal verilerle güncellenemedi: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * İşlem kaydını arşivler ve siler
+   */
+  async silIslem(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslem = this.dbConfig.getTableName('tblislem');
+      const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
+
+      // Aktif kullanıcı bilgisini al (localStorage'dan)
+      const aktifKullanici = process.env.ACTIVE_USER || 'Sistem';
+
+      // Önce tblislem tablosundan kaydı çek
+      const islemRecord = await this.dataSource.query(
+        `SELECT * FROM ${schemaName}.${tblIslem} WHERE islemNo = @0`,
+        [islemNo],
+      );
+
+      if (!islemRecord || islemRecord.length === 0) {
+        throw new Error(`tblislem tablosunda islemNo ${islemNo} bulunamadı.`);
+      }
+
+      const dataToArchive = islemRecord[0];
+
+      // tblislemARV tablosuna arşiv kaydı ekle
+      const archiveQuery = `
+        INSERT INTO ${schemaName}.${tblIslemARV} (
+          islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, 
+          islemOzel4, islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, 
+          islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar
+        ) VALUES (
+          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17
+        )
+      `;
+
+      const archiveParams = [
+        dataToArchive.islemNo,
+        dataToArchive.iKytTarihi,
+        aktifKullanici, // islemKllnc alanına aktif kullanıcı username'i yazılıyor
+        dataToArchive.islemOzel1,
+        dataToArchive.islemOzel2,
+        dataToArchive.islemOzel3,
+        dataToArchive.islemOzel4,
+        dataToArchive.islemBirim,
+        dataToArchive.islemDoviz,
+        dataToArchive.islemKur,
+        dataToArchive.islemBilgi,
+        dataToArchive.islemCrKod,
+        dataToArchive.islemArac,
+        dataToArchive.islemTip,
+        dataToArchive.islemGrup,
+        dataToArchive.islemAltG,
+        dataToArchive.islemMiktar,
+        dataToArchive.islemTutar,
+      ];
+
+      await this.dataSource.query(archiveQuery, archiveParams);
+
+      this.debugLog(`✅ İşlem başarıyla arşivlendi: islemNo=${islemNo}`);
+
+      // Şimdi tblislem tablosundan kaydı sil
+      const deleteQuery = `
+        DELETE FROM ${schemaName}.${tblIslem} WHERE islemNo = @0
+      `;
+
+      const deleteResult = await this.dataSource.query(deleteQuery, [islemNo]);
+
+      this.debugLog(`✅ İşlem başarıyla silindi: islemNo=${islemNo}`);
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'İşlem başarıyla arşivlendi ve silindi',
+        archived: true,
+        deleted: true,
+        affectedRows:
+          deleteResult && deleteResult.affectedRows
+            ? deleteResult.affectedRows
+            : 0,
+      };
+    } catch (error) {
+      console.error('❌ İşlem silme hatası:', error);
+      throw new Error(`İşlem silinemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan en büyük islemNo'ya sahip kaydı getirir
+   */
+  async getIslemARVEnBuyuk(): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
+
+      const query = `
+        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+        ORDER BY islemNo DESC
+      `;
+
+      const result = await this.dataSource.query(query);
+
+      if (!result || result.length === 0) {
+        return null;
+      }
+
+      this.debugLog(
+        `✅ En büyük islemNo'ya sahip arşiv kaydı getirildi: islemNo=${result[0].islemNo}`,
+      );
+
+      return result[0];
+    } catch (error) {
+      console.error('❌ Arşiv kaydı getirme hatası:', error);
+      throw new Error(`Arşiv kaydı getirilemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir islemNo'dan sonraki kaydı getirir
+   */
+  async getIslemARVSonraki(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
+
+      const query = `
+        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+        WHERE islemNo > @0
+        ORDER BY islemNo ASC
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+
+      if (!result || result.length === 0) {
+        return null;
+      }
+
+      this.debugLog(
+        `✅ Sonraki arşiv kaydı getirildi: islemNo=${result[0].islemNo}`,
+      );
+
+      return result[0];
+    } catch (error) {
+      console.error('❌ Sonraki arşiv kaydı getirme hatası:', error);
+      throw new Error(`Sonraki arşiv kaydı getirilemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir islemNo'dan önceki kaydı getirir
+   */
+  async getIslemARVOnceki(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
+
+      const query = `
+        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+        WHERE islemNo < @0
+        ORDER BY islemNo DESC
+      `;
+
+      const result = await this.dataSource.query(query, [islemNo]);
+
+      if (!result || result.length === 0) {
+        return null;
+      }
+
+      this.debugLog(
+        `✅ Önceki arşiv kaydı getirildi: islemNo=${result[0].islemNo}`,
+      );
+
+      return result[0];
+    } catch (error) {
+      console.error('❌ Önceki arşiv kaydı getirme hatası:', error);
+      throw new Error(`Önceki arşiv kaydı getirilemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblislemARV tablosundan belirli bir kaydı tblislem tablosuna geri yükler
+   */
+  async geriYukleIslemARV(islemNo: number): Promise<any> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
+      const tblIslem = this.dbConfig.getTableName('tblislem');
+
+      // Önce tblislemARV tablosundan kaydı çek
+      const arsivRecord = await this.dataSource.query(
+        `SELECT * FROM ${schemaName}.${tblIslemARV} WHERE islemNo = @0`,
+        [islemNo],
+      );
+
+      if (!arsivRecord || arsivRecord.length === 0) {
+        throw new Error(
+          `tblislemARV tablosunda islemNo ${islemNo} bulunamadı.`,
+        );
+      }
+
+      const dataToRestore = arsivRecord[0];
+
+      // tblislem tablosuna kaydı geri yükle (islemNo otomatik üretilecek)
+      const restoreQuery = `
+          INSERT INTO ${schemaName}.${tblIslem} (
+            iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3,
+            islemOzel4, islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod,
+            islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar
+          ) VALUES (
+            @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16
+          )
+        `;
+
+      const restoreParams = [
+        dataToRestore.iKytTarihi,
+        dataToRestore.islemKllnc,
+        dataToRestore.islemOzel1,
+        dataToRestore.islemOzel2,
+        dataToRestore.islemOzel3,
+        dataToRestore.islemOzel4,
+        dataToRestore.islemBirim,
+        dataToRestore.islemDoviz,
+        dataToRestore.islemKur,
+        dataToRestore.islemBilgi,
+        dataToRestore.islemCrKod,
+        dataToRestore.islemArac,
+        dataToRestore.islemTip,
+        dataToRestore.islemGrup,
+        dataToRestore.islemAltG,
+        dataToRestore.islemMiktar,
+        dataToRestore.islemTutar,
+      ];
+
+      const result = await this.dataSource.query(restoreQuery, restoreParams);
+
+      this.debugLog(
+        `✅ Arşiv kaydı başarıyla geri yüklendi: islemNo=${islemNo}`,
+      );
+
+      // Arşiv kaydını tblislemARV tablosundan sil
+      const deleteArsivQuery = `
+          DELETE FROM ${schemaName}.${tblIslemARV} 
+          WHERE islemNo = @0
+        `;
+
+      await this.dataSource.query(deleteArsivQuery, [islemNo]);
+
+      this.debugLog(
+        `✅ Arşiv kaydı tblislemARV tablosundan silindi: islemNo=${islemNo}`,
+      );
+
+      return {
+        success: true,
+        islemNo: islemNo,
+        message: 'Arşiv kaydı başarıyla geri yüklendi ve arşivden silindi',
+        restored: true,
+        affectedRows: result && result.affectedRows ? result.affectedRows : 0,
+      };
+    } catch (error) {
+      console.error('❌ Arşiv kaydı geri yükleme hatası:', error);
+      throw new Error(`Arşiv kaydı geri yüklenemedi: ${error.message}`);
     }
   }
 }

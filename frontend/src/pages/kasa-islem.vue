@@ -275,13 +275,14 @@
                       flat
                       bordered
                       class="kasa-table detail-table"
-                                             :rows-per-page-options="[15]"
-                       :rows-per-page-label="''"
-                       :pagination-label="() => ''"
-                       :server-side="true"
-                       :hide-pagination="true"
-                       :rows-per-page="15"
-                       @request="onDetailRequest"
+                      :rows-per-page-options="[15]"
+                      :rows-per-page-label="''"
+                      :pagination-label="() => ''"
+                      :server-side="true"
+                      :hide-pagination="true"
+                      :rows-per-page="15"
+                      @request="onDetailRequest"
+                      @row-dblclick="onDetailRowDblClick"
                     >
                       <!-- Başlık satırında 'Bilgi' sütununun hemen yanında ikon container -->
                       <template v-slot:header-cell-islemBilgi="props">
@@ -342,7 +343,522 @@
 
       </div>
     </div>
-  </q-page>
+
+         <!-- İşlem Detay Form Modal -->
+     <q-dialog v-model="showIslemDetayDialog" persistent>
+       <div
+         ref="islemDetayModalRef"
+         :style="islemDetayModalStyle"
+         class="draggable-islem-detay-modal"
+       >
+         <q-card 
+          :style="`min-width: ${modalWidth}px; max-width: ${modalWidth}px; max-height: 90vh; overflow-y: auto;`"
+          :class="{ 'modal-dragging': islemDetayModalDragging }"
+         >
+                       <q-card-section class="row items-center q-pb-none draggable-header"
+               @mousedown="onIslemDetayDragStart"
+               @touchstart="onIslemDetayDragStart"
+             >
+              <div class="col-4">
+                <div class="text-h6 text-weight-bold">
+               İşlem Detayı
+             </div>
+             <!-- Arşiv navigasyon butonları -->
+             <div v-if="isArchiveMode" class="row items-center q-gutter-xs q-mt-sm">
+               <q-btn 
+                 flat 
+                 round 
+                 dense 
+                 icon="navigate_before" 
+                 color="primary"
+                 @click="goToPreviousArchiveRecord"
+                 :disabled="archiveNavigationIndex <= 0"
+                 title="Önceki arşiv kaydı"
+               />
+               <q-btn 
+                 flat 
+                 round 
+                 dense 
+                 icon="navigate_next" 
+                 color="primary"
+                 @click="goToNextArchiveRecord"
+                 title="Sonraki arşiv kaydı"
+               />
+             </div>
+              </div>
+              <div class="col-8 text-right">
+                <!-- Header Container - Kayıt No ve Kullanıcı -->
+                <div class="header-container">
+                  <div class="row items-center justify-end q-gutter-md">
+             <!-- Kayıt No -->
+                    <div class="row items-center q-gutter-xs">
+                      <div class="text-subtitle2 text-weight-medium" style="line-height: 1;">Kayıt No:</div>
+              <q-input 
+                v-model="selectedIslemDetay.islemNo" 
+                outlined 
+                dense 
+                readonly
+                class="form-input readonly-field"
+                        style="min-width: 90px; max-width: 90px;"
+              />
+            </div>
+                    <!-- Kullanıcı -->
+                    <div class="row items-center q-gutter-xs">
+                      <q-input 
+                        v-model="selectedIslemDetay.islemKllnc" 
+                        outlined 
+                        dense 
+                        readonly
+                        class="form-input readonly-field"
+                        style="min-width: 100px; max-width: 100px;"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </q-card-section>
+        
+                 <q-card-section>
+           <q-form ref="islemDetayFormRef">
+             <div class="row q-col-gutter-lg">
+               <!-- Sol Taraf - Ana Form Elementleri -->
+               <div :class="showKaynakIslemContainer ? 'col-12 col-md-6' : 'col-12'" 
+                    :style="!showKaynakIslemContainer ? `width: ${Math.round(modalWidth * 1)}px` : ''">
+                 <!-- Middle Container - 10 Form Elements -->
+                 <div class="middle-container">
+                   <div class="row q-col-gutter-sm">
+             
+             <!-- Kayıt Tarihi -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Kayıt Tarihi:</div>
+               <q-input 
+                 v-model="selectedIslemDetay.iKytTarihi" 
+                 outlined 
+                 dense 
+                 class="form-input"
+                         :readonly="isArchiveMode"
+                         required
+                         :rules="[val => !!val || 'Kayıt tarihi zorunludur']"
+                       >
+                         <template v-slot:append>
+                           <q-icon name="event" class="cursor-pointer">
+                             <q-popup-proxy ref="datePickerPopup" cover transition-show="scale" transition-hide="scale">
+                               <q-date 
+                                 :model-value="selectedIslemDetay.iKytTarihi" 
+                                 mask="DD.MM.YYYY"
+                                 :locale="{
+                                   days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
+                                   daysShort: ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'],
+                                   months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+                                   monthsShort: ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+                                 }"
+                                 minimal
+                                 @update:model-value="onDateSelected"
+                               />
+                             </q-popup-proxy>
+                           </q-icon>
+                         </template>
+                       </q-input>
+             </div>
+             
+                       <!-- Satış Kanalı -->
+            <div class="col-12 col-sm-6">
+                         <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Satış Kanalı:</div>
+                         <q-select
+                           v-model="selectedIslemDetay.islemOzel4"
+                           :options="satisKanallari"
+                outlined 
+                dense 
+                           class="form-input"
+                           :readonly="isArchiveMode"
+                           use-input
+                           input-debounce="300"
+                           @filter="onSatisKanaliFilter"
+              />
+            </div>
+             
+             <!-- Konaklama Tipi -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Konaklama Tipi:</div>
+               <q-select
+                 v-model="selectedIslemDetay.islemOzel1"
+                 :options="konaklamaTipleri"
+                 outlined
+                 dense
+                 class="form-input"
+                 :readonly="isArchiveMode"
+                 use-input
+                 input-debounce="300"
+                 @filter="onKonaklamaTipiFilter"
+               />
+             </div>
+             
+            <!-- Oda - Yatak -->
+            <div class="col-12 col-sm-6">
+              <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Oda - Yatak:</div>
+              <q-input 
+                v-model="selectedIslemDetay.islemOzel3" 
+                outlined 
+                dense 
+                :readonly="isArchiveMode"
+                class="form-input readonly-field"
+                           style="min-width: 120px;"
+              />
+            </div>
+             
+                       <!-- İşlem Grubu -->
+             <div class="col-12 col-sm-6">
+                       <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Grubu:</div>
+               <q-select
+                       v-model="selectedIslemDetay.islemGrup"
+                       :options="islemGruplari"
+                 outlined
+                 dense
+                           class="form-input islem-grup-combo"
+                 :readonly="isArchiveMode"
+                 use-input
+                 input-debounce="300"
+                           hide-selected
+                           fill-input
+                           required
+                           :rules="[val => !!val || 'İşlem grubu zorunludur']"
+                           @filter="onIslemGrupFilter"
+                           @update:model-value="onIslemGrupChange"
+                         />
+                       </div>
+                       
+                       <!-- Cari Hesap Adı -->
+                       <div class="col-12 col-sm-6">
+                         <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Cari Hesap Adı:</div>
+                         <q-select
+                           v-model="selectedIslemDetay.islemAltG"
+                           :options="cariHesaplar"
+                           outlined
+                           dense
+                           class="form-input cari-hesap-combo"
+                           :readonly="isArchiveMode"
+                           use-input
+                           input-debounce="300"
+                           hide-selected
+                           fill-input
+                           required
+                           :rules="[val => !!val || 'Cari hesap adı zorunludur']"
+                           @filter="onCariHesapFilter"
+                           @update:model-value="onCariHesapChange"
+               />
+             </div>
+             
+             <!-- İşlem Aracı -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Aracı:</div>
+               <q-select
+                 v-model="selectedIslemDetay.islemArac"
+                 :options="islemAraclari"
+                 outlined
+                 dense
+                 class="form-input"
+                 :readonly="isArchiveMode"
+                         required
+                         :rules="[val => !!val || 'İşlem aracı zorunludur']"
+                 @update:model-value="onIslemAraciChange"
+               />
+             </div>
+             
+             <!-- İşlem Tipi -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Tipi:</div>
+               <q-select
+                 v-model="selectedIslemDetay.islemTip"
+                 :options="islemTipleri"
+                 outlined
+                 dense
+                 class="form-input"
+                 :readonly="isArchiveMode"
+                         required
+                         :rules="[val => !!val || 'İşlem tipi zorunludur']"
+                 @update:model-value="onIslemTipChange"
+                   />
+                 </div>
+                 
+                 <!-- İşlem Açıklaması -->
+                       <div class="col-12 col-sm-8">
+                   <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Açıklaması:</div>
+                   <q-input 
+                     v-model="selectedIslemDetay.islemBilgi" 
+                     outlined 
+                     dense 
+                         class="form-input description-field"
+                     type="textarea"
+                         rows="3"
+                         :readonly="isArchiveMode"
+                         required
+                         :rules="[val => !!val || 'İşlem açıklaması zorunludur']"
+                   />
+                 </div>
+                 
+                 <!-- İşlem Tutarı -->
+                       <div class="col-12 col-sm-4">
+                   <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Tutarı:</div>
+                   <q-input 
+                     v-model="selectedIslemDetay.islemTutar" 
+                     outlined 
+                     dense 
+                         class="form-input amount-field"
+                     type="number"
+                     step="0.01"
+                         :readonly="isArchiveMode"
+                         required
+                         :rules="[val => !!val || 'İşlem tutarı zorunludur']"
+                         style="min-width: 100px;"
+                   />
+                 </div>
+               </div>
+                 </div>
+               </div>
+                               <!-- Sağ Taraf - Kaynak İşlem (Readonly Display) -->
+                <div class="col-12 col-md-6" v-if="showKaynakIslemContainer">
+                  <!-- Header Container - Kayıt No ve Kullanıcı -->
+                <div class="header-container q-mb-md">
+                  <div class="row items-center q-gutter-md justify-end">
+                    <div class="text-h8 text-weight-bold q-mb-mx" style="text-align: left;">Kaydın, Kaynak İşlem Bilgileri</div>
+                      <!-- Kayıt No -->
+                      <div class="row items-center q-gutter-xs">
+                        <div class="text-subtitle2 text-weight-medium" style="line-height: 1;">Kayıt No:</div>
+                        <q-input
+                          v-model="kaynakIslemDetay.islemNo"
+                          outlined
+                          dense
+                          readonly
+                          class="form-input readonly-field"
+                          style="min-width: 90px; max-width: 90px;"
+                        />
+                      </div>
+                      <!-- Kullanıcı -->
+                      <div class="row items-center q-gutter-xs">
+                        <q-input
+                          v-model="kaynakIslemDetay.islemKllnc"
+                          outlined
+                          dense
+                          readonly
+                          class="form-input readonly-field"
+                                                  :style="{
+                          'min-width': '100px',
+                          'max-width': '100px',
+                          ...getFieldStyle('islemKllnc').style
+                        }"
+                        :class="getFieldStyle('islemKllnc').class"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Middle Container - 10 Form Elements -->
+                  <div class="middle-container">
+                    <div class="row q-col-gutter-sm">
+                    
+                    <!-- Kayıt Tarihi -->
+                    <div class="col-12 col-sm-6">
+                      <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Kayıt Tarihi:</div>
+                      <q-input 
+                        v-model="kaynakIslemDetay.iKytTarihi" 
+                        outlined 
+                        dense 
+                        class="form-input readonly-field"
+                        readonly
+                        :style="getFieldStyle('iKytTarihi').style"
+                        :class="getFieldStyle('iKytTarihi').class"
+                      />
+                    </div>
+                    
+                    <!-- Satış Kanalı -->
+                    <div class="col-12 col-sm-6">
+                      <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Satış Kanalı:</div>
+                      <q-input
+                        v-model="kaynakIslemDetay.islemOzel4"
+                        outlined
+                        dense
+                        class="form-input readonly-field"
+                        readonly
+                        :style="getFieldStyle('islemOzel4').style"
+                        :class="getFieldStyle('islemOzel4').class"
+                      />
+                    </div>
+                   
+                   <!-- Konaklama Tipi -->
+                   <div class="col-12 col-sm-6">
+                     <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Konaklama Tipi:</div>
+                                          <q-input
+                       v-model="kaynakIslemDetay.islemOzel1"
+                       outlined
+                       dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemOzel1').style"
+                        :class="getFieldStyle('islemOzel1').class"
+                     />
+                   </div>
+                   
+                   <!-- Oda - Yatak -->
+                   <div class="col-12 col-sm-6">
+                     <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Oda - Yatak:</div>
+                                          <q-input
+                       v-model="kaynakIslemDetay.islemOzel3"
+                       outlined
+                       dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemOzel3').style"
+                        :class="getFieldStyle('islemOzel3').class"
+               />
+             </div>
+             
+             <!-- İşlem Grubu -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Grubu:</div>
+                                          <q-input
+                       v-model="kaynakIslemDetay.islemGrup"
+                 outlined
+                 dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemGrup').style"
+                        :class="getFieldStyle('islemGrup').class"
+               />
+             </div>
+             
+             <!-- Cari Hesap Adı -->
+             <div class="col-12 col-sm-6">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Cari Hesap Adı:</div>
+                     <q-input
+                       v-model="kaynakIslemDetay.islemAltG"
+                 outlined
+                 dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemAltG').style"
+                        :class="getFieldStyle('islemAltG').class"
+               />
+             </div>
+             
+                   <!-- İşlem Aracı -->
+             <div class="col-12 col-sm-6">
+                     <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Aracı:</div>
+                     <q-input
+                       v-model="kaynakIslemDetay.islemArac"
+                       outlined
+                       dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemArac').style"
+                       :class="getFieldStyle('islemArac').class"
+                     />
+                   </div>
+                   
+                   <!-- İşlem Tipi -->
+                   <div class="col-12 col-sm-6">
+                     <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Tipi:</div>
+                     <q-input
+                       v-model="kaynakIslemDetay.islemTip"
+                       outlined
+                       dense
+                       class="form-input readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemTip').style"
+                       :class="getFieldStyle('islemTip').class"
+                     />
+                   </div>
+                   
+                   <!-- İşlem Açıklaması -->
+                   <div class="col-12 col-sm-8">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Açıklaması:</div>
+               <q-input 
+                       v-model="kaynakIslemDetay.islemBilgi"
+                 outlined 
+                 dense 
+                 type="textarea"
+                       rows="3"
+                       class="form-input description-field readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemBilgi').style"
+                       :class="getFieldStyle('islemBilgi').class"
+               />
+             </div>
+             
+             <!-- İşlem Tutarı -->
+                   <div class="col-12 col-sm-4">
+               <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">İşlem Tutarı:</div>
+               <q-input 
+                       v-model="kaynakIslemDetay.islemTutar"
+                 outlined 
+                 dense 
+                 type="number"
+                       class="form-input amount-field readonly-field"
+                       readonly
+                       :style="getFieldStyle('islemTutar').style"
+                       :class="getFieldStyle('islemTutar').class"
+               />
+             </div>
+                    
+           </div>
+                  </div>
+                </div>
+             </div>
+           </q-form>
+         </q-card-section>
+        
+        <!-- Bottom Container - Buttons -->
+        <div class="bottom-container">
+          <q-card-actions align="center">
+          <q-btn 
+              label="Kaydet" 
+            color="primary" 
+              icon="save"
+              @click="onKaydet"
+            :disabled="isArchiveMode"
+            class="q-mr-sm"
+          />
+            
+          <q-btn 
+            label="Sil" 
+            color="negative" 
+              icon="delete"
+            @click="onDeleteIslem"
+            :disabled="isArchiveMode || showKaynakIslemContainer"
+            :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken silme işlemi yapılamaz' : 'İşlemi sil'"
+              class="q-mr-sm delete-btn"
+          />
+          <q-btn 
+            label="Vazgeç" 
+            color="grey" 
+            icon="close"
+              @click="closeBothForms"
+          />
+        </q-card-actions>
+          <q-card-actions align="center">
+            <q-btn
+              label="RESET" 
+              color="warning" 
+              icon="restore"
+              @click="onReset"
+              :disabled="!showKaynakIslemContainer || isArchiveMode"
+              :title="!showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür olmalıdır' : 'İşlemi orijinal verilerle RESETle'"
+              class="q-mr-sm"
+            />
+            <q-btn 
+              :label="isArchiveMode ? 'GERİ AL' : 'ARŞİV'" 
+              :color="isArchiveMode ? 'positive' : 'info'"
+              :icon="isArchiveMode ? 'restore' : 'archive'"
+              @click="onArchiveForm"
+              :disabled="showKaynakIslemContainer"
+              :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken arşiv işlemi yapılamaz' : 'İşlemi arşivle'"
+            />
+          </q-card-actions>
+        </div>
+      </q-card>
+    </div>
+    </q-dialog>
+
+
 
   <!-- Kasa Devret Onay Dialogu -->
   <q-dialog v-model="showKasaDevretDialog">
@@ -366,15 +882,17 @@
       </q-card-actions>
     </q-card>
   </q-dialog>
+  </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue'
-import { useQuasar } from 'quasar'
+import { ref, computed, onMounted, watch, getCurrentInstance, reactive, nextTick } from 'vue'
+import { useQuasar, Notify } from 'quasar'
 import type { QTableColumn } from 'quasar'
 import { isAxiosError } from 'axios'
 import type { AxiosResponse } from 'axios'
 import { api as apiInstance } from '../boot/axios'
+import { api } from '../boot/axios'
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -407,14 +925,25 @@ interface TableRow {
   bakiye: number
 }
 
-interface DetailTableRow {
-  id: number
-  islemNo?: number
-  iKytTarihi: string
-  islemAltG: string
-  islemGrup: string
-  islemTutar: number
-  islemBilgi: string
+interface IslemDetay {
+  islemNo: number;
+  iKytTarihi: string;
+  islemKllnc: string;
+  islemOzel1: string;
+  islemOzel2: string;
+  islemOzel3: string;
+  islemOzel4: string;
+  islemBirim: string;
+  islemDoviz: string;
+  islemKur: number;
+  islemBilgi: string;
+  islemCrKod: string;
+  islemArac: string;
+  islemTip: string;
+  islemGrup: string;
+  islemAltG: string;
+  islemMiktar: number;
+  islemTutar: number;
 }
 
   // Detay tablo PDF indirme
@@ -480,11 +1009,11 @@ interface KasaDevirRow {
 }
 
 const tableData = ref<TableRow[]>([])
-const detailTableData = ref<DetailTableRow[]>([])
+const detailTableData = ref<IslemDetay[]>([])
 
 // Tüm veriyi saklamak için
 const allTableData = ref<TableRow[]>([])
-const allDetailTableData = ref<DetailTableRow[]>([])
+const allDetailTableData = ref<IslemDetay[]>([])
 
   // Rapor indirme durumları
   const kasaPdfLoading = ref(false)
@@ -494,6 +1023,342 @@ const allDetailTableData = ref<DetailTableRow[]>([])
 const kasaDevirData = ref<KasaDevirRow[]>([])
 const kasaDevirLoading = ref(false)
 const showKasaDevretDialog = ref(false)
+
+// İşlem detay form modal için
+const showIslemDetayDialog = ref(false)
+
+// Kaynak işlem container görünürlüğü için
+const showKaynakIslemContainer = ref(false)
+
+// Arşiv modu için gerekli değişkenler
+const isArchiveMode = ref(false)
+const currentArchiveRecord = ref<IslemDetay | null>(null)
+const archiveNavigationIndex = ref(0)
+const archiveRecords = ref<IslemDetay[]>([])
+
+// İşlem detay modal gezdirme için
+const islemDetayModalRef = ref<HTMLElement | null>(null)
+const islemDetayFormRef = ref()
+const datePickerPopup = ref()
+
+const islemDetayModalPos = reactive({ x: 0, y: 0 })
+const islemDetayModalDragging = ref(false)
+const islemDetayModalOffset = reactive({ x: 0, y: 0 })
+
+// Modal açıldığında otomatik olarak merkeze konumlandır
+watch(showIslemDetayDialog, (newValue) => {
+  if (newValue) {
+    // Modal'ı ekranın merkezine konumlandır - dinamik genişlik kullan
+    const currentWidth = modalWidth.value;
+    islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2);
+    islemDetayModalPos.y = Math.max(0, (window.innerHeight - 400) / 2);
+    islemDetayModalDragging.value = false;
+    
+    // Modal render edildikten sonra gerçek genişliği kullanarak pozisyonu yeniden hesapla
+    void nextTick(() => {
+      if (islemDetayModalRef.value) {
+        const actualWidth = islemDetayModalRef.value.offsetWidth;
+        islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+      }
+    });
+  }
+})
+
+// showKaynakIslemContainer değiştiğinde modal genişliğini güncelle ve yeniden konumlandır
+        watch(showKaynakIslemContainer, () => {
+          if (showIslemDetayDialog.value) {
+            // Modal açıksa genişlik değişikliğini uygula ve yeniden konumlandır
+            void nextTick(() => {
+              const currentWidth = modalWidth.value;
+              islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2);
+            });
+          }
+        })
+
+const islemDetayModalStyle = computed(() => {
+  return islemDetayModalDragging.value || islemDetayModalPos.x !== 0 || islemDetayModalPos.y !== 0
+    ? `position: fixed; left: ${islemDetayModalPos.x}px; top: ${islemDetayModalPos.y}px; z-index: 9999;` : '';
+})
+
+// Dinamik modal genişliği hesaplama
+const modalWidth = computed(() => {
+  if (!showKaynakIslemContainer.value) {
+    // Container'lar gizliyse %30 daralt
+    return Math.round(1400 * 0.5); // 1400 * 0.5 = 700px
+  }
+  return 1400; // Normal genişlik
+})
+
+function onIslemDetayDragStart(e: MouseEvent | TouchEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  islemDetayModalDragging.value = true;
+  
+  let clientX = 0, clientY = 0;
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX;
+    clientY = e.clientY;
+    document.addEventListener('mousemove', onIslemDetayDragMove);
+    document.addEventListener('mouseup', onIslemDetayDragEnd);
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    document.addEventListener('touchmove', onIslemDetayDragMove);
+    document.addEventListener('touchend', onIslemDetayDragEnd);
+  }
+  
+  // Modal'ın mevcut pozisyonunu al
+  const modalElement = islemDetayModalRef.value;
+  if (modalElement) {
+    const rect = modalElement.getBoundingClientRect();
+    islemDetayModalOffset.x = clientX - rect.left;
+    islemDetayModalOffset.y = clientY - rect.top;
+  } else {
+    // Fallback: mevcut pozisyonu kullan
+    islemDetayModalOffset.x = clientX - islemDetayModalPos.x;
+    islemDetayModalOffset.y = clientY - islemDetayModalPos.y;
+  }
+}
+
+function onIslemDetayDragMove(e: MouseEvent | TouchEvent) {
+  if (!islemDetayModalDragging.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  
+  let clientX = 0, clientY = 0;
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+  }
+  
+  // Yeni pozisyonu hesapla
+  const newX = clientX - islemDetayModalOffset.x;
+  const newY = clientY - islemDetayModalOffset.y;
+  
+  // Ekran sınırlarını kontrol et - dinamik modal genişliğini kullan
+  const currentModalWidth = modalWidth.value;
+  const maxX = Math.max(0, window.innerWidth - currentModalWidth);
+  const maxY = Math.max(0, window.innerHeight - 400); // modal yüksekliği
+  
+  islemDetayModalPos.x = Math.max(0, Math.min(newX, maxX));
+  islemDetayModalPos.y = Math.max(0, Math.min(newY, maxY));
+}
+
+function onIslemDetayDragEnd() {
+  islemDetayModalDragging.value = false;
+  document.removeEventListener('mousemove', onIslemDetayDragMove);
+  document.removeEventListener('mouseup', onIslemDetayDragEnd);
+  document.removeEventListener('touchmove', onIslemDetayDragMove);
+  document.removeEventListener('touchend', onIslemDetayDragEnd);
+}
+
+
+
+const selectedIslemDetay = ref<IslemDetay>({
+  islemNo: 0,
+  iKytTarihi: '',
+  islemKllnc: '',
+  islemOzel1: '',
+  islemOzel2: '',
+  islemOzel3: '',
+  islemOzel4: '',
+  islemBirim: '',
+  islemDoviz: '',
+  islemKur: 0,
+  islemBilgi: '',
+  islemCrKod: '',
+  islemArac: '',
+  islemTip: '',
+  islemGrup: '',
+  islemAltG: '',
+  islemMiktar: 0,
+  islemTutar: 0
+})
+
+// Kaynak İşlem için boş değerler - form yüklenirken boş kalacak
+const kaynakIslemDetay = ref<IslemDetay>({
+  islemNo: 0,
+  iKytTarihi: '',
+  islemKllnc: '',
+  islemOzel1: '',
+  islemOzel2: '',
+  islemOzel3: '',
+  islemOzel4: '',
+  islemBirim: '',
+  islemDoviz: '',
+  islemKur: 0,
+  islemBilgi: '',
+  islemCrKod: '',
+  islemArac: '',
+  islemTip: '',
+  islemGrup: '',
+  islemAltG: '',
+  islemMiktar: 0,
+  islemTutar: 0
+})
+
+
+
+// Orijinal değerleri saklamak için
+const originalIslemArac = ref('')
+const originalIslemTip = ref('')
+
+// Combo box listeleri
+const konaklamaTipleri = ref(['GÜNLÜK', 'HAFTALIK', 'AYLIK'])
+const satisKanallari = ref<string[]>([])
+// İşlem araçları - 5 seçenek sabit (Depozito yok)
+const islemAraclari = ref(['Cari İşlem', 'Nakit Kasa(TL)', 'Kredi Kartları', 'Banka EFT', 'Acenta Tahsilat'])
+const islemTipleri = ref<string[]>([])
+const islemGruplari = ref<string[]>([])
+const cariHesaplar = ref<string[]>([])
+
+// Orijinal verileri saklamak için ref'ler
+const originalSatisKanallari = ref<string[]>([])
+
+// İşlem aracı değiştiğinde
+const onIslemAraciChange = () => {
+  // 1. İşlem tipi listesini güncelle
+  if (selectedIslemDetay.value.islemArac === 'Cari İşlem') {
+    islemTipleri.value = ['GELİR', 'GİDER']
+  } else {
+    // Diğer 4 seçenek için: Gelir-Gider
+    islemTipleri.value = ['Giren', 'Çıkan']
+  }
+  
+  // 2. Cache sistemi - basit mantık
+  if (selectedIslemDetay.value.islemArac === originalIslemArac.value) {
+    // Seçilen değer cache'lenen değer ise, işlem tipi cache değeri default yazılacak
+    selectedIslemDetay.value.islemTip = originalIslemTip.value
+  } else {
+    // Yeni değer seçildiyse, işlem tipi boş bırakılacak
+    selectedIslemDetay.value.islemTip = ''
+  }
+}
+
+// İşlem tipi değiştiğinde - HİÇBİR ŞEY YAPILMAYACAK
+const onIslemTipChange = () => {
+  // Boş fonksiyon - hiçbir işlem yapılmıyor
+}
+
+// Filter fonksiyonları
+const onKonaklamaTipiFilter = (val: string, update: (callback: () => void) => void) => {
+  if (val === '') {
+    update(() => {})
+    return
+  }
+  update(() => {
+    konaklamaTipleri.value = ['GÜNLÜK', 'HAFTALIK', 'AYLIK'].filter(
+      tip => tip.toLowerCase().includes(val.toLowerCase())
+    )
+  })
+}
+
+const onSatisKanaliFilter = (val: string, update: (callback: () => void) => void) => {
+  if (val === '') {
+    update(() => {
+      // Boş değer için orijinal listeyi geri yükle
+      satisKanallari.value = [...originalSatisKanallari.value]
+    })
+    return
+  }
+  update(() => {
+    // Filtrelenmiş sonuçları göster
+    satisKanallari.value = originalSatisKanallari.value.filter(
+      kanal => kanal.toLowerCase().includes(val.toLowerCase())
+    )
+  })
+}
+
+// Orijinal verileri saklamak için ref'ler
+const originalIslemGruplari = ref<string[]>([])
+const originalCariHesaplar = ref<string[]>([])
+
+const onIslemGrupFilter = (val: string, update: (callback: () => void) => void) => {
+  if (val === '') {
+    update(() => {
+      // Boş değer için orijinal listeyi geri yükle
+      islemGruplari.value = [...originalIslemGruplari.value]
+    })
+    return
+  }
+  update(() => {
+    // Filtrelenmiş sonuçları göster
+    islemGruplari.value = originalIslemGruplari.value.filter(
+      grup => grup.toLowerCase().includes(val.toLowerCase())
+    )
+  })
+}
+
+const onCariHesapFilter = (val: string, update: (callback: () => void) => void) => {
+  if (val === '') {
+    update(() => {
+      // Boş değer için orijinal listeyi geri yükle
+      cariHesaplar.value = [...originalCariHesaplar.value]
+    })
+    return
+  }
+  update(() => {
+    // Filtrelenmiş sonuçları göster
+    cariHesaplar.value = originalCariHesaplar.value.filter(
+      cari => cari.toLowerCase().includes(val.toLowerCase())
+    )
+  })
+}
+
+// İşlem grubu değişiklik kontrolü
+const onIslemGrupChange = (val: string) => {
+  // Seçilen değer geçerli listede yoksa temizle
+  if (val && !islemGruplari.value.includes(val)) {
+    selectedIslemDetay.value.islemGrup = ''
+  }
+}
+
+// Cari hesap değişiklik kontrolü
+const onCariHesapChange = (val: string) => {
+  // Seçilen değer geçerli listede yoksa temizle
+  if (val && !cariHesaplar.value.includes(val)) {
+    selectedIslemDetay.value.islemAltG = ''
+  }
+}
+
+// Combo box verilerini yükle
+const loadComboBoxData = async () => {
+  try {
+    // İşlem grupları - tblislem tablosundan distinct listesi
+    const islemGruplariResponse = await api.get('/islem/islem-gruplari')
+    if (islemGruplariResponse.data.success) {
+      islemGruplari.value = islemGruplariResponse.data.data
+      originalIslemGruplari.value = [...islemGruplariResponse.data.data]
+    } else {
+      // Fallback olarak varsayılan değerler
+      islemGruplari.value = ['Konaklama', 'Ek Hizmet']
+      originalIslemGruplari.value = ['Konaklama', 'Ek Hizmet']
+    }
+    
+    // Cari hesaplar
+    const cariHesaplarResponse = await api.get('/islem/cari-hesaplar')
+    if (cariHesaplarResponse.data.success) {
+      cariHesaplar.value = cariHesaplarResponse.data.data
+      originalCariHesaplar.value = [...cariHesaplarResponse.data.data]
+    }
+    
+    // Satış kanalları (musteri-islem sayfasındaki ile aynı)
+    satisKanallari.value = ['AGODA', 'AIRBNB', 'BOOKING', 'DIRECT PLUS', 'EXPEDIA', 'HOTEL COLLECT', 'HOTEL RUNNER', 'KAPIDAN', 'ONLINE']
+    originalSatisKanallari.value = [...satisKanallari.value]
+  } catch (error) {
+    console.error('❌ Combo box verileri yükleme hatası:', error)
+    // Hata durumunda varsayılan değerler
+    islemGruplari.value = ['Konaklama', 'Ek Hizmet']
+    originalIslemGruplari.value = ['Konaklama', 'Ek Hizmet']
+  }
+}
 
 // Kasa devir pagination ayarları
 const kasaDevirPagination = ref({
@@ -632,8 +1497,8 @@ const onDetailRequest = (props: any) => {
     const descending = props.pagination.descending
     
     // Verileri sırala
-    allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
-      const sortKey = sortBy as keyof DetailTableRow
+    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
+      const sortKey = sortBy as keyof IslemDetay
       const aRaw = a[sortKey]
       const bRaw = b[sortKey]
       let aValue: string | number = aRaw !== undefined ? aRaw : (sortBy === 'islemTutar' || sortBy === 'islemNo' ? 0 : '')
@@ -687,6 +1552,782 @@ const updateDetailTableData = () => {
   const endIndex = startIndex + detailPagination.value.rowsPerPage
   detailTableData.value = allDetailTableData.value.slice(startIndex, endIndex)
   debugLog('🔍 Detay tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allDetailTableData.value.length)
+}
+
+// Detay tablo satırına çift tık event handler
+const onDetailRowDblClick = async (evt: Event, row: IslemDetay) => {
+  console.log('🔍 Detay satırına çift tıklandı:', row)
+  
+  try {
+    // Önce tblislemRST tablosunda islemNo kontrolü yap
+    const rstCheckResponse = await api.get(`/islem/islem-rst-kontrol/${row.islemNo}`)
+    
+    if (rstCheckResponse.data.success) {
+      const existsInRST = rstCheckResponse.data.exists
+      
+      if (!existsInRST) {
+        // İşlem RST tablosunda bulunamadı - önce aktarım yap
+        console.log('📤 İşlem RST tablosuna aktarılıyor...')
+        const aktarimResponse = await api.post('/islem/islem-rst-aktar', {
+          islemNo: row.islemNo
+        })
+        
+        if (aktarimResponse.data.success) {
+          console.log('✅ İşlem RST tablosuna başarıyla aktarıldı')
+          
+          // tblislem tablosundan veriyi getir
+          const response = await api.get(`/islem/detay/${row.islemNo}`)
+          
+          if (response.data.success) {
+            // Önce orijinal veriyi kaynak işlem detayına kopyala (değişiklik kontrolü için)
+            kaynakIslemDetay.value = { ...response.data.data }
+            console.log('✅ Orijinal veri kaynak işlem detayına kopyalandı:', kaynakIslemDetay.value)
+            
+            // Sonra form için veriyi ayarla
+            selectedIslemDetay.value = response.data.data
+            
+            // Orijinal değerleri sakla
+            originalIslemArac.value = response.data.data.islemArac
+            originalIslemTip.value = response.data.data.islemTip
+            
+            // Sağdaki readonly container'ları gizle
+            showKaynakIslemContainer.value = false
+            
+            showIslemDetayDialog.value = true
+    } else {
+      Notify.create({
+        type: 'negative',
+        message: 'İşlem detayı getirilemedi',
+              position: 'top'
+            })
+          }
+        } else {
+          Notify.create({
+            type: 'negative',
+            message: 'İşlem RST tablosuna aktarılamadı',
+            position: 'top'
+          })
+        }
+      } else {
+        // İşlem RST tablosunda mevcut - direkt aç
+        console.log('✅ İşlem RST tablosunda mevcut, direkt açılıyor...')
+        
+        // tblislem tablosundan veriyi getir
+        const response = await api.get(`/islem/detay/${row.islemNo}`)
+        
+        if (response.data.success) {
+          selectedIslemDetay.value = response.data.data
+          
+          // Orijinal değerleri sakla
+          originalIslemArac.value = response.data.data.islemArac
+          originalIslemTip.value = response.data.data.islemTip
+          
+          // tblislemRST tablosundan kaynak işlem bilgilerini getir
+          const rstResponse = await api.get(`/islem/islem-rst-detay/${row.islemNo}`)
+          
+          if (rstResponse.data.success) {
+            // Kaynak işlem bilgilerini doldur
+            kaynakIslemDetay.value = rstResponse.data.data
+            console.log('✅ Kaynak işlem bilgileri dolduruldu:', kaynakIslemDetay.value)
+          } else {
+            console.warn('⚠️ Kaynak işlem bilgileri getirilemedi, boş bırakılıyor')
+            // Kaynak işlem bilgilerini temizle
+            kaynakIslemDetay.value = {
+              islemNo: 0,
+              iKytTarihi: '',
+              islemKllnc: '',
+              islemOzel1: '',
+              islemOzel2: '',
+              islemOzel3: '',
+              islemOzel4: '',
+              islemBirim: '',
+              islemDoviz: '',
+              islemKur: 0,
+              islemBilgi: '',
+              islemCrKod: '',
+              islemArac: '',
+              islemTip: '',
+              islemGrup: '',
+              islemAltG: '',
+              islemMiktar: 0,
+              islemTutar: 0
+            }
+          }
+          
+          // Sağdaki readonly container'ları göster
+          showKaynakIslemContainer.value = true
+          
+          showIslemDetayDialog.value = true
+        } else {
+          Notify.create({
+            type: 'negative',
+            message: 'İşlem detayı getirilemedi',
+            position: 'top'
+          })
+        }
+      }
+    } else {
+      Notify.create({
+        type: 'negative',
+        message: 'İşlem RST kontrolü yapılamadı',
+        position: 'top'
+      })
+    }
+  } catch (error) {
+    console.error('❌ İşlem detayı getirme hatası:', error)
+    Notify.create({
+      type: 'negative',
+      message: 'İşlem detayı getirilemedi',
+      position: 'top'
+    })
+  }
+}
+
+// Kaydet butonu event handler
+const onKaydet = async () => {
+  console.log('🔍 Kaydet butonu tıklandı:', selectedIslemDetay.value)
+  console.log('🔍 Form ref mevcut mu:', !!islemDetayFormRef.value)
+  console.log('🔍 selectedIslemDetay değeri:', selectedIslemDetay.value)
+
+  if (!islemDetayFormRef.value) {
+    console.error('❌ Form ref bulunamadı')
+    return
+  }
+
+  if (!selectedIslemDetay.value) {
+    console.error('❌ Seçili işlem detayı bulunamadı')
+    return
+  }
+
+  try {
+    // Form validasyonu
+    const isValid = await islemDetayFormRef.value.validate()
+    if (!isValid) {
+      console.log('❌ Form validasyonu başarısız')
+      return
+    }
+
+    console.log('✅ Form validasyonu başarılı, değişiklik kontrolü yapılıyor...')
+
+    // Değişiklik kontrolü yap
+    console.log('🔍 Değişiklik kontrolü çağrılıyor...')
+    const hasChanges = checkForChanges()
+    console.log('🔍 Değişiklik kontrolü sonucu:', hasChanges)
+    
+    if (!hasChanges) {
+      console.log('ℹ️ Hiçbir değişiklik yapılmamış, sadece tblislemRST kaydı silinecek')
+      
+      // tblislemRST tablosundan ilgili kaydı sil
+      try {
+        const deleteResponse = await api.delete(`/islem/islem-rst-sil/${selectedIslemDetay.value.islemNo}`)
+        
+        if (deleteResponse.data.success) {
+          console.log('✅ tblislemRST kaydı başarıyla silindi')
+          
+          // Modal'ı kapat
+          showIslemDetayDialog.value = false
+          
+          // Tabloyu yenile
+          await refreshData()
+          
+          // Bilgilendirme mesajı göster
+          $q.notify({
+            type: 'info',
+            message: 'Herhangi bir değişiklik yapmadınız. Kaynak işlem bilgileri temizlendi.',
+            position: 'top'
+          })
+        } else {
+          console.warn('⚠️ tblislemRST kaydı silinemedi:', deleteResponse.data.message)
+          $q.notify({
+            type: 'warning',
+            message: 'Kaynak işlem bilgileri temizlenemedi',
+            position: 'top'
+          })
+        }
+      } catch (deleteError) {
+        console.error('❌ tblislemRST silme hatası:', deleteError)
+        $q.notify({
+      type: 'negative',
+          message: 'Kaynak işlem bilgileri temizlenirken hata oluştu',
+      position: 'top'
+    })
+      }
+    return
+  }
+  
+    console.log('✅ Değişiklik tespit edildi, güncelleme işlemi başlıyor...')
+
+    // Aktif kullanıcı bilgisini al
+    const username = localStorage.getItem('username') || 'Bilinmeyen Kullanıcı'
+    console.log('👤 Aktif kullanıcı:', username)
+
+    // Güncellenecek verileri hazırla
+    const updateData = {
+      iKytTarihi: selectedIslemDetay.value.iKytTarihi,
+      islemKllnc: username,
+      islemOzel1: selectedIslemDetay.value.islemOzel1,
+      islemOzel2: selectedIslemDetay.value.islemOzel2,
+      islemOzel3: selectedIslemDetay.value.islemOzel3,
+      islemOzel4: selectedIslemDetay.value.islemOzel4,
+      islemBirim: selectedIslemDetay.value.islemBirim,
+      islemDoviz: selectedIslemDetay.value.islemDoviz,
+      islemKur: selectedIslemDetay.value.islemKur,
+      islemBilgi: selectedIslemDetay.value.islemBilgi,
+      islemCrKod: selectedIslemDetay.value.islemCrKod,
+      islemArac: selectedIslemDetay.value.islemArac,
+      islemTip: selectedIslemDetay.value.islemTip,
+      islemGrup: selectedIslemDetay.value.islemGrup,
+      islemAltG: selectedIslemDetay.value.islemAltG,
+      islemMiktar: selectedIslemDetay.value.islemMiktar,
+      islemTutar: selectedIslemDetay.value.islemTutar
+    }
+
+    console.log('📤 Güncellenecek veriler:', updateData)
+
+    // Backend'e güncelleme isteği gönder
+    const response = await api.put(`/islem/guncelle/${selectedIslemDetay.value.islemNo}`, updateData)
+    
+    console.log('✅ Backend yanıtı:', response.data)
+
+    if (response.data.success) {
+      // Başarılı güncelleme sonrası işlemler
+      console.log('✅ İşlem başarıyla güncellendi')
+      
+      // Modal'ı kapat
+      showIslemDetayDialog.value = false
+      
+      // Tabloyu yenile
+      await refreshData()
+      
+      // Başarı mesajı göster
+      $q.notify({
+        type: 'positive',
+        message: 'İşlem başarıyla güncellendi!',
+        position: 'top'
+      })
+    } else {
+      console.error('❌ Backend güncelleme başarısız:', response.data.message)
+      $q.notify({
+      type: 'negative',
+        message: `Güncelleme başarısız: ${response.data.message}`,
+      position: 'top'
+    })
+    }
+
+  } catch (error: unknown) {
+    console.error('❌ Kaydetme hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+    $q.notify({
+      type: 'negative',
+      message: `Kaydetme hatası: ${errorMessage}`,
+      position: 'top'
+    })
+  }
+}
+
+// Sil butonu event handler
+const onDeleteIslem = async () => {
+  if (!selectedIslemDetay.value) {
+    console.error('❌ Seçili işlem detayı bulunamadı')
+    return
+  }
+  
+  try {
+    console.log('🗑️ Silme işlemi başlıyor... islemNo:', selectedIslemDetay.value.islemNo)
+
+    // Backend'e silme isteği gönder
+    const response = await api.delete(`/islem/sil/${selectedIslemDetay.value.islemNo}`)
+    
+    console.log('✅ Silme yanıtı:', response.data)
+
+    if (response.data.success) {
+      // Başarılı silme sonrası işlemler
+      console.log('✅ İşlem başarıyla arşivlendi ve silindi')
+      
+      // Modal'ı kapat
+      showIslemDetayDialog.value = false
+      
+      // Tabloyu yenile
+      await refreshData()
+      
+      // Başarı mesajı göster
+      $q.notify({
+    type: 'positive',
+        message: 'İşlem başarıyla arşivlendi ve silindi!',
+        position: 'top'
+      })
+    } else {
+      console.error('❌ Backend silme başarısız:', response.data.message)
+      $q.notify({
+      type: 'negative',
+        message: `Silme başarısız: ${response.data.message}`,
+    position: 'top'
+  })
+}
+
+  } catch (error: unknown) {
+    console.error('❌ Silme hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+          $q.notify({
+        type: 'negative',
+        message: `Silme hatası: ${errorMessage}`,
+        position: 'top'
+      })
+  }
+}
+
+// Reset butonu event handler
+const onReset = async () => {
+  if (!selectedIslemDetay.value) {
+    console.error('❌ Seçili işlem detayı bulunamadı')
+    return
+  }
+  
+  try {
+    console.log('🔄 Reset işlemi başlıyor... islemNo:', selectedIslemDetay.value.islemNo)
+
+    // Backend'e reset isteği gönder
+    const response = await api.post('/islem/islem-rst-reset', {
+      islemNo: selectedIslemDetay.value.islemNo
+    })
+    
+    console.log('✅ Reset yanıtı:', response.data)
+
+    if (response.data.success) {
+      // Başarılı reset sonrası işlemler
+      console.log('✅ İşlem başarıyla reset edildi')
+      
+      // tblislemRST tablosundan ilgili kaydı sil
+      try {
+        console.log('🗑️ tblislemRST tablosundan kayıt siliniyor...')
+        const deleteResponse = await api.delete(`/islem/islem-rst-sil/${selectedIslemDetay.value.islemNo}`)
+        
+        if (deleteResponse.data.success) {
+          console.log('✅ İşlem RST tablosundan başarıyla silindi')
+        } else {
+          console.warn('⚠️ İşlem RST tablosundan silinemedi:', deleteResponse.data.message)
+        }
+      } catch (deleteError) {
+        console.error('❌ İşlem RST silme hatası:', deleteError)
+      }
+      
+      // Modal'ı kapat
+      showIslemDetayDialog.value = false
+      
+      // Tabloyu yenile
+      await refreshData()
+      
+      // Başarı mesajı göster
+      $q.notify({
+    type: 'positive',
+        message: 'İşlem Kaydı Bilgileri Orijinal Verilerle RESETlenmiştir!',
+        position: 'top'
+      })
+    } else {
+      console.error('❌ Backend reset başarısız:', response.data.message)
+      $q.notify({
+        type: 'negative',
+        message: `Reset başarısız: ${response.data.message}`,
+    position: 'top'
+  })
+}
+
+  } catch (error: unknown) {
+    console.error('❌ Reset hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+    $q.notify({
+      type: 'negative',
+      message: `Reset hatası: ${errorMessage}`,
+      position: 'top'
+    })
+  }
+}
+
+// Arşiv butonu event handler
+const onArchiveForm = async () => {
+  try {
+    // ARŞİV butonuna basıldığında, tblislemRST tablosunda islemNo = Kayıt No olan kaydı sil
+    if (selectedIslemDetay.value?.islemNo) {
+      try {
+        console.log('🗑️ tblislemRST kaydı siliniyor, islemNo:', selectedIslemDetay.value.islemNo)
+        const deleteResponse = await api.delete(`/islem/islem-rst-sil/${selectedIslemDetay.value.islemNo}`)
+        
+        if (deleteResponse.data.success) {
+          console.log('✅ tblislemRST kaydı başarıyla silindi')
+        } else {
+          console.warn('⚠️ tblislemRST kaydı silinemedi:', deleteResponse.data.message)
+        }
+      } catch (deleteError) {
+        console.warn('⚠️ tblislemRST kaydı silinirken hata oluştu:', deleteError)
+        // Bu hata arşiv işlemini durdurmaz, sadece log'lanır
+      }
+    }
+
+    if (!isArchiveMode.value) {
+      // Arşiv modunu aktifleştir
+      console.log('🔍 Arşiv modu aktifleştiriliyor...')
+      
+      // En büyük islemNo'ya sahip arşiv kaydını getir
+      const response = await api.get('/islem/islem-arv-en-buyuk')
+      
+      if (response.data.success && response.data.sonuc) {
+        console.log('✅ En büyük arşiv kaydı getirildi:', response.data.sonuc)
+        
+        // Arşiv modunu aktifleştir
+        isArchiveMode.value = true
+        currentArchiveRecord.value = response.data.sonuc
+        archiveRecords.value = [response.data.sonuc]
+        archiveNavigationIndex.value = 0
+        
+        // Sağdaki container'ları gizle (arşiv modunda sadece arşiv verileri görünsün)
+        showKaynakIslemContainer.value = false
+        
+        // Form alanlarını readonly yap ve arşiv verisiyle doldur
+        populateFormWithArchiveData(response.data.sonuc)
+        
+        // KAYDET ve SİL butonlarını pasif yap
+        // (Bu butonlar template'te :disabled ile kontrol edilecek)
+        
+        console.log('✅ Arşiv modu aktifleştirildi, sağdaki container\'lar gizlendi')
+      } else {
+        console.warn('⚠️ Arşiv kaydı bulunamadı')
+        $q.notify({
+          type: 'warning',
+          message: 'Arşiv kaydı bulunamadı',
+          position: 'top'
+        })
+      }
+    } else {
+      // Arşiv modundan çık
+      console.log('🔍 Arşiv modundan çıkılıyor...')
+      
+      // Mevcut arşiv kaydını tblislem tablosuna geri yükle
+      if (currentArchiveRecord.value) {
+        const response = await api.post('/islem/islem-arv-geri-yukle', {
+          islemNo: currentArchiveRecord.value.islemNo
+        })
+        
+        if (response.data.success) {
+          console.log('✅ Arşiv kaydı başarıyla geri yüklendi')
+          
+          // Modal'ı kapat
+          showIslemDetayDialog.value = false
+          
+          // Tabloyu yenile
+          await refreshData()
+          
+          // Başarı mesajı göster
+          $q.notify({
+            type: 'positive',
+            message: 'Arşiv kaydı başarıyla geri yüklendi!',
+            position: 'top'
+          })
+        } else {
+          console.error('❌ Arşiv kaydı geri yüklenemedi:', response.data.message)
+          $q.notify({
+            type: 'negative',
+            message: `Geri yükleme başarısız: ${response.data.message}`,
+            position: 'top'
+          })
+        }
+      }
+      
+      // Arşiv modunu deaktifleştir
+      isArchiveMode.value = false
+      currentArchiveRecord.value = null
+      archiveRecords.value = []
+      archiveNavigationIndex.value = 0
+      
+      // Form alanlarını normal haline getir
+      restoreFormToNormal()
+    }
+  } catch (error) {
+    console.error('❌ Arşiv işlemi hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+    $q.notify({
+      type: 'negative',
+      message: `Arşiv işlemi hatası: ${errorMessage}`,
+      position: 'top'
+    })
+  }
+}
+
+// Değerleri normalize eden yardımcı fonksiyon
+const normalizeValue = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return value.toString()
+  return String(value)
+}
+
+// Değişiklik kontrolü yapan fonksiyon
+const checkForChanges = (): boolean => {
+  console.log('🔍 Değişiklik kontrolü başlatılıyor...')
+  console.log('🔍 selectedIslemDetay:', selectedIslemDetay.value)
+  console.log('🔍 kaynakIslemDetay:', kaynakIslemDetay.value)
+  
+  if (!selectedIslemDetay.value || !kaynakIslemDetay.value) {
+    console.log('ℹ️ Karşılaştırılacak veri bulunamadı')
+    console.log('ℹ️ selectedIslemDetay mevcut mu:', !!selectedIslemDetay.value)
+    console.log('ℹ️ kaynakIslemDetay mevcut mu:', !!kaynakIslemDetay.value)
+    return false
+  }
+
+  // Karşılaştırılacak alanlar
+  const fieldsToCompare = [
+    'iKytTarihi', 'islemOzel1', 'islemOzel2', 'islemOzel3', 'islemOzel4',
+    'islemBirim', 'islemDoviz', 'islemKur', 'islemBilgi', 'islemCrKod',
+    'islemArac', 'islemTip', 'islemGrup', 'islemAltG', 'islemMiktar', 'islemTutar'
+  ]
+
+  console.log('🔍 Karşılaştırılacak alanlar:', fieldsToCompare)
+
+  for (const field of fieldsToCompare) {
+    const currentValue = selectedIslemDetay.value[field as keyof IslemDetay]
+    const originalValue = kaynakIslemDetay.value[field as keyof IslemDetay]
+    
+    // normalizeValue fonksiyonunu kullanarak karşılaştır
+    const normalizedCurrent = normalizeValue(currentValue)
+    const normalizedOriginal = normalizeValue(originalValue)
+    
+    console.log(`🔍 Alan: ${field}`, {
+      current: currentValue,
+      original: originalValue,
+      normalizedCurrent,
+      normalizedOriginal,
+      isEqual: normalizedCurrent === normalizedOriginal
+    })
+    
+    if (normalizedCurrent !== normalizedOriginal) {
+      console.log(`🔍 Değişiklik tespit edildi: ${field}`, {
+        current: normalizedCurrent,
+        original: normalizedOriginal
+      })
+      return true
+    }
+  }
+
+  console.log('ℹ️ Hiçbir değişiklik tespit edilmedi')
+  return false
+}
+
+// Arşiv verisiyle form alanlarını doldur
+const populateFormWithArchiveData = (archiveData: IslemDetay) => {
+  console.log('🔍 Form alanları arşiv verisiyle dolduruluyor:', archiveData)
+  
+  // Form alanlarını arşiv verisiyle doldur
+  if (selectedIslemDetay.value) {
+    selectedIslemDetay.value.islemNo = archiveData.islemNo
+    selectedIslemDetay.value.iKytTarihi = archiveData.iKytTarihi
+    selectedIslemDetay.value.islemKllnc = archiveData.islemKllnc
+    selectedIslemDetay.value.islemOzel1 = archiveData.islemOzel1
+    selectedIslemDetay.value.islemOzel2 = archiveData.islemOzel2
+    selectedIslemDetay.value.islemOzel3 = archiveData.islemOzel3
+    selectedIslemDetay.value.islemOzel4 = archiveData.islemOzel4
+    selectedIslemDetay.value.islemBirim = archiveData.islemBirim
+    selectedIslemDetay.value.islemDoviz = archiveData.islemDoviz
+    selectedIslemDetay.value.islemKur = archiveData.islemKur
+    selectedIslemDetay.value.islemBilgi = archiveData.islemBilgi
+    selectedIslemDetay.value.islemCrKod = archiveData.islemCrKod
+    selectedIslemDetay.value.islemArac = archiveData.islemArac
+    selectedIslemDetay.value.islemTip = archiveData.islemTip
+    selectedIslemDetay.value.islemGrup = archiveData.islemGrup
+    selectedIslemDetay.value.islemAltG = archiveData.islemAltG
+    selectedIslemDetay.value.islemMiktar = archiveData.islemMiktar
+    selectedIslemDetay.value.islemTutar = archiveData.islemTutar
+  }
+}
+
+// Form alanlarını normal haline getir
+const restoreFormToNormal = () => {
+  console.log('🔍 Form alanları normal haline getiriliyor')
+  
+  // Sağdaki container'ların görünürlüğünü eski haline getir
+  // Eğer orijinal veri varsa (kaynak işlem bilgileri) container'ları göster
+  if (kaynakIslemDetay.value && kaynakIslemDetay.value.islemNo) {
+    showKaynakIslemContainer.value = true
+    console.log('✅ Sağdaki container\'lar tekrar görünür yapıldı')
+  } else {
+    showKaynakIslemContainer.value = false
+    console.log('ℹ️ Sağdaki container\'lar gizli kalacak (orijinal veri yok)')
+  }
+  
+  // Form alanlarını temizle (orijinal veri varsa onu kullan)
+  if (selectedIslemDetay.value) {
+    // Orijinal veri varsa onu kullan, yoksa temizle
+    if (kaynakIslemDetay.value && kaynakIslemDetay.value.islemNo) {
+      // Orijinal veriyi geri yükle
+      selectedIslemDetay.value.islemNo = kaynakIslemDetay.value.islemNo
+      selectedIslemDetay.value.iKytTarihi = kaynakIslemDetay.value.iKytTarihi
+      selectedIslemDetay.value.islemKllnc = kaynakIslemDetay.value.islemKllnc
+      selectedIslemDetay.value.islemOzel1 = kaynakIslemDetay.value.islemOzel1
+      selectedIslemDetay.value.islemOzel2 = kaynakIslemDetay.value.islemOzel2
+      selectedIslemDetay.value.islemOzel3 = kaynakIslemDetay.value.islemOzel3
+      selectedIslemDetay.value.islemOzel4 = kaynakIslemDetay.value.islemOzel4
+      selectedIslemDetay.value.islemBirim = kaynakIslemDetay.value.islemBirim
+      selectedIslemDetay.value.islemDoviz = kaynakIslemDetay.value.islemDoviz
+      selectedIslemDetay.value.islemKur = kaynakIslemDetay.value.islemKur
+      selectedIslemDetay.value.islemBilgi = kaynakIslemDetay.value.islemBilgi
+      selectedIslemDetay.value.islemCrKod = kaynakIslemDetay.value.islemCrKod
+      selectedIslemDetay.value.islemArac = kaynakIslemDetay.value.islemArac
+      selectedIslemDetay.value.islemTip = kaynakIslemDetay.value.islemTip
+      selectedIslemDetay.value.islemGrup = kaynakIslemDetay.value.islemGrup
+      selectedIslemDetay.value.islemAltG = kaynakIslemDetay.value.islemAltG
+      selectedIslemDetay.value.islemMiktar = kaynakIslemDetay.value.islemMiktar
+      selectedIslemDetay.value.islemTutar = kaynakIslemDetay.value.islemTutar
+    } else {
+      // Orijinal veri yoksa temizle
+      selectedIslemDetay.value.islemNo = 0
+      selectedIslemDetay.value.iKytTarihi = ''
+      selectedIslemDetay.value.islemKllnc = ''
+      selectedIslemDetay.value.islemOzel1 = ''
+      selectedIslemDetay.value.islemOzel2 = ''
+      selectedIslemDetay.value.islemOzel3 = ''
+      selectedIslemDetay.value.islemOzel4 = ''
+      selectedIslemDetay.value.islemBirim = ''
+      selectedIslemDetay.value.islemDoviz = ''
+      selectedIslemDetay.value.islemKur = 0
+      selectedIslemDetay.value.islemBilgi = ''
+      selectedIslemDetay.value.islemCrKod = ''
+      selectedIslemDetay.value.islemArac = ''
+      selectedIslemDetay.value.islemTip = ''
+      selectedIslemDetay.value.islemGrup = ''
+      selectedIslemDetay.value.islemAltG = ''
+      selectedIslemDetay.value.islemMiktar = 0
+      selectedIslemDetay.value.islemTutar = 0
+    }
+  }
+}
+
+// Arşiv kayıtları arasında ileri git
+const goToNextArchiveRecord = async () => {
+  try {
+    if (!currentArchiveRecord.value) return
+    
+    console.log('🔍 Sonraki arşiv kaydına gidiliyor...')
+    
+    const response = await api.get(`/islem/islem-arv-sonraki/${currentArchiveRecord.value.islemNo}`)
+    
+    if (response.data.success && response.data.sonuc) {
+      console.log('✅ Sonraki arşiv kaydı getirildi:', response.data.sonuc)
+      
+      currentArchiveRecord.value = response.data.sonuc
+      archiveRecords.value.push(response.data.sonuc)
+      archiveNavigationIndex.value++
+      
+      // Form alanlarını yeni arşiv verisiyle doldur
+      populateFormWithArchiveData(response.data.sonuc)
+    } else {
+      console.log('ℹ️ Sonraki arşiv kaydı bulunamadı')
+      $q.notify({
+        type: 'info',
+        message: 'Sonraki arşiv kaydı bulunamadı',
+        position: 'top'
+      })
+    }
+  } catch (error) {
+    console.error('❌ Sonraki arşiv kaydına gitme hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+    $q.notify({
+      type: 'negative',
+      message: `Sonraki kayda gitme hatası: ${errorMessage}`,
+      position: 'top'
+    })
+  }
+}
+
+// Arşiv kayıtları arasında geri git
+const goToPreviousArchiveRecord = () => {
+  try {
+    if (archiveNavigationIndex.value <= 0) {
+      console.log('ℹ️ Geri gidilecek kayıt bulunamadı')
+      $q.notify({
+        type: 'info',
+        message: 'Geri gidilecek kayıt bulunamadı',
+        position: 'top'
+      })
+      return
+    }
+    
+    console.log('🔍 Önceki arşiv kaydına gidiliyor...')
+    
+    archiveNavigationIndex.value--
+    currentArchiveRecord.value = archiveRecords.value[archiveNavigationIndex.value]
+    
+    // Form alanlarını önceki arşiv verisiyle doldur
+    populateFormWithArchiveData(currentArchiveRecord.value)
+    
+    console.log('✅ Önceki arşiv kaydına gidildi:', currentArchiveRecord.value)
+  } catch (error) {
+    console.error('❌ Önceki arşiv kaydına gitme hatası:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
+    
+    $q.notify({
+      type: 'negative',
+      message: `Önceki kayda gitme hatası: ${errorMessage}`,
+      position: 'top'
+    })
+  }
+}
+
+// Form'u kapat
+const closeBothForms = async () => {
+  try {
+    // Eğer sağdaki container'lar gizliyse (yeni eklenen kayıt) ve VAZGEÇ ile kapatılıyorsa
+    // tblislemRST tablosundan kaydı sil
+    if (!showKaynakIslemContainer.value && selectedIslemDetay.value?.islemNo) {
+      console.log('🗑️ Yeni eklenen kayıt VAZGEÇ ile kapatılıyor, tblislemRST tablosundan siliniyor...')
+      
+      const response = await api.delete(`/islem/islem-rst-sil/${selectedIslemDetay.value.islemNo}`)
+      
+      if (response.data.success) {
+        console.log('✅ İşlem RST tablosundan başarıyla silindi')
+      } else {
+        console.warn('⚠️ İşlem RST tablosundan silinemedi:', response.data.message)
+      }
+    } else {
+      console.log('ℹ️ Mevcut kayıt kapatılıyor veya sağ container görünür, silme işlemi yapılmıyor')
+    }
+  } catch (error) {
+    console.error('❌ Form kapatma hatası:', error)
+  } finally {
+    // Arşiv modunu sıfırla
+    if (isArchiveMode.value) {
+      isArchiveMode.value = false
+      currentArchiveRecord.value = null
+      archiveRecords.value = []
+      archiveNavigationIndex.value = 0
+      restoreFormToNormal()
+    }
+    
+    // Her durumda formu kapat
+    showIslemDetayDialog.value = false
+  }
+}
+
+// Date picker'dan tarih seçildiğinde popup'ı otomatik kapat
+const onDateSelected = (date: string) => {
+  console.log('🔍 Tarih seçildi:', date);
+  
+  // Eğer seçilen tarih mevcut tarihle aynıysa, sadece popup'ı kapat
+  if (date === selectedIslemDetay.value.iKytTarihi) {
+    console.log('🔍 Aynı tarih seçildi, sadece popup kapatılıyor');
+    if (datePickerPopup.value) {
+      datePickerPopup.value.hide();
+    }
+    return;
+  }
+  
+  // Farklı tarih seçildiyse, değeri güncelle ve popup'ı kapat
+  selectedIslemDetay.value.iKytTarihi = date;
+  if (datePickerPopup.value) {
+    datePickerPopup.value.hide();
+  }
 }
 
 
@@ -783,9 +2424,6 @@ const onIslemTuruChange = (_value: string) => {
     detailPagination.value.rowsNumber = 0
   }
 }
-
-
-
 // Detay tablo verilerini yükle
 const loadDetailTableData = async (tarih: string) => {
   if (!tarih) return
@@ -820,7 +2458,7 @@ const loadDetailTableData = async (tarih: string) => {
        allDetailTableData.value = result.data || []
        
        // Verileri islemNo'ya göre azalan sırala (fallback: islemTutar)
-       allDetailTableData.value.sort((a: DetailTableRow, b: DetailTableRow) => {
+       allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
          const aNo = a.islemNo ?? 0
          const bNo = b.islemNo ?? 0
          if (aNo !== 0 || bNo !== 0) {
@@ -1260,6 +2898,9 @@ onMounted(async () => {
   // Kasa devir verilerini otomatik olarak yükle
   await loadKasaDevirVerileri()
   
+  // Combo box verilerini yükle
+  await loadComboBoxData()
+  
   // İlk tarih seçili olsun ve detay tablo sorgulansın
   if (tableData.value.length > 0) {
     const ilkTarih = tableData.value[0].tarih
@@ -1290,6 +2931,66 @@ watch(selectedIslemYonu, () => {
   // İşlem yönü değiştiğinde bakiye hesaplaması yap
   void recomputeCurrentBakiyeForSelection()
 })
+
+// İşlem detay modal açıldığında pozisyonu ortala
+watch(showIslemDetayDialog, (val) => {
+  if (val) {
+    // Modal açıldığında ortala
+    islemDetayModalPos.x = window.innerWidth / 2 - 200;
+    islemDetayModalPos.y = window.innerHeight / 2 - 300;
+  }
+})
+
+// Get field style based on field name - yellow background when data differs
+const getFieldStyle = (fieldName: string) => {
+  // Only apply styling when right containers are visible and not in archive mode
+  if (!showKaynakIslemContainer.value || isArchiveMode.value) {
+    return {}
+  }
+
+  // Get the corresponding field value from the left container using type assertion
+  const leftValue = selectedIslemDetay.value?.[fieldName as keyof IslemDetay]
+  const rightValue = kaynakIslemDetay.value?.[fieldName as keyof IslemDetay]
+
+  const normalizedLeft = normalizeValue(leftValue)
+  const normalizedRight = normalizeValue(rightValue)
+
+  // Debug logging for Kayıt Tarihi field
+  if (fieldName === 'iKytTarihi') {
+    console.log('🔍 Kayıt Tarihi karşılaştırması:', {
+      fieldName,
+      leftValue,
+      rightValue,
+      normalizedLeft,
+      normalizedRight,
+      areEqual: normalizedLeft === normalizedRight,
+      leftType: typeof leftValue,
+      rightType: typeof rightValue
+    })
+  }
+
+  // Debug logging for all fields when they differ
+  if (normalizedLeft !== normalizedRight) {
+    console.log(`🔍 Field ${fieldName} differs:`, {
+      leftValue,
+      rightValue,
+      normalizedLeft,
+      normalizedRight
+    })
+  }
+
+  // Compare normalized values and return yellow background with black text if they differ
+  if (normalizedLeft !== normalizedRight) {
+    const style = {
+      'background-color': '#fff3cd', // Light yellow background
+      'color': '#000000', // Black font color
+      'font-weight': '500' // Make text more readable
+    }
+    console.log(`🎨 Applied style for ${fieldName}:`, style)
+    return { style, class: 'yellow-background-field' }
+  }
+  return { style: {}, class: '' }
+}
 </script>
 
 <style scoped>
@@ -1542,8 +3243,6 @@ watch(selectedIslemYonu, () => {
 .body--dark .selected-row:hover {
   background-color: rgba(25, 118, 210, 0.3) !important;
 }
-
-
 
 .main-card {
   background: rgba(255, 255, 255, 0.95);
@@ -1826,9 +3525,413 @@ watch(selectedIslemYonu, () => {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.body--dark .text-grey-6 {
+ .body--dark .text-grey-6 {
+   color: #b0b0b0 !important;
+ }
+
+/* Form modal dark mode stilleri */
+.body--dark .form-label {
+  color: #e0e0e0 !important;
+}
+
+.body--dark .form-input .q-field__native {
+  color: #ffffff !important;
+  background-color: rgba(50, 50, 50, 0.8) !important;
+}
+
+.body--dark .form-input .q-field__control {
+  background-color: rgba(50, 50, 50, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.body--dark .form-input .q-field__control:hover {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.body--dark .form-input .q-field__control--focused {
+  border-color: #42a5f5 !important;
+}
+
+/* Readonly textbox'lar için koyu gri zemin */
+.body--dark .form-input .q-field__control--readonly {
+  background-color: rgba(40, 40, 40, 0.9) !important;
   color: #b0b0b0 !important;
 }
+
+/* Readonly textbox'lar için koyu gri zemin - Daha güçlü CSS */
+.body--dark .form-input .q-field__control--readonly {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+  color: #b0b0b0 !important;
+}
+
+.body--dark .form-input .q-field__control--readonly .q-field__native {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+  color: #b0b0b0 !important;
+}
+
+/* bg-color="grey-2" için özel stil */
+.body--dark .form-input .q-field__control[data-bg-color="grey-2"] {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+.body--dark .form-input .q-field__control[data-bg-color="grey-2"] .q-field__native {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+/* Readonly attribute için özel stil */
+.body--dark .form-input .q-field__control[readonly] {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+.body--dark .form-input .q-field__control[readonly] .q-field__native {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+/* Tüm readonly alanlar için genel stil */
+.body--dark .q-field--readonly .q-field__control {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+.body--dark .q-field--readonly .q-field__native {
+  background-color: rgba(35, 35, 35, 0.95) !important;
+}
+
+  /* Draggable modal header stilleri */
+  .draggable-header {
+    cursor: move !important;
+    user-select: none !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid #e0e0e0 !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    transition: all 0.2s ease !important;
+    position: relative !important;
+  }
+
+  .draggable-header:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Dark mode için draggable header */
+  .body--dark .draggable-header {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%) !important;
+    border-bottom: 1px solid #4a5568 !important;
+  }
+
+  .body--dark .draggable-header:hover {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* Modal sürükleme sırasında görsel geri bildirim */
+  .q-dialog--dragging .q-card,
+  .modal-dragging {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Modal sürükleme sırasında header vurgusu */
+  .modal-dragging .draggable-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    color: white !important;
+  }
+
+  .body--dark .modal-dragging .draggable-header {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Modal'ın ekran sınırlarında kalması için */
+  .q-dialog {
+    overflow: visible !important;
+  }
+
+  .q-dialog .q-card {
+    position: relative !important;
+    z-index: 2000 !important;
+    cursor: default !important;
+  }
+
+  /* Modal'ın gezdirilebilir olması için ek kurallar */
+  .q-dialog--dragging {
+    cursor: default !important;
+  }
+
+  .q-dialog--dragging .q-card {
+    cursor: default !important;
+    user-select: none !important;
+  }
+
+  /* Draggable header için daha güçlü stil */
+  .draggable-header * {
+    pointer-events: auto !important;
+  }
+
+  .draggable-header .q-btn {
+    pointer-events: auto !important;
+  }
+
+  /* İşlem detay modal gezdirme stilleri */
+  .draggable-islem-detay-modal {
+    z-index: 9999;
+    user-select: none;
+    position: fixed;
+    overflow: visible;
+  }
+
+  .draggable-islem-detay-modal .q-card {
+    position: relative;
+    overflow: visible;
+    transform: none;
+    transition: none;
+  }
+
+  /* Header'daki Kayıt No alanı için özel stil */
+  .draggable-header .form-input {
+    pointer-events: auto !important;
+  }
+
+  .draggable-header .form-input .q-field__control {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(0, 123, 255, 0.3) !important;
+    padding: 4px 8px !important;
+  }
+
+  .draggable-header .form-input .q-field__native {
+    font-size: 12px !important;
+    padding: 2px 4px !important;
+  }
+
+  .body--dark .draggable-header .form-input .q-field__control {
+    background-color: rgba(50, 50, 50, 0.9) !important;
+    border-color: rgba(66, 165, 245, 0.3) !important;
+  }
+
+  /* Modal sürükleme sırasında görsel geri bildirim */
+  .draggable-islem-detay-modal .q-card.modal-dragging {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Modal sürükleme sırasında header vurgusu */
+  .draggable-islem-detay-modal .q-card.modal-dragging .draggable-islem-detay-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    color: white !important;
+  }
+
+  .body--dark .draggable-islem-detay-modal .q-card.modal-dragging .draggable-islem-detay-header {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Sürükleme sırasında form boyutlarının değişmemesi için */
+  .draggable-islem-detay-modal .q-card {
+    /* Genişlik artık dinamik olarak hesaplanıyor */
+    resize: none !important;
+    overflow: visible !important;
+  }
+
+  /* Sürükleme sırasında scrollbar'ların görünmemesi için */
+  .draggable-islem-detay-modal .q-card.modal-dragging {
+    overflow: hidden !important;
+  }
+
+  /* Header alanının tamamında sürükleme aktif */
+  .draggable-header {
+    cursor: grab !important;
+    user-select: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .draggable-header:hover {
+    cursor: move !important;
+  }
+
+  /* Header içindeki tüm elementler için pointer events */
+  .draggable-header * {
+    pointer-events: auto !important;
+  }
+
+  /* Header içindeki form elementlerinin etkileşimini koru */
+  .draggable-header .q-input,
+  .draggable-header .q-select {
+    pointer-events: auto !important;
+  }
+
+  /* Header içindeki elementlerin hizalama için */
+  .draggable-header .col-4 {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .draggable-header .col-4.text-center {
+    justify-content: center !important;
+  }
+
+  .draggable-header .col-4.text-right {
+    justify-content: flex-end !important;
+  }
+
+    /* Readonly field için özel stil */
+  .body--dark .readonly-field .q-field__control {
+    background-color: rgba(35, 35, 35, 0.95) !important;
+  }
+
+  .body--dark .readonly-field .q-field__native {
+    background-color: rgba(35, 35, 35, 0.95) !important;
+    color: #b0b0b0 !important;
+  }
+
+  .body--dark .readonly-field .q-field__control--readonly {
+    background-color: rgba(35, 35, 35, 0.95) !important;
+  }
+
+  /* Form düzeni için ek stiller */
+  .form-input {
+    transition: all 0.2s ease;
+  }
+
+  .form-input:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .form-label {
+    color: #2c3e50;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .body--dark .form-label {
+    color: #e2e8f0;
+  }
+
+  /* Form alanları için simetrik düzen */
+  .q-col-gutter-md > div {
+    margin-bottom: 2px;
+  }
+
+  /* Textarea alanı için özel stil */
+  .q-field--with-bottom {
+    margin-bottom: 2px;
+  }
+
+  /* Form alanları için daha iyi hizalama */
+  .q-input, .q-select {
+    border-radius: 16px;
+  }
+
+  /* Sayısal alanlar için özel stil */
+  .q-input[type="number"] {
+    text-align: right;
+  }
+
+  /* Form alanları arasında tutarlı boşluk */
+  .q-card-section .row > div {
+    margin-bottom: 2px;
+  }
+
+  /* Header alanındaki form elemanları için özel stil */
+  .draggable-header .q-input,
+  .draggable-header .q-select {
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  /* Header label ve input hizalaması için */
+  .draggable-header .text-subtitle2 {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .draggable-header .q-input {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Form alanları arası boşlukları azalt */
+  .q-col-gutter-sm > div {
+    margin-bottom: 2px;
+  }
+
+  .q-col-gutter-sm > div:last-child {
+    margin-bottom: 2px;
+  }
+
+  /* Form label'ları için daha iyi hizalama */
+  .form-label {
+    display: flex;
+    align-items: center;
+    height: 20px;
+    margin-bottom: 2px;
+  }
+
+  /* Buton alanı için ortalama */
+  .q-card-actions[align="center"] {
+    justify-content: center;
+    padding: 10px 20px;
+  }
+
+  .q-card-actions[align="center"] .q-btn {
+    margin: 0 8px;
+  }
+
+  .q-card-actions[align="center"] .q-btn:first-child {
+    margin-left: 0;
+  }
+
+  .q-card-actions[align="center"] .q-btn:last-child {
+    margin-right: 0;
+  }
+
+  /* Açıklama alanı font boyutu küçültme */
+  .description-field .q-field__control {
+    font-size: 10px;
+  }
+
+  /* Tutar alanı ortalanması */
+  .amount-field .q-field__control {
+    text-align: center;
+  }
+
+  /* Sil butonu X ikonu kontur çizimi */
+  .delete-btn .q-icon {
+    stroke: currentColor;
+    stroke-width: 2px;
+    fill: none;
+  }
+
+  /* Cari Hesap Adı combobox yüksekliği - İşlem Grubu ile eşit */
+  .cari-hesap-combo .q-field__control {
+    height: 40px;
+  }
+
+  /* İşlem Grubu combobox yüksekliği - Cari Hesap Adı ile eşit */
+  .islem-grup-combo .q-field__control {
+    height: 40px;
+  }
+
+  /* Form validasyon stilleri */
+  .q-field--error .q-field__control {
+    border-color: #c10015;
+  }
+
+  .q-field--error .q-field__label {
+    color: #c10015;
+  }
+
+  .q-field--error .q-field__messages {
+    color: #c10015;
+    font-size: 12px;
+    margin-top: 4px;
+  }
 
 /* Responsive tasarım */
 @media (max-width: 768px) {
@@ -1845,5 +3948,233 @@ watch(selectedIslemYonu, () => {
     max-width: 100%;
     padding: 10px;
   }
+
+  /* Mobil cihazlarda modal boyutları */
+  .q-dialog .q-card {
+    min-width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 10px !important;
+      cursor: default !important;
+  }
+
+  /* İşlem detay modal mobil boyutları */
+  .draggable-islem-detay-modal .q-card {
+    min-width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 10px !important;
+  }
+
+  .draggable-header {
+    padding: 8px 12px !important;
+  }
 }
+
+/* Tablet cihazlar için */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .q-dialog .q-card {
+    min-width: 80vw !important;
+    max-width: 80vw !important;
+  }
+
+  /* İşlem detay modal tablet boyutları */
+  .draggable-islem-detay-modal .q-card {
+    min-width: 70vw !important;
+    max-width: 70vw !important;
+  }
+}
+
+/* Modal'ın ekran dışına çıkmasını engelleme */
+.q-dialog {
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+}
+
+.q-dialog .q-card {
+  max-width: calc(100vw - 40px) !important;
+  max-height: calc(100vh - 40px) !important;
+}
+
+/* İşlem Detay Modal için özel genişlik kuralları */
+.draggable-islem-detay-modal .q-card {
+  /* Genişlik artık dinamik olarak hesaplanıyor, burada sadece temel stiller */
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+
+
+  /* Container stilleri */
+  .header-container {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .body--dark .header-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .middle-container {
+    background: rgba(248, 249, 250, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    margin: 0px 0;
+  }
+
+  .body--dark .middle-container {
+    background: rgba(45, 55, 72, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .bottom-container {
+    background: rgba(248, 249, 250, 0.2);
+    border-radius: 12px;
+    padding: 8px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    margin-top: 0px;
+  }
+
+  .body--dark .bottom-container {
+    background: rgba(45, 55, 72, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Container başlıkları için stil */
+  .header-container .text-subtitle2 {
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .body--dark .header-container .text-subtitle2 {
+    color: #e2e8f0;
+  }
+
+  /* Container içindeki butonlar için özel stil */
+  .bottom-container .q-card-actions {
+    margin: 4px 0;
+  }
+
+  .bottom-container .q-card-actions:first-child {
+    margin-top: 0;
+  }
+
+  .bottom-container .q-card-actions:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Yellow background field class - highest specificity */
+  .yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* Dark mode override for yellow background class - ULTRA HIGH SPECIFICITY */
+  .body--dark .yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .body--dark .yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .body--dark .yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* Additional specificity for yellow background fields */
+  .readonly-field.yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .readonly-field.yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .readonly-field.yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* ULTRA HIGH SPECIFICITY OVERRIDES FOR DARK MODE */
+  .body--dark .readonly-field.yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .body--dark .readonly-field.yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .body--dark .readonly-field.yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* Force override for any Quasar dark mode styles */
+  .body--dark .q-field.yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .body--dark .q-field.yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .body--dark .q-field.yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* Additional Quasar component overrides */
+  .body--dark .q-input.yellow-background-field .q-field__control {
+    background-color: #fff3cd !important;
+  }
+
+  .body--dark .q-input.yellow-background-field .q-field__native {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  .body--dark .q-input.yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+  }
+
+  /* ULTIMATE OVERRIDE - Target q-input directly */
+  .body--dark .q-input.yellow-background-field {
+    background-color: #fff3cd !important;
+  }
+
+  .body--dark .q-input.yellow-background-field .q-field__control,
+  .body--dark .q-input.yellow-background-field .q-field__native,
+  .body--dark .q-input.yellow-background-field .q-field__control--readonly {
+    background-color: #fff3cd !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+  }
+
+  /* Force override for any remaining Quasar styles */
+  .body--dark .yellow-background-field * {
+    color: #000000 !important;
+  }
+
+  .body--dark .yellow-background-field .q-field__native {
+    color: #000000 !important;
+  }
+
 </style> 
