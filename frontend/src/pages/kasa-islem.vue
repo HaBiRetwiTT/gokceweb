@@ -281,6 +281,7 @@
                       :server-side="true"
                       :hide-pagination="true"
                       :rows-per-page="15"
+                      :row-class="getStableRowClass"
                       @request="onDetailRequest"
                       @row-dblclick="onDetailRowDblClick"
                     >
@@ -306,6 +307,21 @@
                          {{ formatDate(props.value) }}
                        </q-td>
                      </template>
+
+                     <!-- İşlem No Sütunu -->
+                     <template v-slot:body-cell-islemNo="props">
+                       <q-td :props="props" class="text-weight-medium">
+                         <div class="row items-center no-wrap">
+                           <span v-if="rstIslemNoList.includes(props.row.islemNo)" 
+                                 class="rst-marker-icon q-mr-sm">
+                             ⚠️
+                           </span>
+                           {{ props.value }}
+                         </div>
+                       </q-td>
+                     </template>
+
+
 
                      <!-- Tutar Sütunu -->
                      <template v-slot:body-cell-islemTutar="props">
@@ -333,6 +349,21 @@
                        color="primary"
                        icon="chevron_right"
                        size="sm"
+                     />
+                   </div>
+                   
+                   <!-- Debug Info -->
+                   <div class="q-mt-sm text-center">
+                     <span class="q-ml-sm text-caption">
+                       tblislemRST'de bulunan kayıtlar: {{ rstIslemNoList.length }} adet
+                     </span>
+                     <q-btn 
+                       flat 
+                       dense 
+                       color="warning" 
+                       label="Test Marker" 
+                       @click="testMarkerHighlighting"
+                       class="q-ml-sm"
                      />
                    </div>
                  </div>
@@ -436,29 +467,33 @@
                  outlined 
                  dense 
                  class="form-input"
-                         :readonly="isArchiveMode"
-                         required
-                         :rules="[val => !!val || 'Kayıt tarihi zorunludur']"
-                       >
-                         <template v-slot:append>
-                           <q-icon name="event" class="cursor-pointer">
-                             <q-popup-proxy ref="datePickerPopup" cover transition-show="scale" transition-hide="scale">
-                               <q-date 
-                                 :model-value="selectedIslemDetay.iKytTarihi" 
-                                 mask="DD.MM.YYYY"
-                                 :locale="{
-                                   days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
-                                   daysShort: ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'],
-                                   months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
-                                   monthsShort: ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
-                                 }"
-                                 minimal
-                                 @update:model-value="onDateSelected"
-                               />
-                             </q-popup-proxy>
-                           </q-icon>
-                         </template>
-                       </q-input>
+                 readonly
+                 required
+                 :rules="[val => !!val || 'Kayıt tarihi zorunludur']"
+               >
+                 <template v-slot:append>
+                   <q-icon 
+                     name="event" 
+                     class="cursor-pointer"
+                     :class="{ 'text-grey-6': isArchiveMode }"
+                   >
+                     <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup">
+                       <q-date 
+                         v-model="selectedIslemDetay.iKytTarihi" 
+                         mask="DD.MM.YYYY"
+                         :locale="{
+                           days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
+                           daysShort: ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'],
+                           months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+                           monthsShort: ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+                         }"
+                         minimal
+                         @update:model-value="onDateSelected"
+                       />
+                     </q-popup-proxy>
+                   </q-icon>
+                 </template>
+               </q-input>
              </div>
              
                        <!-- Satış Kanalı -->
@@ -806,6 +841,8 @@
            </q-form>
          </q-card-section>
         
+
+        
         <!-- Bottom Container - Buttons -->
         <div class="bottom-container">
           <q-card-actions align="center">
@@ -1037,7 +1074,7 @@ const currentArchiveRecord = ref<IslemDetay | null>(null)
 // İşlem detay modal gezdirme için
 const islemDetayModalRef = ref<HTMLElement | null>(null)
 const islemDetayFormRef = ref()
-const datePickerPopup = ref()
+const datePopup = ref()
 
 const islemDetayModalPos = reactive({ x: 0, y: 0 })
 const islemDetayModalDragging = ref(false)
@@ -2336,25 +2373,11 @@ const closeBothForms = async () => {
   }
 }
 
-// Date picker'dan tarih seçildiğinde popup'ı otomatik kapat
-const onDateSelected = (date: string) => {
-  console.log('🔍 Tarih seçildi:', date);
-  
-  // Eğer seçilen tarih mevcut tarihle aynıysa, sadece popup'ı kapat
-  if (date === selectedIslemDetay.value.iKytTarihi) {
-    console.log('🔍 Aynı tarih seçildi, sadece popup kapatılıyor');
-    if (datePickerPopup.value) {
-      datePickerPopup.value.hide();
-    }
-    return;
-  }
-  
-  // Farklı tarih seçildiyse, değeri güncelle ve popup'ı kapat
-  selectedIslemDetay.value.iKytTarihi = date;
-  if (datePickerPopup.value) {
-    datePickerPopup.value.hide();
-  }
-}
+
+
+
+
+
 
 
 
@@ -3017,6 +3040,147 @@ const getFieldStyle = (fieldName: string) => {
   }
   return { style: {}, class: '' }
 }
+
+// Date picker'dan tarih seçildiğinde popup'ı otomatik kapat
+const onDateSelected = (date: string) => {
+  console.log('🔍 Tarih seçildi:', date);
+  console.log('🔍 Mevcut selectedIslemDetay.iKytTarihi:', selectedIslemDetay.value.iKytTarihi);
+  
+  // Popup'ı otomatik kapat
+  if (datePopup.value) {
+    datePopup.value.hide();
+  }
+  
+  console.log('✅ Tarih güncellendi ve popup kapatıldı:', date);
+}
+
+// tblislemRST tablosundaki islemNo değerlerini saklamak için
+const rstIslemNoList = ref<number[]>([])
+
+// tblislemRST tablosundan tüm islemNo değerlerini getir
+const loadRstIslemNoList = async () => {
+  try {
+    // Eğer ana detay tablo verisi yoksa, önce onu yükle
+    if (allDetailTableData.value.length === 0) {
+      return
+    }
+    
+    // Tüm islemNo değerlerini topla
+    const allIslemNoList = allDetailTableData.value.map(row => row.islemNo).filter((no): no is number => no !== undefined)
+    
+    if (allIslemNoList.length === 0) {
+      rstIslemNoList.value = []
+      return
+    }
+    
+    // Her bir islemNo için tblislemRST kontrolü yap
+    const rstList: number[] = []
+    for (const islemNo of allIslemNoList) {
+      try {
+        const response = await api.get(`/islem/islem-rst-kontrol/${islemNo}`)
+        if (response.data.success && response.data.exists) {
+          rstList.push(islemNo)
+        }
+      } catch {
+        // Hata durumunda sessizce devam et
+      }
+    }
+    
+    // Sadece gerçekten değiştiyse güncelle
+    const newList = rstList.sort()
+    const currentList = [...rstIslemNoList.value].sort()
+    
+    if (JSON.stringify(newList) !== JSON.stringify(currentList)) {
+      rstIslemNoList.value = rstList
+      // Highlighting'i hemen uygula
+      await nextTick()
+      applyDirectHighlighting()
+    }
+    
+  } catch {
+    rstIslemNoList.value = []
+  }
+}
+
+// Ana detay tablo verisi (allDetailTableData) değiştiğinde tblislemRST listesini güncelle
+// Sadece gerçek veri değişikliklerinde çalışır, pagination değişikliklerinde çalışmaz
+watch(allDetailTableData, async (newData, oldData) => {
+  // Eğer veri gerçekten değiştiyse çalışsın
+  if (newData.length > 0 && (!oldData || newData.length !== oldData.length || 
+      JSON.stringify(newData.map(item => item.islemNo).sort()) !== 
+      JSON.stringify(oldData.map(item => item.islemNo).sort()))) {
+    await loadRstIslemNoList()
+  }
+}, { deep: true })
+
+// rstIslemNoList değiştiğinde sadece highlighting uygula, tablo yenileme yapma
+watch(rstIslemNoList, () => {
+  // Template otomatik olarak highlighting yapacak, sadece log tutalım
+  console.log(`🔄 rstIslemNoList güncellendi: ${rstIslemNoList.value.length} kayıt`)
+}, { deep: true })
+
+
+
+// DOM manipülasyonu ile highlighting uygula
+const applyDirectHighlighting = () => {
+  const tableElement = document.querySelector('.detail-table')
+  if (!tableElement) {
+    console.log('❌ .detail-table bulunamadı')
+    return
+  }
+  
+  // Tüm satırları temizle
+  const allRows = tableElement.querySelectorAll('tr')
+  console.log(`🔍 Toplam ${allRows.length} satır bulundu`)
+  
+  allRows.forEach((row: Element) => {
+    row.classList.remove('rst-row-with-marker')
+  })
+  
+  // Sadece marker class'ı uygula
+  let highlightedCount = 0
+  allRows.forEach((row: Element, index: number) => {
+    // islemNo sütununu bul (genellikle ilk sütun ama daha güvenli olmak için)
+    const cells = row.querySelectorAll('td')
+    
+    for (const cell of cells) {
+      const cellText = cell.textContent?.trim()
+      if (cellText && !isNaN(parseInt(cellText))) {
+        const islemNo = parseInt(cellText)
+        if (rstIslemNoList.value.includes(islemNo)) {
+          row.classList.add('rst-row-with-marker')
+          highlightedCount++
+          console.log(`🎯 Satır ${index + 1} işaretlendi: islemNo ${islemNo}`)
+          break
+        }
+      }
+    }
+  })
+  
+  console.log(`✅ Toplam ${highlightedCount} satır marker ile işaretlendi`)
+  console.log(`📋 rstIslemNoList:`, rstIslemNoList.value)
+}
+
+// Test marker highlighting
+const testMarkerHighlighting = () => {
+  console.log('🧪 Test marker highlighting başlatılıyor...')
+  console.log('📋 Mevcut rstIslemNoList:', rstIslemNoList.value)
+  applyDirectHighlighting()
+}
+
+// Highlighting için daha stabil row class fonksiyonu
+const getStableRowClass = (props: { row: IslemDetay }) => {
+  // Artık sadece sol kenar çizgisi için kullanılıyor
+  const isHighlighted = rstIslemNoList.value.includes(props.row.islemNo)
+  if (isHighlighted) {
+    return 'rst-row-with-marker'
+  }
+  return ''
+}
+
+
+
+
 </script>
 
 <style scoped>
@@ -4202,5 +4366,40 @@ const getFieldStyle = (fieldName: string) => {
   .body--dark .yellow-background-field .q-field__native {
     color: #000000 !important;
   }
+
+  /* tblislemRST'de bulunan kayıtlar için sadece sol kenar marker */
+  /* Full row background/font coloring removed as per user request */
+
+  /* Alternative visual marker for highlighted rows */
+  .rst-row-with-marker {
+    position: relative;
+    border-left: 4px solid #ffc107 !important;
+  }
+
+  /* Marker icon styling */
+  .rst-marker-icon {
+    background-color: #ffc107;
+    color: #000;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  /* Dark mode marker */
+  .body--dark .rst-row-with-marker {
+    border-left: 4px solid #ffc107 !important;
+  }
+
+  .body--dark .rst-marker-icon {
+    background-color: #ffc107;
+    color: #000;
+  }
+
 
 </style> 
