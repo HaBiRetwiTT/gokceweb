@@ -300,6 +300,17 @@
                               <q-btn round dense class="excel-btn" @click="downloadKasaDetayExcel" :loading="kasaExcelLoading">
                                 <img src="/icons/excel-xlsx.png" alt="Excel" class="report-icon" />
                               </q-btn>
+                              <q-btn 
+                                round 
+                                dense 
+                                class="rst-btn" 
+                                @click="showRstDifferences" 
+                                :loading="rstLoading"
+                                color="warning"
+                              >
+                                <q-tooltip>Değişenleri Göster</q-tooltip>
+                                <q-icon name="warning" size="16px" />
+                              </q-btn>
                             </div>
                           </div>
                         </q-th>
@@ -1098,48 +1109,288 @@ watch(showIslemDetayDialog, (newValue) => {
   if (newValue) {
     // Modal'ı ekranın merkezine konumlandır - dinamik genişlik kullan
     const currentWidth = modalWidth.value;
-    islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2);
-    islemDetayModalPos.y = Math.max(0, (window.innerHeight - 400) / 2);
+    const isWideMode = showKaynakIslemContainer.value;
+    
+    console.log('🔍 Modal açılıyor - durum:', { 
+      currentWidth,
+      isWideMode,
+      showKaynakIslemContainer: showKaynakIslemContainer.value,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight
+    });
+    
+    // Geniş modda hemen 700px sola kaydır
+    if (isWideMode && currentWidth > 800) {
+      islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2 - 375);
+      console.log('🎯 İlk açılışta geniş mod için 700px sola kaydırıldı:', { 
+        originalX: (window.innerWidth - currentWidth) / 2,
+        shiftedX: islemDetayModalPos.x,
+        currentWidth,
+        isWideMode
+      });
+    } else {
+      islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2);
+      console.log('🎯 İlk açılışta dar mod için normal merkezleme:', { 
+        x: islemDetayModalPos.x,
+        currentWidth,
+        isWideMode
+      });
+    }
+    
+    // Dikey pozisyonu gerçek modal yüksekliği ile hesapla
+    islemDetayModalPos.y = Math.max(0, (window.innerHeight - 600) / 2);
     islemDetayModalDragging.value = false;
     
-    // Modal render edildikten sonra gerçek genişliği kullanarak pozisyonu yeniden hesapla
-    void nextTick(() => {
+    console.log('🔍 Modal açılıyor - ilk pozisyon:', { 
+      x: islemDetayModalPos.x, 
+      y: islemDetayModalPos.y, 
+      modalWidth: currentWidth,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight
+    });
+    
+    // Hemen pozisyonu uygula - modal henüz render edilmeden önce
+    if (islemDetayModalRef.value) {
+      islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+      islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+      console.log('🚀 Hemen pozisyon uygulandı:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y });
+    }
+    
+    // Ek güvenlik için birkaç kez daha pozisyonu uygula
+    setTimeout(() => {
+      if (islemDetayModalRef.value) {
+        islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+        islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+        console.log('🚀 50ms sonra pozisyon tekrar uygulandı:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y });
+      }
+    }, 50);
+    
+    setTimeout(() => {
+      if (islemDetayModalRef.value) {
+        islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+        islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+        console.log('🚀 100ms sonra pozisyon tekrar uygulandı:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y });
+      }
+    }, 100);
+    
+    // Daha agresif pozisyon uygulama - modal render edildikten sonra
+    const applyPositioning = () => {
       if (islemDetayModalRef.value) {
         const actualWidth = islemDetayModalRef.value.offsetWidth;
-        islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+        const actualHeight = islemDetayModalRef.value.offsetHeight;
+        
+        if (actualWidth > 0 && actualHeight > 0) {
+          // Gerçek boyutlarla pozisyonu yeniden hesapla
+          if (showKaynakIslemContainer.value) {
+            islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2 - 375);
+          } else {
+            islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+          }
+          islemDetayModalPos.y = Math.max(0, (window.innerHeight - actualHeight) / 2);
+          
+          // Doğrudan stil uygula
+          islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+          islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+          
+          console.log('🎯 Agresif pozisyon uygulandı:', { 
+            x: islemDetayModalPos.x, 
+            y: islemDetayModalPos.y, 
+            width: actualWidth, 
+            height: actualHeight,
+            isWideMode: showKaynakIslemContainer.value 
+          });
+        }
       }
+    };
+    
+    // Modal render edildikten sonra gerçek boyutları kullanarak pozisyonu yeniden hesapla
+    const repositionModal = () => {
+      if (islemDetayModalRef.value) {
+        const actualWidth = islemDetayModalRef.value.offsetWidth;
+        const actualHeight = islemDetayModalRef.value.offsetHeight;
+        if (actualWidth > 0 && actualHeight > 0) {
+          // Geniş modda (1400px) 700px sola kaydır
+          if (showKaynakIslemContainer.value) {
+            islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2 - 375);
+            console.log('🎯 Geniş mod için 700px sola kaydırıldı:', { 
+              originalX: (window.innerWidth - actualWidth) / 2,
+              shiftedX: islemDetayModalPos.x,
+              actualWidth,
+              isWideMode: showKaynakIslemContainer.value
+            });
+          } else {
+            // Dar modda normal merkezleme
+            islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+            console.log('🎯 Dar mod için normal merkezleme:', { 
+              x: islemDetayModalPos.x,
+              actualWidth,
+              isWideMode: showKaynakIslemContainer.value
+            });
+          }
+          islemDetayModalPos.y = Math.max(0, (window.innerHeight - actualHeight) / 2);
+          
+          console.log('✅ Modal pozisyonu güncellendi:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y, width: actualWidth, height: actualHeight, isWideMode: showKaynakIslemContainer.value });
+        } else {
+          // Eğer henüz boyutlar hesaplanamadıysa, tekrar dene
+          setTimeout(repositionModal, 100);
+        }
+      }
+    };
+    
+    void nextTick(() => {
+      // Hemen pozisyonu uygula
+      repositionModal();
+      
+      // Daha güvenilir positioning için birkaç kez daha dene
+      setTimeout(() => { repositionModal(); applyPositioning(); }, 100);
+      setTimeout(() => { repositionModal(); applyPositioning(); }, 300);
+      setTimeout(() => { repositionModal(); applyPositioning(); }, 600);
+      setTimeout(() => { repositionModal(); applyPositioning(); }, 1000);
+      
+      // Ek güvenlik için modal elementine doğrudan stil uygula
+      setTimeout(() => {
+        if (islemDetayModalRef.value) {
+          islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+          islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+          console.log('🔧 Doğrudan stil uygulandı:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y });
+        }
+      }, 50);
     });
   }
 })
 
 // showKaynakIslemContainer değiştiğinde modal genişliğini güncelle ve yeniden konumlandır
-        watch(showKaynakIslemContainer, () => {
-          if (showIslemDetayDialog.value) {
-            // Modal açıksa genişlik değişikliğini uygula ve yeniden konumlandır
-            void nextTick(() => {
-              const currentWidth = modalWidth.value;
-              islemDetayModalPos.x = Math.max(0, (window.innerWidth - currentWidth) / 2);
+watch(showKaynakIslemContainer, () => {
+  if (showIslemDetayDialog.value) {
+    // Modal açıksa genişlik değişikliğini uygula ve yeniden konumlandır
+    void nextTick(() => {
+      // Daha güvenilir positioning için gerçek boyutları kullan
+      const repositionModal = () => {
+        if (islemDetayModalRef.value) {
+          const actualWidth = islemDetayModalRef.value.offsetWidth;
+          const actualHeight = islemDetayModalRef.value.offsetHeight;
+          if (actualWidth > 0 && actualHeight > 0) {
+                         // Geniş modda (1400px) 700px sola kaydır
+             if (showKaynakIslemContainer.value) {
+               islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2 - 375);
+               console.log('🎯 Geniş mod genişlik değişikliği sonrası 700px sola kaydırıldı:', { 
+                 originalX: (window.innerWidth - actualWidth) / 2,
+                 shiftedX: islemDetayModalPos.x,
+                 actualWidth,
+                 isWideMode: showKaynakIslemContainer.value
+               });
+             } else {
+              // Dar modda normal merkezleme
+              islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+              console.log('🎯 Dar mod genişlik değişikliği sonrası normal merkezleme:', { 
+                x: islemDetayModalPos.x,
+                actualWidth,
+                isWideMode: showKaynakIslemContainer.value
+              });
+            }
+            // Dikey pozisyonu koru
+            islemDetayModalPos.y = Math.max(0, (window.innerHeight - actualHeight) / 2);
+            
+            console.log('✅ Modal genişlik değişikliği sonrası pozisyon güncellendi:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y, width: actualWidth, height: actualHeight, isWideMode: showKaynakIslemContainer.value });
+          } else {
+            // Eğer henüz boyutlar hesaplanamadıysa, tekrar dene
+            setTimeout(repositionModal, 100);
+          }
+        }
+      };
+      
+      repositionModal();
+      
+      // Ek güvenlik için modal elementine doğrudan stil uygula
+      setTimeout(() => {
+        if (islemDetayModalRef.value) {
+          islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+          islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+          console.log('🔧 Genişlik değişikliği sonrası doğrudan stil uygulandı:', { x: islemDetayModalPos.x, y: islemDetayModalPos.y });
+        }
+      }, 50);
+      
+      // Agresif pozisyon uygulama
+      setTimeout(() => {
+        if (islemDetayModalRef.value) {
+          const actualWidth = islemDetayModalRef.value.offsetWidth;
+          const actualHeight = islemDetayModalRef.value.offsetHeight;
+          
+          if (actualWidth > 0 && actualHeight > 0) {
+            // Gerçek boyutlarla pozisyonu yeniden hesapla
+            if (showKaynakIslemContainer.value) {
+              islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2 - 375);
+            } else {
+              islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+            }
+            islemDetayModalPos.y = Math.max(0, (window.innerHeight - actualHeight) / 2);
+            
+            // Doğrudan stil uygula
+            islemDetayModalRef.value.style.left = `${islemDetayModalPos.x}px`;
+            islemDetayModalRef.value.style.top = `${islemDetayModalPos.y}px`;
+            
+            console.log('🎯 Genişlik değişikliği sonrası agresif pozisyon uygulandı:', { 
+              x: islemDetayModalPos.x, 
+              y: islemDetayModalPos.y, 
+              width: actualWidth, 
+              height: actualHeight,
+              isWideMode: showKaynakIslemContainer.value 
             });
           }
-        })
+        }
+      }, 100);
+    });
+  }
+})
 
 const islemDetayModalStyle = computed(() => {
-  return islemDetayModalDragging.value || islemDetayModalPos.x !== 0 || islemDetayModalPos.y !== 0
-    ? `position: fixed; left: ${islemDetayModalPos.x}px; top: ${islemDetayModalPos.y}px; z-index: 9999;` : '';
+  // Modal açıkken her zaman pozisyonu uygula
+  if (showIslemDetayDialog.value) {
+    return `position: fixed; left: ${islemDetayModalPos.x}px; top: ${islemDetayModalPos.y}px; z-index: 9999;`;
+  }
+  return '';
 })
 
 // Dinamik modal genişliği hesaplama
 const modalWidth = computed(() => {
   if (!showKaynakIslemContainer.value) {
-    // Container'lar gizliyse %30 daralt
+    // Container'lar gizliyse %50 daralt
     return Math.round(1400 * 0.5); // 1400 * 0.5 = 700px
   }
   return 1400; // Normal genişlik
 })
 
+
+
 function onIslemDetayDragStart(e: MouseEvent | TouchEvent) {
   e.preventDefault();
   e.stopPropagation();
+  
+  // Modal pozisyonunu güncelle ve uygula - drag başlamadan önce
+  if (islemDetayModalRef.value) {
+    const actualWidth = islemDetayModalRef.value.offsetWidth;
+    const actualHeight = islemDetayModalRef.value.offsetHeight;
+    
+    if (actualWidth > 0 && actualHeight > 0) {
+      // Geniş modda (1400px) 700px sola kaydır
+      if (showKaynakIslemContainer.value) {
+        islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2 - 375);
+      } else {
+        // Dar modda normal merkezleme
+        islemDetayModalPos.x = Math.max(0, (window.innerWidth - actualWidth) / 2);
+      }
+      islemDetayModalPos.y = Math.max(0, (window.innerHeight - actualHeight) / 2);
+      
+      console.log('🔧 Drag başlamadan önce pozisyon güncellendi:', { 
+        x: islemDetayModalPos.x, 
+        y: islemDetayModalPos.y, 
+        width: actualWidth, 
+        height: actualHeight,
+        isWideMode: showKaynakIslemContainer.value 
+      });
+    }
+  }
+  
   islemDetayModalDragging.value = true;
   
   let clientX = 0, clientY = 0;
@@ -1157,7 +1408,7 @@ function onIslemDetayDragStart(e: MouseEvent | TouchEvent) {
     document.addEventListener('touchend', onIslemDetayDragEnd);
   }
   
-  // Modal'ın mevcut pozisyonunu al
+  // Modal'ın mevcut pozisyonunu al - güncellenmiş pozisyonu kullan
   const modalElement = islemDetayModalRef.value;
   if (modalElement) {
     const rect = modalElement.getBoundingClientRect();
@@ -1190,10 +1441,11 @@ function onIslemDetayDragMove(e: MouseEvent | TouchEvent) {
   const newX = clientX - islemDetayModalOffset.x;
   const newY = clientY - islemDetayModalOffset.y;
   
-  // Ekran sınırlarını kontrol et - dinamik modal genişliğini kullan
+  // Ekran sınırlarını kontrol et - dinamik modal boyutlarını kullan
   const currentModalWidth = modalWidth.value;
+  const currentModalHeight = islemDetayModalRef.value?.offsetHeight || 600;
   const maxX = Math.max(0, window.innerWidth - currentModalWidth);
-  const maxY = Math.max(0, window.innerHeight - 400); // modal yüksekliği
+  const maxY = Math.max(0, window.innerHeight - currentModalHeight);
   
   islemDetayModalPos.x = Math.max(0, Math.min(newX, maxX));
   islemDetayModalPos.y = Math.max(0, Math.min(newY, maxY));
@@ -2544,20 +2796,8 @@ const loadDetailTableData = async (tarih: string) => {
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
-       // Önce RST verilerini yükle, sonra sırala
-       await loadRstIslemNoList()
-       
-       // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
+       // Verileri "Cari Adı" sütununa göre artan sırala
        allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-         // Önce RST durumuna göre sırala (RST kayıtları önce)
-         const aIsRst = rstIslemNoList.value.includes(a.islemNo)
-         const bIsRst = rstIslemNoList.value.includes(b.islemNo)
-         
-         if (aIsRst !== bIsRst) {
-           return aIsRst ? -1 : 1 // RST kayıtları önce
-         }
-         
-         // RST durumu aynıysa, Cari Adı'na göre artan sırala
          const aCariAdi = String(a.islemAltG || '').toLowerCase()
          const bCariAdi = String(b.islemAltG || '').toLowerCase()
          return aCariAdi.localeCompare(bCariAdi, 'tr')
@@ -3026,14 +3266,7 @@ watch(selectedIslemYonu, () => {
   void recomputeCurrentBakiyeForSelection()
 })
 
-// İşlem detay modal açıldığında pozisyonu ortala
-watch(showIslemDetayDialog, (val) => {
-  if (val) {
-    // Modal açıldığında ortala
-    islemDetayModalPos.x = window.innerWidth / 2 - 200;
-    islemDetayModalPos.y = window.innerHeight / 2 - 300;
-  }
-})
+// Bu watch function kaldırıldı - ana positioning logic kullanılıyor
 
 // Get field style based on field name - yellow background when data differs
 const getFieldStyle = (fieldName: string) => {
@@ -3101,6 +3334,9 @@ const onDateSelected = (date: string) => {
 
 // tblislemRST tablosundaki islemNo değerlerini saklamak için
 const rstIslemNoList = ref<number[]>([])
+
+// RST tarama loading durumu
+const rstLoading = ref(false)
 
 // RST farkları için ref
 const rstDifferences = ref<Record<number, Array<{
@@ -3247,6 +3483,64 @@ const getRstDifferences = async (islemNo: number) => {
 
 // Bu fonksiyonlar şu anda kullanılmıyor, gerektiğinde tekrar eklenebilir
 
+// Manuel RST tarama fonksiyonu - buton ile çalıştırılır
+const showRstDifferences = async () => {
+  try {
+    rstLoading.value = true
+    console.log('🔍 Manuel RST tarama başlatılıyor...')
+    
+    // Mevcut detay tablo verilerini kullanarak RST taraması yap
+    await loadRstIslemNoList()
+    
+    // Verileri RST durumuna göre sırala (RST kayıtları önce)
+    if (allDetailTableData.value.length > 0) {
+      allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
+        const aIsRst = rstIslemNoList.value.includes(a.islemNo)
+        const bIsRst = rstIslemNoList.value.includes(b.islemNo)
+        
+        if (aIsRst !== bIsRst) {
+          return aIsRst ? -1 : 1 // RST kayıtları önce
+        }
+        
+        // RST durumu aynıysa, Cari Adı'na göre artan sırala
+        const aCariAdi = String(a.islemAltG || '').toLowerCase()
+        const bCariAdi = String(b.islemAltG || '').toLowerCase()
+        return aCariAdi.localeCompare(bCariAdi, 'tr')
+      })
+      
+      // Tablo verilerini güncelle
+      updateDetailTableData()
+      
+      // Highlighting uygula
+      await nextTick()
+      applyDirectHighlighting()
+      
+      console.log('✅ RST tarama tamamlandı ve veriler sıralandı')
+      
+      // Kullanıcıya bilgi ver
+      if (rstIslemNoList.value.length > 0) {
+        Notify.create({ 
+          type: 'positive', 
+          message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
+        })
+      } else {
+        Notify.create({ 
+          type: 'info', 
+          message: 'Değişen kayıt bulunamadı.' 
+        })
+      }
+    }
+  } catch (error) {
+    console.error('❌ RST tarama hatası:', error)
+    Notify.create({ 
+      type: 'negative', 
+      message: 'RST tarama sırasında hata oluştu.' 
+    })
+  } finally {
+    rstLoading.value = false
+  }
+}
+
 // Hover'da farkları yükle
 const loadDifferencesOnHover = async (islemNo: number) => {
   console.log(`🖱️ Hover event tetiklendi, islemNo: ${islemNo}`)
@@ -3270,53 +3564,11 @@ const loadDifferencesOnHover = async (islemNo: number) => {
 
 
 
-// Ana detay tablo verisi (allDetailTableData) değiştiğinde tblislemRST listesini güncelle
-// Sadece gerçek veri değişikliklerinde çalışır, pagination değişikliklerinde çalışmaz
-watch(allDetailTableData, async (newData, oldData) => {
-  // Eğer veri gerçekten değiştiyse çalışsın
-  if (newData.length > 0 && (!oldData || newData.length !== oldData.length || 
-      JSON.stringify(newData.map(item => item.islemNo).sort()) !== 
-      JSON.stringify(oldData.map(item => item.islemNo).sort()))) {
-    await loadRstIslemNoList()
-  }
-}, { deep: true })
+// Ana detay tablo verisi (allDetailTableData) değiştiğinde otomatik RST tarama yapılmaz
+// RST tarama sadece "Değişenleri Göster" butonuna basıldığında manuel olarak yapılır
 
-// rstIslemNoList değiştiğinde highlighting uygula ve verileri yeniden sırala
-watch(rstIslemNoList, async (newList, oldList) => {
-  console.log(`🔄 rstIslemNoList güncellendi: ${newList.length} kayıt`)
-  console.log(`📋 Yeni liste:`, newList)
-  console.log(`📋 Eski liste:`, oldList)
-  
-  // Eğer RST listesi değiştiyse, verileri yeniden sırala
-  if (allDetailTableData.value.length > 0) {
-    // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
-    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-      // Önce RST durumuna göre sırala (RST kayıtları önce)
-      const aIsRst = newList.includes(a.islemNo)
-      const bIsRst = newList.includes(b.islemNo)
-      
-      if (aIsRst !== bIsRst) {
-        return aIsRst ? -1 : 1 // RST kayıtları önce
-      }
-      
-      // RST durumu aynıysa, Cari Adı'na göre artan sırala
-      const aCariAdi = String(a.islemAltG || '').toLowerCase()
-      const bCariAdi = String(b.islemAltG || '').toLowerCase()
-      return aCariAdi.localeCompare(bCariAdi, 'tr')
-    })
-    
-    // Tablo verilerini güncelle
-    updateDetailTableData()
-    console.log('🔄 Veriler yeniden sıralandı ve tablo güncellendi')
-  }
-  
-  // Force table re-render to ensure highlighting is applied
-  await nextTick()
-  console.log('🔄 nextTick completed, table should be re-rendered')
-  
-  // DOM manipülasyonu ile highlighting uygula
-  applyDirectHighlighting()
-}, { deep: true })
+// rstIslemNoList değiştiğinde otomatik sıralama yapılmaz
+// Sıralama sadece "Değişenleri Göster" butonuna basıldığında manuel olarak yapılır
 
 
 
@@ -3390,8 +3642,19 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
   object-fit: contain;
 }
 .pdf-btn,
-.excel-btn {
+.excel-btn,
+.rst-btn {
   padding: 8px !important;
+}
+
+.rst-btn {
+  background: #ff9800 !important;
+  color: white !important;
+  margin-left: 10px !important; /* Excel butonundan uzaklaştır */
+}
+
+.rst-btn:hover {
+  background: #f57c00 !important;
 }
 .light-page-background {
   background: #f5f5f5;
@@ -4070,13 +4333,18 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
     user-select: none;
     position: fixed;
     overflow: visible;
+    cursor: move;
   }
 
   .draggable-islem-detay-modal .q-card {
     position: relative;
     overflow: visible;
-    transform: none;
     transition: none;
+  }
+
+  /* Dark mode için modal arka plan rengi */
+  .body--dark .draggable-islem-detay-modal .q-card {
+    background-color: #353434 !important;
   }
 
   /* Header'daki Kayıt No alanı için özel stil */
@@ -4102,9 +4370,8 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
 
   /* Modal sürükleme sırasında görsel geri bildirim */
   .draggable-islem-detay-modal .q-card.modal-dragging {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
-    transform: none !important;
-    transition: none !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    transition: none;
   }
 
   /* Modal sürükleme sırasında header vurgusu */
