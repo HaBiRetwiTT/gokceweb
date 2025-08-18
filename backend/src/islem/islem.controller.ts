@@ -85,6 +85,44 @@ export class IslemController {
   }
 
   /**
+   * Nakit akış verilerini sp_FonDokumY ile getirir
+   */
+  @Get('nakit-akis')
+  async getNakitAkis(@Query('tarih') tarih?: string) {
+    try {
+      this.debugLog(`📊 Nakit akış verileri isteniyor. Tarih: ${tarih || 'bugün'}`);
+
+      // Tarih belirtilmemişse bugünün tarihini kullan
+      if (!tarih) {
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        tarih = `${dd}.${mm}.${yyyy}`;
+      }
+
+      const veriler = await this.islemService.getNakitAkisByDate(tarih);
+      
+      this.debugLog(`✅ ${veriler.length} kayıt başarıyla getirildi`);
+      
+      return {
+        success: true,
+        data: veriler,
+        message: `${veriler.length} kayıt bulundu`
+      };
+      
+    } catch (error) {
+      this.debugLog(`❌ Nakit akış verileri alınırken hata: ${error.message}`);
+      
+      return {
+        success: false,
+        data: [],
+        message: `Hata: ${error.message}`
+      };
+    }
+  }
+
+  /**
    * Kasa işlemleri için günlük toplamları getirir
    */
   @Get('kasa-islemleri')

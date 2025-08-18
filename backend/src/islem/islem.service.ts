@@ -37,6 +37,142 @@ export class IslemService {
   }
 
   /**
+   * Nakit akış verilerini sp_FonDokumY stored procedure ile getirir
+   * @param tarih DD.MM.YYYY formatında tarih
+   * @returns Nakit akış kayıtları
+   */
+  async getNakitAkisByDate(tarih: string): Promise<any[]> {
+    try {
+      this.debugLog(`📊 ${tarih} tarihi için nakit akış verileri getiriliyor...`);
+
+      // Tarih formatını kontrol et (DD.MM.YYYY)
+      if (!this.isValidDateFormat(tarih)) {
+        throw new Error(`Geçersiz tarih formatı: ${tarih}. Beklenen format: DD.MM.YYYY`);
+      }
+
+      const spName = this.dbConfig.getSpName('sp_FonDokumY');
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // Stored procedure'ü çağır
+        const execQuery = `EXEC ${spName} @SecTarih = '${tarih}'`;
+        
+        console.log(`🔍 SP çağrılıyor: ${execQuery}`);
+        console.log(`🔍 SP'ye gönderilen tarih parametresi: "${tarih}"`);
+        console.log(`🔍 Tarih uzunluğu: ${tarih.length}`);
+        console.log(`🔍 Tarih formatı kontrol: ${/^\d{2}\.\d{2}\.\d{4}$/.test(tarih)}`);
+        this.debugLog(`🔍 SP çağrılıyor: ${execQuery}`);
+        
+        const result = await queryRunner.query(execQuery);
+        
+        console.log(`✅ SP sonucu:`, result);
+        this.debugLog(`✅ ${result?.length || 0} kayıt bulundu`);
+        
+        // SP'den gelen veriyi detaylı log'la
+        if (result && Array.isArray(result) && result.length > 0) {
+          this.debugLog(`🔍 İlk kayıt örneği:`, JSON.stringify(result[0], null, 2));
+          this.debugLog(`🔍 SP'den gelen alanlar:`, Object.keys(result[0]));
+          
+          // İlk kayıt için tüm alanları detaylı log'la
+          const firstRow = result[0];
+          this.debugLog(`📊 İlk kayıt detayları:`);
+          Object.keys(firstRow).forEach(key => {
+            this.debugLog(`  ${key}: "${firstRow[key]}" (tip: ${typeof firstRow[key]})`);
+          });
+        }
+        
+        // Verileri frontend'in beklediği formata dönüştür
+        if (result && Array.isArray(result)) {
+          const mappedData = result.map((row: any, index: number) => {
+            // İlk 3 satır için debug log
+            if (index < 3) {
+              this.debugLog(`📊 Satır ${index + 1} - Ham OdVade: "${row.OdVade}" (tip: ${typeof row.OdVade})`);
+            }
+            
+            const convertedOdmVade = this.convertExcelDateToDDMMYYYY(row.OdVade);
+            
+            if (index < 3) {
+              this.debugLog(`📊 Satır ${index + 1} - Dönüştürülmüş OdmVade: "${convertedOdmVade}"`);
+            }
+            
+            return {
+              id: index + 1,
+              OdmVade: convertedOdmVade,
+              odemeAraci: row.islmArac || '',
+              kategori: row.islmGrup || '',
+              aciklama: row.islmAltG || '',
+              tip: row.islmTip || '',
+              tutar: this.parseAmount(row.islmTtr),
+              taksit: row.islmTkst || '',
+              digerBilgiler: row.islmBilgi || '',
+              odemeDurumu: row.OdmDrm === true || row.OdmDrm === 1 || row.OdmDrm === '1',
+              tutarDurumu: row.ttrDrm === true || row.ttrDrm === 1 || row.ttrDrm === '1'
+            };
+          });
+          
+          this.debugLog(`🔄 ${mappedData.length} kayıt frontend formatına dönüştürüldü`);
+          return mappedData;
+        }
+        
+        return result || [];
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      this.debugLog(`❌ Nakit akış verileri alınırken hata: ${error.message}`);
+      throw new Error(`Nakit akış verileri alınamadı: ${error.message}`);
+    }
+  }
+
+  /**
+   * Tutar alanını parse eder ve number'a çevirir
+   * @param amount Tutar değeri (string veya number olabilir)
+   * @returns Parse edilmiş tutar
+   */
+  private parseAmount(amount: any): number {
+    if (amount === null || amount === undefined) return 0;
+    
+    if (typeof amount === 'number') return amount;
+    
+    if (typeof amount === 'string') {
+      // "₺ 16.500,00" formatındaki string'i temizle
+      const cleaned = amount.replace(/[₺\s]/g, '').replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Tarih formatının geçerli olup olmadığını kontrol eder
+   * @param tarih Kontrol edilecek tarih string'i
+   * @returns Geçerli ise true
+   */
+  private isValidDateFormat(tarih: string): boolean {
+    const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+    if (!dateRegex.test(tarih)) {
+      return false;
+    }
+    
+    const parts = tarih.split('.');
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    
+    // Basit tarih validasyonu
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * Kasa işlemleri için günlük toplamları getirir
    */
   async getKasaIslemleri(
@@ -2037,6 +2173,28 @@ export class IslemService {
     } catch (error) {
       console.error('❌ Arşiv kaydı geri yükleme hatası:', error);
       throw new Error(`Arşiv kaydı geri yüklenemedi: ${error.message}`);
+    }
+  }
+
+  /**
+   * Excel serial date'i DD.MM.YYYY formatına çevirir
+   * @param serialDate Excel serial date (örn: 45934)
+   * @returns DD.MM.YYYY formatında tarih string'i
+   */
+  private convertExcelDateToDDMMYYYY(serialDate: any): string {
+    if (!serialDate || isNaN(serialDate)) return '';
+    try {
+      const excelEpoch = new Date(1900, 0, 1);
+      // Excel'de 1900 artık yıl olarak kabul ediliyor ama aslında değil
+      // Bu yüzden 1 gün fazla hesaplanıyor, 1 gün çıkarıyoruz
+      const targetDate = new Date(excelEpoch.getTime() + (serialDate - 2) * 24 * 60 * 60 * 1000);
+      const dd = String(targetDate.getDate()).padStart(2, '0');
+      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = targetDate.getFullYear();
+      return `${dd}.${mm}.${yyyy}`;
+    } catch (error) {
+      this.debugLog(`❌ Tarih dönüştürme hatası: ${error.message}`);
+      return '';
     }
   }
 }

@@ -374,6 +374,13 @@ const allLinksList: EssentialLinkProps[] = [
     icon: 'smart_toy',
     link: '/ai-agent',
     iconColor: '#9C27B0'
+  },
+  {
+    title: 'Nakit Akış Tablosu',
+    caption: 'Ekle - Sil - İzle',
+    icon: 'account_balance_wallet',
+    link: '/nakit-tablo',
+    iconColor: '#4CAF50'
   }
 ];
 
@@ -397,6 +404,14 @@ const linksList = computed(() => {
       const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
       if (!currentFilter || !ilk6Kart.includes(currentFilter)) {
         // Dev log kaldırıldı
+        return false;
+      }
+    }
+    
+    // Nakit Akış Tablosu sadece SAadmin ve HARUN kullanıcılarına göster
+    if (link.title === 'Nakit Akış Tablosu') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
         return false;
       }
     }
@@ -1377,11 +1392,6 @@ body.body--dark .genel-toplam-row {
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-}
-
-/* Mobil menü toggle butonu - sadece mobil cihazlarda görünür */
-.mobile-menu-toggle {
-  /* Desktop'ta gizli, mobilde v-if ile kontrol ediliyor */
 }
 
 /* Mobil cihazlarda drawer overlay */
