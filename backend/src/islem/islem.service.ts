@@ -1154,7 +1154,7 @@ export class IslemService {
       const query = `
         SELECT DISTINCT islemGrup
         FROM ${schemaName}.${tableName}
-        WHERE islemGrup IS NOT NULL AND islemGrup <> ''
+        WHERE islemGrup IS NOT NULL AND islemGrup <> '' AND islemGrup NOT LIKE '%Kasa%' AND islemAltG NOT LIKE '%FON KAYIT%'
         ORDER BY islemGrup
       `;
 

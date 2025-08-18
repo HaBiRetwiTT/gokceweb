@@ -87,6 +87,7 @@
         square
         dense
         :pagination="{ sortBy: 'grsTrh', descending: false, rowsPerPage: 20 }"
+        :row-class="getRowClass"
       >
         <template v-slot:body-cell-adSoyad="props">
           <q-td :props="props">
@@ -95,7 +96,7 @@
         </template>
         <template v-slot:body-cell-grsTrh="props">
           <q-td :props="props">
-            <span v-if="props.row.grsTrh" :class="['date-pill', isOnOrBeforeToday(props.row.grsTrh) ? 'date-pill-green' : '']">{{ props.row.grsTrh }}</span>
+            <span v-if="props.row.grsTrh" :class="['date-pill', getGirisTarihClass(props.row.grsTrh)]">{{ props.row.grsTrh }}</span>
           </q-td>
         </template>
         <template v-slot:body-cell-cksTrh="props">
@@ -344,6 +345,26 @@ function isAfterToday(s?: string | null): boolean {
   return date.getTime() > today.getTime()
 }
 
+function getGirisTarihClass(girisTarihi?: string | null): string {
+  if (!girisTarihi) return ''
+  
+  if (isOnOrBeforeToday(girisTarihi)) {
+    // Bugünden eski giriş tarihleri için turuncu eliptik zemin
+    return 'date-pill-orange'
+  } else {
+    // Gelecekteki giriş tarihleri için yeşil eliptik zemin
+    return 'date-pill-green'
+  }
+}
+
+function getRowClass(row: PendingRow): string {
+  // Giriş tarihi bugünden eski olan kayıtlar için turuncu zemin
+  if (isOnOrBeforeToday(row.grsTrh)) {
+    return 'row-orange-bg'
+  }
+  return ''
+}
+
 function getCheckInTooltip(row: PendingRow): string {
   if (isAfterToday(row.grsTrh)) return 'Giriş tarihi gelecekte: Günü gelince check-in yapılabilir'
   if (isOnOrBeforeToday(row.cksTrh)) return 'Çıkış tarihi bugün/öncesi: Check-in yerine No Show yapın'
@@ -524,8 +545,17 @@ async function noShow(row: PendingRow) {
   color: #fff;
 }
 .date-pill-orange {
-  background: #f2c037; /* Quasar orange-5 */
-  color: #3a3a3a;
+  background: #ff9800; /* Quasar orange-6 - daha belirgin turuncu */
+  color: #ffffff; /* Beyaz yazı daha okunabilir */
+}
+
+/* Bugünden eski giriş tarihi olan satırlar için turuncu zemin */
+.row-orange-bg {
+  background-color: #fff3e0 !important; /* Quasar orange-1 */
+}
+
+.row-orange-bg:hover {
+  background-color: #ffe0b2 !important; /* Quasar orange-2 */
 }
 </style>
 
