@@ -2,7 +2,7 @@
 
 <template>
   <q-dialog v-model="show" persistent transition-show="fade" transition-hide="fade">
-    <q-card style="min-width: 700px; max-width: 98vw;">
+    <q-card style="min-width: 700px; max-width: 98vw;" class="odeme-islem-modal-card">
       <q-card-section>
         <div class="text-h6 text-center q-mb-lg">Müşteri Tahsilat Formu</div>
         <div class="tahsilat-form-wrapper">
@@ -1044,5 +1044,14 @@ function formatCurrency(value: number | undefined | string | null): string {
   flex-wrap: nowrap;
   align-items: center;
   gap: 1px;
+}
+
+/* Müşteri Tahsilat Modal zemin rengi - Dark mode için bir ton açık */
+.odeme-islem-modal-card {
+  background: #ffffff;
+}
+
+body.body--dark .odeme-islem-modal-card {
+  background: #424242 !important; /* Dark mode için bir ton açık */
 }
 </style> 

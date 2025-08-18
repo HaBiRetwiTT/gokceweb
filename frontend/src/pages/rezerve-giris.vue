@@ -357,6 +357,131 @@ function getGirisTarihClass(girisTarihi?: string | null): string {
   }
 }
 
+// Konaklama kaydı kontrolü yapar
+async function checkKonaklamaKaydi(row: PendingRow): Promise<{ mevcut: boolean }> {
+  try {
+    // Ad Soyad bilgisini al (ülke kodu hariç)
+    const adSoyad = row.adSoyad?.replace(/^\([A-Z]{2}\)\s*-\s*/, '') || ''
+    if (!adSoyad) return { mevcut: false }
+    
+    console.log('Aranan Ad Soyad:', adSoyad)
+    console.log('Orijinal Ad Soyad:', row.adSoyad)
+    
+    // Arama yap - önce tam ad soyad ile
+    let { data } = await api.get('/dashboard/musteri-konaklama-search', { 
+      params: { q: adSoyad, page: 1, limit: 50 } 
+    })
+    
+    // Eğer sonuç yoksa, sadece soyad ile dene
+    if (!data?.success || !data?.data || data.data.length === 0) {
+      const soyad = adSoyad.split(' ').pop() || adSoyad
+      console.log('Soyad ile arama deneniyor:', soyad)
+      
+      const soyadArama = await api.get('/dashboard/musteri-konaklama-search', { 
+        params: { q: soyad, page: 1, limit: 50 } 
+      })
+      
+      if (soyadArama?.data?.success && soyadArama.data.data && soyadArama.data.data.length > 0) {
+        data = soyadArama.data
+        console.log('Soyad ile arama başarılı')
+      }
+    }
+    
+    console.log('Arama sonucu:', data)
+    
+    if (!data?.success || !data?.data || data.data.length === 0) {
+      console.log('Arama sonucu boş veya başarısız')
+      return { mevcut: false }
+    }
+    
+    console.log(`Arama sonucunda ${data.data.length} kayıt bulundu`)
+    console.log('Bulunan kayıtlar:', data.data.map((k: SearchResult) => ({
+      MstrAdi: k.MstrAdi,
+      KnklmGrsTrh: k.KnklmGrsTrh,
+      KnklmCksTrh: k.KnklmCksTrh,
+      MstrTCN: k.MstrTCN
+    })))
+    
+    // En uygun kaydı bul - tarih eşleşmesi olan
+    let enUygunKayit = null
+    let enUygunSkor = 0
+    
+    for (const kayit of data.data) {
+      const rezervasyonCikisTarihi = row.cksTrh
+      const konaklamaGirisTarihi = kayit.KnklmGrsTrh
+      const konaklamaCikisTarihi = kayit.KnklmCksTrh
+      
+      let skor = 0
+      
+      // Çıkış tarihi eşleşmesi (en yüksek öncelik)
+      if (rezervasyonCikisTarihi === konaklamaCikisTarihi) {
+        skor += 10
+      }
+      
+      // Giriş tarihi eşleşmesi
+      if (row.grsTrh === konaklamaGirisTarihi) {
+        skor += 5
+      }
+      
+      // Ad soyad benzerliği
+      if (kayit.MstrAdi && adSoyad.toLowerCase().includes(kayit.MstrAdi.toLowerCase()) || 
+          kayit.MstrAdi && kayit.MstrAdi.toLowerCase().includes(adSoyad.toLowerCase())) {
+        skor += 3
+      }
+      
+      if (skor > enUygunSkor) {
+        enUygunSkor = skor
+        enUygunKayit = kayit
+      }
+    }
+    
+    if (!enUygunKayit || enUygunSkor < 5) {
+      console.log('❌ Uygun konaklama kaydı bulunamadı - en yüksek skor:', enUygunSkor)
+      return { mevcut: false }
+    }
+    
+    console.log('En uygun kayıt bulundu, skor:', enUygunSkor)
+    
+    const ilkKayit = enUygunKayit
+    const rezervasyonCikisTarihi = row.cksTrh
+    const konaklamaGirisTarihi = ilkKayit.KnklmGrsTrh
+    const konaklamaCikisTarihi = ilkKayit.KnklmCksTrh
+    
+    console.log('Konaklama kontrolü detayları:', {
+      adSoyad,
+      rezervasyonCikisTarihi,
+      konaklamaGirisTarihi,
+      konaklamaCikisTarihi,
+      ilkKayit: {
+        MstrAdi: ilkKayit.MstrAdi,
+        KnklmGrsTrh: ilkKayit.KnklmGrsTrh,
+        KnklmCksTrh: ilkKayit.KnklmCksTrh,
+        MstrTCN: ilkKayit.MstrTCN
+      }
+    })
+    
+    // Skor sistemi ile en uygun kayıt bulundu, artık true döndür
+    console.log('✅ Konaklama kaydı bulundu - skor sistemi ile doğrulandı')
+    return { mevcut: true }
+  } catch (err) {
+    console.error('Konaklama kaydı kontrolü hatası:', err)
+    return { mevcut: false }
+  }
+}
+
+// HR Rezervasyon durumunu günceller
+async function updateHRRezervasyonStatus(hrResId: string, status: string): Promise<void> {
+  try {
+    await api.post('/hotelrunner/local-status', { 
+      hrResId, 
+      status 
+    })
+  } catch (err) {
+    console.error('HR Rezervasyon durumu güncelleme hatası:', err)
+    throw err
+  }
+}
+
 function getRowClass(row: PendingRow): string {
   // Giriş tarihi bugünden eski olan kayıtlar için turuncu zemin
   if (isOnOrBeforeToday(row.grsTrh)) {
@@ -405,6 +530,23 @@ async function refresh() {
 async function emitCheckIn(row: PendingRow) {
   try {
     loading.value = true
+    
+    // Önce konaklama kaydı kontrolü yap
+    const konaklamaKontrol = await checkKonaklamaKaydi(row)
+    if (konaklamaKontrol.mevcut) {
+      // Konaklama kaydı mevcut - sadece durumu güncelle
+      await updateHRRezervasyonStatus(row.hrResId, 'checked_in')
+      Notify.create({ 
+        type: 'warning', 
+        message: 'Rezervasyon Müşterisinin Konaklama Kaydı Mevcuttur!', 
+        position: 'top',
+        timeout: 5000
+      })
+      await loadData() // Listeyi yenile
+      return
+    }
+    
+    // Normal check-in işlemi
     const { data } = await api.post('/hotelrunner/check-in', { hrResId: row.hrResId })
     if (data?.success) {
       Notify.create({ type: 'positive', message: data?.message || 'Check-in bildirildi', caption: JSON.stringify(data?.data) })

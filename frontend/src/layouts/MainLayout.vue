@@ -170,7 +170,7 @@
         :style="ekHizmetlerModalStyle"
         class="draggable-ek-hizmetler-modal"
       >
-        <q-card style="min-width:520px;max-width:95vw;">
+        <q-card style="min-width:520px;max-width:95vw;" class="ek-hizmetler-modal-card">
           <q-card-section>
             <div
               class="text-h6 draggable-ek-hizmetler-header"
@@ -1297,6 +1297,15 @@ onUnmounted(() => {
 }
 .draggable-ek-hizmetler-header:hover {
   cursor: move;
+}
+
+/* Ek Hizmetler Modal zemin rengi - Dark mode için bir ton açık */
+.ek-hizmetler-modal-card {
+  background: #ffffff;
+}
+
+body.body--dark .ek-hizmetler-modal-card {
+  background: #424242 !important; /* Dark mode için bir ton açık */
 }
 .ekhizmetler-musteri-adi {
   font-size: 0.95rem;
