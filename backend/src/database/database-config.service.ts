@@ -119,6 +119,7 @@ export class DatabaseConfigService {
       konaklamaEkle: this.getSpName('spr_KonaklamaEkle'),
       islemEkle: this.getSpName('spr_islemEkleYn'),
       fonDokumY: this.getSpName('sp_FonDokumY'),
+      fonDevirY: this.getSpName('sp_FonDevirY'),
     };
   }
 }

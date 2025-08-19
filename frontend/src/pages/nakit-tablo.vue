@@ -2,73 +2,117 @@
   <q-page class="nakit-tablo-page">
     <div class="nakit-tablo-wrapper">
       <div class="table-container">
-        <q-table
-          :rows="paginatedData"
-          :columns="columns"
-          row-key="id"
-          flat
-          bordered
-          square
-          dense
-          class="nakit-tablo-grid"
-          :pagination="pagination"
-          :rows-per-page-options="[10, 20, 50, 100]"
-          :loading="loading"
-          loading-label="Veriler yükleniyor..."
-          :row-class-name="getRowClass"
-          @request="onTableRequest"
-          @update:pagination="onPaginationUpdate"
-          :rows-per-page-label="'Sayfa başına kayıt:'"
-          :no-data-label="'Veri bulunamadı'"
-          :no-results-label="'Sonuç bulunamadı'"
-        >
-          <template v-slot:top>
-            <div class="table-actions">
-              <div class="date-selector">
-                <q-input
-                  v-model="selectedDate"
-                  label="Bir Başlangıç Tarihi Seçiniz"
-                  style="width: 200px;"
-                  readonly
-                >
-                  <template v-slot:append>
-                    <q-icon name="event" class="cursor-pointer">
-                      <q-popup-proxy 
-                        ref="datePopup"
-                        cover 
-                        transition-show="scale" 
-                        transition-hide="scale"
-                      >
-                        <q-date
-                          v-model="selectedDate"
-                          mask="DD.MM.YYYY"
-                          format="DD.MM.YYYY"
-                          @update:model-value="onDateSelected"
-                        />
-                      </q-popup-proxy>
-                    </q-icon>
-                  </template>
-                </q-input>
+        <div class="dual-table-wrapper">
+          <!-- Sol Grid Tablo - Tek Sütun -->
+          <q-table
+            :rows="leftTableData"
+            :columns="leftColumns"
+            row-key="id"
+            flat
+            bordered
+            square
+            dense
+            class="nakit-tablo-grid left-table"
+            :pagination="pagination"
+            :rows-per-page-options="[10, 20, 50, 100]"
+            :loading="loading"
+            loading-label="Veriler yükleniyor..."
+            :row-class-name="getRowClass"
+            @request="onTableRequest"
+            @update:pagination="onPaginationUpdate"
+            :rows-per-page-label="'Sayfa başına kayıt:'"
+            :no-data-label="'Veri bulunamadı'"
+            :no-results-label="'Sonuç bulunamadı'"
+            hide-bottom
+
+          >
+            <template v-slot:top>
+              <div class="table-actions left-table-actions">
+                <div class="devreden-bakiye-section">
+                  <label class="devreden-bakiye-label">Devreden Bakiye</label>
+                  <q-input
+                    :model-value="`₺ ${devredenBakiye.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`"
+                    readonly
+                    dense
+                    outlined
+                    class="devreden-bakiye-input"
+                    style="width: 150px;"
+                  />
+                </div>
               </div>
-              
-              <div class="action-buttons">
-                <q-btn
-                  color="primary"
-                  icon="add"
-                  label="Yeni Kayıt Ekle"
-                  @click="addNewRecord"
-                />
-              </div>
-            </div>
-          </template>
+            </template>
+          </q-table>
           
-          <template v-slot:no-data>
-            <div class="no-data-message">
-              <q-icon name="table_chart" size="48px" color="grey-5" />
-              <p>Henüz veri bulunmuyor. Yeni kayıt eklemek için "Yeni Kayıt Ekle" butonunu kullanın.</p>
-            </div>
-          </template>
-        </q-table>
+          <!-- Sağ Grid Tablo - Ana Tablo -->
+          <q-table
+            :rows="paginatedData"
+            :columns="columns"
+            row-key="id"
+            flat
+            bordered
+            square
+            dense
+            class="nakit-tablo-grid right-table"
+            :pagination="pagination"
+            :rows-per-page-options="[10, 20, 50, 100]"
+            :loading="loading"
+            loading-label="Veriler yükleniyor..."
+            :row-class-name="getRowClass"
+            @request="onTableRequest"
+            @update:pagination="onPaginationUpdate"
+            :rows-per-page-label="'Sayfa başına kayıt:'"
+            :no-data-label="'Veri bulunamadı'"
+            :no-results-label="'Sonuç bulunamadı'"
+          >
+            <template v-slot:top>
+              <div class="table-actions">
+                
+                <div class="date-selector">
+                  <q-input
+                    v-model="selectedDate"
+                    label="Bir Başlangıç Tarihi Seçiniz"
+                    style="width: 200px;"
+                    readonly
+                  >
+                    <template v-slot:append>
+                      <q-icon name="event" class="cursor-pointer">
+                        <q-popup-proxy 
+                          ref="datePopup"
+                          cover 
+                          transition-show="scale" 
+                          transition-hide="scale"
+                        >
+                          <q-date
+                            v-model="selectedDate"
+                            mask="DD.MM.YYYY"
+                            format="DD.MM.YYYY"
+                            @update:model-value="onDateSelected"
+                          />
+                        </q-popup-proxy>
+                      </q-icon>
+                    </template>
+                  </q-input>
+                </div>
+                
+                <div class="action-buttons">
+                  <q-btn
+                    color="primary"
+                    icon="add"
+                    label="Yeni Kayıt Ekle"
+                    @click="addNewRecord"
+                  />
+                </div>
+              </div>
+            </template>
+            
+            <template v-slot:no-data>
+              <div class="no-data-message">
+                <q-icon name="table_chart" size="48px" color="grey-5" />
+                <p>Henüz veri bulunmuyor. Yeni kayıt eklemek için "Yeni Kayıt Ekle" butonunu kullanın.</p>
+              </div>
+            </template>
+          </q-table>
+        </div>
       </div>
     </div>
   </q-page>
@@ -77,7 +121,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { getNakitAkisVerileri, getBugunTarih, getOrnekVeriler, type NakitAkisRecord } from '../services/nakit-akis.service';
+import { getNakitAkisVerileri, getBugunTarih, getOrnekVeriler, getFonDevirY, type NakitAkisRecord } from '../services/nakit-akis.service';
 
 const $q = useQuasar();
 
@@ -86,6 +130,149 @@ const tableData = ref<NakitAkisRecord[]>([]);
 const loading = ref(false);
 const selectedDate = ref('');
 const datePopup = ref();
+const devredenBakiye = ref(0);
+
+// Devreden bakiye güncelleme fonksiyonu
+async function updateDevredenBakiye(tarih: string) {
+  try {
+    const devirBakiye = await getFonDevirY(tarih);
+    
+    // Number olarak sakla
+    devredenBakiye.value = devirBakiye;
+    
+  } catch (error) {
+    console.error('Devreden bakiye güncellenirken hata:', error);
+    
+    // Hata durumunda varsayılan değer
+    devredenBakiye.value = 0;
+    
+    $q.notify({
+      type: 'warning',
+      message: `Devreden bakiye alınamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`
+    });
+  }
+}
+
+// Sol tablo için veri ve sütunlar
+const leftTableData = computed(() => {
+  return paginatedData.value.map((row, index) => {
+    if (index === 0) {
+      // İlk satır - Sayfa devir bakiyesi + Ana tablo 1. satır işlemi
+      let bakiye = getPageDevirBakiyesi();
+      
+      // Ana tablonun ilk satırındaki işlem tipine göre hesapla
+      if (paginatedData.value.length > 0) {
+        const firstRow = paginatedData.value[0];
+        const islemTipi = firstRow.tip;
+        const tutar = Number(firstRow.tutar) || 0;
+        
+        if (islemTipi === 'Çıkan') {
+          bakiye -= tutar;
+        } else if (islemTipi === 'Giren') {
+          bakiye += tutar;
+        }
+      }
+      
+      return {
+        id: `left-${index}`,
+        index: bakiye.toFixed(2)
+      };
+    } else {
+      // 2. ve sonraki satırlar - Bir üst satır sonucu + Ana tablo işlemi
+      let bakiye = 0;
+      
+      // Bir üst satırın sonucunu hesapla
+      if (index > 0 && index <= paginatedData.value.length) {
+        let previousBakiye = getPageDevirBakiyesi();
+        
+        // Bir üst satıra kadar olan tüm işlemleri hesapla
+        for (let i = 0; i < index; i++) {
+          const currentRow = paginatedData.value[i];
+          const islemTipi = currentRow.tip;
+          const tutar = Number(currentRow.tutar) || 0;
+          
+          if (islemTipi === 'Çıkan') {
+            previousBakiye -= tutar;
+          } else if (islemTipi === 'Giren') {
+            previousBakiye += tutar;
+          }
+        }
+        
+        // Şimdi mevcut satır için işlem yap
+        const currentRow = paginatedData.value[index];
+        const islemTipi = currentRow.tip;
+        const tutar = Number(currentRow.tutar) || 0;
+        
+        if (islemTipi === 'Çıkan') {
+          bakiye = previousBakiye - tutar;
+        } else if (islemTipi === 'Giren') {
+          bakiye = previousBakiye + tutar;
+        } else {
+          bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
+        }
+      }
+      
+      return {
+        id: `left-${index}`,
+        index: bakiye.toFixed(2)
+      };
+    }
+  });
+});
+
+// Sayfa devir bakiyesini hesaplayan fonksiyon
+function getPageDevirBakiyesi(): number {
+  const currentPage = pagination.value.page;
+  
+  if (currentPage === 1) {
+    // İlk sayfa - Devreden Bakiye'den başla
+    return devredenBakiye.value || 0;
+  } else {
+    // 2. ve sonraki sayfalar - Önceki sayfanın son satırından devir al
+    const previousPage = currentPage - 1;
+    const previousPageStartIndex = (previousPage - 1) * pagination.value.rowsPerPage;
+    const previousPageEndIndex = previousPageStartIndex + pagination.value.rowsPerPage;
+    
+    // Önceki sayfadaki tüm işlemleri hesapla
+    let previousPageBakiye = devredenBakiye.value || 0;
+    
+    for (let i = 0; i < previousPageEndIndex; i++) {
+      if (i < tableData.value.length) {
+        const currentRow = tableData.value[i];
+        const islemTipi = currentRow.tip;
+        const tutar = Number(currentRow.tutar) || 0;
+        
+        if (islemTipi === 'Çıkan') {
+          previousPageBakiye -= tutar;
+        } else if (islemTipi === 'Giren') {
+          previousPageBakiye += tutar;
+        }
+      }
+    }
+    
+    return previousPageBakiye;
+  }
+}
+
+const leftColumns = [
+  {
+    name: 'index',
+    label: 'Bakiye',
+    field: 'index',
+    align: 'center' as const,
+    sortable: false,
+    style: 'width: 80px',
+    format: (val: string | number) => {
+      if (typeof val === 'string' && !isNaN(Number(val))) {
+        // İlk satır için bakiye formatı
+        return `₺ ${Number(val).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      } else {
+        // Diğer satırlar için sıra numarası
+        return val.toString();
+      }
+    }
+  }
+];
 
 // Pagination state
 const pagination = ref({
@@ -99,10 +286,6 @@ const paginatedData = computed(() => {
   const startIndex = (pagination.value.page - 1) * pagination.value.rowsPerPage;
   const endIndex = startIndex + pagination.value.rowsPerPage;
   const paginated = tableData.value.slice(startIndex, endIndex);
-  
-  console.log(`📊 Pagination: Sayfa ${pagination.value.page}, ${pagination.value.rowsPerPage} kayıt/sayfa`);
-  console.log(`📊 Toplam kayıt: ${tableData.value.length}, Gösterilen: ${startIndex + 1}-${Math.min(endIndex, tableData.value.length)}`);
-  console.log(`📊 Paginated data uzunluğu: ${paginated.length}`);
   
   return paginated;
 });
@@ -147,7 +330,7 @@ const columns = [
     field: 'tip',
     align: 'center' as const,
     sortable: true,
-    style: 'width: 100px'
+    style: 'width: 80px'
   },
   {
     name: 'tutar',
@@ -172,7 +355,7 @@ const columns = [
     field: 'digerBilgiler',
     align: 'left' as const,
     sortable: false,
-    style: 'width: 150px'
+    style: 'width: 180px'
   }
   // Ödeme Durumu ve Tutar Durumu sütunları kaldırıldı
 ];
@@ -181,6 +364,9 @@ const columns = [
 onMounted(async () => {
   // Bugünün tarihini otomatik seç
   selectedDate.value = getBugunTarih();
+  
+  // Devreden bakiyeyi güncelle
+  await updateDevredenBakiye(selectedDate.value);
   
   // Veriyi yükle
   await loadData();
@@ -250,9 +436,6 @@ function applyHeaderStyling() {
       }
     `;
     document.head.appendChild(styleElement);
-    
-    console.log('🎨 Tablo başlık satırı stillendirildi (setTimeout ile)');
-    console.log('🧹 Tarih seçimi altındaki çizgi JavaScript ile de kaldırıldı');
   }, 100); // 100ms gecikme
 }
 
@@ -289,7 +472,6 @@ function setupMutationObserver() {
     
     // Eğer tablo satırları değiştiyse CSS sınıflarını yeniden uygula
     if (shouldReapply) {
-      console.log('🔄 DOM değişikliği tespit edildi, CSS sınıfları yeniden uygulanıyor...');
       void nextTick().then(() => {
         void applyRowStyling(paginatedData.value);
         applyHeaderStyling(); // Tablo başlık satırını da stillendir
@@ -302,24 +484,15 @@ function setupMutationObserver() {
     childList: true,
     subtree: true
   });
-  
-  console.log('🔍 MutationObserver kuruldu - DOM değişiklikleri dinleniyor...');
 }
 
 // Satır sınıf adını belirleyen fonksiyon
 function getRowClass(row: NakitAkisRecord) {
-  // Debug: Satır verilerini kontrol et
-  console.log(`🔍 getRowClass çağrıldı - Satır ID: ${row.id}`);
-  console.log(`🔍 odemeDurumu değeri: ${row.odemeDurumu} (tip: ${typeof row.odemeDurumu})`);
-  console.log(`🔍 Ham veri:`, row);
-  
   // Boolean true kontrolü
   if (row.odemeDurumu === true) {
-    console.log(`✅ Satır ${row.id} ödenmiş olarak işaretlendi - 'odenen-satir' sınıfı eklendi`);
     return 'odenen-satir';
   }
   
-  console.log(`❌ Satır ${row.id} ödenmemiş - normal zemin rengi`);
   return '';
 }
 
@@ -334,9 +507,7 @@ function onTableRequest(requestProp: {
   }; 
   filter?: string | null; 
   getCellValue: (col: { field: string; name: string }, row: NakitAkisRecord) => string | number; 
-}) {
-  console.log('🔄 Tablo pagination değişti:', requestProp);
-  
+ }) {
   // Pagination state'ini güncelle
   pagination.value = {
     page: requestProp.pagination.page,
@@ -356,9 +527,7 @@ function onPaginationUpdate(newPagination: {
   page: number; 
   rowsPerPage: number; 
   rowsNumber?: number; 
-}) {
-  console.log('🔄 Pagination güncellendi:', newPagination);
-  
+ }) {
   // Pagination state'ini güncelle
   pagination.value = {
     page: newPagination.page,
@@ -375,14 +544,12 @@ function onPaginationUpdate(newPagination: {
 
 // Pagination değişikliklerini dinle - daha kapsamlı
 watch(() => $q.screen.gt.sm, async () => {
-  console.log('🔄 Screen size değişti, CSS sınıfları yeniden uygulanıyor...');
   await applyRowStyling(paginatedData.value);
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 });
 
 // Tablo verisi değiştiğinde CSS sınıflarını uygula
 watch(tableData, async () => {
-  console.log('🔄 tableData değişti, CSS sınıfları uygulanıyor...');
   await applyRowStyling(paginatedData.value);
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
@@ -393,7 +560,6 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
   
   // Next tick'te DOM güncellemesini bekle
   await nextTick();
-  console.log('🔄 DOM güncellendi, CSS sınıfları kontrol ediliyor...');
   
   // Tablo başlık satırını manuel olarak stillendir
   const headerRows = document.querySelectorAll('.nakit-tablo-grid .q-table__thead th, .q-table__thead th, .q-table th');
@@ -458,17 +624,12 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
     rowElement.style.backgroundColor = '';
     rowElement.style.borderLeft = '';
   });
-  console.log('🧹 Tüm satırlardan eski CSS sınıfları temizlendi');
   
   // Her satır için CSS sınıfını manuel olarak uygula
   data.forEach((row, dataIndex) => {
     if (row.odemeDurumu === true) {
-      console.log(`✅ Satır ${dataIndex + 1} için 'odenen-satir' sınıfı uygulanıyor...`);
-      console.log(`🔍 Satır verisi: odemeDurumu = ${row.odemeDurumu}`);
-      
       // Tablo satırını bul - data-index attribute'u ile eşleştir
       const tableRows = document.querySelectorAll('.nakit-tablo-grid tbody tr');
-      console.log(`🔍 Bulunan tablo satırları: ${tableRows.length}`);
       
       // Satırı bul - data-index veya sıra ile eşleştir
       let targetRow: Element | null = null;
@@ -495,11 +656,6 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
       if (targetRow) {
         // CSS sınıfını ekle
         targetRow.classList.add('odenen-satir');
-        console.log(`✅ Satır ${dataIndex + 1} için 'odenen-satir' sınıfı eklendi`);
-        
-        // CSS sınıfının gerçekten eklenip eklenmediğini kontrol et
-        const hasClass = targetRow.classList.contains('odenen-satir');
-        console.log(`🔍 Satır ${dataIndex + 1} CSS sınıfı kontrol: ${hasClass}`);
         
         // Inline style olarak da ekle (CSS override'ı için)
         const rowElement = targetRow as HTMLElement;
@@ -516,60 +672,18 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
           rowElement.style.backgroundColor = '#f8f9fa'; // Light mode tablo zemininden bir ton açık
           rowElement.style.borderLeft = '4px solid #6c757d'; // Sol kenar gri çizgi
         }
-        
-        console.log(`✅ Satır ${dataIndex + 1} için inline style eklendi (Dark mode: ${isDarkMode})`);
-        
-        // Satır elementinin computed style'ını kontrol et
-        const computedStyle = window.getComputedStyle(targetRow);
-        console.log(`🔍 Satır ${dataIndex + 1} computed background-color:`, computedStyle.backgroundColor);
-        
-      } else {
-        console.log(`❌ Satır ${dataIndex + 1} bulunamadı!`);
       }
-    } else {
-      console.log(`❌ Satır ${dataIndex + 1} ödenmemiş - odemeDurumu: ${row.odemeDurumu}`);
     }
   });
-  
-  // Tüm tablo satırlarını kontrol et
-  console.log('🔍 Tüm tablo satırları:');
-  const allRows = document.querySelectorAll('.nakit-tablo-grid tbody tr');
-  allRows.forEach((row, index) => {
-    console.log(`  Satır ${index}:`, row.className, row.outerHTML.substring(0, 100));
-  });
 }
-
-// Debug: Fonksiyon tanımlandı mı kontrol et
-console.log('🔍 getRowClass fonksiyonu tanımlandı:', typeof getRowClass);
-console.log('🔍 watch fonksiyonu tanımlandı:', typeof watch);
 
 // Veri yükleme fonksiyonu
 async function loadData() {
   try {
     loading.value = true;
     
-    // SP'ye seçilen tarihi doğrudan gönder
-    console.log(`🔍 SP'ye gönderilen tarih: "${selectedDate.value}"`);
-    console.log(`🔍 Tarih uzunluğu: ${selectedDate.value.length}`);
-    console.log(`🔍 Tarih formatı kontrol: ${/^\d{2}\.\d{2}\.\d{4}$/.test(selectedDate.value)}`);
-    
     // Nakit akış verilerini getir
     const veriler = await getNakitAkisVerileri(selectedDate.value);
-    
-    // Debug: Gelen veriyi kontrol et
-    console.log('🔍 Backend\'den gelen veri:', veriler);
-    if (veriler.length > 0) {
-      console.log('🔍 İlk kayıt:', veriler[0]);
-      console.log('🔍 İlk kayıt alanları:', Object.keys(veriler[0]));
-      console.log('🔍 OdmVade değeri:', veriler[0].OdmVade);
-      console.log('🔍 OdmVade tipi:', typeof veriler[0].OdmVade);
-      console.log('🔍 OdmVade uzunluğu:', veriler[0].OdmVade?.length);
-      
-      // İlk 3 kayıt için OdmVade değerlerini kontrol et
-      for (let i = 0; i < Math.min(3, veriler.length); i++) {
-        console.log(`🔍 Satır ${i + 1} OdmVade: "${veriler[i].OdmVade}"`);
-      }
-    }
     
     tableData.value = veriler;
     
@@ -619,6 +733,9 @@ async function onDateSelected() {
       datePopup.value.hide();
     }
     
+    // Devreden bakiyeyi güncelle
+    await updateDevredenBakiye(selectedDate.value);
+    
     // Veriyi yükle
     await loadData();
   }
@@ -640,7 +757,7 @@ th,
 .q-table__thead th,
 .q-table__container .q-table__thead th,
 .nakit-tablo-grid th {
-  height: 32px !important;
+  height: 29px !important;
   padding: 6px 12px !important;
   background-color: #000000 !important; /* Tam siyah zemin */
   color: #ffffff !important; /* Beyaz yazı rengi */
@@ -677,7 +794,7 @@ html body .q-table th {
 
 .nakit-tablo-wrapper {
   padding: 20px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -688,8 +805,55 @@ html body .q-table th {
   overflow: hidden;
 }
 
+.dual-table-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.left-table {
+  flex: 0 0 80px; /* 100px'den 80px'e azaltıldı */
+  border-right: 1px solid #dee2e6 !important;
+}
+
+.right-table {
+  flex: 1;
+  border-left: none !important;
+}
+
+/* Sol tablo için özel stiller */
+.left-table .q-table__container {
+  border-right: 1px solid #dee2e6;
+}
+
+.left-table .q-table__thead th {
+  height: 29px !important;
+  padding: 6px 4px !important;
+  text-align: center;
+  font-weight: 600;
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #34495e !important;
+}
+
+.left-table .q-table__tbody td {
+  padding: 6px 4px !important;
+  text-align: center;
+  font-weight: 500;
+  color: #6c757d;
+}
+
+/* Sol tablo son satırının altına çizgi ekle */
+.left-table .q-table__tbody tr:last-child td {
+  border-bottom: 1px solid #dee2e6 !important;
+}
+
+/* Sağ tablo için özel stiller */
+.right-table .q-table__container {
+  border-left: 1px solid #dee2e6;
+}
+
 .table-actions {
-  padding: 12px;
+  padding: 2px 12px;
   background: #f8f9fa;
   display: flex;
   justify-content: space-between;
@@ -697,6 +861,48 @@ html body .q-table th {
   flex-wrap: wrap;
   gap: 12px;
   border-bottom: none !important;
+  min-height: 29px; /* Eşit yükseklik için artırıldı */
+}
+
+.left-table-actions {
+  justify-content: center; /* Sol tablo için ortala */
+  padding: 2px 8px; /* Sol tablo için daha az padding */
+  min-height: 29px; /* Sağ tablo ile aynı yükseklik */
+}
+
+.devreden-bakiye-section {
+  display: flex;
+  flex-direction: column; /* Label ve input'u alt alta yerleştir */
+  align-items: center; /* Yatay ortalama */
+  justify-content: center; /* Dikey ortalama */
+  gap: 8px; /* Label ve input arasındaki boşluğu azalt */
+}
+
+.devreden-bakiye-label {
+  font-size: 0.8rem; /* 0.9rem'den 0.8rem'e azaltıldı */
+  color: #555;
+  font-weight: 500;
+  text-align: center; /* Yatay ortalama */
+  display: flex; /* Flexbox için */
+  align-items: center; /* Dikey ortalama */
+  justify-content: center; /* Yatay ortalama */
+  width: 100%; /* Tam genişlik */
+}
+
+.devreden-bakiye-input {
+  background-color: #f8f9fa; /* Table-actions ile aynı zemin rengi */
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 0.9rem;
+  color: #333;
+  height: 29px;
+  min-height: 29px;
+  max-height: 29px;
+  display: flex; /* Flexbox için */
+  align-items: center; /* Dikey ortalama */
+  justify-content: center; /* Yatay ortalama - metni ortala */
+  text-align: center; /* CSS text-align ile de ortalama */
 }
 
 .date-selector {
@@ -726,11 +932,11 @@ html body .q-table th {
 
 /* Tablo hücre içeriğini daha kompakt yap */
 .nakit-tablo-grid .q-table__container .q-table__tbody td .q-field__control {
-  min-height: 32px;
+  min-height: 29px;
 }
 
 .nakit-tablo-grid .q-table__container .q-table__tbody td .q-btn {
-  height: 28px;
+  height: 29px;
   padding: 0 8px;
 }
 
@@ -783,8 +989,54 @@ body tr.odenen-satir:hover {
   background: rgba(30, 30, 30, 0.95);
 }
 
+.body--dark .dual-table-wrapper {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.body--dark .left-table .q-table__container {
+  border-right: 1px solid #495057;
+}
+
+.body--dark .left-table .q-table__thead th {
+  background-color: #0a0a0a !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #34495e !important;
+}
+
+.body--dark .right-table .q-table__container {
+  border-left: 1px solid #495057;
+}
+
+.body--dark .left-table .q-table__tbody td {
+  color: #adb5bd;
+}
+
 .body--dark .table-actions {
   background: #2c3e50;
+  padding: 2px 12px;
+  min-height: 29px; /* Eşit yükseklik için artırıldı */
+}
+
+.body--dark .left-table-actions {
+  background: #2c3e50; /* Sol tablo için dark mode arka plan */
+  min-height: 29px; /* Sağ tablo ile aynı yükseklik */
+}
+
+.body--dark .devreden-bakiye-label {
+  color: #e0e0e0;
+}
+
+.body--dark .devreden-bakiye-input {
+  background-color: #2c3e50; /* Table-actions ile aynı zemin rengi */
+  border-color: #495057;
+  color: #e0e0e0;
+  height: 29px;
+  min-height: 29px;
+  max-height: 29px;
+  display: flex; /* Flexbox için */
+  align-items: center; /* Dikey ortalama */
+  justify-content: center; /* Yatay ortalama - metni ortala */
+  text-align: center; /* CSS text-align ile de ortalama */
 }
 
 /* Dark mode için ödenmiş satırlar - tablo zemininden bir ton açık */
@@ -949,6 +1201,11 @@ body.body--dark .q-input .q-field__control {
     gap: 16px;
   }
   
+  .devreden-bakiye-section {
+    width: 100%;
+    justify-content: center;
+  }
+
   .date-selector {
     width: 100%;
     justify-content: center;

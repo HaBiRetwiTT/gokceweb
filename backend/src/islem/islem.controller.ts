@@ -38,12 +38,6 @@ interface IslemKayit {
 export class IslemController {
   constructor(private readonly islemService: IslemService) {}
 
-  private debugLog(...args: unknown[]): void {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(...args);
-    }
-  }
-
   private getErrorMessage(error: unknown): string {
     if (error instanceof Error) return error.message;
     if (typeof error === 'string') return error;
@@ -57,8 +51,6 @@ export class IslemController {
   @Post('kaydet')
   async kaydetIslem(@Body() body: { kayitlar: IslemKayit[] }) {
     try {
-      this.debugLog('Gelen kayıtlar:', body.kayitlar);
-
       if (!body.kayitlar || body.kayitlar.length === 0) {
         throw new HttpException(
           'Kayıt listesi boş olamaz',
@@ -90,8 +82,6 @@ export class IslemController {
   @Get('nakit-akis')
   async getNakitAkis(@Query('tarih') tarih?: string) {
     try {
-      this.debugLog(`📊 Nakit akış verileri isteniyor. Tarih: ${tarih || 'bugün'}`);
-
       // Tarih belirtilmemişse bugünün tarihini kullan
       if (!tarih) {
         const today = new Date();
@@ -103,8 +93,6 @@ export class IslemController {
 
       const veriler = await this.islemService.getNakitAkisByDate(tarih);
       
-      this.debugLog(`✅ ${veriler.length} kayıt başarıyla getirildi`);
-      
       return {
         success: true,
         data: veriler,
@@ -112,11 +100,43 @@ export class IslemController {
       };
       
     } catch (error) {
-      this.debugLog(`❌ Nakit akış verileri alınırken hata: ${error.message}`);
-      
       return {
         success: false,
         data: [],
+        message: `Hata: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Fon devir bakiyesini sp_FonDevirY ile getirir
+   */
+  @Get('fon-devir-y/:tarih')
+  async getFonDevirY(@Param('tarih') tarih: string) {
+    try {
+      // Tarih formatını kontrol et
+      if (!/^\d{2}\.\d{2}\.\d{4}$/.test(tarih)) {
+        throw new Error('Geçersiz tarih formatı. DD.MM.YYYY formatında olmalıdır.');
+      }
+
+      const devirBakiye = await this.islemService.getFonDevirY(tarih);
+      
+      return {
+        success: true,
+        data: {
+          devirBakiye: devirBakiye,
+          tarih: tarih
+        },
+        message: 'Fon devir bakiyesi başarıyla alındı'
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        data: {
+          devirBakiye: 0,
+          tarih: tarih
+        },
         message: `Hata: ${error.message}`
       };
     }
@@ -376,8 +396,6 @@ export class IslemController {
     @Body() body: { veren: string; alan: string; tutar: number },
   ) {
     try {
-      this.debugLog('Kasa aktarımı başlatılıyor:', body);
-
       if (!body.veren || !body.alan || !body.tutar) {
         throw new HttpException(
           'Veren, alan ve tutar alanları zorunludur',
@@ -700,8 +718,6 @@ export class IslemController {
         );
       }
 
-      this.debugLog('Güncellenecek işlem:', { islemNo: islemNoNum, ...body });
-
       const sonuc = await this.islemService.guncelleIslem(islemNoNum, body);
       return {
         success: true,
@@ -769,9 +785,6 @@ export class IslemController {
           HttpStatus.BAD_REQUEST,
         );
       }
-
-      this.debugLog('Silinecek işlem:', islemNoNum);
-      this.debugLog('Kullanıcı bilgisi:', body.username);
 
       const sonuc = await this.islemService.silIslem(islemNoNum, body.username);
       return {

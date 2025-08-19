@@ -117,3 +117,36 @@ export function getOrnekVeriler(): NakitAkisRecord[] {
     }
   ];
 }
+
+// sp_FonDevirY için interface ekle
+export interface FonDevirYResponse {
+  success: boolean;
+  data: {
+    devirBakiye: number;
+    tarih: string;
+  };
+  message: string;
+}
+
+// sp_FonDevirY fonksiyonu ekle
+export async function getFonDevirY(tarih: string): Promise<number> {
+  try {
+    const response = await api.get<FonDevirYResponse>(`/islem/fon-devir-y/${tarih}`);
+    
+    if (response.data.success) {
+      const devirBakiye = response.data.data.devirBakiye;
+      return devirBakiye;
+    } else {
+      throw new Error('Fon devir bakiyesi alınamadı');
+    }
+    
+  } catch (error) {
+    console.error('Fon devir bakiyesi hatası:', error);
+    throw new Error('Fon devir bakiyesi alınamadı');
+  }
+}
+
+/**
+ * Bugünün tarihini DD.MM.YYYY formatında döndürür
+ * @returns Bugünün tarihi
+ */

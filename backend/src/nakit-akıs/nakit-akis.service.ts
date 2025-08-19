@@ -42,7 +42,7 @@ export class NakitAkisService {
         await queryRunner.connect();
         
         // Stored procedure'ü çağır
-        const execQuery = `EXEC ${spName} @tarih = @0`;
+        const execQuery = `EXEC ${spName} @Sectarih = @0`;
         const params = [tarih];
         
         this.logger.debug(`🔍 SP çağrılıyor: ${execQuery}`, { params });
