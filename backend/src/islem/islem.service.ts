@@ -419,10 +419,10 @@ export class IslemService {
         let dbIslemTip = '';
         if (islemArac === 'cari') {
           // Cari İşlem için GELİR/GİDER kullan
-          dbIslemTip = islemTip === 'gelir' ? 'GELİR' : 'GİDER';
+          dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
         } else {
           // Diğer islemArac seçimleri için Giren/Çıkan kullan
-          dbIslemTip = islemTip === 'gelir' ? 'Giren' : 'Çıkan';
+          dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
         }
         islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
       }
@@ -433,7 +433,7 @@ export class IslemService {
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, '${tarih}', 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 1, CONVERT(DATE, '${tarih}', 104))
         ${islemAracFilter}
         ${islemTipFilter}
       `;
@@ -458,7 +458,7 @@ export class IslemService {
           islemTutar as islemTutar,
           islemBilgi as islemBilgi
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, '${tarih}', 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 1, CONVERT(DATE, '${tarih}', 104))
         ${islemAracFilter}
         ${islemTipFilter}
         ORDER BY islemNo DESC
