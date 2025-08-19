@@ -433,7 +433,7 @@ export class IslemService {
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 1, CONVERT(DATE, '${tarih}', 104))
+        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 0, CONVERT(DATE, '${tarih}', 104))
         ${islemAracFilter}
         ${islemTipFilter}
       `;
@@ -458,7 +458,7 @@ export class IslemService {
           islemTutar as islemTutar,
           islemBilgi as islemBilgi
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 1, CONVERT(DATE, '${tarih}', 104))
+        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 0, CONVERT(DATE, '${tarih}', 104))
         ${islemAracFilter}
         ${islemTipFilter}
         ORDER BY islemNo DESC
