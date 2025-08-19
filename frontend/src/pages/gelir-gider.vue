@@ -366,7 +366,7 @@
                   <!-- 2. Sütun: Müşteri için TC No, Tedarikçi için VNo -->
                   <q-item-section>
                     <q-item-label caption>
-                      {{ islemTuru === 'musteri' ? 'TC No:' : 'VNo:' }} {{ scope.opt && scope.opt.vtc ? scope.opt.vtc : '-' }}
+                      {{ islemArac === 'musteri' ? 'TC No:' : 'VNo:' }} {{ scope.opt && scope.opt.vtc ? scope.opt.vtc : '-' }}
                     </q-item-label>
                   </q-item-section>
                   <!-- 3. Sütun: Kod -->
@@ -449,7 +449,7 @@
           <div class="right-controls-container">
             <div class="radio-group-container">
               <q-option-group
-                v-model="islemTuru"
+                v-model="islemArac"
                 inline
                 dense
                 class="radio-group"
@@ -457,7 +457,7 @@
                   { label: 'TEDARİKÇİ', value: 'tedarikci', color: 'primary' },
                   { label: 'MÜŞTERİ', value: 'musteri', color: 'secondary' }
                 ]"
-                @update:model-value="onIslemTuruChange"
+                @update:model-value="onislemAracChange"
               />
             </div>
             
@@ -723,17 +723,17 @@ function onCikanGirenChange() {
 }
 
 // İşlem türü (TEDARİKÇİ/MÜŞTERİ) - Default seçimsiz
-const islemTuru = ref<'tedarikci' | 'musteri' | null>(null)
+const islemArac = ref<'tedarikci' | 'musteri' | null>(null)
 
 // Çıkan/Giren seçimi
 const cikanGiren = ref<'cikan' | 'giren' | null>(null)
 
 // İşlem türü değiştiğinde combobox listesini güncelle
-function onIslemTuruChange() {
-  if (islemTuru.value === 'tedarikci') {
+function onislemAracChange() {
+  if (islemArac.value === 'tedarikci') {
     comboboxOptions.value = tedarikciListesi.value
     comboboxOptionsFiltered.value = tedarikciListesi.value
-  } else if (islemTuru.value === 'musteri') {
+  } else if (islemArac.value === 'musteri') {
     comboboxOptions.value = musteriListesi.value
     comboboxOptionsFiltered.value = musteriListesi.value
   } else {
@@ -906,13 +906,13 @@ const tumGiderRows = computed(() => [...giderRowsSol.value, ...giderRowsSag.valu
 
 // Liste geç yüklenirse, aktif seçime göre combobox seçeneklerini güncelle
 watch(musteriListesi, (yeni) => {
-  if (islemTuru.value === 'musteri') {
+  if (islemArac.value === 'musteri') {
     comboboxOptions.value = yeni
     comboboxOptionsFiltered.value = yeni
   }
 })
 watch(tedarikciListesi, (yeni) => {
-  if (islemTuru.value === 'tedarikci') {
+  if (islemArac.value === 'tedarikci') {
     comboboxOptions.value = yeni
     comboboxOptionsFiltered.value = yeni
   }
@@ -1299,7 +1299,7 @@ function temizleForm() {
    islemTipi.value = null
    
    // İşlem türünü seçimsiz yap
-   islemTuru.value = null
+   islemArac.value = null
    
    // Çıkan/Giren seçimini temizle
    cikanGiren.value = null
@@ -1850,7 +1850,7 @@ onMounted(async () => {
   islemTipi.value = null
   
   // İşlem türünü başlangıçta seçimsiz yap
-  islemTuru.value = null
+  islemArac.value = null
   
   // Çıkan/Giren seçimini başlangıçta seçimsiz yap
   cikanGiren.value = null

@@ -92,6 +92,18 @@
                       </q-icon>
                     </template>
                   </q-input>
+                  
+                  <!-- Refresh ikonu -->
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="refresh"
+                    color="primary"
+                    class="refresh-btn"
+                    @click="refreshPage"
+                    title="Sayfayı Yenile"
+                  />
                 </div>
                 
                 <div class="action-buttons">
@@ -115,6 +127,195 @@
         </div>
       </div>
     </div>
+    
+    <!-- Yeni Kayıt Ekleme Modal -->
+    <q-dialog v-model="showNewRecordModal" persistent>
+      <q-card style="min-width: 600px; max-width: 90vw;" class="new-record-modal">
+        <q-card-section class="modal-header">
+          <div class="modal-title-section">
+            <div class="modal-title-left">
+              <span class="modal-title">FON KAYIT İŞLEMLERİ</span>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-section class="modal-body">
+          <div class="form-grid">
+            <!-- İşlem Günü -->
+            <div class="form-field">
+              <label class="form-label">İşlem Günü</label>
+              <q-input
+                v-model="newRecord.islemGunu"
+                dense
+                outlined
+                class="form-input"
+                readonly
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy ref="islemGunuPopup">
+                      <q-date
+                        v-model="newRecord.islemGunu"
+                        mask="DD.MM.YYYY"
+                        format="DD.MM.YYYY"
+                        @update:model-value="() => islemGunuPopup?.hide?.()"
+                      />
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+            </div>
+
+            <!-- İşlem Aracı -->
+            <div class="form-field">
+              <label class="form-label">İşlem Aracı</label>
+              <q-select
+                v-model="newRecord.islemAraci"
+                :options="islemAraciOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Tipi -->
+            <div class="form-field">
+              <label class="form-label">İşlem Tipi</label>
+              <q-select
+                v-model="newRecord.islemTipi"
+                :options="islemTipiOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Kategorisi -->
+            <div class="form-field">
+              <label class="form-label">İşlem Kategorisi</label>
+              <q-select
+                v-model="newRecord.islemKategorisi"
+                :options="islemKategoriOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Tanımı -->
+            <div class="form-field">
+              <label class="form-label">İşlem Tanımı</label>
+              <q-input
+                v-model="newRecord.islemTanimi"
+                dense
+                outlined
+                class="form-input"
+                type="textarea"
+                rows="3"
+              />
+            </div>
+
+            <!-- İşlem Açıklaması -->
+            <div class="form-field">
+              <label class="form-label">İşlem Açıklaması</label>
+              <q-input
+                v-model="newRecord.islemAciklamasi"
+                dense
+                outlined
+                class="form-input"
+                type="textarea"
+                rows="3"
+              />
+            </div>
+
+            <!-- Ödeme Tutarı -->
+            <div class="form-field payment-amount-field">
+              <label class="form-label">Ödeme Tutarı</label>
+              <div class="payment-input-group">
+                <q-input
+                  v-model.number="newRecord.odemeTutari"
+                  dense
+                  outlined
+                  class="form-input payment-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                />
+                <q-checkbox
+                  v-model="newRecord.odendi"
+                  label="Ödendi"
+                  class="form-checkbox payment-checkbox"
+                />
+                <div class="taksit-group">
+                  <label class="taksit-label">Taksit</label>
+                  <q-input
+                    v-model.number="newRecord.taksitSayisi"
+                    dense
+                    outlined
+                    class="form-input taksit-input"
+                    type="number"
+                    min="1"
+                    max="99"
+                  />
+                </div>
+                <!-- Kayıt Takip Checkbox -->
+                <div class="form-field checkbox-field">
+                  <q-checkbox
+                    v-model="newRecord.kayitTakip"
+                    label="Kayıt Takip"
+                    class="form-checkbox"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions class="modal-actions">
+          <div class="action-buttons-container">
+            <q-btn
+              color="primary"
+              icon="add"
+              label="YENİ KAYIT EKLE"
+              @click="saveNewRecord"
+              class="action-btn primary-btn"
+            />
+            <q-btn
+              color="grey"
+              icon="edit"
+              label="SEÇİLİ KAYIT"
+              :disable="true"
+              class="action-btn secondary-btn"
+            />
+            <q-btn
+              color="primary"
+              icon="payment"
+              label="ÖDEME BİLGİLERİNİ DÜZENLE"
+              class="action-btn primary-btn"
+            />
+            <q-btn
+              color="primary"
+              icon="account_balance_wallet"
+              label="KISMİ ÖDEME YAP"
+              class="action-btn primary-btn"
+            />
+            <q-btn
+              color="primary"
+              icon="close"
+              label="KAPAT"
+              @click="closeNewRecordModal"
+              class="action-btn close-btn"
+            />
+          </div>
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -360,6 +561,31 @@ const columns = [
   // Ödeme Durumu ve Tutar Durumu sütunları kaldırıldı
 ];
 
+// Yeni kayıt modalı durumu
+const showNewRecordModal = ref(false);
+
+// Yeni kayıt bilgileri
+const newRecord = ref({
+  islemGunu: '',
+  islemAraci: '',
+  islemTipi: '',
+  islemKategorisi: '',
+  islemTanimi: '',
+  odemeTutari: 0,
+  odendi: false,
+  taksitSayisi: 1,
+  islemAciklamasi: '',
+  kayitTakip: true,
+});
+
+// Date picker popup ref'leri
+const islemGunuPopup = ref();
+
+// İşlem Aracı seçenekleri
+const islemAraciOptions = ['Nakit Kasa(TL)', 'Banka EFT', 'Kredi Kartları'];
+const islemTipiOptions = ['Çıkan', 'Giren'];
+const islemKategoriOptions = ['Kredi Kartları', 'Krediler', 'Ev Kiraları', 'Ev Faturaları', 'Senet-Çek', 'Genel Fon Ödm.', 'Diğer(Şirket Ödm.)'];
+
 // Sayfa yüklendiğinde çalışır
 onMounted(async () => {
   // Bugünün tarihini otomatik seç
@@ -378,6 +604,38 @@ onMounted(async () => {
   // MutationObserver ile DOM değişikliklerini dinle
   setupMutationObserver();
 });
+
+// Sayfayı yenileme fonksiyonu
+async function refreshPage() {
+  try {
+    loading.value = true;
+    
+    // Devreden bakiyeyi güncelle
+    await updateDevredenBakiye(selectedDate.value);
+    
+    // Veriyi yeniden yükle
+    await loadData();
+    
+    // Tablo başlık satırını stillendir
+    await nextTick();
+    applyHeaderStyling();
+    
+    $q.notify({
+      type: 'positive',
+      message: 'Sayfa başarıyla yenilendi!'
+    });
+    
+  } catch (error) {
+    console.error('Sayfa yenilenirken hata:', error);
+    
+    $q.notify({
+      type: 'negative',
+      message: `Sayfa yenilenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`
+    });
+  } finally {
+    loading.value = false;
+  }
+}
 
 // Tablo başlık satırını stillendiren fonksiyon
 function applyHeaderStyling() {
@@ -718,12 +976,62 @@ async function loadData() {
 
 // Yeni kayıt ekleme fonksiyonu
 const addNewRecord = () => {
+  showNewRecordModal.value = true;
+  newRecord.value = {
+    islemGunu: getBugunTarih(),
+    islemAraci: 'Banka EFT', // Default: Banka EFT
+    islemTipi: 'Çıkan', // Default: Çıkan
+    islemKategorisi: 'Genel Fon Ödm.', // Default: Genel Fon Ödm.
+    islemTanimi: '', // Boş string olarak başlat
+    odemeTutari: 0,
+    odendi: false,
+    taksitSayisi: 1,
+    islemAciklamasi: '',
+    kayitTakip: true,
+  };
+};
+
+// Yeni kayıt kaydetme fonksiyonu
+function saveNewRecord() {
+  if (!newRecord.value.islemAraci || !newRecord.value.islemTipi || newRecord.value.odemeTutari === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'Lütfen tüm alanları doldurun ve ödeme tutarını 0\'dan büyük girin.',
+      position: 'top'
+    });
+    return;
+  }
+
+  const newRecordData: NakitAkisRecord = {
+    id: Date.now(), // Yeni kayıtlar için benzersiz bir ID
+    OdmVade: newRecord.value.islemGunu,
+    odemeAraci: newRecord.value.islemAraci,
+    kategori: newRecord.value.islemKategorisi || '',
+    aciklama: newRecord.value.islemAciklamasi,
+    tip: newRecord.value.islemTipi,
+    tutar: newRecord.value.odemeTutari,
+    taksit: newRecord.value.taksitSayisi.toString(),
+    digerBilgiler: `Kayıt Takip: ${newRecord.value.kayitTakip}`,
+    odemeDurumu: newRecord.value.odendi,
+  };
+
+  tableData.value.push(newRecordData);
+  pagination.value.rowsNumber = tableData.value.length;
+  pagination.value.page = 1; // Yeni kayıt eklenince ilk sayfaya dön
+
   $q.notify({
-    type: 'info',
-    message: 'Yeni kayıt ekleme özelliği yakında eklenecek',
+    type: 'positive',
+    message: 'Yeni kayıt başarıyla eklendi!',
     position: 'top'
   });
-};
+
+  showNewRecordModal.value = false;
+}
+
+// Yeni kayıt modalını kapatma fonksiyonu
+function closeNewRecordModal() {
+  showNewRecordModal.value = false;
+}
 
 // Tarih değişikliği fonksiyonu
 async function onDateSelected() {
@@ -908,6 +1216,16 @@ html body .q-table th {
 .date-selector {
   display: flex;
   align-items: center;
+  gap: 8px; /* Date picker ile refresh ikonu arasında boşluk */
+}
+
+/* Refresh butonu stili */
+.refresh-btn {
+  margin-left: 4px; /* Date picker'dan biraz uzak */
+}
+
+.refresh-btn:hover {
+  background-color: rgba(0, 123, 255, 0.1); /* Hover efekti */
 }
 
 .action-buttons {
@@ -1221,4 +1539,243 @@ body.body--dark .q-input .q-field__control {
     width: 100%;
   }
 }
+
+/* Modal Form Stilleri */
+.new-record-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-title-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.modal-title-left {
+  flex: 1;
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.modal-title-right {
+  background: #FFD700;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+.other-transactions {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-body {
+  padding: 24px;
+  background: #f8f9fa;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field.checkbox-field {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-field.payment-amount-field {
+  grid-column: 1 / -1;
+}
+
+.payment-input-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.payment-input {
+  flex: 0 0 150px; /* Biraz daha geniş */
+  max-width: 150px;
+}
+
+.payment-checkbox {
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.taksit-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.taksit-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.taksit-input {
+  flex: 0 0 60px; /* 2 karakter sayı için optimize edilmiş genişlik */
+  max-width: 60px;
+  min-width: 60px;
+  height: 40px; /* Diğer textbox'larla aynı yükseklik */
+  min-height: 40px;
+  max-height: 40px;
+  margin-right: 16px;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-input {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.form-input:hover {
+  border-color: #4CAF50;
+}
+
+.form-input:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.form-checkbox {
+  color: #4CAF50;
+}
+
+.modal-actions {
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+}
+
+.action-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.action-btn {
+  height: 40px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.primary-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.primary-btn:hover {
+  background: #45a049;
+}
+
+.secondary-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.close-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.close-btn:hover {
+  background: #c82333;
+}
+
+/* Dark mode için modal stilleri */
+.body--dark .new-record-modal {
+  background: #2c3e50;
+}
+
+.body--dark .modal-header {
+  background: linear-gradient(135deg, #2E7D32 0%, #388E3C 100%);
+}
+
+.body--dark .modal-body {
+  background: #34495e;
+}
+
+.body--dark .form-label {
+  color: #ecf0f1;
+}
+
+.body--dark .taksit-label {
+  color: #ecf0f1;
+}
+
+.body--dark .form-input {
+  background: #2c3e50;
+  border-color: #495057;
+  color: #ecf0f1;
+}
+
+.body--dark .form-input:hover {
+  border-color: #4CAF50;
+}
+
+.body--dark .form-input:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.body--dark .modal-actions {
+  background: #34495e;
+}
+
+/* Responsive modal tasarımı */
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .action-buttons-container {
+    gap: 8px;
+  }
+  
+  .action-btn {
+    height: 44px;
+    font-size: 0.9rem;
+  }
+}
+
 </style>

@@ -30,12 +30,12 @@
                 <div class="radio-group-container">
                   <div class="radio-group">
                     <div class="radio-options">
-                      <q-radio v-model="selectedIslemTuru" val="cari" label="Cari" @update:model-value="onIslemTuruChange" />
-                      <q-radio v-model="selectedIslemTuru" val="nakit" label="Nakit" @update:model-value="onIslemTuruChange" />
-                      <q-radio v-model="selectedIslemTuru" val="kart" label="Kart" @update:model-value="onIslemTuruChange" />
-                      <q-radio v-model="selectedIslemTuru" val="eft" label="EFT" @update:model-value="onIslemTuruChange" />
-                      <q-radio v-model="selectedIslemTuru" val="acenta" label="Acenta" @update:model-value="onIslemTuruChange" />
-                      <q-radio v-model="selectedIslemTuru" val="depozito" label="Depozito" @update:model-value="onIslemTuruChange" />
+                      <q-radio v-model="selectedislemArac" val="cari" label="Cari" @update:model-value="onislemAracChange" />
+                      <q-radio v-model="selectedislemArac" val="nakit" label="Nakit" @update:model-value="onislemAracChange" />
+                      <q-radio v-model="selectedislemArac" val="kart" label="Kart" @update:model-value="onislemAracChange" />
+                      <q-radio v-model="selectedislemArac" val="eft" label="EFT" @update:model-value="onislemAracChange" />
+                      <q-radio v-model="selectedislemArac" val="acenta" label="Acenta" @update:model-value="onislemAracChange" />
+                      <q-radio v-model="selectedislemArac" val="depozito" label="Depozito" @update:model-value="onislemAracChange" />
                     </div>
                   </div>
                 </div>
@@ -44,8 +44,8 @@
                 <div class="radio-group-container second-radio-group">
                   <div class="radio-group">
                     <div class="radio-options">
-                      <q-radio v-model="selectedIslemYonu" val="gelir" :label="firstOptionLabel" />
-                      <q-radio v-model="selectedIslemYonu" val="gider" :label="secondOptionLabel" />
+                      <q-radio v-model="selectedislemTip" val="gelir" :label="firstOptionLabel" />
+                      <q-radio v-model="selectedislemTip" val="gider" :label="secondOptionLabel" />
                     </div>
                   </div>
                 </div>
@@ -956,9 +956,8 @@ import { api as apiInstance } from '../boot/axios'
 import { api } from '../boot/axios'
 
 function debugLog(...args: unknown[]) {
-  if (import.meta.env.MODE !== 'production') {
+  // Production modunda da log'ları göster
     console.log(...args)
-  }
 }
 
 const $q = useQuasar()
@@ -973,8 +972,8 @@ if (!$api) {
 }
 
 // Reactive state
-const selectedIslemTuru = ref('cari')
-const selectedIslemYonu = ref('gelir')
+const selectedislemArac = ref('cari')
+const selectedislemTip = ref('gelir')
 const loading = ref(false)
 const detailLoading = ref(false)
 const selectedDate = ref('')
@@ -1013,9 +1012,8 @@ interface IslemDetay {
       kasaPdfLoading.value = true
       const params = new URLSearchParams({
         tarih: selectedDate.value || '',
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value,
-        selectedYonu: selectedIslemYonu.value
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value
       })
       const response: AxiosResponse<Blob> = await apiInstance.get(`/islem/detay-pdf?${params.toString()}`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: 'application/pdf' })
@@ -1040,9 +1038,8 @@ interface IslemDetay {
       kasaExcelLoading.value = true
       const params = new URLSearchParams({
         tarih: selectedDate.value || '',
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value,
-        selectedYonu: selectedIslemYonu.value
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value
       })
       const response: AxiosResponse<Blob> = await apiInstance.get(`/islem/detay-excel?${params.toString()}`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -2717,17 +2714,25 @@ const detailColumns: QTableColumn[] = [
 
 // Computed properties for dynamic labels
 const firstOptionLabel = computed(() => {
-  return selectedIslemTuru.value === 'cari' ? 'GELİR' : 'Giren'
+  return selectedislemArac.value === 'cari' ? 'GELİR' : 'Giren'
 })
 
 const secondOptionLabel = computed(() => {
-  return selectedIslemTuru.value === 'cari' ? 'GİDER' : 'Çıkan'
+  return selectedislemArac.value === 'cari' ? 'GİDER' : 'Çıkan'
 })
 
-// İşlem yönü değerini backend'e göndermek için computed property
-const islemYonuForApi = computed(() => {
-  return selectedIslemTuru.value === 'cari' ? 'gelir-gider' : 'giren-cikan'
+// İşlem Tipi değerini backend'e göndermek için computed property
+const islemTipForApi = computed(() => {
+  if (selectedislemTip.value === 'gelir') {
+    return selectedislemArac.value === 'cari' ? 'GELİR' : 'Giren'
+  } else if (selectedislemTip.value === 'gider') {
+    return selectedislemArac.value === 'cari' ? 'GİDER' : 'Çıkan'
+  }
+  // Bu durumda gelir varsayılan olarak seçili olmalı
+  return selectedislemArac.value === 'cari' ? 'GELİR' : 'Giren'
 })
+
+
 
 // Satır tıklama event handler
 const onRowClick = (evt: Event, row: TableRow) => {
@@ -2747,7 +2752,7 @@ const onRowClick = (evt: Event, row: TableRow) => {
 
 // Event handler for radio group change
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const onIslemTuruChange = (_value: string) => {
+const onislemAracChange = (_value: string) => {
   // İşlem türü değiştiğinde tabloyu yeniden yükle
   void loadTableData()
   
@@ -2769,30 +2774,39 @@ const loadDetailTableData = async (tarih: string) => {
   
   detailLoading.value = true
   try {
-    debugLog('Detay tablo verisi yükleniyor...')
-    debugLog('Seçilen tarih:', tarih)
-    debugLog('Seçilen işlem türü:', selectedIslemTuru.value)
-    debugLog('Seçilen işlem yönü:', islemYonuForApi.value)
+    debugLog('🔍 Detay tablo verisi yükleniyor...')
+    debugLog('🔍 Seçilen tarih:', tarih)
+    debugLog('🔍 Seçilen işlem türü:', selectedislemArac.value)
+    debugLog('🔍 Seçilen işlem yönü:', islemTipForApi.value)
+    debugLog('🔍 API URL:', '/islem/detay-islemler')
+    debugLog('🔍 API Params:', {
+      tarih: tarih,
+      islemArac: selectedislemArac.value,
+      islemTip: islemTipForApi.value,
+      page: 1,
+      rowsPerPage: 1000
+    })
     
     // Axios instance kullanarak API çağrısı yap
     const response = await $api.get('/islem/detay-islemler', {
       params: {
         tarih: tarih,
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value,
-        selectedYonu: selectedIslemYonu.value,
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value,
         page: 1,
         rowsPerPage: 1000
       }
     })
-    debugLog('Detay Response status:', response.status)
+    debugLog('🔍 Detay Response status:', response.status)
+    debugLog('🔍 Detay Response headers:', response.headers)
     
     const result = response.data
-    debugLog('Detay API Response:', result)
+    debugLog('🔍 Detay API Response:', result)
     
     if (result.success) {
-       debugLog('Detay veri sayısı:', result.data?.length || 0)
-       debugLog('Detay toplam kayıt sayısı:', result.totalRecords)
+       debugLog('🔍 Detay veri sayısı:', result.data?.length || 0)
+       debugLog('🔍 Detay toplam kayıt sayısı:', result.totalRecords)
+       debugLog('🔍 Detay ilk kayıt:', result.data?.[0])
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
@@ -2808,14 +2822,21 @@ const loadDetailTableData = async (tarih: string) => {
        // İlk sayfayı göster
        detailPagination.value.page = 1
        updateDetailTableData()
-        debugLog('Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
-        debugLog('Detay tablo verisi güncellendi:', detailTableData.value)
+        debugLog('🔍 Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
+        debugLog('🔍 Detay tablo verisi güncellendi:', detailTableData.value)
+        debugLog('🔍 Detay pagination:', detailPagination.value)
      } else {
-      console.error('Detay API hatası:', result.message)
+      debugLog('🔍 Detay API hatası:', result.message)
+      debugLog('🔍 Detay API error details:', result)
       detailTableData.value = []
     }
   } catch (error) {
-    console.error('Detay veri yükleme hatası:', error)
+    debugLog('🔍 Detay veri yükleme hatası:', error)
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: unknown; status?: number } }
+      debugLog('🔍 Detay Error response:', axiosError.response?.data)
+      debugLog('🔍 Detay Error status:', axiosError.response?.status)
+    }
     detailTableData.value = []
   } finally {
     detailLoading.value = false
@@ -2825,7 +2846,7 @@ const loadDetailTableData = async (tarih: string) => {
 // Bakiye hesaplama fonksiyonları
 const currentBakiye = ref(0)
 const kasaLabel = computed(() => {
-  switch (selectedIslemTuru.value) {
+  switch (selectedislemArac.value) {
     case 'cari':
       return 'Cari';
     case 'nakit':
@@ -3007,7 +3028,7 @@ const loadKasaDevirVerileri = async () => {
 // Kasa devret tıklama
 const onKasaDevretClick = async () => {
   // Sadece Nakit seçiliyken izin ver
-  if (selectedIslemTuru.value !== 'nakit') {
+  if (selectedislemArac.value !== 'nakit') {
     $q.notify({
       type: 'warning',
       message: 'Kasa devri için önce 6\'lı seçimden Nakit kasayı seçiniz.',
@@ -3129,8 +3150,8 @@ const loadGuncelBakiye = async () => {
   try {
     const response = await $api.get('/islem/guncel-bakiye', {
       params: {
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value
       }
     })
     
@@ -3149,8 +3170,8 @@ const loadSecilenGunBakiyesi = async (tarih: string) => {
   try {
     const response = await $api.get('/islem/secilen-gun-bakiyesi', {
       params: {
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value,
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value,
         secilenTarih: tarih
       }
     })
@@ -3198,25 +3219,52 @@ const formatCurrency = (amount: number) => {
 const loadTableData = async () => {
   loading.value = true
   try {
+    debugLog('🔍 Ana tablo verisi yükleniyor...')
+    debugLog('🔍 Seçilen işlem türü:', selectedislemArac.value)
+    debugLog('🔍 Seçilen işlem yönü:', islemTipForApi.value)
+    debugLog('🔍 API URL:', '/islem/kasa-islemleri')
+    debugLog('🔍 API Params:', {
+      islemArac: selectedislemArac.value,
+      islemTip: islemTipForApi.value,
+      page: 1,
+      rowsPerPage: 1000
+    })
+    
     const response = await $api.get('/islem/kasa-islemleri', {
       params: {
-        islemTuru: selectedIslemTuru.value,
-        islemYonu: islemYonuForApi.value,
+        islemArac: selectedislemArac.value,
+        islemTip: islemTipForApi.value,
         page: 1,
         rowsPerPage: 1000
       }
     })
+    debugLog('🔍 Ana tablo Response status:', response.status)
+    debugLog('🔍 Ana tablo Response headers:', response.headers)
+    
     const result = response.data
+    debugLog('🔍 Ana tablo API Response:', result)
+    
     if (result.success) {
+      debugLog('🔍 Ana tablo veri sayısı:', result.data?.length || 0)
+      debugLog('🔍 Ana tablo ilk kayıt:', result.data?.[0])
       allTableData.value = result.data || []
       pagination.value.rowsNumber = allTableData.value.length
       pagination.value.page = 1
       updateTableData()
+      debugLog('🔍 Ana tablo verisi güncellendi:', tableData.value)
+      debugLog('🔍 Ana tablo pagination:', pagination.value)
     } else {
+      debugLog('🔍 Ana tablo API hatası:', result.message)
+      debugLog('🔍 Ana tablo API error details:', result)
       tableData.value = []
     }
   } catch (error) {
-    console.error('Veri yükleme hatası:', error)
+    debugLog('🔍 Ana tablo veri yükleme hatası:', error)
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: unknown; status?: number } }
+      debugLog('🔍 Ana tablo Error response:', axiosError.response?.data)
+      debugLog('🔍 Ana tablo Error status:', axiosError.response?.status)
+    }
     tableData.value = []
   } finally {
     loading.value = false
@@ -3246,15 +3294,15 @@ onMounted(async () => {
 })
 
 // İşlem türü değiştiğinde tabloyu yeniden yükle
-watch(selectedIslemTuru, async () => {
+watch(selectedislemArac, async () => {
   await loadTableData()
   void recomputeCurrentBakiyeForSelection()
 })
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
-watch(selectedIslemYonu, () => {
-  debugLog('🔍 selectedIslemYonu değişti:', selectedIslemYonu.value)
-  debugLog('🔍 islemYonuForApi değeri:', islemYonuForApi.value)
+watch(selectedislemTip, () => {
+  debugLog('🔍 selectedislemTip değişti:', selectedislemTip.value)
+  debugLog('🔍 islemTipForApi değeri:', islemTipForApi.value)
   if (selectedDate.value) {
     debugLog('🔍 Detay tablo güncelleniyor...')
     void loadDetailTableData(selectedDate.value)

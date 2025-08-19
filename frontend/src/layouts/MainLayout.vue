@@ -29,7 +29,6 @@
         </q-toolbar-title>
 
         <div class="row items-center q-gutter-sm">
-          <!-- Tarih/Saat Göstergesi -->
           <div class="row items-center q-mr-sm header-clock">
             <q-icon name="schedule" size="16px" class="q-mr-xs" />
             <span>{{ dateTimeDisplay }}</span>
@@ -1059,6 +1058,46 @@ onUnmounted(() => {
 
 .header-clock span {
   white-space: pre;
+}
+
+/* Hesap Makinesi İkonu Stilleri */
+.calculator-icon {
+  color: #00E676;
+  background: linear-gradient(135deg, #00E676 0%, #1DE9B6 50%, #64FFDA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 3px 6px rgba(0, 230, 118, 0.5));
+  transition: all 0.3s ease;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.calculator-icon:hover {
+  transform: scale(1.15);
+  filter: drop-shadow(0 5px 10px rgba(0, 230, 118, 0.7));
+  background: linear-gradient(135deg, #00C853 0%, #00E676 50%, #1DE9B6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Dark mode için hesap makinesi ikonu */
+.body--dark .calculator-icon {
+  color: #1DE9B6;
+  background: linear-gradient(135deg, #1DE9B6 0%, #64FFDA 50%, #A7FFEB 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 3px 6px rgba(29, 233, 182, 0.6));
+}
+
+.body--dark .calculator-icon:hover {
+  filter: drop-shadow(0 5px 10px rgba(29, 233, 182, 0.8));
+  background: linear-gradient(135deg, #00E676 0%, #1DE9B6 50%, #64FFDA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .logo-container {
   display: flex;

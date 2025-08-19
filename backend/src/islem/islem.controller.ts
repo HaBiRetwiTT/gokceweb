@@ -147,8 +147,8 @@ export class IslemController {
    */
   @Get('kasa-islemleri')
   async getKasaIslemleri(
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
     @Query('page') page: string = '1',
     @Query('rowsPerPage') rowsPerPage: string = '15',
   ) {
@@ -157,8 +157,8 @@ export class IslemController {
       const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15;
 
       const data = await this.islemService.getKasaIslemleri(
-        islemTuru,
-        islemYonu,
+        islemArac,
+        islemTip,
         pageNum,
         rowsPerPageNum,
       );
@@ -182,9 +182,8 @@ export class IslemController {
   @Get('detay-islemler')
   async getDetayIslemler(
     @Query('tarih') tarih: string,
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
-    @Query('selectedYonu') selectedYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
     @Query('page') page: string = '1',
     @Query('rowsPerPage') rowsPerPage: string = '15',
   ) {
@@ -194,9 +193,8 @@ export class IslemController {
 
       const data = await this.islemService.getDetayIslemler(
         tarih,
-        islemTuru,
-        islemYonu,
-        selectedYonu,
+        islemArac,
+        islemTip,
         pageNum,
         rowsPerPageNum,
       );
@@ -247,13 +245,13 @@ export class IslemController {
    */
   @Get('guncel-bakiye')
   async getGuncelBakiye(
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
   ) {
     try {
       const bakiye = await this.islemService.getGuncelBakiye(
-        islemTuru,
-        islemYonu,
+        islemArac,
+        islemTip,
       );
       return {
         success: true,
@@ -273,14 +271,14 @@ export class IslemController {
    */
   @Get('secilen-gun-bakiyesi')
   async getSecilenGunBakiyesi(
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
     @Query('secilenTarih') secilenTarih: string,
   ) {
     try {
       const bakiye = await this.islemService.getSecilenGunBakiyesi(
-        islemTuru,
-        islemYonu,
+        islemArac,
+        islemTip,
         secilenTarih,
       );
       return {
@@ -301,17 +299,15 @@ export class IslemController {
   @Get('detay-pdf')
   async getDetayPDF(
     @Query('tarih') tarih: string,
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
-    @Query('selectedYonu') selectedYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
     @Res() res: Response,
   ) {
     try {
       const buffer = (await this.islemService.generateDetayPDF(
         tarih,
-        islemTuru,
-        islemYonu,
-        selectedYonu,
+        islemArac,
+        islemTip,
       )) as unknown as Buffer;
       const fileName = `kasa-detay-${tarih || 'tum'}.pdf`;
       res.set({
@@ -332,17 +328,15 @@ export class IslemController {
   @Get('detay-excel')
   async getDetayExcel(
     @Query('tarih') tarih: string,
-    @Query('islemTuru') islemTuru: string,
-    @Query('islemYonu') islemYonu: string,
-    @Query('selectedYonu') selectedYonu: string,
+    @Query('islemArac') islemArac: string,
+    @Query('islemTip') islemTip: string,
     @Res() res: Response,
   ) {
     try {
       const buffer = (await this.islemService.generateDetayExcel(
         tarih,
-        islemTuru,
-        islemYonu,
-        selectedYonu,
+        islemArac,
+        islemTip,
       )) as unknown as Buffer;
       const fileName = `kasa-detay-${tarih || 'tum'}.xlsx`;
       res.set({

@@ -135,57 +135,78 @@ export class IslemService {
    * Kasa işlemleri için günlük toplamları getirir
    */
   async getKasaIslemleri(
-    islemTuru: string,
-    islemYonu?: string,
+    islemArac: string,
+    islemTip?: string,
     page: number = 1,
     rowsPerPage: number = 15,
   ): Promise<{ data: KasaGunlukOzet[]; totalRecords: number }> {
     try {
+      console.log('🔍 getKasaIslemleri çağrıldı:', { islemArac, islemTip, page, rowsPerPage })
+      console.log('🔍 getKasaIslemleri parametreleri:', { 
+        islemArac: typeof islemArac, 
+        islemTip: typeof islemTip, 
+        page: typeof page, 
+        rowsPerPage: typeof rowsPerPage 
+      })
+      
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
+      
+      console.log('🔍 Veritabanı bilgileri:', { schemaName, tableName })
 
-      // Tarih aralığı (son 1 yıl)
-      const bugun = new Date();
-      const birYilOnce = new Date();
-      birYilOnce.setFullYear(birYilOnce.getFullYear() - 1);
+      // Tarih filtresi kaldırıldı - sadece islemArac ve islemTip seçimlerine göre günlük gruplama
 
-      // DD.MM.YYYY formatına çevir
-      const baslangicTarihi =
-        birYilOnce.getDate().toString().padStart(2, '0') +
-        '.' +
-        (birYilOnce.getMonth() + 1).toString().padStart(2, '0') +
-        '.' +
-        birYilOnce.getFullYear();
-      const bitisTarihi =
-        bugun.getDate().toString().padStart(2, '0') +
-        '.' +
-        (bugun.getMonth() + 1).toString().padStart(2, '0') +
-        '.' +
-        bugun.getFullYear();
+      // İşlem türü filtresi (6'lı radio için islemArac alanı)
+      let islemAracFilter = '';
+      if (islemArac) {
+        // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
+        let dbIslemArac = '';
+        switch (islemArac) {
+          case 'cari':
+            dbIslemArac = 'Cari İşlem';
+            break;
+          case 'nakit':
+            dbIslemArac = 'Nakit Kasa(TL)';
+            break;
+          case 'kart':
+            dbIslemArac = 'Kredi Kartları';
+            break;
+          case 'eft':
+            dbIslemArac = 'Banka EFT';
+            break;
+          case 'acenta':
+            dbIslemArac = 'Acenta Tahsilat';
+            break;
+          case 'depozito':
+            dbIslemArac = 'Depozito';
+            break;
+          default:
+            dbIslemArac = islemArac;
+        }
+        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+      }
 
-      // İşlem türü filtresi
+      // İşlem yönü filtresi (2'li radio için islemTip alanı) - ANA TABLO İÇİN GEREKSİZ
       let islemTipFilter = '';
-      if (islemTuru && islemTuru !== 'Tümü') {
-        islemTipFilter = `AND islmTip = '${islemTuru}'`;
-      }
+      // Ana tablo günlük özet olduğu için islemTip filtresi eklenmiyor
+      // Detay tabloda islemTip filtresi kullanılıyor
 
-      // İşlem yönü filtresi
-      let islemYonuFilter = '';
-      if (islemYonu && islemYonu !== 'Tümü') {
-        islemYonuFilter = `AND islmYonu = '${islemYonu}'`;
-      }
+      console.log('🔍 Filtreler:', { islemAracFilter, islemTipFilter })
 
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${schemaName}.${tableName}
-        WHERE iKytTarihi BETWEEN '${baslangicTarihi}' AND '${bitisTarihi}'
-        ${islemTipFilter}
-        ${islemYonuFilter}
+        WHERE 1=1
+        ${islemAracFilter}
       `;
+
+      console.log('🔍 Count Query:', countQuery)
 
       const countResult = await this.dataSource.query(countQuery);
       const totalRecords = countResult[0]?.total || 0;
+
+      console.log('🔍 Toplam kayıt sayısı:', totalRecords)
 
       // Sayfalama hesaplamaları
       const offset = (page - 1) * rowsPerPage;
@@ -193,21 +214,25 @@ export class IslemService {
       // Ana sorgu
       const query = `
         SELECT 
-          iKytTarihi,
-          SUM(CASE WHEN islmYonu = 'GELİR' THEN islmTtr ELSE 0 END) as gelir,
-          SUM(CASE WHEN islmYonu = 'GİDER' THEN islmTtr ELSE 0 END) as gider
+          CONVERT(DATE, iKytTarihi, 104) as iKytTarihi,
+          SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} THEN islemTutar ELSE 0 END) as gelir,
+          SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} THEN islemTutar ELSE 0 END) as gider
         FROM ${schemaName}.${tableName}
-        WHERE iKytTarihi BETWEEN '${baslangicTarihi}' AND '${bitisTarihi}'
-        ${islemTipFilter}
-        ${islemYonuFilter}
-        GROUP BY iKytTarihi
-        ORDER BY iKytTarihi DESC
+        WHERE 1=1
+        ${islemAracFilter}
+        GROUP BY CONVERT(DATE, iKytTarihi, 104)
+        ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
       `;
 
-      const params = [baslangicTarihi, bitisTarihi];
+      console.log('🔍 Ana Query:', query)
+
+      const params = [];
+      
       const result = await this.dataSource.query(query, params);
+
+      console.log('🔍 Query sonucu:', result)
 
       return {
         data: result.map((row: any) => ({
@@ -218,6 +243,7 @@ export class IslemService {
         totalRecords,
       };
     } catch (error) {
+      console.error('❌ getKasaIslemleri hatası:', error)
       throw new Error(`Kasa işlemleri alınamadı: ${error.message}`);
     }
   }
@@ -336,46 +362,88 @@ export class IslemService {
    */
   async getDetayIslemler(
     tarih: string,
-    islemTuru: string,
-    islemYonu: string,
-    selectedYonu: string,
+    islemArac: string,
+    islemTip: string,
     page: number = 1,
     rowsPerPage: number = 15,
   ): Promise<{ data: DetayIslem[]; totalRecords: number }> {
     try {
+      console.log('🔍 getDetayIslemler çağrıldı:', { tarih, islemArac, islemTip, page, rowsPerPage })
+      console.log('🔍 getDetayIslemler parametreleri:', { 
+        tarih: typeof tarih, 
+        islemArac: typeof islemArac, 
+        islemTip: typeof islemTip, 
+        page: typeof page, 
+        rowsPerPage: typeof rowsPerPage 
+      })
+      
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
+      
+      console.log('🔍 Detay veritabanı bilgileri:', { schemaName, tableName })
 
-      // İşlem türü filtresi
+      // İşlem türü filtresi (6'lı radio için islemArac alanı)
+      let islemAracFilter = '';
+      if (islemArac) {
+        // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
+        let dbIslemArac = '';
+        switch (islemArac) {
+          case 'cari':
+            dbIslemArac = 'Cari İşlem';
+            break;
+          case 'nakit':
+            dbIslemArac = 'Nakit Kasa(TL)';
+            break;
+          case 'kart':
+            dbIslemArac = 'Kredi Kartları';
+            break;
+          case 'eft':
+            dbIslemArac = 'Banka EFT';
+            break;
+          case 'acenta':
+            dbIslemArac = 'Acenta Tahsilat';
+            break;
+          case 'depozito':
+            dbIslemArac = 'Depozito';
+            break;
+          default:
+            dbIslemArac = islemArac;
+        }
+        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+      }
+
+      // İşlem yönü filtresi (2'li radio için islemTip alanı)
       let islemTipFilter = '';
-      if (islemTuru && islemTuru !== 'Tümü') {
-        islemTipFilter = `AND islmTip = '${islemTuru}'`;
+      if (islemTip) {
+        // Frontend'den gelen islemTip değerini islemArac seçimine göre doğru veritabanı değerine çevir
+        let dbIslemTip = '';
+        if (islemArac === 'cari') {
+          // Cari İşlem için GELİR/GİDER kullan
+          dbIslemTip = islemTip === 'gelir' ? 'GELİR' : 'GİDER';
+        } else {
+          // Diğer islemArac seçimleri için Giren/Çıkan kullan
+          dbIslemTip = islemTip === 'gelir' ? 'Giren' : 'Çıkan';
+        }
+        islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
       }
 
-      // İşlem yönü filtresi
-      let islemYonuFilter = '';
-      if (islemYonu && islemYonu !== 'Tümü') {
-        islemYonuFilter = `AND islmYonu = '${islemYonu}'`;
-      }
-
-      // Seçilen yön filtresi
-      let selectedYonuFilter = '';
-      if (selectedYonu && selectedYonu !== 'Tümü') {
-        selectedYonuFilter = `AND islmYonu = '${selectedYonu}'`;
-      }
+      console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter })
 
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${schemaName}.${tableName}
-        WHERE iKytTarihi = '${tarih}'
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, '${tarih}', 104)
+        ${islemAracFilter}
         ${islemTipFilter}
-        ${islemYonuFilter}
-        ${selectedYonuFilter}
       `;
+
+      console.log('🔍 Detay Count Query:', countQuery)
 
       const countDetay = await this.dataSource.query(countQuery);
       const totalRecords = countDetay[0]?.total || 0;
+
+      console.log('🔍 Detay toplam kayıt sayısı:', totalRecords)
 
       // Sayfalama hesaplamaları
       const offset = (page - 1) * rowsPerPage;
@@ -383,25 +451,27 @@ export class IslemService {
       // Ana sorgu
       const query = `
         SELECT 
-          id,
           islemNo,
           iKytTarihi,
-          islmAltG as islemAltG,
-          islmGrup as islemGrup,
-          islmTtr as islemTutar,
-          islmBilgi as islemBilgi
+          islemAltG as islemAltG,
+          islemGrup as islemGrup,
+          islemTutar as islemTutar,
+          islemBilgi as islemBilgi
         FROM ${schemaName}.${tableName}
-        WHERE iKytTarihi = '${tarih}'
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, '${tarih}', 104)
+        ${islemAracFilter}
         ${islemTipFilter}
-        ${islemYonuFilter}
-        ${selectedYonuFilter}
         ORDER BY islemNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
       `;
 
+      console.log('🔍 Detay Ana Query:', query)
+
       const params = [tarih, offset, rowsPerPage];
       const result = await this.dataSource.query(query, params);
+
+      console.log('🔍 Detay Query sonucu:', result)
 
       return {
         data: result.map((row: any) => ({
@@ -416,6 +486,7 @@ export class IslemService {
         totalRecords,
       };
     } catch (error) {
+      console.error('❌ getDetayIslemler hatası:', error)
       throw new Error(`Detay işlemler alınamadı: ${error.message}`);
     }
   }
@@ -423,15 +494,13 @@ export class IslemService {
   // Detay PDF üretimi
   async generateDetayPDF(
     tarih: string,
-    islemTuru: string,
-    islemYonu: string,
-    selectedYonu: string,
+    islemArac: string,
+    islemTip: string,
   ): Promise<Buffer> {
     const data = await this.getDetayIslemler(
       tarih,
-      islemTuru,
-      islemYonu,
-      selectedYonu,
+      islemArac,
+      islemTip,
       1,
       10000,
     );
@@ -478,15 +547,11 @@ export class IslemService {
         depozito: 'Depozito',
       };
       const turLabel =
-        turLabelMap[String(islemTuru).toLowerCase()] || islemTuru;
+        turLabelMap[String(islemArac).toLowerCase()] || islemArac;
       const yonLabel =
-        String(islemYonu) === 'gelir-gider'
-          ? String(selectedYonu) === 'gelir'
-            ? 'GELİR'
-            : 'GİDER'
-          : String(selectedYonu) === 'gelir'
-            ? 'Giren'
-            : 'Çıkan';
+        String(islemTip) === 'GELİR' || String(islemTip) === 'Giren'
+          ? 'GELİR'
+          : 'GİDER';
       doc
         .fontSize(10)
         .text(`Tarih: ${tarih}  |  Tür: ${turLabel}  |  Yön: ${yonLabel}`);
@@ -651,15 +716,13 @@ export class IslemService {
   // Detay Excel üretimi
   async generateDetayExcel(
     tarih: string,
-    islemTuru: string,
-    islemYonu: string,
-    selectedYonu: string,
+    islemArac: string,
+    islemTip: string,
   ): Promise<Buffer> {
     const data = await this.getDetayIslemler(
       tarih,
-      islemTuru,
-      islemYonu,
-      selectedYonu,
+      islemArac,
+      islemTip,
       1,
       10000,
     );
@@ -872,59 +935,70 @@ export class IslemService {
    * Güncel bakiye hesaplar (tüm günlerin toplamı)
    */
   async getGuncelBakiye(
-    islemTuru: string,
-    islemYonu?: string,
+    islemArac: string,
+    islemTip?: string,
   ): Promise<number> {
     try {
+      console.log('🔍 getGuncelBakiye çağrıldı:', { islemArac, islemTip })
+      
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
 
-      let whereCondition = '';
+      let islemAracim = '';
 
-      // İşlem türüne göre filtreleme
-      switch (islemTuru) {
+      // İşlem Aracına göre filtreleme
+      switch (islemArac) {
         case 'cari':
-          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
           break;
         case 'nakit':
-          whereCondition = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
+          islemAracim = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
           break;
         case 'kart':
-          whereCondition = `WHERE i.islemArac = 'Kredi Kartları'`;
+          islemAracim = `WHERE i.islemArac = 'Kredi Kartları'`;
           break;
         case 'eft':
-          whereCondition = `WHERE i.islemArac = 'Banka EFT'`;
+          islemAracim = `WHERE i.islemArac = 'Banka EFT'`;
           break;
         case 'acenta':
-          whereCondition = `WHERE i.islemArac = 'Acenta Tahsilat'`;
+          islemAracim = `WHERE i.islemArac = 'Acenta Tahsilat'`;
           break;
         case 'depozito':
-          whereCondition = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
+          islemAracim = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
           break;
         default:
-          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
       }
 
-      // İşlem yönüne göre dinamik sorgu
+      console.log('🔍 islemAracim:', islemAracim)
+
+      // İşlem tipine göre gelir/gider hesaplama - bakiye için her iki yön de gerekli
       let gelirCondition = '';
       let giderCondition = '';
 
-      if (islemYonu === 'gelir-gider') {
-        gelirCondition = "i.islemTip = 'GELİR'";
-        giderCondition = "i.islemTip = 'GİDER'";
-      } else {
-        gelirCondition = "i.islemTip = 'Giren'";
-        giderCondition = "i.islemTip = 'Çıkan'";
+      // Seçilen islemTip'e göre gelir ve gider koşullarını belirle
+      if (islemTip === 'GELİR' || islemTip === 'Giren') {
+        // Gelir seçilmişse, gelirleri ve giderleri ayrı ayrı topla
+        gelirCondition = `i.islemTip = '${islemTip}'`;
+        giderCondition = `i.islemTip = '${islemTip === 'GELİR' ? 'GİDER' : 'Çıkan'}'`;
+      } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
+        // Gider seçilmişse, gelirleri ve giderleri ayrı ayrı topla
+        gelirCondition = `i.islemTip = '${islemTip === 'GİDER' ? 'GELİR' : 'Giren'}'`;
+        giderCondition = `i.islemTip = '${islemTip}'`;
       }
+
+      console.log('🔍 Gelir/Gider koşulları:', { gelirCondition, giderCondition })
 
       const bakiyeQuery = `
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${schemaName}.${tableName} i
-        ${whereCondition}
+        ${islemAracim}
         AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
       `;
+
+      console.log('🔍 Bakiye Query:', bakiyeQuery)
 
       const bakiyeUnknown = (await this.dataSource.query(
         bakiyeQuery,
@@ -936,6 +1010,8 @@ export class IslemService {
       const toplamGelir = Number(bakiyeRes[0]?.toplamGelir) || 0;
       const toplamGider = Number(bakiyeRes[0]?.toplamGider) || 0;
       const guncelBakiye = toplamGelir - toplamGider;
+
+      console.log('🔍 Bakiye hesaplama sonucu:', { toplamGelir, toplamGider, guncelBakiye })
 
       return guncelBakiye;
     } catch (error: unknown) {
@@ -949,50 +1025,53 @@ export class IslemService {
    * Seçilen güne kadar olan bakiye hesaplar
    */
   async getSecilenGunBakiyesi(
-    islemTuru: string,
-    islemYonu: string,
+    islemArac: string,
+    islemTip: string,
     secilenTarih: string,
   ): Promise<number> {
     try {
       const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
 
-      let whereCondition = '';
+      let islemAracim = '';
 
-      // İşlem türüne göre filtreleme
-      switch (islemTuru) {
+      // İşlem Aracına göre filtreleme
+      switch (islemArac) {
         case 'cari':
-          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
           break;
         case 'nakit':
-          whereCondition = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
+          islemAracim = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
           break;
         case 'kart':
-          whereCondition = `WHERE i.islemArac = 'Kredi Kartları'`;
+          islemAracim = `WHERE i.islemArac = 'Kredi Kartları'`;
           break;
         case 'eft':
-          whereCondition = `WHERE i.islemArac = 'Banka EFT'`;
+          islemAracim = `WHERE i.islemArac = 'Banka EFT'`;
           break;
         case 'acenta':
-          whereCondition = `WHERE i.islemArac = 'Acenta Tahsilat'`;
+          islemAracim = `WHERE i.islemArac = 'Acenta Tahsilat'`;
           break;
         case 'depozito':
-          whereCondition = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
+          islemAracim = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
           break;
         default:
-          whereCondition = `WHERE i.islemArac = 'Cari İşlem'`;
+          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
       }
 
-      // İşlem yönüne göre dinamik sorgu
+      // İşlem tipine göre gelir/gider hesaplama - bakiye için her iki yön de gerekli
       let gelirCondition = '';
       let giderCondition = '';
 
-      if (islemYonu === 'gelir-gider') {
-        gelirCondition = "i.islemTip = 'GELİR'";
-        giderCondition = "i.islemTip = 'GİDER'";
-      } else {
-        gelirCondition = "i.islemTip = 'Giren'";
-        giderCondition = "i.islemTip = 'Çıkan'";
+      // Seçilen islemTip'e göre gelir ve gider koşullarını belirle
+      if (islemTip === 'GELİR' || islemTip === 'Giren') {
+        // Gelir seçilmişse, gelirleri ve giderleri ayrı ayrı topla
+        gelirCondition = `i.islemTip = '${islemTip}'`;
+        giderCondition = `i.islemTip = '${islemTip === 'GELİR' ? 'GİDER' : 'Çıkan'}'`;
+      } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
+        // Gider seçilmişse, gelirleri ve giderleri ayrı ayrı topla
+        gelirCondition = `i.islemTip = '${islemTip === 'GİDER' ? 'GELİR' : 'Giren'}'`;
+        giderCondition = `i.islemTip = '${islemTip}'`;
       }
 
       const bakiyeQuery = `
@@ -1000,7 +1079,7 @@ export class IslemService {
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${schemaName}.${tableName} i
-        ${whereCondition}
+        ${islemAracim}
         AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
         AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
       `;
