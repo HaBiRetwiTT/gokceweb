@@ -1475,4 +1475,36 @@ body.body--dark .genel-toplam-row {
 .body--dark .q-drawer .q-item:hover {
   background-color: rgba(144, 202, 249, 0.1);
 }
+
+/* 🔥 ANA MENÜ İÇİN SATIR ARALIKLARINI ESKİ HALİNE GETİR */
+/* Ana menüdeki q-item'ların satır aralıklarını normale döndür */
+.q-drawer .q-list .q-item,
+.q-drawer .q-item {
+  min-height: 48px !important; /* Quasar'ın varsayılan değeri */
+  padding: 8px 16px !important; /* Quasar'ın varsayılan değeri */
+  margin: 0 !important; /* Margin sıfır */
+  line-height: 1.5 !important; /* Normal satır yüksekliği */
+}
+
+.q-drawer .q-list .q-item__label,
+.q-drawer .q-item__label {
+  line-height: 1.5 !important; /* Normal satır yüksekliği */
+  padding: 0 !important; /* Normal padding */
+  margin: 0 !important; /* Normal margin */
+}
+
+/* Ana menü caption'ları için */
+.q-drawer .q-item__label--caption {
+  line-height: 1.4 !important; /* Caption için normal yükseklik */
+  padding: 2px 0 !important; /* Caption için normal padding */
+}
+
+/* Ana menü icon'ları için */
+.q-drawer .q-item__section--avatar {
+  min-width: 56px !important; /* Icon için normal genişlik */
+  padding-right: 16px !important; /* Icon için normal padding */
+}
+
+/* 🔥 SADECE Ana menü için, diğer q-select'ler etkilenmesin */
+/* Diğer sayfalardaki q-select dropdown'ları için değişiklik yok */
 </style>

@@ -1061,14 +1061,25 @@ async function hesaplaBedel() {
     KonaklamaSuresi: form.value.KonaklamaSuresi,
     KonaklamaTipi: form.value.KonaklamaTipi
   })
+  console.log('🔥 Konaklama süresi tipi:', typeof form.value.KonaklamaSuresi)
+  console.log('🔥 Konaklama süresi değeri:', form.value.KonaklamaSuresi)
   
   // Rezervasyon prefill aktifse otomatik hesaplamayı atla
   if (reservationPrefillActive.value) {
     console.log('🔥 Rezervasyon prefill aktif - hesaplama atlandı')
     return
   }
-  if (!form.value.OdaTipi || !form.value.KonaklamaSuresi || !form.value.KonaklamaTipi) {
+  // 🔥 KRİTİK: Konaklama süresi 0 iken de hesaplama yapılabilmeli
+  if (!form.value.OdaTipi || !form.value.KonaklamaTipi) {
     console.log('🔥 Gerekli alanlar eksik - hesaplama atlandı')
+    form.value.HesaplananBedel = 0
+    form.value.ToplamBedel = 0
+    return
+  }
+  
+  // Konaklama süresi 0 ise de hesaplama yapılabilir (Geç Saat Konaklama için)
+  if (form.value.KonaklamaSuresi === undefined || form.value.KonaklamaSuresi === null) {
+    console.log('🔥 Konaklama süresi tanımsız - hesaplama atlandı')
     form.value.HesaplananBedel = 0
     form.value.ToplamBedel = 0
     return
@@ -1111,6 +1122,8 @@ async function hesaplaBedel() {
       // 🔥 KRİTİK: Konaklama süresi 0 ise fiyat 1 gün için hesaplanmalı
       if (sure === 0) {
         hesaplananFiyat = gunlukFiyat * 1 // 0 gün için 1 günlük fiyat
+        console.log('🔥 Konaklama süresi 0 - 1 günlük fiyat hesaplandı:', hesaplananFiyat)
+        console.log('🔥 Günlük fiyat:', gunlukFiyat, 'Hesaplanan:', hesaplananFiyat)
       } else if (tip === 'GÜNLÜK') {
         hesaplananFiyat = gunlukFiyat * sure
       } else if (tip === '1 HAFTALIK') {
@@ -1145,7 +1158,15 @@ async function hesaplaBedel() {
       // 🔽 Onlar basamağına aşağı yuvarla
       hesaplananFiyat = Math.floor(hesaplananFiyat / 10) * 10
       form.value.HesaplananBedel = hesaplananFiyat
+      
+      // 🔥 KRİTİK: Konaklama süresi 0 iken toplam bedel de otomatik hesaplanan ile aynı olsun
       form.value.ToplamBedel = hesaplananFiyat
+      
+      // Konaklama süresi 0 iken özel log
+      if (sure === 0) {
+        console.log('🔥 Konaklama süresi 0 - Toplam bedel ayarlandı:', form.value.ToplamBedel)
+        console.log('🔥 Hesaplanan fiyat:', hesaplananFiyat, 'Toplam bedel:', form.value.ToplamBedel)
+      }
       
       console.log('🔥 Bedel hesaplaması tamamlandı:', {
         hesaplananFiyat,
@@ -1476,6 +1497,10 @@ watch(() => form.value.KonaklamaSuresi, (newSure, oldSure) => {
       if (!ekNotlar.value.includes('Geç Saat Konaklama')) {
         ekNotlar.value = ekNotlar.value ? `${ekNotlar.value} - Geç Saat Konaklama` : 'Geç Saat Konaklama'
       }
+      
+      // 🔥 KRİTİK: Konaklama süresi 0 seçildiğinde hemen bedel hesapla
+      console.log('🔥 Konaklama süresi 0 seçildi - hemen bedel hesaplanıyor...')
+      void hesaplaBedel()
     }
   }
   
@@ -1491,8 +1516,8 @@ watch(() => form.value.KonaklamaSuresi, (newSure, oldSure) => {
 watch([() => form.value.HesaplananBedel, () => form.value.ToplamBedel], () => {
   // Güncelleme modunda ek notları otomatik değiştirme
   if (!guncellemeModuAktif.value) {
-    // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
-    // updateEkNotlar()
+    // 🔥 updateEkNotlar çağır - artık "Geç Saat Konaklama" ifadesini koruyacak
+    updateEkNotlar()
   }
   
   // 🔥 Ö.T.G. otomatik temizleme mantığı
@@ -2113,9 +2138,10 @@ function updateEkNotlar() {
     return // Güncelleme modunda ek notları otomatik değiştirme
   }
   
-  // 🔥 Mevcut (ÖTG) ifadesini koru
+  // 🔥 Mevcut (ÖTG) ve "Geç Saat Konaklama" ifadelerini koru
   const mevcutNotlar = ekNotlar.value || ''
   const otgPrefix = mevcutNotlar.includes('(ÖTG)') ? '(ÖTG) ' : ''
+  const geceKonaklamaMevcut = mevcutNotlar.includes('Geç Saat Konaklama')
   
   const notlar = []
   
@@ -2166,16 +2192,17 @@ function updateEkNotlar() {
     notlar.push('Priz Verildi')
   }
   
-  if (ekBilgiler.value.geceKonaklama) {
+  // 🔥 "Geç Saat Konaklama" ifadesini koru - mevcut varsa veya ek bilgiler seçilmişse ekle
+  if (ekBilgiler.value.geceKonaklama || geceKonaklamaMevcut) {
     notlar.push('Geç Saat Konaklama')
     
     // 🔥 Geç Saat Konaklama seçildiğinde planlanan çıkış tarihini günün tarihi olarak ayarla
-    if (!guncellemeModuAktif.value) {
+    if (ekBilgiler.value.geceKonaklama && !guncellemeModuAktif.value) {
       // Konaklama süresini 0 gün yap (aynı gün çıkış) ve tipini GÜNLÜK yap
       form.value.KonaklamaSuresi = 0
       form.value.KonaklamaTipi = 'GÜNLÜK'
     }
-  } // 🔥 if (ekBilgiler.value.geceKonaklama) statement'ının kapanışı
+  }
   
   // Notları birleştir
   const finalNotlar = notlar.length > 0 ? ' - ' + notlar.join(' -/- ') : ''

@@ -216,17 +216,52 @@
             <div class="form-field">
               <label class="form-label">İşlem Tanımı</label>
               <q-select
-                v-model="newRecord.islemTanimi"
+                v-model="islemTanimiModel"
                 :options="islemTanimiOptions"
                 dense
                 outlined
-                class="form-input"
+                class="form-input islem-tanimi-select"
                 use-input
-                input-debounce="0"
-                new-value-mode="add-unique"
-                @filter="filterIslemTanimi"
-                @update:model-value="onIslemTanimiChange"
-              />
+                hide-dropdown-icon
+                input-debounce="300"
+                popup-content-class="islem-tanimi-popup"
+                style="width: 100%;"
+                v-model:input-value="islemTanimiText"
+                menu-anchor="bottom left"
+                menu-self="top left"
+                fit
+                placeholder="İşlem tanımı yazın veya seçin..."
+                @filter="onFilterIslemTanimi"
+                @update:model-value="onIslemTanimiSelect"
+                @blur="onIslemTanimiBlur"
+                clearable
+              >
+                <template v-slot:prepend>
+                  <q-icon name="search" color="green-6" />
+                </template>
+                <template v-slot:before-options>
+                  <div class="row text-caption text-grey-7 q-px-sm q-pt-sm q-pb-xs islem-tanimi-header">
+                    <div class="col-12">İşlem Tanımı</div>
+                  </div>
+                  <q-separator />
+                </template>
+                <template v-slot:option="{ opt }">
+                  <q-item dense>
+                    <q-item-section>
+                      <div class="islem-tanimi-option">
+                        {{ opt }}
+                      </div>
+                    </q-item-section>
+                  </q-item>
+                </template>
+                <template v-slot:no-option>
+                  <q-item>
+                    <q-item-section class="text-grey">
+                      Sonuç bulunamadı. Yazdığınız değer otomatik olarak eklenir.
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
             </div>
 
             <!-- İşlem Açıklaması -->
@@ -578,6 +613,12 @@ const islemKategoriOptions = ['Kredi Kartları', 'Krediler', 'Ev Kiraları', 'Ev
 
 // İşlem Tanımı seçenekleri (dinamik olarak güncellenir)
 const islemTanimiOptions = ref<string[]>([]);
+// 🔥 Orijinal işlem tanımı seçenekleri (arama için)
+const originalIslemTanimiOptions = ref<string[]>([]);
+// İşlem tanımı input text'i için
+const islemTanimiText = ref('');
+// İşlem tanımı seçim modeli için
+const islemTanimiModel = ref<string | null>(null);
 
 // Sayfa yüklendiğinde çalışır
 onMounted(async () => {
@@ -814,12 +855,16 @@ watch(() => newRecord.value.islemKategorisi, async (newKategori) => {
     try {
       const altGruplar = await getIslmAltGruplar(newKategori);
       islemTanimiOptions.value = altGruplar;
+      // 🔥 Orijinal listeyi de güncelle (arama için)
+      originalIslemTanimiOptions.value = [...altGruplar];
     } catch (error) {
       console.error('İslm alt grupları alınırken hata:', error);
       islemTanimiOptions.value = [];
+      originalIslemTanimiOptions.value = [];
     }
   } else {
     islemTanimiOptions.value = [];
+    originalIslemTanimiOptions.value = [];
   }
 });
 
@@ -1000,6 +1045,10 @@ const addNewRecord = () => {
     islemAciklamasi: '',
     kayitTakip: true,
   };
+  // İşlem tanımı input text'ini temizle
+  islemTanimiText.value = '';
+  // İşlem tanımı model'ini temizle
+  islemTanimiModel.value = null;
 };
 
 // Yeni kayıt kaydetme fonksiyonu
@@ -1037,30 +1086,109 @@ function saveNewRecord() {
   });
 
   showNewRecordModal.value = false;
+  
+  // İşlem tanımı input text'ini temizle
+  islemTanimiText.value = '';
 }
 
 // Yeni kayıt modalını kapatma fonksiyonu
 function closeNewRecordModal() {
   showNewRecordModal.value = false;
+  
+  // İşlem tanımı input text'ini temizle
+  islemTanimiText.value = '';
 }
 
-// İşlem tanımı filtreleme fonksiyonu
-function filterIslemTanimi(val: string, update: (callback: () => void) => void) {
-  if (val === '') {
-    update(() => {
+
+// 🔥 Gelişmiş arama fonksiyonu - Listede olmayanı da kabul eder
+function onFilterIslemTanimi(val: string, update: (callback: () => void) => void) {
+  update(() => {
+    if (val === '') {
       // Boş değer için tüm seçenekleri göster
-    });
-  } else {
-    update(() => {
-      // Filtreleme yapılmıyor - tüm seçenekler gösteriliyor
-    });
+      islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+      return;
+    }
+
+    // Büyük/küçük harf duyarsız arama
+    const searchTerm = val.toLowerCase().trim();
+    
+    // Orijinal listeden filtreleme yap
+    const filtered = originalIslemTanimiOptions.value.filter((option) => 
+      option.toLowerCase().includes(searchTerm)
+    );
+    
+    // 🔥 Yazılan değer listede yoksa, onu da geçici olarak göster
+    if (val.trim() && !originalIslemTanimiOptions.value.some(opt => opt.toLowerCase() === val.trim().toLowerCase())) {
+      filtered.unshift(`${val.trim()} (Yeni)`); // En üste ekle
+    }
+    
+    islemTanimiOptions.value = filtered;
+  });
+}
+
+// İşlem tanımı değişikliği fonksiyonu - artık kullanılmıyor, onIslemTanimiSelect kullanılıyor
+// function onIslemTanimiChange(value: string) {
+//   // İşlem tanımı değiştiğinde yapılacak işlemler
+//   console.log('İşlem tanımı değişti:', value);
+// }
+
+// İşlem tanımı seçimi yapıldığında
+function onIslemTanimiSelect(value: string | null) {
+  if (value) {
+    // Eğer "(Yeni)" etiketi varsa, onu kaldır
+    const cleanValue = value.replace(' (Yeni)', '');
+    
+    // Hem model'i hem de newRecord'u güncelle
+    islemTanimiModel.value = cleanValue;
+    newRecord.value.islemTanimi = cleanValue;
+    
+    console.log('İşlem tanımı seçildi:', cleanValue);
+    
+    // Eğer bu yeni bir değer ise, orijinal listeye ekle
+    if (!originalIslemTanimiOptions.value.some(opt => opt === cleanValue)) {
+      originalIslemTanimiOptions.value.push(cleanValue);
+      console.log('Yeni işlem tanımı orijinal listeye eklenip kaydedildi:', cleanValue);
+    }
+    
+    // 🔥 Seçim yapıldıktan sonra input'u blur yap ve listeyi kapat
+    const inputElement = document.querySelector('.islem-tanimi-select input') as HTMLInputElement;
+    if (inputElement) {
+      inputElement.blur();
+      // Input text'i temizle
+      islemTanimiText.value = '';
+    }
   }
 }
 
-// İşlem tanımı değişikliği fonksiyonu
-function onIslemTanimiChange(value: string) {
-  // İşlem tanımı değiştiğinde yapılacak işlemler
-  console.log('İşlem tanımı değişti:', value);
+// 🔥 Enter'a basınca input'u tamamen temizle ve değeri kabul et - artık kullanılmıyor
+// function onIslemTanimiEnter() {
+//   // Eğer input'ta yazılan değer varsa
+//   if (islemTanimiText.value) {
+//     // Değeri orijinal listeye ekle (eğer yoksa)
+//     const newOption = { label: islemTanimiText.value, value: islemTanimiText.value };
+//     if (!originalIslemTanimiOptions.value.some(opt => opt.value === islemTanimiText.value)) {
+//       originalIslemTanimiOptions.value.push(newOption);
+//     }
+//     
+//     // Seçenekleri güncelle
+//     islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+//     
+//     // Input'u tamamen temizle
+//     islemTanimiText.value = '';
+//     
+//     console.log('🔥 Enter ile değer kabul edildi ve input tamamen temizlendi');
+//   }
+// }
+
+// 🔥 İşlem tanımı input'undan çıkıldığında (blur)
+function onIslemTanimiBlur() {
+  // Input text'i temizle
+  islemTanimiText.value = '';
+  
+  // Seçenekleri orijinal listeye geri döndür
+  islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+  
+  console.log('İşlem tanımı input\'undan çıkıldı, temizlik yapıldı');
 }
 
 // Tarih değişikliği fonksiyonu
@@ -1884,6 +2012,168 @@ body.body--dark .q-input .q-field__control {
     height: 44px;
     font-size: 0.9rem;
   }
+}
+
+/* 🔥 İşlem Tanımı q-select için satır aralıklarını azalt - EN GÜÇLÜ SELECTOR'LAR */
+/* Global override - tüm q-select dropdown'ları için */
+body .q-select__dropdown .q-item,
+html body .q-select__dropdown .q-item,
+.q-select__dropdown .q-item,
+.q-select .q-item,
+.q-item {
+  min-height: 20px !important; /* Çok daha az */
+  padding: 0px 16px !important; /* Üst-alt padding'i sıfırla */
+  margin: 0 !important; /* Margin'i sıfırla */
+}
+
+/* İşlem tanımı popup stilleri */
+.islem-tanimi-popup {
+  max-height: 300px !important;
+}
+
+.islem-tanimi-header {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.islem-tanimi-option {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* Dark mode için */
+.body--dark .islem-tanimi-header {
+  background-color: #2c3e50;
+  color: #ecf0f1;
+}
+
+.body--dark .islem-tanimi-option {
+  color: #ecf0f1;
+}
+
+body .q-select__dropdown .q-item__label,
+html body .q-select__dropdown .q-item__label,
+.q-select__dropdown .q-item__label,
+.q-select .q-item__label,
+.q-item__label {
+  line-height: 1 !important; /* Satır yüksekliğini minimize et */
+  padding: 0 !important; /* Tüm padding'i sıfırla */
+  margin: 0 !important; /* Tüm margin'i sıfırla */
+}
+
+/* Modal form içindeki q-select için özel stil - EN GÜÇLÜ */
+.new-record-modal .q-select__dropdown .q-item,
+.new-record-modal .q-select .q-item,
+.new-record-modal .q-item {
+  min-height: 16px !important; /* Çok daha az */
+  padding: 0px 16px !important; /* Üst-alt padding'i sıfırla */
+  margin: 0 !important; /* Margin'i sıfırla */
+}
+
+.new-record-modal .q-select__dropdown .q-item__label,
+.new-record-modal .q-select .q-item__label,
+.new-record-modal .q-item__label {
+  line-height: 0.8 !important; /* Çok daha az */
+  padding: 0 !important; /* Tüm padding'i sıfırla */
+  margin: 0 !important; /* Tüm margin'i sıfırla */
+}
+
+/* 🔥 EN GÜÇLÜ OVERRIDE - Quasar'ın tüm CSS'ini kesinlikle override et */
+html body .q-select__dropdown .q-item,
+html body .q-select .q-item,
+html body .q-item,
+body .q-select__dropdown .q-item,
+body .q-select .q-item,
+body .q-item {
+  min-height: 18px !important; /* Minimum yükseklik */
+  padding: 0px 16px !important; /* Sadece yatay padding */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+html body .q-select__dropdown .q-item__label,
+html body .q-select .q-item__label,
+html body .q-item__label,
+body .q-select__dropdown .q-item__label,
+body .q-select .q-item__label,
+body .q-item__label {
+  line-height: 0.9 !important; /* Minimum satır yüksekliği */
+  padding: 0 !important; /* Padding sıfır */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+/* 🔥 İşlem Tanımı q-select için özel CSS - EN GÜÇLÜ */
+.islem-tanimi-select .q-select__dropdown .q-item,
+.islem-tanimi-select .q-select .q-item,
+.islem-tanimi-select .q-item,
+.islem-tanimi-select .q-select__dropdown .q-item__label,
+.islem-tanimi-select .q-select .q-item__label,
+.islem-tanimi-select .q-item__label {
+  min-height: 16px !important; /* Çok daha az */
+  padding: 0px 16px !important; /* Sadece yatay padding */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+  line-height: 0.8 !important; /* Minimum satır yüksekliği */
+}
+
+/* 🔥 İşlem Tanımı q-select dropdown için özel CSS */
+.islem-tanimi-select .q-select__dropdown {
+  max-height: 200px !important; /* Dropdown yüksekliğini sınırla */
+}
+
+.islem-tanimi-select .q-select__dropdown .q-item {
+  min-height: 16px !important; /* Minimum yükseklik */
+  padding: 0px 16px !important; /* Sadece yatay padding */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+.islem-tanimi-select .q-select__dropdown .q-item__label {
+  line-height: 0.8 !important; /* Minimum satır yüksekliği */
+  padding: 0 !important; /* Padding sıfır */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+/* 🔥 GLOBAL OVERRIDE - Tüm q-select dropdown'ları için */
+/* Quasar'ın tüm CSS'ini kesinlikle override et */
+* .q-select__dropdown .q-item,
+* .q-select .q-item,
+* .q-item {
+  min-height: 16px !important; /* Minimum yükseklik */
+  padding: 0px 16px !important; /* Sadece yatay padding */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+* .q-select__dropdown .q-item__label,
+* .q-select .q-item__label,
+* .q-item__label {
+  line-height: 0.8 !important; /* Minimum satır yüksekliği */
+  padding: 0 !important; /* Padding sıfır */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+/* 🔥 EN GÜÇLÜ - Tüm elementler için */
+.q-select__dropdown .q-item,
+.q-select .q-item,
+.q-item {
+  min-height: 16px !important; /* Minimum yükseklik */
+  padding: 0px 16px !important; /* Sadece yatay padding */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
+}
+
+.q-select__dropdown .q-item__label,
+.q-select .q-item__label,
+.q-item__label {
+  line-height: 0.8 !important; /* Minimum satır yüksekliği */
+  padding: 0 !important; /* Padding sıfır */
+  margin: 0 !important; /* Margin sıfır */
+  height: auto !important; /* Yüksekliği otomatik yap */
 }
 
 </style>
