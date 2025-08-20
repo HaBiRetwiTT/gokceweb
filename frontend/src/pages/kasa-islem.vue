@@ -274,6 +274,7 @@
                       :columns="detailColumns"
                       :loading="detailLoading"
                       :pagination="detailPagination"
+                      :sort-method="customSort"
                       row-key="id"
                       flat
                       bordered
@@ -288,6 +289,16 @@
                       @request="onDetailRequest"
                       @row-dblclick="onDetailRowDblClick"
                     >
+                      <!-- No data slot - loading durumunda daha iyi mesaj göster -->
+                      <template v-slot:no-data>
+                        <div class="text-center q-pa-md">
+                          <q-spinner-dots size="32px" color="primary" />
+                          <div class="text-body1 q-mt-sm">
+                            {{ detailLoading ? 'Veriler yükleniyor...' : 'Veri bulunamadı' }}
+                          </div>
+                        </div>
+                      </template>
+                      
                       <!-- Başlık satırında 'Bilgi' sütununun hemen yanında ikon container -->
                       <template v-slot:header-cell-islemBilgi="props">
                         <q-th :props="props">
@@ -1760,13 +1771,78 @@ const pagination = ref({
 })
 
 // Detay tablo pagination ayarları
-const detailPagination = ref({
-  sortBy: 'islemNo',
-  descending: true,
-  page: 1,
-  rowsPerPage: 15,
-  rowsNumber: 100
-})
+const detailPagination = ref({ sortBy: 'islemNo', descending: true, page: 1, rowsPerPage: 15, rowsNumber: 100 })
+
+// Default sıralama ayarlarını sakla (geri dönüş için)
+const defaultDetailSort = { sortBy: 'islemNo', descending: true }
+
+// RST kayıt interface'i
+interface RstRecord {
+  islemNo: number;
+  iKytTarihi: string;
+  islemArac: string;
+  islemTip: string;
+  islemKllnc: string;
+  islemOzel1: string;
+  islemOzel2: string;
+  islemOzel3: string;
+  islemOzel4: string;
+  islemBirim: string;
+  islemDoviz: string;
+  islemKur: number;
+  islemBilgi: string;
+  islemCrKod: string;
+  islemGrup: string;
+  islemAltG: string;
+  islemMiktar: number;
+  islemTutar: number;
+}
+
+// Detay tablo için özel sıralama fonksiyonu
+const customSort = (rows: readonly IslemDetay[], sortBy: string, descending: boolean) => {
+  const data = [...rows]
+  
+  // Eğer RST kayıtları varsa, özel sıralama uygula
+  if (rstIslemNoList.value.length > 0) {
+    data.sort((a, b) => {
+      const aIsRst = rstIslemNoList.value.includes(a.islemNo);
+      const bIsRst = rstIslemNoList.value.includes(b.islemNo);
+      
+      if (aIsRst !== bIsRst) {
+        return aIsRst ? -1 : 1; // RST kayıtları önce
+      }
+      
+      // Aynı türde kayıtlar için islemNo desc sıralama
+      const aNum = Number(a.islemNo) || 0;
+      const bNum = Number(b.islemNo) || 0;
+      return bNum - aNum; // Descending sıralama
+    });
+    return data;
+  }
+  
+  // RST kayıtları yoksa normal sıralama
+  if (sortBy) {
+    data.sort((a, b) => {
+      let aVal = a[sortBy as keyof IslemDetay];
+      let bVal = b[sortBy as keyof IslemDetay];
+      
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+      
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return descending ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+      }
+      
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return descending ? bVal - aVal : aVal - bVal;
+      }
+      
+      return 0;
+    });
+  }
+  
+  return data;
+};
 
 // Ana tablo pagination request handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1793,49 +1869,22 @@ const onDetailRequest = (props: any) => {
     const sortBy = props.pagination.sortBy
     const descending = props.pagination.descending
     
-    // Verileri sırala
-    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-      const sortKey = sortBy as keyof IslemDetay
-      const aRaw = a[sortKey]
-      const bRaw = b[sortKey]
-      let aValue: string | number = aRaw !== undefined ? aRaw : (sortBy === 'islemTutar' || sortBy === 'islemNo' ? 0 : '')
-      let bValue: string | number = bRaw !== undefined ? bRaw : (sortBy === 'islemTutar' || sortBy === 'islemNo' ? 0 : '')
-      
-      // Sayısal alanlar için numara kıyasla
-      if (sortBy === 'islemTutar' || sortBy === 'islemNo') {
-        aValue = parseFloat(String(aValue)) || 0
-        bValue = parseFloat(String(bValue)) || 0
-      } else {
-        // Diğer sütunlar için string karşılaştırma
-        aValue = String(aValue || '').toLowerCase()
-        bValue = String(bValue || '').toLowerCase()
-      }
-      
-      if (aValue < bValue) return descending ? 1 : -1
-      if (aValue > bValue) return descending ? -1 : 1
-      return 0
-    })
+    // customSort kullanarak RST-first sıralama uygula
+    const sortedData = customSort(allDetailTableData.value, sortBy, descending)
+    detailTableData.value = sortedData
   } else {
-    // Manuel sıralama yoksa, varsayılan sıralamayı uygula
-    // Verileri önce "D." sütununa göre azalan (RST kayıtları önce), sonra "Cari Adı" sütununa göre artan sırala
-    allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-      // Önce RST durumuna göre sırala (RST kayıtları önce)
-      const aIsRst = rstIslemNoList.value.includes(a.islemNo)
-      const bIsRst = rstIslemNoList.value.includes(b.islemNo)
-      
-      if (aIsRst !== bIsRst) {
-        return aIsRst ? -1 : 1 // RST kayıtları önce
-      }
-      
-      // RST durumu aynıysa, Cari Adı'na göre artan sırala
-      const aCariAdi = String(a.islemAltG || '').toLowerCase()
-      const bCariAdi = String(b.islemAltG || '').toLowerCase()
-      return aCariAdi.localeCompare(bCariAdi, 'tr')
-    })
+    // Manuel sıralama yoksa, default sıralamayı uygula (islemNo desc)
+    detailPagination.value.sortBy = defaultDetailSort.sortBy
+    detailPagination.value.descending = defaultDetailSort.descending
+    
+    // customSort kullanarak RST-first sıralama uygula
+    const sortedData = customSort(allDetailTableData.value, defaultDetailSort.sortBy, defaultDetailSort.descending)
+    detailTableData.value = sortedData
   }
   
-  // Sıralanmış verileri güncelle
-  updateDetailTableData()
+  // Pagination'ı güncelle
+  detailPagination.value.rowsNumber = detailTableData.value.length
+  detailPagination.value.page = 1
 }
 
 // Ana tablo sayfa değiştirme fonksiyonu
@@ -1849,7 +1898,17 @@ const changePage = (newPage: number) => {
 const changeDetailPage = (newPage: number) => {
   debugLog('🔍 Detay tablo sayfa değiştiriliyor:', newPage)
   detailPagination.value.page = newPage
-  updateDetailTableData()
+  
+  // Sayfa değiştiğinde default sıralamaya dön
+  detailPagination.value.sortBy = defaultDetailSort.sortBy
+  detailPagination.value.descending = defaultDetailSort.descending
+  
+  // customSort kullanarak RST-first sıralama uygula
+  const sortedData = customSort(allDetailTableData.value, defaultDetailSort.sortBy, defaultDetailSort.descending)
+  detailTableData.value = sortedData
+  
+  // Pagination'ı güncelle
+  detailPagination.value.rowsNumber = sortedData.length
 }
 
 // Ana tablo verilerini güncelle (15 satırlık parçalar halinde)
@@ -1860,12 +1919,22 @@ const updateTableData = () => {
   debugLog('🔍 Ana tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allTableData.value.length)
 }
 
-// Detay tablo verilerini güncelle (15 satırlık parçalar halinde)
+// Detay tablo verilerini güncelle
 const updateDetailTableData = () => {
-  const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage
-  const endIndex = startIndex + detailPagination.value.rowsPerPage
-  detailTableData.value = allDetailTableData.value.slice(startIndex, endIndex)
-  debugLog('🔍 Detay tablo güncellendi:', startIndex, 'to', endIndex, 'toplam:', allDetailTableData.value.length)
+  // Sıralama ayarları default değilse, default'a dön
+  if (detailPagination.value.sortBy !== defaultDetailSort.sortBy || 
+      detailPagination.value.descending !== defaultDetailSort.descending) {
+    detailPagination.value.sortBy = defaultDetailSort.sortBy
+    detailPagination.value.descending = defaultDetailSort.descending
+  }
+  
+  // customSort otomatik olarak RST kayıtlarını önce sıralayacak
+  const sortedData = customSort(allDetailTableData.value, detailPagination.value.sortBy, detailPagination.value.descending);
+  detailTableData.value = sortedData;
+  
+  // Pagination'ı güncelle
+  detailPagination.value.rowsNumber = sortedData.length;
+  detailPagination.value.page = 1;
 }
 
 // Detay tablo satırına çift tık event handler
@@ -2652,14 +2721,6 @@ const closeBothForms = async () => {
   }
 }
 
-
-
-
-
-
-
-
-
 // Detay tablo sütunları
 const detailColumns: QTableColumn[] = [
   {
@@ -2735,11 +2796,21 @@ const islemTipForApi = computed(() => {
 
 
 // Satır tıklama event handler
-const onRowClick = (evt: Event, row: TableRow) => {
+const onRowClick = async (evt: Event, row: TableRow) => {
   debugLog('🔍 Satır tıklandı:', row)
   debugLog('🔍 Seçilen tarih:', row.tarih)
   selectedDate.value = row.tarih
-  void loadDetailTableData(row.tarih)
+  
+  // 🔥 Detay tablo loading durumunu aktif et
+  detailLoading.value = true
+  
+  await loadDetailTableData(row.tarih)
+  
+  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
+  await loadRstIslemNoList()
+  
+  // 🔥 Loading durumunu kapat
+  detailLoading.value = false
   
   // Sadece 1. sayfanın ilk satırında güncel bakiye, aksi halde seçilen gün bakiyesi
   const isIlkSayfaVeIlkSatir =
@@ -2752,14 +2823,24 @@ const onRowClick = (evt: Event, row: TableRow) => {
 
 // Event handler for radio group change
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const onislemAracChange = (_value: string) => {
+const onislemAracChange = async (_value: string) => {
   // İşlem türü değiştiğinde tabloyu yeniden yükle
   void loadTableData()
   
   // Eğer seçili tarih varsa detay tabloyu otomatik olarak güncelle
   if (selectedDate.value) {
     debugLog('🔍 İşlem türü değişti, seçili tarih korunuyor ve detay tablo güncelleniyor:', selectedDate.value)
-    void loadDetailTableData(selectedDate.value)
+    
+    // 🔥 Detay tablo loading durumunu aktif et
+    detailLoading.value = true
+    
+    await loadDetailTableData(selectedDate.value)
+    
+    // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
+    await loadRstIslemNoList()
+    
+    // 🔥 Loading durumunu kapat
+    detailLoading.value = false
   } else {
     // Seçili tarih yoksa detay tabloyu temizle
     allDetailTableData.value = []
@@ -2772,7 +2853,15 @@ const onislemAracChange = (_value: string) => {
 const loadDetailTableData = async (tarih: string) => {
   if (!tarih) return
   
+  // 🔥 Debug: Fonksiyon başlangıcında loading durumunu kontrol et
+  debugLog('🔥 loadDetailTableData başladı, detailLoading:', detailLoading.value)
+  debugLog('🔥 loadDetailTableData başladı, detailTableData uzunluğu:', detailTableData.value.length)
+  
+  // 🔥 Loading durumunu aktif et (eğer zaten aktif değilse)
+  if (!detailLoading.value) {
   detailLoading.value = true
+    debugLog('🔥 loadDetailTableData: detailLoading true yapıldı')
+  }
   try {
     debugLog('🔍 Detay tablo verisi yükleniyor...')
     debugLog('🔍 Seçilen tarih:', tarih)
@@ -2810,25 +2899,27 @@ const loadDetailTableData = async (tarih: string) => {
        // Backend'den gelen veriyi kullan
        allDetailTableData.value = result.data || []
        
-       // Verileri "Cari Adı" sütununa göre artan sırala
-       allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-         const aCariAdi = String(a.islemAltG || '').toLowerCase()
-         const bCariAdi = String(b.islemAltG || '').toLowerCase()
-         return aCariAdi.localeCompare(bCariAdi, 'tr')
-       })
+       // Default sıralamaya dön (islemNo desc)
+       detailPagination.value.sortBy = defaultDetailSort.sortBy
+       detailPagination.value.descending = defaultDetailSort.descending
        
        // Detay tablo pagination için toplam kayıt sayısını ayarla
        detailPagination.value.rowsNumber = allDetailTableData.value.length
        // İlk sayfayı göster
        detailPagination.value.page = 1
+       
+       // RST kayıtlarını yükle ve customSort ile sırala
+       await loadRstIslemNoList()
        updateDetailTableData()
         debugLog('🔍 Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
         debugLog('🔍 Detay tablo verisi güncellendi:', detailTableData.value)
         debugLog('🔍 Detay pagination:', detailPagination.value)
+        debugLog('🔥 loadDetailTableData başarılı, detailTableData uzunluğu:', detailTableData.value.length)
      } else {
       debugLog('🔍 Detay API hatası:', result.message)
       debugLog('🔍 Detay API error details:', result)
       detailTableData.value = []
+      debugLog('🔥 loadDetailTableData API hatası, detailTableData temizlendi')
     }
   } catch (error) {
     debugLog('🔍 Detay veri yükleme hatası:', error)
@@ -2838,8 +2929,10 @@ const loadDetailTableData = async (tarih: string) => {
       debugLog('🔍 Detay Error status:', axiosError.response?.status)
     }
     detailTableData.value = []
+    debugLog('🔥 loadDetailTableData catch hatası, detailTableData temizlendi')
   } finally {
-    detailLoading.value = false
+    // 🔥 detailLoading'i burada kapatmıyoruz, onMounted'da yönetiliyor
+    // detailLoading.value = false
   }
 }
 
@@ -3113,6 +3206,13 @@ const changeKasaDevirPage = async (newPage: number) => {
 const refreshData = async () => {
   debugLog('🔄 Veri yenileniyor...')
   
+  // 🔥 Detay tablo loading durumunu hemen aktif et (Veri yok mesajını engellemek için)
+  detailLoading.value = true
+  
+  // 🔥 Default seçimleri koru: "Cari" - "GELİR"
+  if (selectedislemArac.value !== 'cari') selectedislemArac.value = 'cari'
+  if (selectedislemTip.value !== 'gelir') selectedislemTip.value = 'gelir'
+  
   // Mevcut seçili tarihi sakla
   const mevcutSeciliTarih = selectedDate.value
   
@@ -3122,25 +3222,38 @@ const refreshData = async () => {
   detailPagination.value.page = 1
   detailPagination.value.rowsNumber = 0
   
-  // Ana tablo verilerini yeniden yükle
-  await loadTableData()
+  // 🔥 Ana tablo ve kasa devir yüklemelerini eş zamanlı başlat
+  await Promise.allSettled([
+    loadTableData(),
+    loadKasaDevirVerileri()
+  ])
   
-  // Tarih seçili ise o tarih için detay tablo, değilse ilk tarih seçilsin
-  if (mevcutSeciliTarih && tableData.value.some((row: TableRow) => row.tarih === mevcutSeciliTarih)) {
-    // Mevcut seçili tarih hala geçerliyse onu kullan
-    selectedDate.value = mevcutSeciliTarih
-    await loadDetailTableData(mevcutSeciliTarih)
-  } else if (tableData.value.length > 0) {
-    // İlk tarih seçilsin ve detay tablo sorgulansın
-    const ilkTarih = tableData.value[0].tarih
-    selectedDate.value = ilkTarih
-    await loadDetailTableData(ilkTarih)
+  // 🔥 Eğer mevcut tarih geçerliyse onu kullan, değilse günün tarihini kullan
+  let hedefTarih = mevcutSeciliTarih
+  if (!hedefTarih || !tableData.value.some((row: TableRow) => row.tarih === hedefTarih)) {
+    // Günün tarihini DD.MM.YYYY formatında al
+    const bugun = new Date()
+    hedefTarih = bugun.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+    selectedDate.value = hedefTarih
   }
+  
+  // 🔥 Detay tablo için hedef tarih ile sorgula
+  await loadDetailTableData(hedefTarih)
+  
+  // 🔥 RST kayıtlarını yükle (sıralama için)
+  await loadRstIslemNoList()
   
   // Güncel bakiyeyi hesapla
   await loadGuncelBakiye()
   // Kasa devir verilerini de yenile
   await loadKasaDevirVerileri()
+  
+  // 🔥 Tüm veriler yüklendikten sonra loading durumunu kapat
+  detailLoading.value = false
   
   debugLog('✅ Veri yenileme tamamlandı')
 }
@@ -3273,42 +3386,107 @@ const loadTableData = async () => {
 
 // Sayfa yüklendiğinde veriyi yükle
 onMounted(async () => {
-  await loadTableData()
-  // Sayfa ilk yüklendiğinde güncel bakiyeyi hesapla
-  await loadGuncelBakiye()
+  debugLog('🔥 onMounted başladı')
   
-  // Kasa devir verilerini otomatik olarak yükle
-  await loadKasaDevirVerileri()
+  // 🔥 Detay tablo loading durumunu hemen aktif et (Veri yok mesajını engellemek için)
+  detailLoading.value = true
+  debugLog('🔥 detailLoading true yapıldı:', detailLoading.value)
+  debugLog('🔥 detailTableData uzunluğu:', detailTableData.value.length)
+  debugLog('🔥 allDetailTableData uzunluğu:', allDetailTableData.value.length)
   
-  // Combo box verilerini yükle
-  await loadComboBoxData()
+  // 🔥 Default seçimleri ayarla: "Cari" - "GELİR" ve günün tarihi
+  selectedislemArac.value = 'cari'
+  selectedislemTip.value = 'gelir'
+  debugLog('🔥 Default seçimler ayarlandı:', { islemArac: selectedislemArac.value, islemTip: selectedislemTip.value })
   
-  // İlk tarih seçili olsun ve detay tablo sorgulansın
+  // 🔥 Günün tarihini DD.MM.YYYY formatında al ve seç
+  const bugun = new Date()
+  const gunTarihi = bugun.toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+  selectedDate.value = gunTarihi
+  debugLog('🔥 Günün tarihi ayarlandı:', gunTarihi)
+  
+  try {
+    // 🔥 Ana tablo, combobox, kasa devir ve DETAY tablosunu eş zamanlı başlat
+    debugLog('🔥 Promise.allSettled başlatılıyor...')
+    const detailPromise = loadDetailTableData(gunTarihi)
+    await Promise.allSettled([
+      loadTableData(),
+      loadComboBoxData(),
+      loadKasaDevirVerileri(),
+      detailPromise
+    ])
+    debugLog('🔥 Promise.allSettled tamamlandı (detay dahil)')
+    
+    // 🔥 RST kayıtlarını yükle (sıralama için)
+    await loadRstIslemNoList()
+    
+    // 🔥 Güncel bakiyeyi hesapla
+    await loadGuncelBakiye()
+    
+    // 🔥 Eğer ana tablo verisi varsa, ilk tarihi seç ve detay tabloyu güncelle
   if (tableData.value.length > 0) {
     const ilkTarih = tableData.value[0].tarih
-    selectedDate.value = ilkTarih
-    await loadDetailTableData(ilkTarih)
+      // Eğer ilk tarih bugünden farklıysa, güncel tarihi kullan
+      if (ilkTarih !== gunTarihi) {
+        selectedDate.value = gunTarihi
+        // Detay tablo zaten yüklendi, tekrar yüklemeye gerek yok
+      }
     // 1. sayfanın ilk satırında olduğumuz için güncel bakiye
     await loadGuncelBakiye()
+    }
+  } catch (error) {
+    debugLog('🔥 onMounted hata:', error)
+  } finally {
+    // 🔥 Tüm veriler yüklendikten sonra loading durumunu kapat
+    detailLoading.value = false
+    debugLog('🔥 onMounted tamamlandı, detailLoading false yapıldı')
   }
 })
 
 // İşlem türü değiştiğinde tabloyu yeniden yükle
 watch(selectedislemArac, async () => {
+  // 🔥 Detay tablo loading durumunu aktif et
+  detailLoading.value = true
+  
+  // 🔥 İşlem türü değiştiğinde detay tablo da güncellensin
   await loadTableData()
+  if (selectedDate.value) {
+    await loadDetailTableData(selectedDate.value)
+  }
+  
+  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
+  await loadRstIslemNoList()
+  
+  // 🔥 Loading durumunu kapat
+  detailLoading.value = false
+  
   void recomputeCurrentBakiyeForSelection()
 })
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
-watch(selectedislemTip, () => {
+watch(selectedislemTip, async () => {
   debugLog('🔍 selectedislemTip değişti:', selectedislemTip.value)
   debugLog('🔍 islemTipForApi değeri:', islemTipForApi.value)
+  
+  // 🔥 Detay tablo loading durumunu aktif et
+  detailLoading.value = true
+  
   if (selectedDate.value) {
     debugLog('🔍 Detay tablo güncelleniyor...')
-    void loadDetailTableData(selectedDate.value)
+    await loadDetailTableData(selectedDate.value)
   } else {
     debugLog('🔍 Seçili tarih yok, detay tablo güncellenmiyor')
   }
+  
+  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
+  await loadRstIslemNoList()
+  
+  // 🔥 Loading durumunu kapat
+  detailLoading.value = false
   
   // İşlem yönü değiştiğinde bakiye hesaplaması yap
   void recomputeCurrentBakiyeForSelection()
@@ -3393,33 +3571,99 @@ const rstDifferences = ref<Record<number, Array<{
   changedValue: string
 }>>>({})
 
+// 🔥 RST kayıtlarını toplu olarak getir (performans optimizasyonu)
+const loadRstRecordsBatch = async (islemNoList: number[]): Promise<number[]> => {
+  try {
+    if (!islemNoList || islemNoList.length === 0) {
+      console.log('🔥 RST kayıtları için islemNo listesi boş')
+      return []
+    }
+    
+    console.log('🔥 RST kayıtları toplu getiriliyor, islemNo sayısı:', islemNoList.length)
+    
+    const response = await api.post('/islem/rst-records-batch', {
+      islemNoList: islemNoList
+    })
+    
+    if (response.data.success) {
+      const rstRecords = response.data.data
+      console.log('🔥 RST kayıtları başarıyla alındı, kayıt sayısı:', rstRecords.length)
+      
+      // Sadece islemNo'ları döndür
+      const rstIslemNoList = rstRecords.map((record: { islemNo: number }) => record.islemNo).filter(Boolean)
+      console.log('🔥 RST islemNo listesi oluşturuldu:', rstIslemNoList)
+      
+      return rstIslemNoList
+    } else {
+      console.log('🔥 RST kayıtları API hatası:', response.data.message)
+      return []
+    }
+  } catch (error) {
+    console.log('🔥 RST kayıtları toplu getirme hatası:', error)
+    return []
+  }
+}
+
 // tblislemRST tablosundan tüm islemNo değerlerini getir
 const loadRstIslemNoList = async () => {
   try {
-    // Eğer ana detay tablo verisi yoksa, önce onu yükle
-    if (allDetailTableData.value.length === 0) {
-      return
-    }
+    console.log('🔍 RST kayıtları kontrol ediliyor...')
     
-    // Tüm islemNo değerlerini topla
-    const allIslemNoList = allDetailTableData.value.map(row => row.islemNo).filter((no): no is number => no !== undefined)
+    // 🔥 YENİ YAKLAŞIM: Tüm RST kayıtlarını getir (filter sınırlaması olmadan)
+    // Bu sayede hangi tarih ve kombinasyonlarda RST kayıtları olduğunu görebiliriz
+    let rstList: number[] = []
     
-    if (allIslemNoList.length === 0) {
-      rstIslemNoList.value = []
-      return
-    }
-    
-    // Her bir islemNo için tblislemRST kontrolü yap
-    const rstList: number[] = []
-    for (const islemNo of allIslemNoList) {
-      try {
-        const response = await api.get(`/islem/islem-rst-kontrol/${islemNo}`)
-        if (response.data.success && response.data.exists) {
-          rstList.push(islemNo)
+    try {
+      // Backend'den tüm RST kayıtlarını getir
+      const response = await api.get('/islem/rst-records-all')
+      
+      if (response.data.success) {
+        const allRstRecords = response.data.data
+        console.log(`🔥 Tüm RST kayıtları alındı: ${allRstRecords.length} kayıt`)
+        
+        // RST kayıtlarını analiz et
+        const rstAnalysis = analyzeRstRecords(allRstRecords as RstRecord[])
+        console.log('📊 RST Analizi:', rstAnalysis)
+        
+        // Detay tabloda görünen kayıtlarla eşleşen RST kayıtlarını bul
+        if (allDetailTableData.value.length > 0) {
+          const detailIslemNoList = allDetailTableData.value.map(row => row.islemNo).filter((no): no is number => no !== undefined)
+          console.log(`🔍 Detay tabloda ${detailIslemNoList.length} kayıt var`)
+          
+          // RST kayıtlarından detay tabloda görünenleri filtrele
+          rstList = (allRstRecords as RstRecord[])
+            .filter((rst: RstRecord) => detailIslemNoList.includes(rst.islemNo))
+            .map((rst: RstRecord) => rst.islemNo)
+          
+          console.log(`✅ Detay tabloda görünen RST kayıtları: ${rstList.length} adet`)
+        } else {
+          console.log('⚠️ Detay tablo verisi henüz yüklenmemiş')
         }
-      } catch {
-        // Hata durumunda sessizce devam et
+        
+        // RST kayıtlarının genel durumunu kullanıcıya bildir
+        if (allRstRecords.length > 0) {
+          const currentFilters = `Tarih: ${selectedDate.value}, Cari: ${selectedislemArac.value}, Tip: ${selectedislemTip.value}`
+          console.log(`ℹ️ Mevcut filtreler: ${currentFilters}`)
+          console.log(`ℹ️ RST tablosunda toplam ${allRstRecords.length} kayıt var`)
+          
+          // Farklı tarih ve kombinasyonlardaki RST kayıtlarını listele
+          const differentCombinations = getDifferentRstCombinations(allRstRecords as RstRecord[])
+          if (differentCombinations.length > 0) {
+            console.log('🔍 Farklı kombinasyonlarda RST kayıtları:')
+            differentCombinations.forEach(combo => {
+              console.log(`  - ${combo.tarih}: ${combo.islemArac} - ${combo.islemTip} (${combo.count} kayıt)`)
+            })
+          }
+        }
+      } else {
+        console.log('❌ RST kayıtları alınamadı:', response.data.message)
+        // Fallback: Eski yöntemi kullan
+        rstList = await fallbackRstCheck()
       }
+    } catch (error) {
+      console.log('❌ RST kayıtları getirme hatası:', error)
+      // Fallback: Eski yöntemi kullan
+      rstList = await fallbackRstCheck()
     }
     
     // Sadece gerçekten değiştiyse güncelle
@@ -3435,9 +3679,102 @@ const loadRstIslemNoList = async () => {
       applyDirectHighlighting()
     }
     
-  } catch {
+  } catch (error) {
+    console.error('❌ RST kontrol hatası:', error)
     rstIslemNoList.value = []
   }
+}
+
+// RST kayıtlarını analiz et  
+const analyzeRstRecords = (rstRecords: RstRecord[]) => {
+  const analysis = {
+    totalCount: rstRecords.length,
+    byDate: {} as Record<string, number>,
+    byIslemArac: {} as Record<string, number>,
+    byIslemTip: {} as Record<string, number>,
+    byCombination: {} as Record<string, number>
+  }
+  
+  rstRecords.forEach((record: RstRecord) => {
+    // Tarih bazında sayım
+    const tarih = record.iKytTarihi?.trim() || 'Bilinmeyen'
+    analysis.byDate[tarih] = (analysis.byDate[tarih] || 0) + 1
+    
+    // islemArac bazında sayım
+    const islemArac = record.islemArac || 'Bilinmeyen'
+    analysis.byIslemArac[islemArac] = (analysis.byIslemArac[islemArac] || 0) + 1
+    
+    // islemTip bazında sayım
+    const islemTip = record.islemTip || 'Bilinmeyen'
+    analysis.byIslemTip[islemTip] = (analysis.byIslemTip[islemTip] || 0) + 1
+    
+    // Kombinasyon bazında sayım
+    const combination = `${tarih} | ${islemArac} | ${islemTip}`
+    analysis.byCombination[combination] = (analysis.byCombination[combination] || 0) + 1
+  })
+  
+  return analysis
+}
+
+// Farklı RST kombinasyonlarını getir
+const getDifferentRstCombinations = (rstRecords: RstRecord[]) => {
+  const combinations = new Map<string, { tarih: string, islemArac: string, islemTip: string, count: number }>()
+  
+  rstRecords.forEach((record: RstRecord) => {
+    const key = `${record.iKytTarihi?.trim()}_${record.islemArac}_${record.islemTip}`
+    const existing = combinations.get(key)
+    
+    if (existing) {
+      existing.count++
+    } else {
+      combinations.set(key, {
+        tarih: record.iKytTarihi?.trim() || 'Bilinmeyen',
+        islemArac: record.islemArac || 'Bilinmeyen',
+        islemTip: record.islemTip || 'Bilinmeyen',
+        count: 1
+      })
+    }
+  })
+  
+  return Array.from(combinations.values()).sort((a, b) => b.count - a.count)
+}
+
+// Fallback RST kontrolü (eski yöntem)
+const fallbackRstCheck = async (): Promise<number[]> => {
+  console.log('🔄 Fallback RST kontrolü yapılıyor...')
+  
+  if (allDetailTableData.value.length === 0) {
+    return []
+  }
+  
+  const allIslemNoList = allDetailTableData.value.map(row => row.islemNo).filter((no): no is number => no !== undefined)
+  
+  if (allIslemNoList.length === 0) {
+    return []
+  }
+  
+  let rstList: number[] = []
+  
+  if (allIslemNoList.length > 5) {
+    // 5'ten fazla kayıt varsa toplu kontrol yap
+    console.log('🔥 Toplu RST kontrolü yapılıyor, kayıt sayısı:', allIslemNoList.length)
+    rstList = await loadRstRecordsBatch(allIslemNoList)
+  } else {
+    // Az kayıt varsa bireysel kontrol yap
+    console.log('🔥 Bireysel RST kontrolü yapılıyor, kayıt sayısı:', allIslemNoList.length)
+    for (const islemNo of allIslemNoList) {
+      try {
+        const response = await api.get(`/islem/islem-rst-kontrol/${islemNo}`)
+        if (response.data.success && response.data.exists) {
+          rstList.push(islemNo)
+        }
+      } catch {
+        // Hata durumunda sessizce devam et
+      }
+    }
+  }
+  
+  return rstList
 }
 
 // tblislemRST ve tblislem arasındaki farkları getir
@@ -3540,23 +3877,8 @@ const showRstDifferences = async () => {
     // Mevcut detay tablo verilerini kullanarak RST taraması yap
     await loadRstIslemNoList()
     
-    // Verileri RST durumuna göre sırala (RST kayıtları önce)
-    if (allDetailTableData.value.length > 0) {
-      allDetailTableData.value.sort((a: IslemDetay, b: IslemDetay) => {
-        const aIsRst = rstIslemNoList.value.includes(a.islemNo)
-        const bIsRst = rstIslemNoList.value.includes(b.islemNo)
-        
-        if (aIsRst !== bIsRst) {
-          return aIsRst ? -1 : 1 // RST kayıtları önce
-        }
-        
-        // RST durumu aynıysa, Cari Adı'na göre artan sırala
-        const aCariAdi = String(a.islemAltG || '').toLowerCase()
-        const bCariAdi = String(b.islemAltG || '').toLowerCase()
-        return aCariAdi.localeCompare(bCariAdi, 'tr')
-      })
-      
-      // Tablo verilerini güncelle
+    if (allDetailTableData.value.length > 0 && rstIslemNoList.value.length > 0) {
+      // Tablo verilerini güncelle (customSort otomatik olarak RST-first sıralama yapacak)
       updateDetailTableData()
       
       // Highlighting uygula
@@ -3566,17 +3888,15 @@ const showRstDifferences = async () => {
       console.log('✅ RST tarama tamamlandı ve veriler sıralandı')
       
       // Kullanıcıya bilgi ver
-      if (rstIslemNoList.value.length > 0) {
-        Notify.create({ 
-          type: 'positive', 
-          message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
-        })
-      } else {
-        Notify.create({ 
-          type: 'info', 
-          message: 'Değişen kayıt bulunamadı.' 
-        })
-      }
+      Notify.create({ 
+        type: 'positive', 
+        message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
+      })
+    } else {
+      Notify.create({ 
+        type: 'info', 
+        message: 'Değişen kayıt bulunamadı.' 
+      })
     }
   } catch (error) {
     console.error('❌ RST tarama hatası:', error)

@@ -2062,4 +2062,85 @@ export class IslemService {
       throw new Error(`Fon devir bakiyesi alınamadı: ${error.message}`);
     }
   }
+
+  /**
+   * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
+   * @param islemNoList İşlem numaraları dizisi
+   * @returns RST kayıtları
+   */
+  async getRstRecordsForMultipleIslemNo(islemNoList: number[]): Promise<any[]> {
+    try {
+      if (!islemNoList || islemNoList.length === 0) {
+        return [];
+      }
+
+      // IN clause için parametreleri hazırla
+      const placeholders = islemNoList.map((_, index) => `@${index}`).join(',');
+      const params = islemNoList.map((islemNo, index) => ({ [`@${index}`]: islemNo }));
+
+      const query = `
+        SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
+               islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
+               islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
+               islemAltG, islemMiktar, islemTutar
+        FROM tblislemRST 
+        WHERE islemNo IN (${placeholders})
+        ORDER BY islemNo DESC
+      `;
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // Parametreleri query'e bind et
+        let finalQuery = query;
+        params.forEach((param, index) => {
+          const paramName = `@${index}`;
+          const paramValue = param[paramName];
+          finalQuery = finalQuery.replace(new RegExp(paramName, 'g'), paramValue.toString());
+        });
+
+        const result = await queryRunner.query(finalQuery);
+        return result || [];
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`RST kayıtları alınamadı: ${error.message}`);
+    }
+  }
+
+  /**
+   * Tüm RST kayıtlarını getirir (debug amaçlı)
+   * @returns Tüm RST kayıtları
+   */
+  async getAllRstRecords(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
+               islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
+               islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
+               islemAltG, islemMiktar, islemTutar
+        FROM tblislemRST 
+        ORDER BY islemNo DESC
+      `;
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        const result = await queryRunner.query(query);
+        return result || [];
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`Tüm RST kayıtları alınamadı: ${error.message}`);
+    }
+  }
 }

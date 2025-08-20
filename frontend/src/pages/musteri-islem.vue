@@ -723,7 +723,7 @@
                 </q-tooltip>
                 <q-tooltip v-else-if="form.KonaklamaSuresi > 1" class="bg-orange text-white text-body2" :delay="500">
                   <q-icon name="info" class="q-mr-xs"/>
-                  Geç Saat Konaklama sadece 1 günlük konaklamalarda seçilebilir
+                  Geç Saat Konaklama sadece 1 günlük konaklamalarda seçilebilir (0 gün = aynı gün çıkış)
                 </q-tooltip>
               </q-checkbox>
             </div>
@@ -899,7 +899,6 @@ const ekBilgiler = ref({
   prizVerildi: false,
   geceKonaklama: false
 })
-
 // Depozito Bedeli
 const depozito = ref({
   dahil: true, // Default olarak işaretli
@@ -1016,15 +1015,19 @@ const isOtgCheckboxEnabled = computed(() => {
 
 // Planlanan çıkış tarihini hesapla (bugünün tarihi + konaklama süresi)
 const planlananCikisTarihi = computed(() => {
-  if (!form.value.KonaklamaSuresi || form.value.KonaklamaSuresi < 1) {
+  if (form.value.KonaklamaSuresi === null || form.value.KonaklamaSuresi < 0) {
     return ''
   }
   
   const bugun = new Date()
   let cikisTarihi: Date
   
+  // 0 günlük konaklama için özel hesaplama (aynı gün çıkış)
+  if (form.value.KonaklamaSuresi === 0) {
+    cikisTarihi = new Date(bugun) // Bugünün tarihi
+  }
   // 30 günlük konaklama için özel hesaplama
-  if (form.value.KonaklamaSuresi === 30) {
+  else if (form.value.KonaklamaSuresi === 30) {
     // Gün değeri aynı kalır, sadece ay +1 olur
     const gun = bugun.getDate()
     const ay = bugun.getMonth() + 1 // 0-based olduğu için +1
@@ -1463,6 +1466,7 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
+
   // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
   await checkAndApplyAutoFillTCKimlik()
 
@@ -2008,6 +2012,12 @@ function saveEkBilgiler() {
 }
 
 function cancelEkBilgiler() {
+  // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
+  if (ekBilgiler.value.geceKonaklama && !guncellemeModuAktif.value) {
+    form.value.KonaklamaSuresi = 1
+    form.value.KonaklamaTipi = 'GÜNLÜK'
+  }
+  
   // Seçenekleri mevcut konaklama tipine ve saat koşullarına göre sıfırla ve dialog'u kapat
   ekBilgiler.value = {
     kahvaltiDahil: false,
@@ -2084,6 +2094,19 @@ function updateEkNotlar() {
   
   if (ekBilgiler.value.geceKonaklama) {
     notlar.push('Geç Saat Konaklama')
+    
+    // 🔥 Geç Saat Konaklama seçildiğinde planlanan çıkış tarihini günün tarihi olarak ayarla
+    if (!guncellemeModuAktif.value) {
+      // Konaklama süresini 0 gün yap (aynı gün çıkış) ve tipini GÜNLÜK yap
+      form.value.KonaklamaSuresi = 0
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+    }
+  } else {
+    // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
+    if (!guncellemeModuAktif.value) {
+      form.value.KonaklamaSuresi = 1
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+    }
   }
   
   // Notları birleştir
@@ -2856,8 +2879,8 @@ async function onKonaklamaSuresiChanged() {
     form.value.OdemeTakvimGunu = null
   }
   
-  // Konaklama süresi kontrolü
-  if (sure < 1 || sure > 30) {
+  // Konaklama süresi kontrolü (0-30 arası, 0 = aynı gün çıkış)
+  if (sure < 0 || sure > 30) {
     form.value.KonaklamaSuresi = 1
     form.value.KonaklamaTipi = 'GÜNLÜK'
     form.value.OdemeTakvimGunu = null // Geçersiz süre için Ö.T.G. temizle

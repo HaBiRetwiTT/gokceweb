@@ -920,4 +920,59 @@ export class IslemController {
       );
     }
   }
+
+  /**
+   * Tüm RST kayıtlarını getirir (debug amaçlı)
+   */
+  @Get('rst-records-all')
+  async getAllRstRecords() {
+    try {
+      const rstRecords = await this.islemService.getAllRstRecords();
+      
+      return {
+        success: true,
+        data: rstRecords,
+        message: `${rstRecords.length} RST kaydı bulundu`,
+        count: rstRecords.length
+      };
+    } catch (error: unknown) {
+      console.error('Tüm RST kayıtları getirme hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'RST kayıtları alınırken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
+   */
+  @Post('rst-records-batch')
+  async getRstRecordsBatch(@Body() body: { islemNoList: number[] }) {
+    try {
+      if (!body.islemNoList || body.islemNoList.length === 0) {
+        throw new HttpException(
+          'İşlem numarası listesi boş olamaz',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const rstRecords = await this.islemService.getRstRecordsForMultipleIslemNo(body.islemNoList);
+      
+      return {
+        success: true,
+        data: rstRecords,
+        message: `${rstRecords.length} RST kaydı bulundu`,
+        count: rstRecords.length
+      };
+    } catch (error: unknown) {
+      console.error('RST kayıtları toplu getirme hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'RST kayıtları alınırken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }
