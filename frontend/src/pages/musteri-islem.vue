@@ -2175,15 +2175,7 @@ function updateEkNotlar() {
       form.value.KonaklamaSuresi = 0
       form.value.KonaklamaTipi = 'GÜNLÜK'
     }
-  } else {
-      // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
-  // ANCAK: Konaklama süresi değişikliği sırasında bu mantığı çalıştırma
-  if (!guncellemeModuAktif.value) {
-    console.log('🔥 KRİTİK: Geç Saat Konaklama işareti kaldırıldığında 1\'e dönüyor! (2147. satır)')
-    form.value.KonaklamaSuresi = 1
-    form.value.KonaklamaTipi = 'GÜNLÜK'
-  }
-  }
+  } // 🔥 if (ekBilgiler.value.geceKonaklama) statement'ının kapanışı
   
   // Notları birleştir
   const finalNotlar = notlar.length > 0 ? ' - ' + notlar.join(' -/- ') : ''
