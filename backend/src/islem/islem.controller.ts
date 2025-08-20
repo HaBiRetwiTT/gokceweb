@@ -108,6 +108,8 @@ export class IslemController {
     }
   }
 
+
+
   /**
    * Fon devir bakiyesini sp_FonDevirY ile getirir
    */
@@ -510,6 +512,38 @@ export class IslemController {
       };
     }
   }
+
+  /**
+   * tblFonKasaY tablosundan islmGrup seçimine göre islmAltG distinct listesi getirir
+   */
+  @Get('islm-alt-gruplar')
+  async getIslmAltGruplar(@Query('islmGrup') islmGrup: string) {
+    try {
+      if (!islmGrup) {
+        throw new HttpException(
+          'İslm grubu parametresi gerekli',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const altGruplar = await this.islemService.getIslmAltGruplar(islmGrup);
+      
+      return {
+        success: true,
+        data: altGruplar,
+        message: `${altGruplar.length} alt grup bulundu`
+      };
+    } catch (error: unknown) {
+      console.error('İslm alt grupları alınırken hata:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'İslm alt grupları alınamadı',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+
 
   /**
    * tblCari tablosundan CariAdi listesi getirir

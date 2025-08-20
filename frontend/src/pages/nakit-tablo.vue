@@ -215,13 +215,17 @@
             <!-- İşlem Tanımı -->
             <div class="form-field">
               <label class="form-label">İşlem Tanımı</label>
-              <q-input
+              <q-select
                 v-model="newRecord.islemTanimi"
+                :options="islemTanimiOptions"
                 dense
                 outlined
                 class="form-input"
-                type="textarea"
-                rows="3"
+                use-input
+                input-debounce="0"
+                new-value-mode="add-unique"
+                @filter="filterIslemTanimi"
+                @update:model-value="onIslemTanimiChange"
               />
             </div>
 
@@ -291,25 +295,6 @@
               class="action-btn primary-btn"
             />
             <q-btn
-              color="grey"
-              icon="edit"
-              label="SEÇİLİ KAYIT"
-              :disable="true"
-              class="action-btn secondary-btn"
-            />
-            <q-btn
-              color="primary"
-              icon="payment"
-              label="ÖDEME BİLGİLERİNİ DÜZENLE"
-              class="action-btn primary-btn"
-            />
-            <q-btn
-              color="primary"
-              icon="account_balance_wallet"
-              label="KISMİ ÖDEME YAP"
-              class="action-btn primary-btn"
-            />
-            <q-btn
               color="primary"
               icon="close"
               label="KAPAT"
@@ -326,7 +311,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { getNakitAkisVerileri, getBugunTarih, getOrnekVeriler, getFonDevirY, type NakitAkisRecord } from '../services/nakit-akis.service';
+import { getNakitAkisVerileri, getBugunTarih, getOrnekVeriler, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
 
 const $q = useQuasar();
 
@@ -591,6 +576,9 @@ const islemAraciOptions = ['Nakit Kasa(TL)', 'Banka EFT', 'Kredi Kartları'];
 const islemTipiOptions = ['Çıkan', 'Giren'];
 const islemKategoriOptions = ['Kredi Kartları', 'Krediler', 'Ev Kiraları', 'Ev Faturaları', 'Senet-Çek', 'Genel Fon Ödm.', 'Diğer(Şirket Ödm.)'];
 
+// İşlem Tanımı seçenekleri (dinamik olarak güncellenir)
+const islemTanimiOptions = ref<string[]>([]);
+
 // Sayfa yüklendiğinde çalışır
 onMounted(async () => {
   // Bugünün tarihini otomatik seç
@@ -820,6 +808,21 @@ watch(tableData, async () => {
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
 
+// İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
+watch(() => newRecord.value.islemKategorisi, async (newKategori) => {
+  if (newKategori) {
+    try {
+      const altGruplar = await getIslmAltGruplar(newKategori);
+      islemTanimiOptions.value = altGruplar;
+    } catch (error) {
+      console.error('İslm alt grupları alınırken hata:', error);
+      islemTanimiOptions.value = [];
+    }
+  } else {
+    islemTanimiOptions.value = [];
+  }
+});
+
 // CSS sınıflarını uygulayan fonksiyon - daha güçlü
 async function applyRowStyling(data: NakitAkisRecord[]) {
   if (!data || data.length === 0) return;
@@ -1039,6 +1042,25 @@ function saveNewRecord() {
 // Yeni kayıt modalını kapatma fonksiyonu
 function closeNewRecordModal() {
   showNewRecordModal.value = false;
+}
+
+// İşlem tanımı filtreleme fonksiyonu
+function filterIslemTanimi(val: string, update: (callback: () => void) => void) {
+  if (val === '') {
+    update(() => {
+      // Boş değer için tüm seçenekleri göster
+    });
+  } else {
+    update(() => {
+      // Filtreleme yapılmıyor - tüm seçenekler gösteriliyor
+    });
+  }
+}
+
+// İşlem tanımı değişikliği fonksiyonu
+function onIslemTanimiChange(value: string) {
+  // İşlem tanımı değiştiğinde yapılacak işlemler
+  console.log('İşlem tanımı değişti:', value);
 }
 
 // Tarih değişikliği fonksiyonu

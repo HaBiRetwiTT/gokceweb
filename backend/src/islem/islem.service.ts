@@ -88,6 +88,48 @@ export class IslemService {
   }
 
   /**
+   * tblFonKasaY tablosundan islmGrup seçimine göre islmAltG distinct listesi getirir
+   * @param islmGrup İslm grubu (islmGrup alanı)
+   * @returns İslm alt grupları listesi
+   */
+  async getIslmAltGruplar(islmGrup: string): Promise<string[]> {
+    try {
+      if (!islmGrup) {
+        throw new Error('İslm grubu parametresi gerekli');
+      }
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // tblFonKasaY tablosundan islmGrup alanına göre islmAltG distinct listesi
+        const query = `
+          SELECT DISTINCT islmAltG 
+          FROM [gokcepansiyon2010].[harunta].[tblFonKasaY] 
+          WHERE islmGrup = '${islmGrup}' 
+          ORDER BY islmAltG
+        `;
+        
+        const result = await queryRunner.query(query);
+        
+        // Sonuçları string array olarak döndür
+        if (result && Array.isArray(result)) {
+          return result.map((row: any) => row.islmAltG || '').filter((value: string) => value !== '');
+        }
+        
+        return [];
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`İslm alt grupları alınamadı: ${error.message}`);
+    }
+  }
+
+  /**
    * Tutar alanını parse eder ve number'a çevirir
    * @param amount Tutar değeri (string veya number olabilir)
    * @returns Parse edilmiş tutar
@@ -1182,6 +1224,8 @@ export class IslemService {
       throw error;
     }
   }
+
+
 
   /**
    * tblCari tablosundan CariAdi listesi getirir

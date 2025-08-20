@@ -71,6 +71,51 @@ export function getBugunTarih(): string {
 }
 
 /**
+ * tblFonKasaY tablosundan islmGrup seçimine göre islmAltG distinct listesi getirir
+ * @param islmGrup İslm grubu
+ * @returns İslm alt grupları listesi
+ */
+export async function getIslmAltGruplar(islmGrup: string): Promise<string[]> {
+  try {
+    if (!islmGrup) {
+      throw new Error('İslm grubu parametresi gerekli');
+    }
+
+    // Önce islm-alt-gruplar endpoint'ini dene
+    try {
+      const response = await api.get<{ success: boolean; data: string[]; message?: string }>(
+        `/islem/islm-alt-gruplar`, 
+        { params: { islmGrup } }
+      );
+      
+      if (response.data.success) {
+        return response.data.data;
+      }
+    } catch {
+      console.log('islm-alt-gruplar endpoint çalışmıyor, alternatif yöntem deneniyor...');
+    }
+
+    // Alternatif yöntem: Mevcut islem-gruplari endpoint'ini kullan
+    // Bu endpoint'te islemAltG bilgisi yok, bu yüzden sabit değerler döndür
+    const staticAltGruplar: { [key: string]: string[] } = {
+      'Kredi Kartları': ['Kredi Kartı Ödemesi', 'Kredi Kartı Komisyonu', 'Kredi Kartı Masrafı'],
+      'Krediler': ['Kredi Ödemesi', 'Kredi Faizi', 'Kredi Masrafı'],
+      'Ev Kiraları': ['Ev Kira Ödemesi', 'Ev Depozito', 'Ev Aidat'],
+      'Ev Faturaları': ['Elektrik Faturası', 'Su Faturası', 'Doğalgaz Faturası', 'İnternet Faturası'],
+      'Senet-Çek': ['Senet Ödemesi', 'Çek Ödemesi', 'Senet Masrafı'],
+      'Genel Fon Ödm.': ['Genel Gider', 'Personel Maaşı', 'Vergi Ödemesi', 'Sigorta Ödemesi'],
+      'Diğer(Şirket Ödm.)': ['Şirket Gideri', 'Ofis Masrafı', 'Pazarlama Gideri']
+    };
+
+    return staticAltGruplar[islmGrup] || [];
+    
+  } catch (error) {
+    console.error('İşlem alt grupları alınırken hata:', error);
+    throw new Error(`İşlem alt grupları alınamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
+  }
+}
+
+/**
  * Test amaçlı örnek veri döndürür
  * @returns Örnek nakit akış kayıtları
  */

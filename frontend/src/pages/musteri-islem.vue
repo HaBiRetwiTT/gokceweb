@@ -710,22 +710,7 @@
                 color="primary"
                 @update:model-value="updateEkNotlar"
               />
-              <q-checkbox 
-                v-model="ekBilgiler.geceKonaklama" 
-                label="Geç Saat Konaklama" 
-                color="primary"
-                :disable="form.KonaklamaSuresi > 1 || !isGeceKonaklamaSaati"
-                @update:model-value="updateEkNotlar"
-              >
-                <q-tooltip v-if="!isGeceKonaklamaSaati" class="bg-orange text-white text-body2" :delay="500">
-                  <q-icon name="schedule" class="q-mr-xs"/>
-                  Geç Saat Konaklama sadece 00:00 - 04:00 saatleri arasında seçilebilir
-                </q-tooltip>
-                <q-tooltip v-else-if="form.KonaklamaSuresi > 1" class="bg-orange text-white text-body2" :delay="500">
-                  <q-icon name="info" class="q-mr-xs"/>
-                  Geç Saat Konaklama sadece 1 günlük konaklamalarda seçilebilir (0 gün = aynı gün çıkış)
-                </q-tooltip>
-              </q-checkbox>
+              <!-- 🔥 Geç Saat Konaklama checkbox'ı kaldırıldı - artık konaklama süresi 0 seçildiğinde otomatik kontrol yapılıyor -->
             </div>
           </div>
         </q-card-section>
@@ -1070,11 +1055,20 @@ const selectedKaraListeMusteri = ref<{
 
 // Fiyat hesaplama fonksiyonu
 async function hesaplaBedel() {
+  console.log('🔥 hesaplaBedel fonksiyonu başladı')
+  console.log('🔥 Form değerleri:', {
+    OdaTipi: form.value.OdaTipi,
+    KonaklamaSuresi: form.value.KonaklamaSuresi,
+    KonaklamaTipi: form.value.KonaklamaTipi
+  })
+  
   // Rezervasyon prefill aktifse otomatik hesaplamayı atla
   if (reservationPrefillActive.value) {
+    console.log('🔥 Rezervasyon prefill aktif - hesaplama atlandı')
     return
   }
   if (!form.value.OdaTipi || !form.value.KonaklamaSuresi || !form.value.KonaklamaTipi) {
+    console.log('🔥 Gerekli alanlar eksik - hesaplama atlandı')
     form.value.HesaplananBedel = 0
     form.value.ToplamBedel = 0
     return
@@ -1090,13 +1084,18 @@ async function hesaplaBedel() {
       const bazDepozito = Number(odaTipFiyatlari.value?.OdDpzt) || 0
       const tipForDepozito = form.value.KonaklamaTipi
       let depozitoCarpan = 1
-      if (tipForDepozito === 'GÜNLÜK') {
+      
+      // 🔥 KRİTİK: Konaklama süresi 0 ise depozito 1 gün için hesaplanmalı
+      if (form.value.KonaklamaSuresi === 0) {
+        depozitoCarpan = 1 // 0 gün için 1 günlük depozito
+      } else if (tipForDepozito === 'GÜNLÜK') {
         depozitoCarpan = 1
       } else if (tipForDepozito === '1 HAFTALIK' || tipForDepozito === '2 HAFTALIK' || tipForDepozito === '3 HAFTALIK' || tipForDepozito === 'HAFTALIK') {
         depozitoCarpan = 5
       } else if (tipForDepozito === 'AYLIK') {
         depozitoCarpan = 10
       }
+      
       depozito.value.bedel = Math.round(bazDepozito * depozitoCarpan)
       // console.log(`Depozito tutarı güncellendi: ${depozitoBedeli} TL`)
       
@@ -1109,7 +1108,10 @@ async function hesaplaBedel() {
       const haftalikFiyat = Number(odaTipFiyatlari.value?.OdLfytHft) || 0
       const aylikFiyat = Number(odaTipFiyatlari.value?.OdLfytAyl) || 0
       
-      if (tip === 'GÜNLÜK') {
+      // 🔥 KRİTİK: Konaklama süresi 0 ise fiyat 1 gün için hesaplanmalı
+      if (sure === 0) {
+        hesaplananFiyat = gunlukFiyat * 1 // 0 gün için 1 günlük fiyat
+      } else if (tip === 'GÜNLÜK') {
         hesaplananFiyat = gunlukFiyat * sure
       } else if (tip === '1 HAFTALIK') {
         if (sure > 7) {
@@ -1144,6 +1146,12 @@ async function hesaplaBedel() {
       hesaplananFiyat = Math.floor(hesaplananFiyat / 10) * 10
       form.value.HesaplananBedel = hesaplananFiyat
       form.value.ToplamBedel = hesaplananFiyat
+      
+      console.log('🔥 Bedel hesaplaması tamamlandı:', {
+        hesaplananFiyat,
+        HesaplananBedel: form.value.HesaplananBedel,
+        ToplamBedel: form.value.ToplamBedel
+      })
     }
   } catch (error) {
     console.error('Fiyat hesaplama hatası:', error)
@@ -1398,6 +1406,12 @@ watch(() => form.value.OdaTipi, (newOdaTipi) => {
 
 // Konaklama tipi değişikliklerini izle (Kahvaltı otomatik seçimi için)
 watch(() => form.value.KonaklamaTipi, (newTip) => {
+  console.log('🔥 KonaklamaTipi WATCH tetiklendi:', { newTip })
+  console.log('🔥 veriYukleniyor.value:', veriYukleniyor.value)
+  
+  // 🔥 GEÇİCİ: veriYukleniyor kontrolünü kaldırdım
+  // if (veriYukleniyor.value) return
+  
   if (newTip === 'GÜNLÜK') {
     // Günlük konaklama seçildiğinde kahvaltı default false kalsın
     ekBilgiler.value.kahvaltiDahil = false
@@ -1405,23 +1419,80 @@ watch(() => form.value.KonaklamaTipi, (newTip) => {
     // Haftalık ve aylık konaklamalarda kahvaltı seçilemez
     ekBilgiler.value.kahvaltiDahil = false
   }
-  updateEkNotlar()
+  
+  // 🔥 KRİTİK: Konaklama tipi değiştiğinde bedel hesaplamasını tetikle
+  console.log('🔥 hesaplaBedel çağrılıyor...')
+  void hesaplaBedel()
+  
+  // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+  // updateEkNotlar()
 })
 
 // Konaklama süresi değişikliklerini izle (Geç Saat Konaklama kontrolü için)
-watch(() => form.value.KonaklamaSuresi, (newSure) => {
+watch(() => form.value.KonaklamaSuresi, (newSure, oldSure) => {
+  console.log('🔥 KonaklamaSuresi WATCH tetiklendi:', { oldSure, newSure })
+  console.log('🔥 veriYukleniyor.value:', veriYukleniyor.value)
+  console.log('🔥 form.value.KonaklamaSuresi:', form.value.KonaklamaSuresi)
+  
+  // 🔥 GEÇİCİ: veriYukleniyor kontrolünü kaldırdım
+  // if (veriYukleniyor.value) {
+  //   console.log('🔥 Veri yükleniyor - watch atlandı')
+  //   return
+  // }
+  
   if (newSure > 1 || !isGeceKonaklamaSaati.value) {
     // Konaklama süresi 1'den büyükse veya saat 00:00-04:00 aralığında değilse Geç Saat Konaklama seçilemez
     ekBilgiler.value.geceKonaklama = false
   }
-  updateEkNotlar()
-})
+  
+  // 🔥 KRİTİK: Konaklama süresi 0 seçildiğinde saat kontrolü yap ve uyarı ver
+  if (newSure === 0) {
+    if (!isGeceKonaklamaSaati.value) {
+      // Saat 00:00-04:00 aralığında değilse uyarı ver
+      Notify.create({
+        type: 'warning',
+        message: 'Geç Saat Konaklama (0 gün) sadece 00:00-04:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.',
+        timeout: 5000
+      })
+      
+      // 🔥 KRİTİK: Anında konaklama süresini 1'e çevir
+      form.value.KonaklamaSuresi = 1
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+      
+      // 🔥 KRİTİK: UI'ı zorla güncelle
+      void nextTick(() => {
+        // UI güncellendikten sonra fiyat hesapla
+        void hesaplaBedel()
+      })
+      
+      // 🔥 İZİN VERİLMEDİĞİ İÇİN EK NOTLARA "GEÇ SAAT KONAKLAMA" EKLENMEZ!
+      
+      // return kaldırıldı çünkü nextTick içinde işlem yapılıyor
+    } else {
+      // Saat 00:00-04:00 aralığında ise 0 güne izin ver
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+      
+      // 🔥 SADECE İZİN VERİLDİĞİNDE ek notlara "Geç Saat Konaklama" ekle
+      if (!ekNotlar.value.includes('Geç Saat Konaklama')) {
+        ekNotlar.value = ekNotlar.value ? `${ekNotlar.value} - Geç Saat Konaklama` : 'Geç Saat Konaklama'
+      }
+    }
+  }
+  
+  // 🔥 KRİTİK: Konaklama süresi değiştiğinde bedel hesaplamasını tetikle
+  console.log('🔥 hesaplaBedel çağrılıyor...')
+  void hesaplaBedel()
+  
+  // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+  // updateEkNotlar()
+}, { immediate: false, deep: true })
 
 // Bedel değişikliklerini izle (İskonto/Artış hesabı için)
 watch([() => form.value.HesaplananBedel, () => form.value.ToplamBedel], () => {
   // Güncelleme modunda ek notları otomatik değiştirme
   if (!guncellemeModuAktif.value) {
-    updateEkNotlar()
+    // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+    // updateEkNotlar()
   }
   
   // 🔥 Ö.T.G. otomatik temizleme mantığı
@@ -1438,12 +1509,14 @@ watch([() => form.value.HesaplananBedel, () => form.value.ToplamBedel], () => {
 
 // Ek Bilgiler değişikliklerini izle
 watch(() => ekBilgiler.value, () => {
-  updateEkNotlar()
+  // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+  // updateEkNotlar()
 }, { deep: true })
 
 // Depozito değişikliklerini izle
 watch(() => depozito.value, () => {
-  updateEkNotlar()
+  // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+  // updateEkNotlar()
 }, { deep: true })
 
 // Saat değişikliklerini izle (her dakika kontrol et ve Geç Saat Konaklama seçimini temizle)
@@ -1451,7 +1524,8 @@ watch(() => isGeceKonaklamaSaati.value, (newValue) => {
   if (!newValue && ekBilgiler.value.geceKonaklama) {
     // Saat aralığı dışına çıkıldığında Geç Saat Konaklama seçimini temizle
     ekBilgiler.value.geceKonaklama = false
-    updateEkNotlar()
+    // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+    // updateEkNotlar()
   }
 })
 
@@ -1466,7 +1540,6 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
-
   // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
   await checkAndApplyAutoFillTCKimlik()
 
@@ -2014,6 +2087,7 @@ function saveEkBilgiler() {
 function cancelEkBilgiler() {
   // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
   if (ekBilgiler.value.geceKonaklama && !guncellemeModuAktif.value) {
+    console.log('🔥 KRİTİK: Geç Saat Konaklama işareti kaldırıldığında 1\'e dönüyor! (2057. satır)')
     form.value.KonaklamaSuresi = 1
     form.value.KonaklamaTipi = 'GÜNLÜK'
   }
@@ -2102,11 +2176,13 @@ function updateEkNotlar() {
       form.value.KonaklamaTipi = 'GÜNLÜK'
     }
   } else {
-    // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
-    if (!guncellemeModuAktif.value) {
-      form.value.KonaklamaSuresi = 1
-      form.value.KonaklamaTipi = 'GÜNLÜK'
-    }
+      // 🔥 Geç Saat Konaklama işareti kaldırıldığında konaklama süresini 1 gün yap
+  // ANCAK: Konaklama süresi değişikliği sırasında bu mantığı çalıştırma
+  if (!guncellemeModuAktif.value) {
+    console.log('🔥 KRİTİK: Geç Saat Konaklama işareti kaldırıldığında 1\'e dönüyor! (2147. satır)')
+    form.value.KonaklamaSuresi = 1
+    form.value.KonaklamaTipi = 'GÜNLÜK'
+  }
   }
   
   // Notları birleştir
@@ -2860,13 +2936,49 @@ function onOdemeTakvimGunuChanged() {
 }
 
 async function onKonaklamaSuresiChanged() {
+  console.log('🔥 onKonaklamaSuresiChanged çağrıldı')
+  console.log('🔥 Mevcut KonaklamaSuresi:', form.value.KonaklamaSuresi)
+  
   // Güncelleme modunda konaklama süresi hesaplamalarını yapma
   if (guncellemeModuAktif.value) {
     debugLog('Güncelleme modunda - Konaklama süresi hesaplamaları atlandı')
     return
   }
 
+  // Konaklama süresi değişkenini al
   const sure = form.value.KonaklamaSuresi
+  
+  // 🔥 KRİTİK: Konaklama süresi 0 seçildiğinde saat kontrolü yap
+  if (sure === 0) {
+    if (!isGeceKonaklamaSaati.value) {
+      // Saat 00:00-04:00 aralığında değilse uyarı ver ve 1'e çevir
+      Notify.create({
+        type: 'warning',
+        message: 'Geç Saat Konaklama (0 gün) sadece 00:00-04:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.',
+        timeout: 5000
+      })
+      form.value.KonaklamaSuresi = 1
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+      
+      // 🔥 İZİN VERİLMEDİĞİ İÇİN EK NOTLARA "GEÇ SAAT KONAKLAMA" EKLENMEZ!
+      
+      // Fiyat hesapla (1 gün için)
+      void hesaplaBedel()
+      return
+    } else {
+      // Saat 00:00-04:00 aralığında ise 0 güne izin ver
+      form.value.KonaklamaTipi = 'GÜNLÜK'
+      
+      // 🔥 SADECE İZİN VERİLDİĞİNDE ek notlara "Geç Saat Konaklama" ekle
+      if (!ekNotlar.value.includes('Geç Saat Konaklama')) {
+        ekNotlar.value = ekNotlar.value ? `${ekNotlar.value} - Geç Saat Konaklama` : 'Geç Saat Konaklama'
+      }
+      
+      // Fiyat hesapla (0 gün için - aynı gün çıkış)
+      void hesaplaBedel()
+      return
+    }
+  }
   
   // 🔥 Ö.T.G. default değer ayarlama - konaklama süresi 30 iken bugünün gün değeri
   if (sure === 30 && form.value.OdemeTakvimGunu === null) {
@@ -2881,6 +2993,7 @@ async function onKonaklamaSuresiChanged() {
   
   // Konaklama süresi kontrolü (0-30 arası, 0 = aynı gün çıkış)
   if (sure < 0 || sure > 30) {
+    console.log('🔥 KRİTİK: Konaklama süresi 1\'e dönüyor! sure:', sure, 'koşul:', (sure < 0 || sure > 30))
     form.value.KonaklamaSuresi = 1
     form.value.KonaklamaTipi = 'GÜNLÜK'
     form.value.OdemeTakvimGunu = null // Geçersiz süre için Ö.T.G. temizle
@@ -2963,8 +3076,8 @@ async function onKonaklamaSuresiChanged() {
   // Fiyat hesapla
   void hesaplaBedel()
   
-  // Ek notları güncelle
-  updateEkNotlar()
+  // 🔥 KRİTİK: updateEkNotlar() kaldırıldı çünkü konaklama süresini 1'e dönüyor!
+  // updateEkNotlar()
 }
 
 function onToplamBedelChanged(yeniBedel: string | number | null) {

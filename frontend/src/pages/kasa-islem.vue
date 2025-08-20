@@ -1865,26 +1865,29 @@ const onDetailRequest = (props: any) => {
   detailPagination.value = props.pagination
   
   // Sıralama varsa verileri sırala
+  let sortedData;
   if (props.pagination.sortBy) {
     const sortBy = props.pagination.sortBy
     const descending = props.pagination.descending
     
     // customSort kullanarak RST-first sıralama uygula
-    const sortedData = customSort(allDetailTableData.value, sortBy, descending)
-    detailTableData.value = sortedData
+    sortedData = customSort(allDetailTableData.value, sortBy, descending)
   } else {
     // Manuel sıralama yoksa, default sıralamayı uygula (islemNo desc)
     detailPagination.value.sortBy = defaultDetailSort.sortBy
     detailPagination.value.descending = defaultDetailSort.descending
     
     // customSort kullanarak RST-first sıralama uygula
-    const sortedData = customSort(allDetailTableData.value, defaultDetailSort.sortBy, defaultDetailSort.descending)
-    detailTableData.value = sortedData
+    sortedData = customSort(allDetailTableData.value, defaultDetailSort.sortBy, defaultDetailSort.descending)
   }
   
   // Pagination'ı güncelle
-  detailPagination.value.rowsNumber = detailTableData.value.length
-  detailPagination.value.page = 1
+  detailPagination.value.rowsNumber = sortedData.length
+  
+  // Sayfa için veriyi slice et
+  const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage;
+  const endIndex = startIndex + detailPagination.value.rowsPerPage;
+  detailTableData.value = sortedData.slice(startIndex, endIndex);
 }
 
 // Ana tablo sayfa değiştirme fonksiyonu
@@ -1905,10 +1908,14 @@ const changeDetailPage = (newPage: number) => {
   
   // customSort kullanarak RST-first sıralama uygula
   const sortedData = customSort(allDetailTableData.value, defaultDetailSort.sortBy, defaultDetailSort.descending)
-  detailTableData.value = sortedData
   
   // Pagination'ı güncelle
   detailPagination.value.rowsNumber = sortedData.length
+  
+  // Sayfa için veriyi slice et
+  const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage;
+  const endIndex = startIndex + detailPagination.value.rowsPerPage;
+  detailTableData.value = sortedData.slice(startIndex, endIndex);
 }
 
 // Ana tablo verilerini güncelle (15 satırlık parçalar halinde)
@@ -1930,11 +1937,15 @@ const updateDetailTableData = () => {
   
   // customSort otomatik olarak RST kayıtlarını önce sıralayacak
   const sortedData = customSort(allDetailTableData.value, detailPagination.value.sortBy, detailPagination.value.descending);
-  detailTableData.value = sortedData;
   
   // Pagination'ı güncelle
   detailPagination.value.rowsNumber = sortedData.length;
   detailPagination.value.page = 1;
+  
+  // Sayfa için veriyi slice et
+  const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage;
+  const endIndex = startIndex + detailPagination.value.rowsPerPage;
+  detailTableData.value = sortedData.slice(startIndex, endIndex);
 }
 
 // Detay tablo satırına çift tık event handler
@@ -2806,9 +2817,6 @@ const onRowClick = async (evt: Event, row: TableRow) => {
   
   await loadDetailTableData(row.tarih)
   
-  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
-  await loadRstIslemNoList()
-  
   // 🔥 Loading durumunu kapat
   detailLoading.value = false
   
@@ -2835,9 +2843,6 @@ const onislemAracChange = async (_value: string) => {
     detailLoading.value = true
     
     await loadDetailTableData(selectedDate.value)
-    
-    // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
-    await loadRstIslemNoList()
     
     // 🔥 Loading durumunu kapat
     detailLoading.value = false
@@ -2908,13 +2913,16 @@ const loadDetailTableData = async (tarih: string) => {
        // İlk sayfayı göster
        detailPagination.value.page = 1
        
-       // RST kayıtlarını yükle ve customSort ile sırala
-       await loadRstIslemNoList()
-       updateDetailTableData()
-        debugLog('🔍 Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
-        debugLog('🔍 Detay tablo verisi güncellendi:', detailTableData.value)
-        debugLog('🔍 Detay pagination:', detailPagination.value)
-        debugLog('🔥 loadDetailTableData başarılı, detailTableData uzunluğu:', detailTableData.value.length)
+       // RST kayıtları sadece "Değişenleri Göster" butonuna basıldığında yüklenecek
+       // İlk sayfa verilerini göster (pagination için)
+       const startIndex = (detailPagination.value.page - 1) * detailPagination.value.rowsPerPage;
+       const endIndex = startIndex + detailPagination.value.rowsPerPage;
+       detailTableData.value = allDetailTableData.value.slice(startIndex, endIndex);
+       
+       debugLog('🔍 Detay pagination rowsNumber güncellendi:', detailPagination.value.rowsNumber)
+       debugLog('🔍 Detay tablo verisi güncellendi:', detailTableData.value)
+       debugLog('🔍 Detay pagination:', detailPagination.value)
+       debugLog('🔥 loadDetailTableData başarılı, detailTableData uzunluğu:', detailTableData.value.length)
      } else {
       debugLog('🔍 Detay API hatası:', result.message)
       debugLog('🔍 Detay API error details:', result)
@@ -3244,13 +3252,11 @@ const refreshData = async () => {
   // 🔥 Detay tablo için hedef tarih ile sorgula
   await loadDetailTableData(hedefTarih)
   
-  // 🔥 RST kayıtlarını yükle (sıralama için)
-  await loadRstIslemNoList()
+  // RST kayıtları sadece "Değişenleri Göster" butonuna basıldığında yüklenecek
   
   // Güncel bakiyeyi hesapla
   await loadGuncelBakiye()
-  // Kasa devir verilerini de yenile
-  await loadKasaDevirVerileri()
+  // Kasa devir verileri zaten Promise.allSettled'da yüklendi, tekrar yüklemeye gerek yok
   
   // 🔥 Tüm veriler yüklendikten sonra loading durumunu kapat
   detailLoading.value = false
@@ -3421,22 +3427,20 @@ onMounted(async () => {
     ])
     debugLog('🔥 Promise.allSettled tamamlandı (detay dahil)')
     
-    // 🔥 RST kayıtlarını yükle (sıralama için)
-    await loadRstIslemNoList()
+    // RST kayıtları sadece "Değişenleri Göster" butonuna basıldığında yüklenecek
     
     // 🔥 Güncel bakiyeyi hesapla
     await loadGuncelBakiye()
     
-    // 🔥 Eğer ana tablo verisi varsa, ilk tarihi seç ve detay tabloyu güncelle
-  if (tableData.value.length > 0) {
-    const ilkTarih = tableData.value[0].tarih
+    // 🔥 Eğer ana tablo verisi varsa, ilk tarihi seç
+    if (tableData.value.length > 0) {
+      const ilkTarih = tableData.value[0].tarih
       // Eğer ilk tarih bugünden farklıysa, güncel tarihi kullan
       if (ilkTarih !== gunTarihi) {
         selectedDate.value = gunTarihi
         // Detay tablo zaten yüklendi, tekrar yüklemeye gerek yok
       }
-    // 1. sayfanın ilk satırında olduğumuz için güncel bakiye
-    await loadGuncelBakiye()
+      // Güncel bakiye zaten yukarıda hesaplandı, tekrar hesaplamaya gerek yok
     }
   } catch (error) {
     debugLog('🔥 onMounted hata:', error)
@@ -3458,8 +3462,7 @@ watch(selectedislemArac, async () => {
     await loadDetailTableData(selectedDate.value)
   }
   
-  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
-  await loadRstIslemNoList()
+  // RST kayıtları sadece "Değişenleri Göster" butonuna basıldığında yüklenecek
   
   // 🔥 Loading durumunu kapat
   detailLoading.value = false
@@ -3482,8 +3485,7 @@ watch(selectedislemTip, async () => {
     debugLog('🔍 Seçili tarih yok, detay tablo güncellenmiyor')
   }
   
-  // 🔥 RST kayıtlarını yeniden yükle (sıralama için)
-  await loadRstIslemNoList()
+  // RST kayıtları sadece "Değişenleri Göster" butonuna basıldığında yüklenecek
   
   // 🔥 Loading durumunu kapat
   detailLoading.value = false
@@ -3888,15 +3890,15 @@ const showRstDifferences = async () => {
       console.log('✅ RST tarama tamamlandı ve veriler sıralandı')
       
       // Kullanıcıya bilgi ver
-      Notify.create({ 
-        type: 'positive', 
-        message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
-      })
-    } else {
-      Notify.create({ 
-        type: 'info', 
-        message: 'Değişen kayıt bulunamadı.' 
-      })
+        Notify.create({ 
+          type: 'positive', 
+          message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
+        })
+      } else {
+        Notify.create({ 
+          type: 'info', 
+          message: 'Değişen kayıt bulunamadı.' 
+        })
     }
   } catch (error) {
     console.error('❌ RST tarama hatası:', error)
