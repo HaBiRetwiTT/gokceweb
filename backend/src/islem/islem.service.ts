@@ -214,13 +214,13 @@ export class IslemService {
       // Ana sorgu
       const query = `
         SELECT 
-          CONVERT(DATE, iKytTarihi, 104) as iKytTarihi,
+          CONVERT(VARCHAR(10), iKytTarihi, 104) as iKytTarihi,
           SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} THEN islemTutar ELSE 0 END) as gelir,
           SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} THEN islemTutar ELSE 0 END) as gider
         FROM ${schemaName}.${tableName}
         WHERE 1=1
         ${islemAracFilter}
-        GROUP BY CONVERT(DATE, iKytTarihi, 104)
+        GROUP BY CONVERT(VARCHAR(10), iKytTarihi, 104), CONVERT(DATE, iKytTarihi, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
@@ -428,19 +428,26 @@ export class IslemService {
       }
 
       console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter })
+      console.log('🔍 Tarih parametresi:', { 
+        tarih: tarih, 
+        tarihTipi: typeof tarih,
+        tarihUzunluk: tarih ? tarih.length : 0
+      })
 
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 0, CONVERT(DATE, '${tarih}', 104))
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
       `;
 
       console.log('🔍 Detay Count Query:', countQuery)
 
-      const countDetay = await this.dataSource.query(countQuery);
+      const countParams = [tarih];
+      console.log('🔍 Count Query parametreleri:', countParams);
+      const countDetay = await this.dataSource.query(countQuery, countParams);
       const totalRecords = countDetay[0]?.total || 0;
 
       console.log('🔍 Detay toplam kayıt sayısı:', totalRecords)
@@ -458,7 +465,7 @@ export class IslemService {
           islemTutar as islemTutar,
           islemBilgi as islemBilgi
         FROM ${schemaName}.${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = DATEADD(day, 0, CONVERT(DATE, '${tarih}', 104))
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
         ORDER BY islemNo DESC
@@ -467,8 +474,15 @@ export class IslemService {
       `;
 
       console.log('🔍 Detay Ana Query:', query)
+      console.log('🔍 Tarih parametresi (ana sorgu):', { 
+        tarih: tarih, 
+        tarihTipi: typeof tarih,
+        tarihUzunluk: tarih ? tarih.length : 0,
+        tarihDeger: tarih
+      })
 
       const params = [tarih, offset, rowsPerPage];
+      console.log('🔍 Query parametreleri:', params);
       const result = await this.dataSource.query(query, params);
 
       console.log('🔍 Detay Query sonucu:', result)

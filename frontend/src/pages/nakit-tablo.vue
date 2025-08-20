@@ -129,9 +129,13 @@
     </div>
     
     <!-- Yeni Kayıt Ekleme Modal -->
-    <q-dialog v-model="showNewRecordModal" persistent>
-      <q-card style="min-width: 600px; max-width: 90vw;" class="new-record-modal">
-        <q-card-section class="modal-header">
+    <q-dialog v-model="showNewRecordModal" persistent no-esc-dismiss>
+      <q-card 
+        ref="modalCard"
+        style="min-width: 600px; max-width: 90vw;" 
+        class="new-record-modal draggable-modal"
+      >
+        <q-card-section class="modal-header" style="cursor: move;">
           <div class="modal-title-section">
             <div class="modal-title-left">
               <span class="modal-title">FON KAYIT İŞLEMLERİ</span>
@@ -580,6 +584,7 @@ const newRecord = ref({
 
 // Date picker popup ref'leri
 const islemGunuPopup = ref();
+const modalCard = ref();
 
 // İşlem Aracı seçenekleri
 const islemAraciOptions = ['Nakit Kasa(TL)', 'Banka EFT', 'Kredi Kartları'];
@@ -603,6 +608,9 @@ onMounted(async () => {
   
   // MutationObserver ile DOM değişikliklerini dinle
   setupMutationObserver();
+  
+  // Modal draggable özelliğini ayarla
+  setupModalDraggable();
 });
 
 // Sayfayı yenileme fonksiyonu
@@ -1050,6 +1058,65 @@ async function onDateSelected() {
 }
 
 // Tabloyu yenileme fonksiyonu kaldırıldı - artık gerekli değil
+
+// Modal'ı draggable yapan fonksiyon
+function setupModalDraggable() {
+  let isDragging = false;
+  let currentX: number;
+  let currentY: number;
+  let initialX: number;
+  let initialY: number;
+  let xOffset = 0;
+  let yOffset = 0;
+
+  function dragStart(e: MouseEvent | TouchEvent) {
+    if (e.target && (e.target as HTMLElement).closest('.modal-header')) {
+      isDragging = true;
+      
+      if (e instanceof MouseEvent) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+      } else if (e instanceof TouchEvent) {
+        initialX = e.touches[0].clientX - xOffset;
+        initialY = e.touches[0].clientY - yOffset;
+      }
+    }
+  }
+
+  function drag(e: MouseEvent | TouchEvent) {
+    if (isDragging) {
+      e.preventDefault();
+      
+      if (e instanceof MouseEvent) {
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+      } else if (e instanceof TouchEvent) {
+        currentX = e.touches[0].clientX - initialX;
+        currentY = e.touches[0].clientY - initialY;
+      }
+
+      xOffset = currentX;
+      yOffset = currentY;
+
+      if (modalCard.value && modalCard.value.$el) {
+        const modalElement = modalCard.value.$el as HTMLElement;
+        modalElement.style.transform = `translate(${currentX}px, ${currentY}px)`;
+      }
+    }
+  }
+
+  function dragEnd() {
+    isDragging = false;
+  }
+
+  // Event listener'ları ekle
+  document.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+  document.addEventListener('touchstart', dragStart);
+  document.addEventListener('touchmove', drag);
+  document.addEventListener('touchend', dragEnd);
+}
 
 </script>
 
@@ -1759,6 +1826,25 @@ body.body--dark .q-input .q-field__control {
 
 .body--dark .modal-actions {
   background: #34495e;
+}
+
+/* Draggable modal stilleri */
+.draggable-modal {
+  user-select: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.draggable-modal:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  cursor: move;
+  user-select: none;
+}
+
+.modal-header:hover {
+  background: linear-gradient(135deg, #2E7D32 0%, #388E3C 100%);
 }
 
 /* Responsive modal tasarımı */
