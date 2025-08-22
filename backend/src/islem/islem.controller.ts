@@ -108,6 +108,197 @@ export class IslemController {
     }
   }
 
+  /**
+   * tblFonKasaY tablosuna yeni nakit akış kaydı ekler
+   */
+  @Post('nakit-akis-ekle')
+  async addNakitAkis(@Body() body: any) {
+    try {
+      console.log('🔥 Controller - Gelen ham veri:', body);
+      
+      // 🔥 Sadece gerekli alanları al
+      const cleanData = {
+        OdmVade: body.OdmVade,
+        islmArac: body.islmArac,
+        islmGrup: body.islmGrup,
+        islmAltG: body.islmAltG,
+        islmTip: body.islmTip,
+        islmTtr: body.islmTtr,
+        islmTkst: body.islmTkst,
+        islmBilgi: body.islmBilgi,
+        OdmDrm: body.OdmDrm,
+        ttrDrm: body.ttrDrm,
+      };
+      
+      console.log('🔥 Controller - Temizlenmiş veri:', cleanData);
+      
+      // 🔥 Taksit formatını kontrol et
+      console.log('🔥 Gelen taksit verisi:', cleanData.islmTkst);
+      console.log('🔥 Taksit formatı kontrolü:', cleanData.islmTkst.includes('/'));
+      
+      // Taksit formatını kontrol et
+      if (!cleanData.islmTkst.includes('/')) {
+        throw new Error('Taksit formatı hatalı. Beklenen format: "1 / 1"');
+      }
+      
+      const sonuc = await this.islemService.addNakitAkis(cleanData);
+      
+      const response = {
+        success: true,
+        message: 'Nakit akış kaydı başarıyla eklendi',
+        data: sonuc
+      };
+      
+      console.log('🔥 Controller - Döndürülen response:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('🔥 Controller - Hata:', error);
+      
+      const errorResponse = {
+        success: false,
+        message: `Hata: ${error.message}`,
+        data: null
+      };
+      
+      console.log('🔥 Controller - Hata response:', errorResponse);
+      return errorResponse;
+    }
+  }
+
+  /**
+   * tblFonKasaY tablosundan nakit akış kaydını siler
+   */
+  @Delete('nakit-akis-sil')
+  async deleteNakitAkis(@Body() body: { fKasaNo: number; OdmVade: string; islmArac: string; islmTip: string; islmGrup: string; islmAltG: string; islmTtr: number; islmTkst: string }) {
+    try {
+      console.log('🔥 Controller - Silinecek kayıt bilgileri:', body);
+      
+      const sonuc = await this.islemService.deleteNakitAkis(body);
+      
+      console.log('🔥 Controller - Silme sonucu:', sonuc);
+      
+      const response = {
+        success: true,
+        message: 'Nakit akış kaydı başarıyla silindi',
+        data: sonuc
+      };
+      
+      console.log('🔥 Controller - Silme response:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('🔥 Controller - Silme hatası:', error);
+      
+      const errorResponse = {
+        success: false,
+        message: `Hata: ${error.message}`,
+        data: null
+      };
+      
+      console.log('🔥 Controller - Silme hata response:', errorResponse);
+      return errorResponse;
+    }
+  }
+
+  /**
+   * Kısmi ödeme yapar - mevcut kaydı günceller ve yeni kayıt ekler
+   */
+  @Post('kismi-odeme-yap')
+  async kismiOdemeYap(@Body() body: { 
+    odenenTutar: number;
+    ertelemeTarihi: string;
+    mevcutKayit: {
+      OdmVade: string;
+      islmArac: string;
+      islmGrup: string;
+      islmAltG: string;
+      islmTip: string;
+      islmTtr: number;
+      islmTkst: number;
+      islmBilgi: string;
+      OdmDrm: boolean;
+      ttrDrm: boolean;
+      fKasaNo: number;
+    };
+  }) {
+    try {
+      console.log('🔥 Controller - Kısmi ödeme yapılacak:', body);
+      
+      const sonuc = await this.islemService.kismiOdemeYap(body);
+      
+      console.log('🔥 Controller - Kısmi ödeme sonucu:', sonuc);
+      
+      const response = {
+        success: true,
+        message: 'Kısmi ödeme başarıyla yapıldı',
+        data: sonuc
+      };
+      
+      console.log('🔥 Controller - Kısmi ödeme response:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('🔥 Controller - Kısmi ödeme hatası:', error);
+      
+      const errorResponse = {
+        success: false,
+        message: `Hata: ${error.message}`,
+        data: null
+      };
+      
+      console.log('🔥 Controller - Kısmi ödeme hata response:', errorResponse);
+      return errorResponse;
+    }
+  }
+
+  /**
+   * tblFonKasaY tablosunda nakit akış kaydını günceller
+   */
+  @Put('nakit-akis-guncelle')
+  async updateNakitAkis(@Body() body: { 
+    OdmVade: string; 
+    islmArac: string; 
+    islmGrup: string; 
+    islmAltG: string; 
+    islmTip: string;
+    islmTtr: number; 
+    islmTkst: number;
+    islmBilgi: string;
+    OdmDrm: boolean;
+    ttrDrm: boolean;
+    fKasaNo: number; // Güncelleme için gerekli (WHERE koşulu)
+  }) {
+    try {
+      console.log('🔥 Controller - Güncellenecek kayıt bilgileri:', body);
+      
+      const sonuc = await this.islemService.updateNakitAkis(body);
+      
+      console.log('🔥 Controller - Güncelleme sonucu:', sonuc);
+      
+      const response = {
+        success: true,
+        message: 'Nakit akış kaydı başarıyla güncellendi',
+        data: sonuc
+      };
+      
+      console.log('🔥 Controller - Güncelleme response:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('🔥 Controller - Güncelleme hatası:', error);
+      
+      const errorResponse = {
+        success: false,
+        message: `Hata: ${error.message}`,
+        data: null
+      };
+      
+      console.log('🔥 Controller - Güncelleme hata response:', errorResponse);
+      return errorResponse;
+    }
+  }
+
 
 
   /**

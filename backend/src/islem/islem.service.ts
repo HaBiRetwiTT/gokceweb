@@ -53,26 +53,36 @@ export class IslemService {
         
         const result = await queryRunner.query(execQuery);
         
+        // 🔥 DEBUG: sp_FonDokumY'den gelen ham veriyi incele
+        console.log('🔥 sp_FonDokumY raw result:', JSON.stringify(result?.[0], null, 2));
+        if (result && result.length > 0) {
+          console.log('🔥 sp_FonDokumY alan adları:', Object.keys(result[0]));
+        }
+        
         // Verileri frontend'in beklediği formata dönüştür
         if (result && Array.isArray(result)) {
           const mappedData = result.map((row: any, index: number) => {
+            // 🔥 DEBUG: Her satır için gelen verileri logla
+            console.log(`🔥 Row ${index} raw data:`, row);
+            
             const convertedOdmVade = this.convertExcelDateToDDMMYYYY(row.OdVade);
             
             return {
-              id: index + 1,
+              fKasaNo: row.fKasaNo || 0,
               OdmVade: convertedOdmVade,
-              odemeAraci: row.islmArac || '',
-              kategori: row.islmGrup || '',
-              aciklama: row.islmAltG || '',
-              tip: row.islmTip || '',
-              tutar: this.parseAmount(row.islmTtr),
-              taksit: row.islmTkst || '',
-              digerBilgiler: row.islmBilgi || '',
-              odemeDurumu: row.OdmDrm === true || row.OdmDrm === 1 || row.OdmDrm === '1',
-              tutarDurumu: row.ttrDrm === true || row.ttrDrm === 1 || row.ttrDrm === '1'
+              islmArac: row.islmArac || '',
+              islmGrup: row.islmGrup || '',
+              islmAltG: row.islmAltG || '',
+              islmTip: row.islmTip || '',
+              islmTtr: this.parseAmount(row.islmTtr),
+              islmTkst: row.islmTkst || '',
+              islmBilgi: row.islmBilgi || '',
+              OdmDrm: row.OdmDrm === true || row.OdmDrm === 1 || row.OdmDrm === '1',
+              ttrDrm: row.ttrDrm === true || row.ttrDrm === 1 || row.ttrDrm === '1'
             };
           });
           
+          console.log('🔥 sp_FonDokumY final mapped data count:', mappedData.length);
           return mappedData;
         }
         
@@ -2061,6 +2071,325 @@ export class IslemService {
       return `${dd}.${mm}.${yyyy}`;
     } catch (error) {
       return '';
+    }
+  }
+
+  /**
+   * tblFonKasaY tablosuna yeni nakit akış kaydı ekler
+   */
+  async addNakitAkis(data: {
+    OdmVade: string;
+    islmArac: string;
+    islmGrup: string;
+    islmAltG: string;
+    islmTip: string;
+    islmTtr: number;
+    islmTkst: number;
+    islmBilgi: string;
+    OdmDrm: boolean;
+    ttrDrm: boolean;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // tblFonKasaY tablosuna INSERT
+        const insertQuery = `
+          INSERT INTO ${this.dbConfig.getTableSchema()}.tblFonKasaY (
+            OdmVade, islmArac, islmGrup, islmAltG, islmTip, 
+            islmTtr, islmTkst, islmBilgi, OdmDrm, ttrDrm
+          ) VALUES (
+            @0, @1, @2, @3, @4, @5, @6, @7, @8, @9
+          )
+        `;
+        
+        const insertParams = [
+          data.OdmVade,           // @0 - OdmVade
+          data.islmArac,          // @1 - islmArac
+          data.islmGrup,          // @2 - islmGrup
+          data.islmAltG,          // @3 - islmAltG
+          data.islmTip,           // @4 - islmTip
+          data.islmTtr,           // @5 - islmTtr
+          data.islmTkst,          // @6 - islmTkst
+          data.islmBilgi,         // @7 - islmBilgi
+          data.OdmDrm ? 1 : 0,    // @8 - OdmDrm (boolean -> int)
+          data.ttrDrm ? 1 : 0    // @9 - ttrDrm (boolean -> int)
+        ];
+        
+        // 🔥 DEBUG: INSERT query ve parametreleri logla
+        console.log('🔥 INSERT Query:', insertQuery);
+        console.log('🔥 INSERT Params:', insertParams);
+        
+        const result = await queryRunner.manager.query(insertQuery, insertParams);
+        
+        // 🔥 DEBUG: INSERT sonucunu logla
+        console.log('🔥 INSERT Result:', result);
+        console.log('🔥 INSERT affectedRows:', result?.affectedRows);
+        console.log('🔥 INSERT result type:', typeof result);
+        
+        // SQL Server'da INSERT sonucu undefined olabilir ama kayıt eklenmiş olabilir
+        // Bu durumda kayıt eklenip eklenmediğini kontrol etmek için farklı yöntemler kullan
+        if (!result) {
+          console.log('🔥 INSERT Result undefined - SQL Server davranışı, kayıt eklenmiş olabilir');
+        } else if (result.affectedRows === 0) {
+          console.error('🔥 INSERT başarısız - affectedRows: 0');
+          throw new Error('Kayıt eklenemedi');
+        }
+        
+        console.log('🔥 INSERT başarılı - affectedRows:', result?.affectedRows || 'undefined (SQL Server)');
+        
+        const response = {
+          success: true,
+          message: 'Nakit akış kaydı başarıyla eklendi'
+        };
+        
+        console.log('🔥 Service response:', response);
+        return response;
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`Nakit akış kaydı eklenirken hata: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblFonKasaY tablosundan nakit akış kaydını siler
+   */
+  async deleteNakitAkis(data: {
+    fKasaNo: number; // Silme için gerekli (WHERE koşulu)
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // tblFonKasaY tablosundan DELETE
+        const deleteQuery = `
+          DELETE FROM ${this.dbConfig.getTableSchema()}.tblFonKasaY 
+          WHERE fKasaNo = @0
+        `;
+        
+        const deleteParams = [
+          data.fKasaNo,           // @0 - fKasaNo (WHERE koşulu)
+        ];
+        
+        // 🔥 DEBUG: DELETE query ve parametreleri logla
+        console.log('🔥 DELETE Query:', deleteQuery);
+        console.log('🔥 DELETE Params:', deleteParams);
+        
+        const result = await queryRunner.manager.query(deleteQuery, deleteParams);
+        
+        // 🔥 DEBUG: DELETE sonucunu logla
+        console.log('🔥 DELETE Result:', result);
+        console.log('🔥 DELETE affectedRows:', result?.affectedRows);
+        
+        // SQL Server'da DELETE sonucu undefined olabilir ama kayıt silinmiş olabilir
+        if (!result) {
+          console.log('🔥 DELETE Result undefined - SQL Server davranışı, kayıt silinmiş olabilir');
+        } else if (result.affectedRows === 0) {
+          console.error('🔥 DELETE başarısız - affectedRows: 0');
+          throw new Error('Kayıt bulunamadı veya silinemedi');
+        }
+        
+        console.log('🔥 DELETE başarılı - affectedRows:', result?.affectedRows || 'undefined (SQL Server)');
+        
+        const response = {
+          success: true,
+          message: 'Nakit akış kaydı başarıyla silindi'
+        };
+        
+        console.log('🔥 Service DELETE response:', response);
+        return response;
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`Nakit akış kaydı silinirken hata: ${error.message}`);
+    }
+  }
+
+  /**
+   * Kısmi ödeme yapar - mevcut kaydı günceller ve yeni kayıt ekler
+   */
+  async kismiOdemeYap(data: {
+    odenenTutar: number;
+    ertelemeTarihi: string;
+    mevcutKayit: {
+      OdmVade: string;
+      islmArac: string;
+      islmGrup: string;
+      islmAltG: string;
+      islmTip: string;
+      islmTtr: number;
+      islmTkst: number;
+      islmBilgi: string;
+      OdmDrm: boolean;
+      ttrDrm: boolean;
+      fKasaNo: number;
+    };
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔥 Kısmi ödeme başlıyor:', {
+        fKasaNo: data.mevcutKayit.fKasaNo,
+        odenenTutar: data.odenenTutar,
+        ertelemeTarihi: data.ertelemeTarihi,
+        mevcutTutar: data.mevcutKayit.islmTtr
+      });
+      
+      // Kalan tutarı hesapla
+      const kalanTutar = data.mevcutKayit.islmTtr - data.odenenTutar;
+      
+      // 1. ÖNCE YENİ KAYIT EKLE (kalan tutar için) - addNakitAkis kullan
+      const yeniKayitData = {
+        OdmVade: data.ertelemeTarihi,
+        islmArac: data.mevcutKayit.islmArac,
+        islmGrup: data.mevcutKayit.islmGrup,
+        islmAltG: data.mevcutKayit.islmAltG,
+        islmTip: data.mevcutKayit.islmTip,
+        islmTtr: kalanTutar,  // Ödeme Tutarı - Ödenen
+        islmTkst: data.mevcutKayit.islmTkst,
+        islmBilgi: data.mevcutKayit.islmBilgi,
+        OdmDrm: false,
+        ttrDrm: data.mevcutKayit.ttrDrm
+      };
+      
+      console.log('🔥 Yeni kayıt ekleniyor:', yeniKayitData);
+      const insertResult = await this.addNakitAkis(yeniKayitData);
+      
+      if (!insertResult.success) {
+        throw new Error(`Yeni kayıt eklenemedi: ${insertResult.message}`);
+      }
+      
+      // 2. SONRA MEVCUT KAYDI GÜNCELLE (ödenen tutar için) - updateNakitAkis kullan
+      const guncellemeData = {
+        OdmVade: data.mevcutKayit.OdmVade,
+        islmArac: data.mevcutKayit.islmArac,
+        islmGrup: data.mevcutKayit.islmGrup,
+        islmAltG: data.mevcutKayit.islmAltG,
+        islmTip: data.mevcutKayit.islmTip,
+        islmTtr: data.odenenTutar,  // Ödenen tutar
+        islmTkst: data.mevcutKayit.islmTkst,
+        islmBilgi: data.mevcutKayit.islmBilgi,
+        OdmDrm: data.mevcutKayit.OdmDrm,
+        ttrDrm: data.mevcutKayit.ttrDrm,
+        fKasaNo: data.mevcutKayit.fKasaNo,
+      };
+      
+      console.log('🔥 Mevcut kayıt güncelleniyor:', guncellemeData);
+      const updateResult = await this.updateNakitAkis(guncellemeData);
+      
+      if (!updateResult.success) {
+        throw new Error(`Mevcut kayıt güncellenemedi: ${updateResult.message}`);
+      }
+      
+      const response = {
+        success: true,
+        message: `Kısmi ödeme başarıyla yapıldı. Kalan tutar: ${kalanTutar}`
+      };
+      
+      console.log('🔥 Kısmi ödeme response:', response);
+      return response;
+      
+    } catch (error) {
+      throw new Error(`Kısmi ödeme yapılırken hata: ${error.message}`);
+    }
+  }
+
+  /**
+   * tblFonKasaY tablosunda nakit akış kaydını günceller
+   */
+  async updateNakitAkis(data: {
+    OdmVade: string;
+    islmArac: string;
+    islmGrup: string;
+    islmAltG: string;
+    islmTip: string;
+    islmTtr: number;
+    islmTkst: number;
+    islmBilgi: string;
+    OdmDrm: boolean;
+    ttrDrm: boolean;
+    fKasaNo: number; // Güncelleme için gerekli (WHERE koşulu)
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // tblFonKasaY tablosunda UPDATE
+        const updateQuery = `
+          UPDATE ${this.dbConfig.getTableSchema()}.tblFonKasaY 
+          SET 
+            OdmVade = @0,
+            islmArac = @1,
+            islmGrup = @2,
+            islmAltG = @3,
+            islmTip = @4,
+            islmTtr = @5,
+            islmTkst = @6,
+            islmBilgi = @7,
+            OdmDrm = @8,
+            ttrDrm = @9
+          WHERE fKasaNo = @10
+        `;
+        
+        const updateParams = [
+          data.OdmVade,           // @0 - OdmVade
+          data.islmArac,          // @1 - islmArac
+          data.islmGrup,          // @2 - islmGrup
+          data.islmAltG,          // @3 - islmAltG
+          data.islmTip,           // @4 - islmTip
+          data.islmTtr,           // @5 - islmTtr
+          data.islmTkst,          // @6 - islmTkst
+          data.islmBilgi,         // @7 - islmBilgi
+          data.OdmDrm ? 1 : 0,    // @8 - OdmDrm (boolean -> int)
+          data.ttrDrm ? 1 : 0,    // @9 - ttrDrm (boolean -> int)
+          data.fKasaNo,           // @10 - fKasaNo (WHERE clause)
+        ];
+        
+        // 🔥 DEBUG: UPDATE query ve parametreleri logla
+        console.log('🔥 UPDATE Query:', updateQuery);
+        console.log('🔥 UPDATE Params:', updateParams);
+        
+        const result = await queryRunner.manager.query(updateQuery, updateParams);
+        
+        // 🔥 DEBUG: UPDATE sonucunu logla
+        console.log('🔥 UPDATE Result:', result);
+        console.log('🔥 UPDATE affectedRows:', result?.affectedRows);
+        
+        // SQL Server'da UPDATE sonucu undefined olabilir ama kayıt güncellenmiş olabilir
+        if (!result) {
+          console.log('🔥 UPDATE Result undefined - SQL Server davranışı, kayıt güncellenmiş olabilir');
+        } else if (result.affectedRows === 0) {
+          console.error('🔥 UPDATE başarısız - affectedRows: 0');
+          throw new Error('Kayıt bulunamadı veya güncellenemedi');
+        }
+        
+        console.log('🔥 UPDATE başarılı - affectedRows:', result?.affectedRows || 'undefined (SQL Server)');
+        
+        const response = {
+          success: true,
+          message: 'Nakit akış kaydı başarıyla güncellendi'
+        };
+        
+        console.log('🔥 Service UPDATE response:', response);
+        return response;
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      throw new Error(`Nakit akış kaydı güncellenirken hata: ${error.message}`);
     }
   }
 

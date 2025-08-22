@@ -2,16 +2,17 @@ import { api } from '../boot/axios';
 
 export interface NakitAkisRecord {
   id?: number;
+  fKasaNo?: number; // Kasa numarası (veritabanı tarafından atanan, sadece GET'te alınır)
   OdmVade: string; // Ödeme vadesi (SP'den gelen)
-  odemeAraci: string; // Ödeme aracı
-  aciklama: string;
-  tip: string;
-  tutar: number;
-  kategori: string;
-  taksit: string; // Taksit
-  digerBilgiler: string; // Diğer bilgiler
-  odemeDurumu?: boolean; // Ödeme durumu
-  tutarDurumu?: boolean; // Tutar durumu
+  islmArac: string; // İşlem aracı
+  islmGrup: string; // İşlem grubu
+  islmAltG: string; // İşlem alt grubu
+  islmTip: string; // İşlem tipi
+  islmTtr: number; // İşlem tutarı
+  islmTkst: string | number; // İşlem taksit (1, 2, 3... veya "1 / 1")
+  islmBilgi: string; // İşlem bilgisi
+  OdmDrm?: boolean; // Ödeme durumu
+  ttrDrm?: boolean; // Tutar durumu
 }
 
 export interface NakitAkisResponse {
@@ -115,53 +116,6 @@ export async function getIslmAltGruplar(islmGrup: string): Promise<string[]> {
   }
 }
 
-/**
- * Test amaçlı örnek veri döndürür
- * @returns Örnek nakit akış kayıtları
- */
-export function getOrnekVeriler(): NakitAkisRecord[] {
-  return [
-    {
-      id: 1,
-      OdmVade: '18.08.2025',
-      odemeAraci: 'Banka EFT',
-      aciklama: 'Oda kirası geliri',
-      tip: 'GELİR',
-      tutar: 16500.00,
-      kategori: 'Oda Gelirleri',
-      taksit: '1/1',
-      digerBilgiler: 'Aylık oda kirası',
-      odemeDurumu: true,
-      tutarDurumu: true,
-    },
-    {
-      id: 2,
-      OdmVade: '19.08.2025',
-      odemeAraci: 'Nakit',
-      aciklama: 'Market alışverişi',
-      tip: 'GİDER',
-      tutar: 250.50,
-      kategori: 'Market',
-      taksit: '1/1',
-      digerBilgiler: 'Günlük ihtiyaçlar',
-      odemeDurumu: false,
-      tutarDurumu: true,
-    },
-    {
-      id: 3,
-      OdmVade: '20.08.2025',
-      odemeAraci: 'Kredi Kartı',
-      aciklama: 'Temizlik malzemeleri',
-      tip: 'GİDER',
-      tutar: 180.00,
-      kategori: 'Temizlik',
-      taksit: '1/1',
-      digerBilgiler: 'Otel temizlik malzemeleri',
-      odemeDurumu: false,
-      tutarDurumu: true,
-    }
-  ];
-}
 
 // sp_FonDevirY için interface ekle
 export interface FonDevirYResponse {

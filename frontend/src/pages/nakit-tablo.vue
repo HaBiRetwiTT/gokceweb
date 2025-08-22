@@ -60,6 +60,7 @@
             :row-class-name="getRowClass"
             @request="onTableRequest"
             @update:pagination="onPaginationUpdate"
+            @row-dblclick="onRowDoubleClick"
             :rows-per-page-label="'Sayfa başına kayıt:'"
             :no-data-label="'Veri bulunamadı'"
             :no-results-label="'Sonuç bulunamadı'"
@@ -149,7 +150,7 @@
             <div class="form-field">
               <label class="form-label">İşlem Günü</label>
               <q-input
-                v-model="newRecord.islemGunu"
+                v-model="newRecord.OdmVade"
                 dense
                 outlined
                 class="form-input"
@@ -159,7 +160,7 @@
                   <q-icon name="event" class="cursor-pointer">
                     <q-popup-proxy ref="islemGunuPopup">
                       <q-date
-                        v-model="newRecord.islemGunu"
+                        v-model="newRecord.OdmVade"
                         mask="DD.MM.YYYY"
                         format="DD.MM.YYYY"
                         @update:model-value="() => islemGunuPopup?.hide?.()"
@@ -174,7 +175,7 @@
             <div class="form-field">
               <label class="form-label">İşlem Aracı</label>
               <q-select
-                v-model="newRecord.islemAraci"
+                v-model="newRecord.islmArac"
                 :options="islemAraciOptions"
                 dense
                 outlined
@@ -188,7 +189,7 @@
             <div class="form-field">
               <label class="form-label">İşlem Tipi</label>
               <q-select
-                v-model="newRecord.islemTipi"
+                v-model="newRecord.islmTip"
                 :options="islemTipiOptions"
                 dense
                 outlined
@@ -202,7 +203,7 @@
             <div class="form-field">
               <label class="form-label">İşlem Kategorisi</label>
               <q-select
-                v-model="newRecord.islemKategorisi"
+                v-model="newRecord.islmGrup"
                 :options="islemKategoriOptions"
                 dense
                 outlined
@@ -230,11 +231,18 @@
                 menu-anchor="bottom left"
                 menu-self="top left"
                 fit
-                placeholder="İşlem tanımı yazın veya seçin..."
+                :placeholder="islemTanimiModel ? '' : 'İşlem tanımı yazın...'"
                 @filter="onFilterIslemTanimi"
                 @update:model-value="onIslemTanimiSelect"
                 @blur="onIslemTanimiBlur"
+                @input="onIslemTanimiInput"
                 clearable
+                emit-value
+                map-options
+                :options-dense="true"
+                :virtual-scroll="false"
+                :menu-offset="[0, 8]"
+                :behavior="'menu'"
               >
                 <template v-slot:prepend>
                   <q-icon name="search" color="green-6" />
@@ -245,8 +253,14 @@
                   </div>
                   <q-separator />
                 </template>
-                <template v-slot:option="{ opt }">
-                  <q-item dense>
+                <template v-slot:option="{ opt, selected, toggleOption }">
+                  <q-item 
+                    dense 
+                    clickable 
+                    @click="toggleOption(opt)"
+                    :active="selected"
+                    active-class="bg-primary text-white"
+                  >
                     <q-item-section>
                       <div class="islem-tanimi-option">
                         {{ opt }}
@@ -268,7 +282,7 @@
             <div class="form-field">
               <label class="form-label">İşlem Açıklaması</label>
               <q-input
-                v-model="newRecord.islemAciklamasi"
+                v-model="newRecord.islmBilgi"
                 dense
                 outlined
                 class="form-input"
@@ -282,35 +296,66 @@
               <label class="form-label">Ödeme Tutarı</label>
               <div class="payment-input-group">
                 <q-input
-                  v-model.number="newRecord.odemeTutari"
+                  v-model.number="newRecord.islmTtr"
                   dense
                   outlined
                   class="form-input payment-input"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                 />
                 <q-checkbox
-                  v-model="newRecord.odendi"
+                  v-model="newRecord.OdmDrm"
                   label="Ödendi"
                   class="form-checkbox payment-checkbox"
                 />
                 <div class="taksit-group">
                   <label class="taksit-label">Taksit</label>
-                  <q-input
-                    v-model.number="newRecord.taksitSayisi"
-                    dense
-                    outlined
-                    class="form-input taksit-input"
-                    type="number"
-                    min="1"
-                    max="99"
-                  />
+                  <div class="taksit-input-container">
+                    <q-input
+                      v-model.number="newRecord.islmTkst"
+                      dense
+                      outlined
+                      class="form-input taksit-input"
+                      type="number"
+                      min="1"
+                      max="120"
+                      step="1"
+                      inputmode="numeric"
+                      placeholder="1"
+                      @keydown="onTaksitKeydown"
+                      :rules="[
+                        val => !!val || 'Taksit bilgisi gerekli',
+                        val => val >= 1 || 'Taksit en az 1 olmalı',
+                        val => val <= 120 || 'Taksit en fazla 120 olmalı'
+                      ]"
+                    />
+                    <div class="taksit-spin-buttons">
+                      <q-btn
+                        dense
+                        flat
+                        size="xs"
+                        icon="keyboard_arrow_up"
+                        @click="incrementTaksit"
+                        class="taksit-spin-btn up"
+                        :disable="newRecord.islmTkst >= 120"
+                      />
+                      <q-btn
+                        dense
+                        flat
+                        size="xs"
+                        icon="keyboard_arrow_down"
+                        @click="decrementTaksit"
+                        class="taksit-spin-btn down"
+                        :disable="newRecord.islmTkst <= 1"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <!-- Kayıt Takip Checkbox -->
                 <div class="form-field checkbox-field">
                   <q-checkbox
-                    v-model="newRecord.kayitTakip"
+                    v-model="newRecord.ttrDrm"
                     label="Kayıt Takip"
                     class="form-checkbox"
                   />
@@ -340,13 +385,329 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Düzenleme/Silme Modal -->
+    <q-dialog v-model="showEditModal" persistent no-esc-dismiss>
+      <q-card 
+        ref="modalCard"
+        style="min-width: 600px; max-width: 90vw;" 
+        class="new-record-modal draggable-modal"
+      >
+            <q-card-section class="modal-header" style="cursor: move;">
+      <div class="modal-title-section">
+        <div class="modal-title-left">
+          <span class="modal-title">SEÇİLEN FON KAYIT DÜZENLEME İŞLEMLERİ</span>
+        </div>
+        <div class="modal-title-right">
+          <q-input
+            v-model="selectedFKasaNo"
+            dense
+            outlined
+            readonly
+            class="fKasaNo-label"
+            style="width: 120px;"
+          />
+        </div>
+      </div>
+    </q-card-section>
+
+        <q-card-section class="modal-body">
+          <div class="form-grid">
+            <!-- İşlem Günü -->
+            <div class="form-field">
+              <label class="form-label">İşlem Günü</label>
+              <q-input
+                v-model="newRecord.OdmVade"
+                dense
+                outlined
+                class="form-input"
+                readonly
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy ref="islemGunuPopup">
+                      <q-date
+                        v-model="newRecord.OdmVade"
+                        mask="DD.MM.YYYY"
+                        format="DD.MM.YYYY"
+                        @update:model-value="() => islemGunuPopup?.hide?.()"
+                      />
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+            </div>
+
+            <!-- İşlem Aracı -->
+            <div class="form-field">
+              <label class="form-label">İşlem Aracı</label>
+              <q-select
+                v-model="newRecord.islmArac"
+                :options="islemAraciOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Tipi -->
+            <div class="form-field">
+              <label class="form-label">İşlem Tipi</label>
+              <q-select
+                v-model="newRecord.islmTip"
+                :options="islemTipiOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Kategorisi -->
+            <div class="form-field">
+              <label class="form-label">İşlem Kategorisi</label>
+              <q-select
+                v-model="newRecord.islmGrup"
+                :options="islemKategoriOptions"
+                dense
+                outlined
+                class="form-input"
+                emit-value
+                map-options
+              />
+            </div>
+
+            <!-- İşlem Tanımı -->
+            <div class="form-field">
+              <label class="form-label">İşlem Tanımı</label>
+              <q-select
+                v-model="islemTanimiModel"
+                :options="islemTanimiOptions"
+                dense
+                outlined
+                class="form-input islem-tanimi-select"
+                use-input
+                hide-dropdown-icon
+                input-debounce="300"
+                popup-content-class="islem-tanimi-popup"
+                style="width: 100%;"
+                v-model:input-value="islemTanimiText"
+                menu-anchor="bottom left"
+                menu-self="top left"
+                fit
+                :placeholder="islemTanimiModel ? '' : 'İşlem tanımı yazın...'"
+                @filter="onFilterIslemTanimi"
+                @update:model-value="onIslemTanimiSelect"
+                @blur="onIslemTanimiBlur"
+                @input="onIslemTanimiInput"
+                clearable
+                emit-value
+                map-options
+                :options-dense="true"
+                :virtual-scroll="false"
+                :menu-offset="[0, 8]"
+                :behavior="'menu'"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="search" color="green-6" />
+                </template>
+                <template v-slot:before-options>
+                  <div class="row text-caption text-grey-7 q-px-sm q-pt-sm q-pb-xs islem-tanimi-header">
+                    <div class="col-12">İşlem Tanımı</div>
+                  </div>
+                  <q-separator />
+                </template>
+                <template v-slot:option="{ opt, selected, toggleOption }">
+                  <q-item 
+                    dense 
+                    clickable 
+                    @click="toggleOption(opt)"
+                    :active="selected"
+                    active-class="bg-primary text-white"
+                  >
+                    <q-item-section>
+                      <div class="islem-tanimi-option">
+                        {{ opt }}
+                      </div>
+                    </q-item-section>
+                  </q-item>
+                </template>
+                <template v-slot:no-option>
+                  <q-item>
+                    <q-item-section class="text-grey">
+                      Sonuç bulunamadı. Yazdığınız değer otomatik olarak eklenir.
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
+            </div>
+
+            <!-- İşlem Açıklaması -->
+            <div class="form-field">
+              <label class="form-label">İşlem Açıklaması</label>
+              <q-input
+                v-model="newRecord.islmBilgi"
+                dense
+                outlined
+                class="form-input"
+                type="textarea"
+                rows="3"
+              />
+            </div>
+
+            <!-- Ödeme Tutarı -->
+            <div class="form-field payment-amount-field">
+              <label class="form-label">Ödeme Tutarı</label>
+              <div class="payment-input-group">
+                <q-input
+                  v-model.number="newRecord.islmTtr"
+                  dense
+                  outlined
+                  class="form-input payment-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                />
+                <q-checkbox
+                  v-model="newRecord.OdmDrm"
+                  label="Ödendi"
+                  class="form-checkbox payment-checkbox"
+                />
+                <div class="taksit-group">
+                  <label class="taksit-label">Taksit</label>
+                  <q-input
+                    v-model.number="newRecord.islmTkst"
+                    dense
+                    outlined
+                    class="form-input taksit-input"
+                    type="number"
+                    min="1"
+                    max="120"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="1"
+                    readonly
+                    :rules="[
+                      val => !!val || 'Taksit bilgisi gerekli',
+                      val => val >= 1 || 'Taksit en az 1 olmalı',
+                      val => val <= 120 || 'Taksit en fazla 120 olmalı'
+                    ]"
+                  />
+                </div>
+                <!-- Kayıt Takip Checkbox -->
+                <div class="form-field checkbox-field">
+                  <q-checkbox
+                    v-model="newRecord.ttrDrm"
+                    label="Kayıt Takip"
+                    class="form-checkbox"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions class="modal-actions">
+          <div class="action-buttons-container">
+            <!-- Üst sıra butonlar - yan yana -->
+            <div class="button-row">
+              <q-btn
+                color="primary"
+                icon="edit"
+                label="ÖDEME BİLGİLERİNİ DÜZENLE"
+                @click="saveEditRecord"
+                class="action-btn primary-btn wide-edit-btn"
+              />
+              <q-btn
+                color="negative"
+                icon="delete"
+                label="FON KAYDINI SİL"
+                @click="deleteRecord"
+                class="action-btn delete-btn wide-delete-btn"
+              />
+            </div>
+            
+                        <!-- Textbox'lar - yan yana -->
+            <div class="textbox-row">
+              <div class="form-field erteleme-field">
+                <label class="form-label">Erteleme Tarihi</label>
+                <q-input
+                  v-model="ertelemeTarihi"
+                  dense
+                  outlined
+                  class="form-input"
+                  type="text"
+                  placeholder="DD.MM.YYYY"
+                  readonly
+                >
+                  <template v-slot:append>
+                    <q-icon name="event" class="cursor-pointer">
+                      <q-popup-proxy 
+                        ref="ertelemeTarihiPopup"
+                        cover 
+                        transition-show="scale" 
+                        transition-hide="scale"
+                      >
+                                            <q-date
+                      v-model="ertelemeTarihi"
+                      mask="DD.MM.YYYY"
+                      format="DD.MM.YYYY"
+                      :options="ertelemeTarihiOptions"
+                      @update:model-value="onErtelemeTarihiChange"
+                    />
+                      </q-popup-proxy>
+                    </q-icon>
+                  </template>
+                </q-input>
+              </div>
+              <div class="form-field odenen-field">
+                <label class="form-label">Ödenen</label>
+                            <q-input
+              v-model="odenenTutar"
+              dense
+              outlined
+              class="form-input"
+              type="number"
+              placeholder="0.00"
+              @blur="onOdenenTutarBlur"
+            />
+              </div>
+              <div class="kismi-btn-container">
+                <q-btn
+                  color="warning"
+                  icon="payment"
+                  label="KISMİ ÖDEME YAP"
+                  @click="kismiOdemeYap"
+                  class="action-btn warning-btn wide-kismi-btn"
+                />
+              </div>
+            </div>
+            
+            <!-- Kapat butonu -->
+            <div class="button-row">
+              <q-btn
+                color="primary"
+                icon="close"
+                label="KAPAT"
+                @click="closeEditModal"
+                class="action-btn close-btn wide-close-btn"
+              />
+            </div>
+          </div>
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { getNakitAkisVerileri, getBugunTarih, getOrnekVeriler, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
+import { api } from '../boot/axios';
+import { getNakitAkisVerileri, getBugunTarih, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
 
 const $q = useQuasar();
 
@@ -356,6 +717,25 @@ const loading = ref(false);
 const selectedDate = ref('');
 const datePopup = ref();
 const devredenBakiye = ref(0);
+
+// Edit modal için gerekli ref'ler
+const showEditModal = ref(false);
+const editRecord = ref({
+  OdmVade: '',
+  islmArac: '',
+  islmTip: '',
+  islmGrup: '',
+  islmAltG: '',
+  islmTtr: 0,
+  OdmDrm: false,
+  islmTkst: 1,
+  islmBilgi: '',
+  ttrDrm: false
+});
+const editIslemTanimiModel = ref<string | null>(null);
+const editIslemTanimiText = ref('');
+const ertelemeTarihi = ref('');
+const odenenTutar = ref(0);
 
 // Devreden bakiye güncelleme fonksiyonu
 async function updateDevredenBakiye(tarih: string) {
@@ -388,13 +768,13 @@ const leftTableData = computed(() => {
       // Ana tablonun ilk satırındaki işlem tipine göre hesapla
       if (paginatedData.value.length > 0) {
         const firstRow = paginatedData.value[0];
-        const islemTipi = firstRow.tip;
-        const tutar = Number(firstRow.tutar) || 0;
+        const islmTip = firstRow.islmTip;
+        const islmTtr = Number(firstRow.islmTtr) || 0;
         
-        if (islemTipi === 'Çıkan') {
-          bakiye -= tutar;
-        } else if (islemTipi === 'Giren') {
-          bakiye += tutar;
+        if (islmTip === 'Çıkan') {
+          bakiye -= islmTtr;
+        } else if (islmTip === 'Giren') {
+          bakiye += islmTtr;
         }
       }
       
@@ -413,28 +793,28 @@ const leftTableData = computed(() => {
         // Bir üst satıra kadar olan tüm işlemleri hesapla
         for (let i = 0; i < index; i++) {
           const currentRow = paginatedData.value[i];
-          const islemTipi = currentRow.tip;
-          const tutar = Number(currentRow.tutar) || 0;
-          
-          if (islemTipi === 'Çıkan') {
-            previousBakiye -= tutar;
-          } else if (islemTipi === 'Giren') {
-            previousBakiye += tutar;
-          }
-        }
+                  const islmTip = currentRow.islmTip;
+        const islmTtr = Number(currentRow.islmTtr) || 0;
         
-        // Şimdi mevcut satır için işlem yap
-        const currentRow = paginatedData.value[index];
-        const islemTipi = currentRow.tip;
-        const tutar = Number(currentRow.tutar) || 0;
-        
-        if (islemTipi === 'Çıkan') {
-          bakiye = previousBakiye - tutar;
-        } else if (islemTipi === 'Giren') {
-          bakiye = previousBakiye + tutar;
-        } else {
-          bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
+        if (islmTip === 'Çıkan') {
+          previousBakiye -= islmTtr;
+        } else if (islmTip === 'Giren') {
+          previousBakiye += islmTtr;
         }
+      }
+      
+      // Şimdi mevcut satır için işlem yap
+      const currentRow = paginatedData.value[index];
+      const islmTip = currentRow.islmTip;
+              const islmTtr = Number(currentRow.islmTtr) || 0;
+      
+      if (islmTip === 'Çıkan') {
+        bakiye = previousBakiye - islmTtr;
+      } else if (islmTip === 'Giren') {
+        bakiye = previousBakiye + islmTtr;
+      } else {
+        bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
+      }
       }
       
       return {
@@ -464,13 +844,13 @@ function getPageDevirBakiyesi(): number {
     for (let i = 0; i < previousPageEndIndex; i++) {
       if (i < tableData.value.length) {
         const currentRow = tableData.value[i];
-        const islemTipi = currentRow.tip;
-        const tutar = Number(currentRow.tutar) || 0;
+        const islmTip = currentRow.islmTip;
+        const islmTtr = Number(currentRow.islmTtr) || 0;
         
-        if (islemTipi === 'Çıkan') {
-          previousPageBakiye -= tutar;
-        } else if (islemTipi === 'Giren') {
-          previousPageBakiye += tutar;
+        if (islmTip === 'Çıkan') {
+          previousPageBakiye -= islmTtr;
+        } else if (islmTip === 'Giren') {
+          previousPageBakiye += islmTtr;
         }
       }
     }
@@ -526,58 +906,58 @@ const columns = [
     style: 'width: 100px'
   },
   {
-    name: 'odemeAraci',
-    label: 'Ödeme Aracı',
-    field: 'odemeAraci',
+    name: 'islmArac',
+    label: 'İşlem Aracı',
+    field: 'islmArac',
     align: 'left' as const,
     sortable: true,
     style: 'width: 100px'
   },
   {
-    name: 'kategori',
-    label: 'Kategori',
-    field: 'kategori',
+    name: 'islmGrup',
+    label: 'İşlem Grubu',
+    field: 'islmGrup',
     align: 'left' as const,
     sortable: true,
     style: 'width: 100px'
   },
   {
-    name: 'aciklama',
-    label: 'İşlem Açıklaması',
-    field: 'aciklama',
+    name: 'islmAltG',
+    label: 'İşlem Tanımı',
+    field: 'islmAltG',
     align: 'left' as const,
     sortable: true,
     style: 'width: 180px'
   },
   {
-    name: 'tip',
+    name: 'islmTip',
     label: 'İşlem Tipi',
-    field: 'tip',
+    field: 'islmTip',
     align: 'center' as const,
     sortable: true,
     style: 'width: 80px'
   },
   {
-    name: 'tutar',
+    name: 'islmTtr',
     label: 'Tutar',
-    field: 'tutar',
+    field: 'islmTtr',
     align: 'right' as const,
     sortable: true,
     style: 'width: 100px',
     format: (val: number) => `₺ ${val.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   },
   {
-    name: 'taksit',
+    name: 'islmTkst',
     label: 'Taksit',
-    field: 'taksit',
+    field: 'islmTkst',
     align: 'center' as const,
     sortable: true,
     style: 'width: 70px'
   },
   {
-    name: 'digerBilgiler',
+    name: 'islmBilgi',
     label: 'Diğer Bilgiler',
-    field: 'digerBilgiler',
+    field: 'islmBilgi',
     align: 'left' as const,
     sortable: false,
     style: 'width: 180px'
@@ -589,21 +969,48 @@ const columns = [
 const showNewRecordModal = ref(false);
 
 // Yeni kayıt bilgileri
-const newRecord = ref({
-  islemGunu: '',
-  islemAraci: '',
-  islemTipi: '',
-  islemKategorisi: '',
-  islemTanimi: '',
-  odemeTutari: 0,
-  odendi: false,
-  taksitSayisi: 1,
-  islemAciklamasi: '',
-  kayitTakip: true,
+const newRecord = ref<{
+  OdmVade: string;
+  islmArac: string;
+  islmTip: string;
+  islmGrup: string;
+  islmAltG: string;
+  islmTtr: number;
+  OdmDrm: boolean;
+  islmTkst: number;
+  islmBilgi: string;
+  ttrDrm: boolean;
+}>({
+  OdmVade: '',
+  islmArac: '',
+  islmTip: '',
+  islmGrup: '',
+  islmAltG: '',
+  islmTtr: 0,
+  OdmDrm: false,
+  islmTkst: 1,
+  islmBilgi: '',
+  ttrDrm: true,
+});
+
+// Seçilen kaydın fKasaNo'sunu saklamak için
+const selectedFKasaNo = ref(0);
+
+// Erteleme tarihi için minimum tarih (bugün + 1 gün)
+const ertelemeTarihiOptions = computed(() => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate());
+  
+  return (date: string) => {
+    const selectedDate = new Date(date.split('.').reverse().join('-'));
+    return selectedDate >= tomorrow;
+  };
 });
 
 // Date picker popup ref'leri
 const islemGunuPopup = ref();
+const ertelemeTarihiPopup = ref();
 const modalCard = ref();
 
 // İşlem Aracı seçenekleri
@@ -784,7 +1191,7 @@ function setupMutationObserver() {
 // Satır sınıf adını belirleyen fonksiyon
 function getRowClass(row: NakitAkisRecord) {
   // Boolean true kontrolü
-  if (row.odemeDurumu === true) {
+  if (row.OdmDrm === true) {
     return 'odenen-satir';
   }
   
@@ -849,8 +1256,8 @@ watch(tableData, async () => {
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
 
-// İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
-watch(() => newRecord.value.islemKategorisi, async (newKategori) => {
+  // İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
+  watch(() => newRecord.value.islmGrup, async (newKategori) => {
   if (newKategori) {
     try {
       const altGruplar = await getIslmAltGruplar(newKategori);
@@ -941,7 +1348,7 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
   
   // Her satır için CSS sınıfını manuel olarak uygula
   data.forEach((row, dataIndex) => {
-    if (row.odemeDurumu === true) {
+    if (row.OdmDrm === true) {
       // Tablo satırını bul - data-index attribute'u ile eşleştir
       const tableRows = document.querySelectorAll('.nakit-tablo-grid tbody tr');
       
@@ -995,9 +1402,11 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
 async function loadData() {
   try {
     loading.value = true;
+    console.log('Veri yükleniyor, tarih:', selectedDate.value);
     
     // Nakit akış verilerini getir
     const veriler = await getNakitAkisVerileri(selectedDate.value);
+    console.log('API\'den gelen veriler:', veriler);
     
     tableData.value = veriler;
     
@@ -1008,11 +1417,13 @@ async function loadData() {
     if (veriler.length === 0) {
       $q.notify({
         type: 'info',
-        message: `${selectedDate.value} tarihi için veri bulunamadı. Örnek veriler gösteriliyor.`,
+        message: `${selectedDate.value} tarihi için veri bulunamadı.`,
         position: 'top'
       });
-      // Örnek verileri göster
-      tableData.value = getOrnekVeriler();
+      // Boş array göster
+      tableData.value = [];
+    } else {
+      console.log(`${veriler.length} kayıt başarıyla yüklendi`);
     }
     
   } catch (error) {
@@ -1023,85 +1434,583 @@ async function loadData() {
       position: 'top'
     });
     
-    // Hata durumunda örnek verileri göster
-    tableData.value = getOrnekVeriler();
+    // Hata durumunda boş array göster
+    tableData.value = [];
   } finally {
     loading.value = false;
   }
 }
 
+// Taksit tarihi hesaplama fonksiyonu
+const hesaplaTaksitTarihi = (baslangicTarihi: string, ayFarki: number): string => {
+  const [gun, ay, yil] = baslangicTarihi.split('.');
+  const tarih = new Date(Number(yil), Number(ay) - 1 + ayFarki, Number(gun));
+  
+  const yeniGun = String(tarih.getDate()).padStart(2, '0');
+  const yeniAy = String(tarih.getMonth() + 1).padStart(2, '0');
+  const yeniYil = tarih.getFullYear();
+  
+  return `${yeniGun}.${yeniAy}.${yeniYil}`;
+};
+
 // Yeni kayıt ekleme fonksiyonu
 const addNewRecord = () => {
   showNewRecordModal.value = true;
   newRecord.value = {
-    islemGunu: getBugunTarih(),
-    islemAraci: 'Banka EFT', // Default: Banka EFT
-    islemTipi: 'Çıkan', // Default: Çıkan
-    islemKategorisi: 'Genel Fon Ödm.', // Default: Genel Fon Ödm.
-    islemTanimi: '', // Boş string olarak başlat
-    odemeTutari: 0,
-    odendi: false,
-    taksitSayisi: 1,
-    islemAciklamasi: '',
-    kayitTakip: true,
+    OdmVade: getBugunTarih(),
+    islmArac: 'Banka EFT', // Default: Banka EFT
+    islmTip: 'Çıkan', // Default: Çıkan
+    islmGrup: 'Genel Fon Ödm.', // Default: Genel Fon Ödm.
+    islmAltG: '', // Boş string olarak başlat
+    islmTtr: 0,
+    OdmDrm: false,
+    islmTkst: 1,
+    islmBilgi: '',
+    ttrDrm: true,
   };
-  // İşlem tanımı input text'ini temizle
+  
+  // İşlem tanımı alanlarını temizle
   islemTanimiText.value = '';
-  // İşlem tanımı model'ini temizle
   islemTanimiModel.value = null;
+  
+  // İşlem tanımı options'ları da temizle
+  islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
 };
 
 // Yeni kayıt kaydetme fonksiyonu
-function saveNewRecord() {
-  if (!newRecord.value.islemAraci || !newRecord.value.islemTipi || newRecord.value.odemeTutari === 0) {
+async function saveNewRecord() {
+  if (!newRecord.value.islmArac || !newRecord.value.islmTip || !newRecord.value.islmAltG || 
+      newRecord.value.islmTtr === 0 || !newRecord.value.islmTkst) {
     $q.notify({
       type: 'warning',
-      message: 'Lütfen tüm alanları doldurun ve ödeme tutarını 0\'dan büyük girin.',
+      message: 'Lütfen tüm alanları doldurun.',
       position: 'top'
     });
     return;
   }
 
-  const newRecordData: NakitAkisRecord = {
-    id: Date.now(), // Yeni kayıtlar için benzersiz bir ID
-    OdmVade: newRecord.value.islemGunu,
-    odemeAraci: newRecord.value.islemAraci,
-    kategori: newRecord.value.islemKategorisi || '',
-    aciklama: newRecord.value.islemAciklamasi,
-    tip: newRecord.value.islemTipi,
-    tutar: newRecord.value.odemeTutari,
-    taksit: newRecord.value.taksitSayisi.toString(),
-    digerBilgiler: `Kayıt Takip: ${newRecord.value.kayitTakip}`,
-    odemeDurumu: newRecord.value.odendi,
-  };
+  try {
+    loading.value = true;
+    
+    // 🔥 DEBUG: Gönderilecek veriyi logla
+    const requestData = {
+      OdmVade: newRecord.value.OdmVade,
+      islmArac: newRecord.value.islmArac,
+      islmGrup: newRecord.value.islmGrup,
+      islmAltG: newRecord.value.islmAltG,
+      islmTip: newRecord.value.islmTip,
+      islmTtr: newRecord.value.islmTtr,
+      islmTkst: newRecord.value.islmTkst, // 🔥 Modal'daki değeri direkt gönder
+      islmBilgi: newRecord.value.islmBilgi,
+      OdmDrm: newRecord.value.OdmDrm,
+      ttrDrm: newRecord.value.ttrDrm,
+    };
+    
+    // 🔥 DEBUG: Sadece gerekli alanları gönder
+    console.log('🔥 Gönderilecek alanlar:', Object.keys(requestData));
+    console.log('🔥 Tüm alanlar:', requestData);
+    
+    console.log('🔥 Frontend\'den gönderilen veri:', requestData);
+    
+    // Taksit sistemi için kayıt ekleme
+    const taksitSayisi = Number(newRecord.value.islmTkst);
+    const taksitTutari = newRecord.value.islmTtr / taksitSayisi;
+    
+    console.log('🔥 Taksit sistemi:', {
+      taksitSayisi,
+      taksitTutari,
+      toplamTutar: newRecord.value.islmTtr
+    });
+    
+    // Her taksit için ayrı kayıt ekle
+    for (let i = 1; i <= taksitSayisi; i++) {
+      const taksitTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, i - 1);
+      
+      // Kalan tutarı hesapla (bu taksit ödendikten sonra kalan)
+      const kalanTutar = newRecord.value.islmTtr - (taksitTutari * i);
+      
+      // Taksit açıklamasını oluştur
+      let taksitAciklama = `- Kalan(TL): ${kalanTutar}`;
+      
+      // Son taksit değilse Son Vade bilgisini ekle
+      if (i < taksitSayisi) {
+        const sonVadeTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, taksitSayisi - 1);
+        taksitAciklama += ` - Son Vade: ${sonVadeTarihi}`;
+      }
+      
+      const taksitData = {
+        ...requestData,
+        islmTtr: taksitTutari,
+        islmTkst: `${i} / ${taksitSayisi}`,
+        OdmVade: taksitTarihi,
+        islmBilgi: taksitAciklama
+      };
+      
+      console.log(`🔥 ${i}. taksit kaydı ekleniyor:`, taksitData);
+      
+      // Backend'e taksit kaydı ekle
+      const taksitResponse = await api.post('/islem/nakit-akis-ekle', taksitData);
+      
+      if (taksitResponse.status !== 201 && taksitResponse.status !== 200) {
+        throw new Error(`${i}. taksit kaydı eklenemedi`);
+      }
+    }
+    
+    // Son taksit response'unu kullan
+    const response = { status: 200, data: { success: true } };
+    
+    // 🔥 DEBUG: Backend response'unu logla
+    console.log('🔥 Backend response:', response);
+    console.log('🔥 Response status:', response.status);
+    console.log('🔥 Response data:', response.data);
+    
+    // 🔥 HTTP status kontrolü - 201 Created veya 200 OK ise başarılı
+    if (response.status === 201 || response.status === 200) {
+      // Başarı mesajı
+      $q.notify({
+        type: 'positive',
+        message: 'Yeni kayıt başarıyla eklendi!',
+        position: 'top'
+      });
 
-  tableData.value.push(newRecordData);
-  pagination.value.rowsNumber = tableData.value.length;
-  pagination.value.page = 1; // Yeni kayıt eklenince ilk sayfaya dön
+      // Modal'ı kapat
+      showNewRecordModal.value = false;
+      
+      // İşlem tanımı alanlarını temizle
+      islemTanimiText.value = '';
+      islemTanimiModel.value = null;
+      islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+      
+      // Backend'den güncel veriyi çek
+      await loadData();
+      
+      console.log('🔥 Yeni kayıt backend\'e eklendi ve tablo güncellendi');
+    } else if (response.data && response.data.success === true) {
+      // Alternatif olarak response.data.success kontrolü
+      $q.notify({
+        type: 'positive',
+        message: 'Yeni kayıt başarıyla eklendi!',
+        position: 'top'
+      });
 
-  $q.notify({
-    type: 'positive',
-    message: 'Yeni kayıt başarıyla eklendi!',
-    position: 'top'
-  });
-
-  showNewRecordModal.value = false;
-  
-  // İşlem tanımı input text'ini temizle
-  islemTanimiText.value = '';
+      // Modal'ı kapat
+      showNewRecordModal.value = false;
+      
+      // İşlem tanımı alanlarını temizle
+      islemTanimiText.value = '';
+      islemTanimiModel.value = null;
+      islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+      
+      // Backend'den güncel veriyi çek
+      await loadData();
+      
+      console.log('🔥 Yeni kayıt backend\'e eklendi ve tablo güncellendi');
+    } else {
+      // 🔥 DEBUG: Başarısız response detayını logla
+      console.error('🔥 Backend başarısız response:', response.data);
+      console.error('🔥 Response status:', response.status);
+      throw new Error('Kayıt eklenemedi - Backend response format hatası');
+    }
+    
+  } catch (error: unknown) {
+    // 🔥 DEBUG: Hata detayını logla
+    console.error('🔥 Kayıt ekleme hatası detayı:', error);
+    
+    let errorMessage = 'Bilinmeyen hata';
+    
+    // Type-safe error handling
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data?: { message?: string }, status?: number, statusText?: string } };
+      
+      if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
+      } else if (axiosError.response?.status) {
+        errorMessage = `HTTP ${axiosError.response.status}: ${axiosError.response.statusText || ''}`;
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    $q.notify({
+      type: 'negative',
+      message: `Kayıt eklenirken hata oluştu: ${errorMessage}`,
+      position: 'top',
+      timeout: 5000
+    });
+  } finally {
+    loading.value = false;
+  }
 }
 
 // Yeni kayıt modalını kapatma fonksiyonu
 function closeNewRecordModal() {
   showNewRecordModal.value = false;
   
-  // İşlem tanımı input text'ini temizle
+  // İşlem tanımı alanlarını temizle
   islemTanimiText.value = '';
+  islemTanimiModel.value = null;
+  islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+}
+
+// Satır double-click edildiğinde
+function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
+  // Edit modal'ı aç
+  showEditModal.value = true;
+  
+  // Seçilen kaydın bilgilerini form elementlerine yaz
+  newRecord.value = {
+    OdmVade: row.OdmVade || '',
+    islmArac: row.islmArac || '',
+    islmGrup: row.islmGrup || '',
+    islmAltG: row.islmAltG || '',
+    islmTip: row.islmTip || '',
+    islmTtr: Number(row.islmTtr) || 0,
+    islmTkst: (() => {
+      if (typeof row.islmTkst === 'string') {
+        const parts = row.islmTkst.split('/');
+        return parseInt(parts[0]) || 1;
+      }
+      return Number(row.islmTkst) || 1;
+    })(),
+    islmBilgi: row.islmBilgi || '',
+    OdmDrm: Boolean(row.OdmDrm) || false,
+    ttrDrm: Boolean(row.ttrDrm) || false
+  };
+  
+  // İşlem tanımı model'ini güncelle
+  islemTanimiModel.value = row.islmAltG || null;
+  islemTanimiText.value = row.islmAltG || '';
+  
+  // fKasaNo'yu global ref'e sakla (güncelleme için)
+  selectedFKasaNo.value = row.fKasaNo || 0;
+  console.log('🔥 Seçilen kayıt fKasaNo:', row.fKasaNo);
+  console.log('🔥 selectedFKasaNo.value:', selectedFKasaNo.value);
+  
+  // Erteleme tarihi ve ödenen tutarı sıfırla
+  ertelemeTarihi.value = '';
+  odenenTutar.value = 0;
+}
+
+// Edit modal için gerekli fonksiyonlar
+// onEditIslemKategorisiChange fonksiyonu kaldırıldı
+
+// onEditIslemTanimiInput fonksiyonu kaldırıldı
+
+// onEditIslemTanimiChange fonksiyonu kaldırıldı
+
+async function saveEditRecord() {
+  try {
+    console.log('🔥 Güncellenecek kayıt bilgileri:', newRecord.value);
+    
+    // Güncelleme için gerekli verileri hazırla
+    const updateData = {
+      fKasaNo: selectedFKasaNo.value, // Çift tıklama sırasında saklanan fKasaNo
+      OdmVade: newRecord.value.OdmVade,
+      islmArac: newRecord.value.islmArac,
+      islmGrup: newRecord.value.islmGrup,
+      islmAltG: newRecord.value.islmAltG,
+      islmTip: newRecord.value.islmTip,
+      islmTtr: newRecord.value.islmTtr,
+      islmTkst: newRecord.value.islmTkst,
+      islmBilgi: newRecord.value.islmBilgi,
+      OdmDrm: newRecord.value.OdmDrm,
+      ttrDrm: newRecord.value.ttrDrm
+    };
+    
+    console.log('🔥 Backend\'e gönderilecek güncelleme verisi:', updateData);
+    
+    // Backend'e güncelleme isteği gönder
+    const response = await api.put('/islem/nakit-akis-guncelle', updateData);
+    
+    console.log('🔥 Güncelleme response:', response);
+    
+    if (response.status === 200 || response.status === 201) {
+      // Başarılı güncelleme
+      $q.notify({
+        type: 'positive',
+        message: 'Kayıt başarıyla güncellendi',
+        position: 'top'
+      });
+      
+      // Modal'ı kapat
+      showEditModal.value = false;
+      
+      // Grid'i yenile
+      const veriler = await getNakitAkisVerileri(selectedDate.value);
+      tableData.value = veriler;
+      
+    } else {
+      throw new Error('Güncelleme işlemi başarısız');
+    }
+    
+  } catch (error: unknown) {
+    console.error('🔥 Kayıt güncelleme hatası:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+    
+    $q.notify({
+      type: 'negative',
+      message: `Kayıt güncellenirken hata: ${errorMessage}`,
+      position: 'top'
+    });
+  }
+}
+
+async function deleteRecord() {
+  try {
+    console.log('🔥 Silinecek kayıt bilgileri:', newRecord.value);
+    
+    // Silme için gerekli verileri hazırla
+    const deleteData = {
+      fKasaNo: selectedFKasaNo.value, // Çift tıklama sırasında saklanan fKasaNo
+    };
+    
+    console.log('🔥 Backend\'e gönderilecek silme verisi:', deleteData);
+    
+    // Backend'e silme isteği gönder
+    const response = await api.delete('/islem/nakit-akis-sil', {
+      data: deleteData
+    });
+    
+    console.log('🔥 Silme response:', response);
+    
+    if (response.status === 200 || response.status === 201) {
+      // Başarılı silme
+      $q.notify({
+        type: 'positive',
+        message: 'Kayıt başarıyla silindi',
+        position: 'top'
+      });
+      
+      // Modal'ı kapat
+      showEditModal.value = false;
+      
+      // Grid'i yenile
+      const veriler = await getNakitAkisVerileri(selectedDate.value);
+      tableData.value = veriler;
+      
+    } else {
+      throw new Error('Silme işlemi başarısız');
+    }
+    
+  } catch (error: unknown) {
+    console.error('🔥 Kayıt silme hatası:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+    
+    $q.notify({
+      type: 'negative',
+      message: `Kayıt silinirken hata: ${errorMessage}`,
+      position: 'top'
+    });
+  }
+}
+
+async function kismiOdemeYap() {
+  try {
+    // Validasyon kontrolleri
+    if (!ertelemeTarihi.value || !odenenTutar.value || odenenTutar.value <= 0) {
+      $q.notify({
+        type: 'warning',
+        message: 'Lütfen erteleme tarihi ve ödenen tutarı giriniz.',
+        position: 'top'
+      });
+      return;
+    }
+
+    const odenen = Number(odenenTutar.value);
+    const mevcutTutar = Number(newRecord.value.islmTtr);
+    
+    if (odenen >= mevcutTutar) {
+      $q.notify({
+        type: 'warning',
+        message: 'Ödenen tutar ödeme tutarına eşit veya büyük olamaz.',
+        position: 'top'
+      });
+      return;
+    }
+
+    console.log('🔥 Kısmi ödeme yapılıyor:', {
+      mevcutTutar,
+      odenen,
+      kalanTutar: mevcutTutar - odenen,
+      ertelemeTarihi: ertelemeTarihi.value
+    });
+
+    // Kısmi ödeme verilerini hazırla
+    const kismiOdemeData = {
+      odenenTutar: odenen,
+      ertelemeTarihi: ertelemeTarihi.value,
+      mevcutKayit: {
+        fKasaNo: selectedFKasaNo.value,
+        OdmVade: newRecord.value.OdmVade,
+        islmArac: newRecord.value.islmArac,
+        islmGrup: newRecord.value.islmGrup,
+        islmAltG: newRecord.value.islmAltG,
+        islmTip: newRecord.value.islmTip,
+        islmTtr: newRecord.value.islmTtr,
+        islmTkst: newRecord.value.islmTkst,
+        islmBilgi: newRecord.value.islmBilgi,
+        OdmDrm: newRecord.value.OdmDrm,
+        ttrDrm: newRecord.value.ttrDrm
+      }
+    };
+
+    // Backend'e kısmi ödeme isteği gönder
+    console.log('🔥 Backend\'e gönderilen kısmi ödeme verisi:', kismiOdemeData);
+    
+    let response;
+    try {
+      response = await api.post('/islem/kismi-odeme-yap', kismiOdemeData);
+      console.log('🔥 Kısmi ödeme response:', response);
+    } catch (apiError: unknown) {
+      console.error('🔥 API hatası:', apiError);
+      if (apiError && typeof apiError === 'object' && 'response' in apiError) {
+        const errorResponse = apiError as { response?: { data?: unknown } };
+        console.error('🔥 API hata detayı:', errorResponse.response?.data);
+      }
+      throw apiError;
+    }
+    
+    if (response.status === 200 || response.status === 201) {
+      // Başarılı kısmi ödeme
+      $q.notify({
+        type: 'positive',
+        message: 'Kısmi ödeme başarıyla yapıldı',
+        position: 'top'
+      });
+      
+      // Modal'ı kapat
+      showEditModal.value = false;
+      
+      // Grid'i yenile
+      const veriler = await getNakitAkisVerileri(selectedDate.value);
+      tableData.value = veriler;
+      
+    } else {
+      throw new Error('Kısmi ödeme işlemi başarısız');
+    }
+    
+  } catch (error: unknown) {
+    console.error('🔥 Kısmi ödeme hatası:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+    
+    $q.notify({
+      type: 'negative',
+      message: `Kısmi ödeme yapılırken hata: ${errorMessage}`,
+      position: 'top'
+    });
+  }
+}
+
+// Erteleme tarihi değiştiğinde validasyon yap
+function onErtelemeTarihiChange(date: string) {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate());
+  
+  const selectedDate = new Date(date.split('.').reverse().join('-'));
+  
+  if (selectedDate < tomorrow) {
+    // Geçersiz tarih seçildi, bugün + 1 günü ata
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const yyyy = tomorrow.getFullYear();
+    ertelemeTarihi.value = `${dd}.${mm}.${yyyy}`;
+    
+    // Uyarı ver
+    $q.notify({
+      type: 'warning',
+      message: 'Erteleme tarihi bugünden en az 1 gün ileri olmalıdır. Bugün + 1 gün atandı.',
+      position: 'top'
+    });
+  }
+  
+  // Date picker'ı kapat
+  if (ertelemeTarihiPopup.value && typeof ertelemeTarihiPopup.value.hide === 'function') {
+    ertelemeTarihiPopup.value.hide();
+  }
+}
+
+// Ödenen tutar blur olduğunda validasyon yap
+function onOdenenTutarBlur() {
+  const odenen = Number(odenenTutar.value) || 0;
+  const odemeTutari = Number(newRecord.value.islmTtr) || 0;
+  
+  if (odenen >= odemeTutari) {
+    // Ödenen tutar ödeme tutarına eşit veya büyük olamaz
+    odenenTutar.value = 0;
+    
+    $q.notify({
+      type: 'warning',
+      message: 'Ödenen tutar ödeme tutarına eşit veya büyük olamaz. Değer sıfırlandı.',
+      position: 'top'
+    });
+  }
+}
+
+// Taksit input için keyboard event handler
+function onTaksitKeydown(event: KeyboardEvent) {
+  const target = event.target as HTMLInputElement;
+  const currentValue = Number(target.value) || 1;
+  
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (currentValue < 120) {
+      newRecord.value.islmTkst = currentValue + 1;
+    }
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    if (currentValue > 1) {
+      newRecord.value.islmTkst = currentValue - 1;
+    }
+  }
+}
+
+// Taksit artırma fonksiyonu
+function incrementTaksit() {
+  if (newRecord.value.islmTkst < 120) {
+    newRecord.value.islmTkst = (newRecord.value.islmTkst || 1) + 1;
+  }
+}
+
+// Taksit azaltma fonksiyonu
+function decrementTaksit() {
+  if (newRecord.value.islmTkst > 1) {
+    newRecord.value.islmTkst = (newRecord.value.islmTkst || 1) - 1;
+  }
+}
+
+function closeEditModal() {
+  // Edit modal'ı kapat
+  showEditModal.value = false;
+  
+  // Form verilerini temizle
+  editRecord.value = {
+    OdmVade: '',
+    islmArac: '',
+    islmGrup: '',
+    islmAltG: '',
+    islmTip: '',
+    islmTtr: 0,
+    islmTkst: 1,
+    islmBilgi: '',
+    OdmDrm: false,
+    ttrDrm: false
+  };
+  
+  editIslemTanimiModel.value = null;
+  editIslemTanimiText.value = '';
+  ertelemeTarihi.value = '';
+  odenenTutar.value = 0;
 }
 
 
 // 🔥 Gelişmiş arama fonksiyonu - Listede olmayanı da kabul eder
 function onFilterIslemTanimi(val: string, update: (callback: () => void) => void) {
+  console.log('Filter fonksiyonu çağrıldı:', val);
+  
   update(() => {
     if (val === '') {
       // Boş değer için tüm seçenekleri göster
@@ -1123,6 +2032,7 @@ function onFilterIslemTanimi(val: string, update: (callback: () => void) => void
     }
     
     islemTanimiOptions.value = filtered;
+    console.log('Filtrelenmiş seçenekler:', filtered);
   });
 }
 
@@ -1134,13 +2044,15 @@ function onFilterIslemTanimi(val: string, update: (callback: () => void) => void
 
 // İşlem tanımı seçimi yapıldığında
 function onIslemTanimiSelect(value: string | null) {
+  console.log('İşlem tanımı seçimi yapıldı:', value);
+  
   if (value) {
     // Eğer "(Yeni)" etiketi varsa, onu kaldır
     const cleanValue = value.replace(' (Yeni)', '');
     
     // Hem model'i hem de newRecord'u güncelle
     islemTanimiModel.value = cleanValue;
-    newRecord.value.islemTanimi = cleanValue;
+    newRecord.value.islmAltG = cleanValue;
     
     console.log('İşlem tanımı seçildi:', cleanValue);
     
@@ -1157,6 +2069,15 @@ function onIslemTanimiSelect(value: string | null) {
       // Input text'i temizle
       islemTanimiText.value = '';
     }
+    
+    // Dropdown'ı kapat - Quasar otomatik olarak kapatır
+    // Manuel kapatmaya gerek yok
+  } else {
+    // Seçim kaldırıldığında (clearable ile)
+    islemTanimiModel.value = null;
+    newRecord.value.islmAltG = '';
+    islemTanimiText.value = '';
+    console.log('İşlem tanımı seçimi kaldırıldı');
   }
 }
 
@@ -1188,7 +2109,40 @@ function onIslemTanimiBlur() {
   // Seçenekleri orijinal listeye geri döndür
   islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
   
+  // Eğer seçim yapılmamışsa, placeholder'ı tekrar göster
+  if (!islemTanimiModel.value) {
+    // Placeholder zaten dinamik olarak kontrol ediliyor
+    console.log('İşlem tanımı input\'undan çıkıldı, placeholder tekrar gösterildi');
+  }
+  
   console.log('İşlem tanımı input\'undan çıkıldı, temizlik yapıldı');
+}
+
+// 🔥 İşlem tanımı input değişikliği
+function onIslemTanimiInput(value: string | number | null | undefined) {
+  // Input değeri değiştiğinde yapılacak işlemler
+  console.log('İşlem tanımı input değişti:', value);
+  
+  // value'nun string olduğundan emin ol
+  const stringValue = typeof value === 'string' ? value : String(value || '');
+  
+  // Eğer input'ta yazılan değer varsa ve listede yoksa, geçici olarak göster
+  if (stringValue && stringValue.trim()) {
+    const searchTerm = stringValue.toLowerCase().trim();
+    const filtered = originalIslemTanimiOptions.value.filter((option) => 
+      option.toLowerCase().includes(searchTerm)
+    );
+    
+    // Yazılan değer listede yoksa, onu da geçici olarak göster
+    if (!originalIslemTanimiOptions.value.some(opt => opt.toLowerCase() === searchTerm)) {
+      filtered.unshift(`${stringValue.trim()} (Yeni)`);
+    }
+    
+    islemTanimiOptions.value = filtered;
+  } else {
+    // Boş değer için tüm seçenekleri göster
+    islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
+  }
 }
 
 // Tarih değişikliği fonksiyonu
@@ -1792,9 +2746,20 @@ body.body--dark .q-input .q-field__control {
 }
 
 .modal-title-right {
-  background: #FFD700;
-  padding: 8px 16px;
-  border-radius: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.fKasaNo-label {
+  background: transparent;
+  border: 1px solid #ddd;
+}
+
+.fKasaNo-label .q-field__control {
+  background: transparent;
+  color: #666;
+  font-weight: 600;
+  justify-content: flex-end !important;
 }
 
 .other-transactions {
@@ -1909,6 +2874,81 @@ body.body--dark .q-input .q-field__control {
   width: 100%;
 }
 
+.button-row {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.textbox-row {
+  display: flex !important;
+  gap: 20px !important;
+  justify-content: flex-start !important;
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  width: 100% !important;
+  align-items: flex-start !important;
+}
+
+.textbox-row .form-field {
+  flex: 1;
+  max-width: 200px;
+}
+
+.erteleme-field {
+  flex: 1 !important;
+  max-width: 200px !important;
+  width: 200px !important;
+  text-align: left;
+  margin-left: 0;
+  padding-left: 0;
+  justify-self: start;
+}
+
+.erteleme-field .form-label {
+  text-align: left;
+  justify-content: flex-start;
+  max-width: 160px !important;
+  width: 160px !important;  
+}
+
+.erteleme-field .form-input {
+  justify-content: flex-start;
+  max-width: 160px !important;
+  width: 160px !important;
+}
+
+.odenen-field {
+  flex: 1 !important;
+  max-width: 130px !important;
+  width: 130px !important;
+  text-align: left;
+  margin-left: 0;
+  padding-left: 0;
+  justify-self: end;
+}
+
+.odenen-field .form-label {
+  text-align: left;
+}
+
+.odenen-field .form-input {
+  max-width: 130px !important;
+  width: 130px !important;
+  justify-content: flex-start;
+}
+
+.kismi-btn-container {
+  display: flex;
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.kismi-btn-container .wide-kismi-btn {
+  height: 68px !important;
+  min-height: 50px !important;
+}
+
 .action-btn {
   height: 40px;
   font-weight: 500;
@@ -1936,6 +2976,34 @@ body.body--dark .q-input .q-field__control {
 
 .close-btn:hover {
   background: #c82333;
+}
+
+.wide-close-btn {
+  min-width: 600px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.wide-edit-btn {
+  min-width: 300px;
+  width: 100%;
+  max-width: 300px;
+  justify-self: start;
+}
+
+.wide-delete-btn {
+  min-width: 300px;
+  width: 100%;
+  max-width: 300px;
+  justify-self: end;
+}
+
+.wide-kismi-btn {
+  min-width: 200px;
+  width: 100%;
+  max-width: 200px;
+  justify-self: end;
+  margin-left: auto;
 }
 
 /* Dark mode için modal stilleri */
@@ -2121,13 +3189,89 @@ body .q-item__label {
 /* 🔥 İşlem Tanımı q-select dropdown için özel CSS */
 .islem-tanimi-select .q-select__dropdown {
   max-height: 200px !important; /* Dropdown yüksekliğini sınırla */
+  z-index: 9999 !important; /* Yüksek z-index */
+  position: relative !important;
+  min-width: 264px !important; /* Minimum genişlik */
+  max-width: 26px !important;
+  width: auto !important; /* Otomatik genişlik */
 }
 
+/* 🔥 İşlem Tanımı q-select field için sabit genişlik */
+.islem-tanimi-select .q-field__control {
+  min-width: 264px !important; /* Minimum genişlik */
+  max-width: 264px !important;
+  width: 100% !important; /* Tam genişlik */
+}
+
+.islem-tanimi-select .q-field__native {
+  min-width: 264px !important; /* Minimum genişlik */
+  max-width: 264px !important;
+  width: 100% !important; /* Tam genişlik */
+}
+
+/* 🔥 İşlem Tanımı q-select container için sabit genişlik */
+.islem-tanimi-select {
+  min-width: 264px !important; /* Minimum genişlik */
+  max-width: 264px !important;
+  width: 100% !important; /* Tam genişlik */
+}
+
+/* 🔥 Dropdown menü z-index ve görünürlük sorunlarını çöz */
+.q-select__dropdown,
+.q-select .q-menu,
+.q-menu {
+  z-index: 9999 !important;
+  position: fixed !important;
+  background: white !important;
+  border: 1px solid #ddd !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+/* Dark mode için dropdown */
+.body--dark .q-select__dropdown,
+.body--dark .q-select .q-menu,
+.body--dark .q-menu {
+  background: #2c3e50 !important;
+  border-color: #495057 !important;
+  color: #ecf0f1 !important;
+}
+
+/* 🔥 İşlem tanımı popup stilleri - z-index ile */
+.islem-tanimi-popup {
+  max-height: 300px !important;
+  z-index: 9999 !important;
+  position: fixed !important;
+  background: white !important;
+  border: 1px solid #ddd !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+.body--dark .islem-tanimi-popup {
+  background: #2c3e50 !important;
+  border-color: #495057 !important;
+  color: #ecf0f1 !important;
+}
+
+/* 🔥 İşlem Tanımı q-select container için sabit genişlik */
+.islem-tanimi-select {
+  min-width: 264px !important; /* Minimum genişlik */
+  max-width: 264px !important;
+  width: 100% !important; /* Tam genişlik */
+}
+
+/* 🔥 İşlem Tanımı q-select dropdown item'ları için hover efektleri */
 .islem-tanimi-select .q-select__dropdown .q-item {
   min-height: 16px !important; /* Minimum yükseklik */
   padding: 0px 16px !important; /* Sadece yatay padding */
   margin: 0 !important; /* Margin sıfır */
   height: auto !important; /* Yüksekliği otomatik yap */
+  cursor: pointer !important; /* Tıklanabilir olduğunu göster */
+}
+
+.islem-tanimi-select .q-select__dropdown .q-item:hover {
+  background-color: #e3f2fd !important; /* Hover efekti */
 }
 
 .islem-tanimi-select .q-select__dropdown .q-item__label {
@@ -2135,45 +3279,94 @@ body .q-item__label {
   padding: 0 !important; /* Padding sıfır */
   margin: 0 !important; /* Margin sıfır */
   height: auto !important; /* Yüksekliği otomatik yap */
+  cursor: pointer !important; /* Tıklanabilir olduğunu göster */
 }
 
-/* 🔥 GLOBAL OVERRIDE - Tüm q-select dropdown'ları için */
-/* Quasar'ın tüm CSS'ini kesinlikle override et */
-* .q-select__dropdown .q-item,
-* .q-select .q-item,
-* .q-item {
-  min-height: 16px !important; /* Minimum yükseklik */
-  padding: 0px 16px !important; /* Sadece yatay padding */
-  margin: 0 !important; /* Margin sıfır */
-  height: auto !important; /* Yüksekliği otomatik yap */
+/* 🔥 Taksit input container ve spin button'ları için CSS */
+.taksit-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-* .q-select__dropdown .q-item__label,
-* .q-select .q-item__label,
-* .q-item__label {
-  line-height: 0.8 !important; /* Minimum satır yüksekliği */
-  padding: 0 !important; /* Padding sıfır */
-  margin: 0 !important; /* Margin sıfır */
-  height: auto !important; /* Yüksekliği otomatik yap */
+/* Taksit input'un kendi spin button'larını gizle */
+.taksit-input input[type="number"]::-webkit-outer-spin-button,
+.taksit-input input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
 
-/* 🔥 EN GÜÇLÜ - Tüm elementler için */
-.q-select__dropdown .q-item,
-.q-select .q-item,
-.q-item {
-  min-height: 16px !important; /* Minimum yükseklik */
-  padding: 0px 16px !important; /* Sadece yatay padding */
-  margin: 0 !important; /* Margin sıfır */
-  height: auto !important; /* Yüksekliği otomatik yap */
+.taksit-input input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-.q-select__dropdown .q-item__label,
-.q-select .q-item__label,
-.q-item__label {
-  line-height: 0.8 !important; /* Minimum satır yüksekliği */
-  padding: 0 !important; /* Padding sıfır */
-  margin: 0 !important; /* Margin sıfır */
-  height: auto !important; /* Yüksekliği otomatik yap */
+.taksit-spin-buttons {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.taksit-spin-btn {
+  min-width: 20px !important;
+  max-height: 16px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 3px !important;
+  background: rgba(0, 0, 0, 0.15) !important;
+  color: #333 !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+}
+
+.taksit-spin-btn .q-icon {
+  font-size: 14px !important;
+}
+
+.taksit-spin-btn:hover {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(0, 0, 0, 0.4) !important;
+  transform: scale(1.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+.taksit-spin-btn:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+}
+
+.taksit-spin-btn.up {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.taksit-spin-btn.down {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+/* Dark mode için taksit spin button'ları */
+.body--dark .taksit-spin-btn {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ecf0f1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.body--dark .taksit-spin-btn:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  transform: scale(1.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+.body--dark .taksit-spin-btn:disabled {
+  opacity: 0.2 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 </style>
