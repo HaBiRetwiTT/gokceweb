@@ -19,7 +19,8 @@ const routes: RouteRecordRaw[] = [
       { path: '/gelir-gider', component: () => import('../pages/gelir-gider.vue') },
       { path: '/kasa-islem', component: () => import('../pages/kasa-islem.vue') },
       { path: '/ai-agent', component: () => import('../pages/ai-agent.vue') },
-      { path: '/nakit-tablo', component: () => import('../pages/nakit-tablo.vue') }
+      { path: '/nakit-tablo', component: () => import('../pages/nakit-tablo.vue') },
+      { path: '/personel-islem', component: () => import('../pages/personel-islem.vue') }
       //{ path: '/odeme-islem', component: () => import('../pages/odeme-islem.vue') },
     ],
     meta: { requiresAuth: true }

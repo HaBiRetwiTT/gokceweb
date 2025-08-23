@@ -380,6 +380,13 @@ const allLinksList: EssentialLinkProps[] = [
     icon: 'account_balance_wallet',
     link: '/nakit-tablo',
     iconColor: '#4CAF50'
+  },
+  {
+    title: 'Personel İşlemleri',
+    caption: 'Giriş - Çıkış - Maaş',
+    icon: 'people',
+    link: '/personel-islem',
+    iconColor: '#FF9800'
   }
 ];
 
@@ -411,6 +418,14 @@ const linksList = computed(() => {
     if (link.title === 'Nakit Akış Tablosu') {
       const currentUsername = username.value || '';
       if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
+        return false;
+      }
+    }
+    
+    // Personel İşlemleri sadece SAadmin, KADİR ve HARUN kullanıcılarına göster
+    if (link.title === 'Personel İşlemleri') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
         return false;
       }
     }

@@ -65,6 +65,15 @@
             :no-data-label="'Veri bulunamadı'"
             :no-results-label="'Sonuç bulunamadı'"
           >
+            <!-- Tutar sütunu için özel template -->
+            <template v-slot:body-cell-islmTtr="props">
+              <q-td 
+                :props="props" 
+                :class="{ 'tutar-ttr-drm': props.row.ttrDrm }"
+              >
+                {{ formatTutar(props.value) }}
+              </q-td>
+            </template>
             <template v-slot:top>
               <div class="table-actions">
                 
@@ -2288,6 +2297,11 @@ function setupModalDraggable() {
   document.addEventListener('touchend', dragEnd);
 }
 
+// Tutar formatı fonksiyonu
+function formatTutar(val: number): string {
+  return `₺ ${val.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 </script>
 
 <style>
@@ -3433,6 +3447,20 @@ body .q-item__label {
   opacity: 0.2 !important;
   background: rgba(255, 255, 255, 0.1) !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ttrDrm: true olan satırların tutar sütunu için sarı zemin + siyah yazı */
+.tutar-ttr-drm {
+  background-color: #ffff00 !important; /* Sarı zemin */
+  color: #000000 !important; /* Siyah yazı */
+  font-weight: bold !important; /* Kalın yazı */
+}
+
+/* Dark mode için de aynı stil (sarı zemin + siyah yazı korunacak) */
+.body--dark .tutar-ttr-drm {
+  background-color: #ffff00 !important; /* Sarı zemin */
+  color: #000000 !important; /* Siyah yazı */
+  font-weight: bold !important; /* Kalın yazı */
 }
 
 </style>
