@@ -2084,7 +2084,7 @@ export class IslemService {
     islmAltG: string;
     islmTip: string;
     islmTtr: number;
-    islmTkst: number;
+    islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
     islmBilgi: string;
     OdmDrm: boolean;
     ttrDrm: boolean;
@@ -2229,7 +2229,7 @@ export class IslemService {
       islmAltG: string;
       islmTip: string;
       islmTtr: number;
-      islmTkst: number;
+      islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
       islmBilgi: string;
       OdmDrm: boolean;
       ttrDrm: boolean;
@@ -2255,7 +2255,7 @@ export class IslemService {
         islmAltG: data.mevcutKayit.islmAltG,
         islmTip: data.mevcutKayit.islmTip,
         islmTtr: kalanTutar,  // Ödeme Tutarı - Ödenen
-        islmTkst: data.mevcutKayit.islmTkst,
+        islmTkst: data.mevcutKayit.islmTkst, // Orijinal taksit bilgisi bire-bir aktarılır
         islmBilgi: data.mevcutKayit.islmBilgi,
         OdmDrm: false,
         ttrDrm: data.mevcutKayit.ttrDrm
@@ -2313,7 +2313,7 @@ export class IslemService {
     islmAltG: string;
     islmTip: string;
     islmTtr: number;
-    islmTkst: number;
+    // islmTkst alanı güncelleme dışında bırakıldı
     islmBilgi: string;
     OdmDrm: boolean;
     ttrDrm: boolean;
@@ -2325,7 +2325,7 @@ export class IslemService {
       try {
         await queryRunner.connect();
         
-        // tblFonKasaY tablosunda UPDATE
+        // tblFonKasaY tablosunda UPDATE (islmTkst hariç)
         const updateQuery = `
           UPDATE ${this.dbConfig.getTableSchema()}.tblFonKasaY 
           SET 
@@ -2335,11 +2335,10 @@ export class IslemService {
             islmAltG = @3,
             islmTip = @4,
             islmTtr = @5,
-            islmTkst = @6,
-            islmBilgi = @7,
-            OdmDrm = @8,
-            ttrDrm = @9
-          WHERE fKasaNo = @10
+            islmBilgi = @6,
+            OdmDrm = @7,
+            ttrDrm = @8
+          WHERE fKasaNo = @9
         `;
         
         const updateParams = [
@@ -2349,11 +2348,10 @@ export class IslemService {
           data.islmAltG,          // @3 - islmAltG
           data.islmTip,           // @4 - islmTip
           data.islmTtr,           // @5 - islmTtr
-          data.islmTkst,          // @6 - islmTkst
-          data.islmBilgi,         // @7 - islmBilgi
-          data.OdmDrm ? 1 : 0,    // @8 - OdmDrm (boolean -> int)
-          data.ttrDrm ? 1 : 0,    // @9 - ttrDrm (boolean -> int)
-          data.fKasaNo,           // @10 - fKasaNo (WHERE clause)
+          data.islmBilgi,         // @6 - islmBilgi
+          data.OdmDrm ? 1 : 0,    // @7 - OdmDrm (boolean -> int)
+          data.ttrDrm ? 1 : 0,    // @8 - ttrDrm (boolean -> int)
+          data.fKasaNo,           // @9 - fKasaNo (WHERE clause)
         ];
         
         // 🔥 DEBUG: UPDATE query ve parametreleri logla

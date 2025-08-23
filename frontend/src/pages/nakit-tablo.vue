@@ -312,13 +312,13 @@
                 <div class="taksit-group">
                   <label class="taksit-label">Taksit</label>
                   <div class="taksit-input-container">
-                    <q-input
+                  <q-input
                       v-model.number="newRecord.islmTkst"
-                      dense
-                      outlined
-                      class="form-input taksit-input"
-                      type="number"
-                      min="1"
+                    dense
+                    outlined
+                    class="form-input taksit-input"
+                    type="number"
+                    min="1"
                       max="120"
                       step="1"
                       inputmode="numeric"
@@ -338,7 +338,7 @@
                         icon="keyboard_arrow_up"
                         @click="incrementTaksit"
                         class="taksit-spin-btn up"
-                        :disable="newRecord.islmTkst >= 120"
+                        :disable="Number(newRecord.islmTkst) >= 120"
                       />
                       <q-btn
                         dense
@@ -347,7 +347,7 @@
                         icon="keyboard_arrow_down"
                         @click="decrementTaksit"
                         class="taksit-spin-btn down"
-                        :disable="newRecord.islmTkst <= 1"
+                        :disable="Number(newRecord.islmTkst) <= 1"
                       />
                     </div>
                   </div>
@@ -736,6 +736,7 @@ const editIslemTanimiModel = ref<string | null>(null);
 const editIslemTanimiText = ref('');
 const ertelemeTarihi = ref('');
 const odenenTutar = ref(0);
+const eskiTutar = ref(0); // Güncelleme öncesi eski tutar bilgisi
 
 // Devreden bakiye güncelleme fonksiyonu
 async function updateDevredenBakiye(tarih: string) {
@@ -800,11 +801,11 @@ const leftTableData = computed(() => {
           previousBakiye -= islmTtr;
         } else if (islmTip === 'Giren') {
           previousBakiye += islmTtr;
+          }
         }
-      }
-      
-      // Şimdi mevcut satır için işlem yap
-      const currentRow = paginatedData.value[index];
+        
+        // Şimdi mevcut satır için işlem yap
+        const currentRow = paginatedData.value[index];
       const islmTip = currentRow.islmTip;
               const islmTtr = Number(currentRow.islmTtr) || 0;
       
@@ -812,9 +813,9 @@ const leftTableData = computed(() => {
         bakiye = previousBakiye - islmTtr;
       } else if (islmTip === 'Giren') {
         bakiye = previousBakiye + islmTtr;
-      } else {
-        bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
-      }
+        } else {
+          bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
+        }
       }
       
       return {
@@ -977,7 +978,7 @@ const newRecord = ref<{
   islmAltG: string;
   islmTtr: number;
   OdmDrm: boolean;
-  islmTkst: number;
+  islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
   islmBilgi: string;
   ttrDrm: boolean;
 }>({
@@ -1256,7 +1257,7 @@ watch(tableData, async () => {
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
 
-  // İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
+// İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
   watch(() => newRecord.value.islmGrup, async (newKategori) => {
   if (newKategori) {
     try {
@@ -1522,15 +1523,51 @@ async function saveNewRecord() {
       toplamTutar: newRecord.value.islmTtr
     });
     
-    // Her taksit için ayrı kayıt ekle
-    for (let i = 1; i <= taksitSayisi; i++) {
+    // Tek taksit ise direkt kaydet
+    if (taksitSayisi === 1) {
+      // Manuel girilen bilgiyi direkt kullan (Kalan(TL): ekleme)
+      let tekTaksitAciklama = '';
+      
+      // Eğer manuel bilgi varsa, onu direkt kullan
+      if (newRecord.value.islmBilgi && newRecord.value.islmBilgi.trim()) {
+        tekTaksitAciklama = newRecord.value.islmBilgi.trim();
+      }
+      
+      const tekTaksitData = {
+        ...requestData,
+        islmTkst: '1 / 1',
+        islmBilgi: tekTaksitAciklama
+      };
+      
+      console.log('🔥 Tek taksit kaydı ekleniyor:', tekTaksitData);
+      
+      // Backend'e tek taksit kaydı ekle
+      const tekTaksitResponse = await api.post('/islem/nakit-akis-ekle', tekTaksitData);
+      
+      if (tekTaksitResponse.status !== 201 && tekTaksitResponse.status !== 200) {
+        throw new Error('Tek taksit kaydı eklenemedi');
+      }
+    } else {
+      // Çoklu taksit için her taksit için ayrı kayıt ekle
+      for (let i = 1; i <= taksitSayisi; i++) {
       const taksitTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, i - 1);
       
       // Kalan tutarı hesapla (bu taksit ödendikten sonra kalan)
       const kalanTutar = newRecord.value.islmTtr - (taksitTutari * i);
       
-      // Taksit açıklamasını oluştur
-      let taksitAciklama = `- Kalan(TL): ${kalanTutar}`;
+      // Manuel girilen bilgiyi en başa ekle
+      let taksitAciklama = '';
+      
+      // Eğer manuel bilgi varsa, onu en başa ekle
+      if (newRecord.value.islmBilgi && newRecord.value.islmBilgi.trim()) {
+        taksitAciklama = newRecord.value.islmBilgi.trim();
+      }
+      
+      // Otomatik taksit bilgilerini ekle
+      if (taksitAciklama) {
+        taksitAciklama += ' -/- ';
+      }
+      taksitAciklama += `- Kalan(TL): ${kalanTutar}`;
       
       // Son taksit değilse Son Vade bilgisini ekle
       if (i < taksitSayisi) {
@@ -1555,6 +1592,7 @@ async function saveNewRecord() {
         throw new Error(`${i}. taksit kaydı eklenemedi`);
       }
     }
+    }
     
     // Son taksit response'unu kullan
     const response = { status: 200, data: { success: true } };
@@ -1567,17 +1605,17 @@ async function saveNewRecord() {
     // 🔥 HTTP status kontrolü - 201 Created veya 200 OK ise başarılı
     if (response.status === 201 || response.status === 200) {
       // Başarı mesajı
-      $q.notify({
-        type: 'positive',
-        message: 'Yeni kayıt başarıyla eklendi!',
-        position: 'top'
-      });
+  $q.notify({
+    type: 'positive',
+    message: 'Yeni kayıt başarıyla eklendi!',
+    position: 'top'
+  });
 
       // Modal'ı kapat
-      showNewRecordModal.value = false;
-      
+  showNewRecordModal.value = false;
+  
       // İşlem tanımı alanlarını temizle
-      islemTanimiText.value = '';
+  islemTanimiText.value = '';
       islemTanimiModel.value = null;
       islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
       
@@ -1665,13 +1703,7 @@ function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
     islmAltG: row.islmAltG || '',
     islmTip: row.islmTip || '',
     islmTtr: Number(row.islmTtr) || 0,
-    islmTkst: (() => {
-      if (typeof row.islmTkst === 'string') {
-        const parts = row.islmTkst.split('/');
-        return parseInt(parts[0]) || 1;
-      }
-      return Number(row.islmTkst) || 1;
-    })(),
+    islmTkst: row.islmTkst || 1, // Orijinal taksit bilgisini koru
     islmBilgi: row.islmBilgi || '',
     OdmDrm: Boolean(row.OdmDrm) || false,
     ttrDrm: Boolean(row.ttrDrm) || false
@@ -1689,6 +1721,9 @@ function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
   // Erteleme tarihi ve ödenen tutarı sıfırla
   ertelemeTarihi.value = '';
   odenenTutar.value = 0;
+  
+  // Eski tutarı sakla (güncelleme için)
+  eskiTutar.value = Number(row.islmTtr) || 0;
 }
 
 // Edit modal için gerekli fonksiyonlar
@@ -1702,7 +1737,35 @@ async function saveEditRecord() {
   try {
     console.log('🔥 Güncellenecek kayıt bilgileri:', newRecord.value);
     
-    // Güncelleme için gerekli verileri hazırla
+    // Tutar değişikliği kontrolü
+    const yeniTutar = Number(newRecord.value.islmTtr) || 0;
+    const tutarDegisti = yeniTutar !== eskiTutar.value;
+    
+    // islmBilgi alanını güncelle
+    let guncelIslmBilgi = newRecord.value.islmBilgi || '';
+    
+    if (tutarDegisti) {
+      // Eski tutar bilgisini en başa ekle
+      let eskiTutarNotu = `Eski Tutar: ${eskiTutar.value}`;
+      
+      // Manuel girilen bilgi varsa onu ekle
+      if (guncelIslmBilgi && guncelIslmBilgi.trim()) {
+        eskiTutarNotu += ' -/- ' + guncelIslmBilgi.trim();
+      }
+      
+      // Mevcut otomatik bilgileri koru (Kalan(TL): ... gibi)
+      const mevcutOtomatikBilgiler = guncelIslmBilgi.match(/- Kalan\(TL\):.*/);
+      if (mevcutOtomatikBilgiler) {
+        // Eğer manuel bilgi yoksa, eski tutar ile otomatik bilgiler arasına ayırıcı ekle
+        if (!guncelIslmBilgi.trim() || guncelIslmBilgi.trim() === mevcutOtomatikBilgiler[0]) {
+          eskiTutarNotu += ' -/- ' + mevcutOtomatikBilgiler[0];
+        }
+      }
+      
+      guncelIslmBilgi = eskiTutarNotu;
+    }
+    
+    // Güncelleme için gerekli verileri hazırla (islmTkst hariç)
     const updateData = {
       fKasaNo: selectedFKasaNo.value, // Çift tıklama sırasında saklanan fKasaNo
       OdmVade: newRecord.value.OdmVade,
@@ -1711,8 +1774,8 @@ async function saveEditRecord() {
       islmAltG: newRecord.value.islmAltG,
       islmTip: newRecord.value.islmTip,
       islmTtr: newRecord.value.islmTtr,
-      islmTkst: newRecord.value.islmTkst,
-      islmBilgi: newRecord.value.islmBilgi,
+      // islmTkst alanı güncellenmesin - veri tabanında korunsun
+      islmBilgi: guncelIslmBilgi,
       OdmDrm: newRecord.value.OdmDrm,
       ttrDrm: newRecord.value.ttrDrm
     };
@@ -1970,15 +2033,17 @@ function onTaksitKeydown(event: KeyboardEvent) {
 
 // Taksit artırma fonksiyonu
 function incrementTaksit() {
-  if (newRecord.value.islmTkst < 120) {
-    newRecord.value.islmTkst = (newRecord.value.islmTkst || 1) + 1;
+  const currentTaksit = Number(newRecord.value.islmTkst) || 1;
+  if (currentTaksit < 120) {
+    newRecord.value.islmTkst = currentTaksit + 1;
   }
 }
 
 // Taksit azaltma fonksiyonu
 function decrementTaksit() {
-  if (newRecord.value.islmTkst > 1) {
-    newRecord.value.islmTkst = (newRecord.value.islmTkst || 1) - 1;
+  const currentTaksit = Number(newRecord.value.islmTkst) || 1;
+  if (currentTaksit > 1) {
+    newRecord.value.islmTkst = currentTaksit - 1;
   }
 }
 
@@ -2004,6 +2069,7 @@ function closeEditModal() {
   editIslemTanimiText.value = '';
   ertelemeTarihi.value = '';
   odenenTutar.value = 0;
+  eskiTutar.value = 0; // Eski tutarı sıfırla
 }
 
 

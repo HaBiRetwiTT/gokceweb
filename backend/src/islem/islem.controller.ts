@@ -134,10 +134,10 @@ export class IslemController {
       
       // 🔥 Taksit formatını kontrol et
       console.log('🔥 Gelen taksit verisi:', cleanData.islmTkst);
-      console.log('🔥 Taksit formatı kontrolü:', cleanData.islmTkst.includes('/'));
+      console.log('🔥 Taksit formatı kontrolü:', typeof cleanData.islmTkst, cleanData.islmTkst);
       
-      // Taksit formatını kontrol et
-      if (!cleanData.islmTkst.includes('/')) {
+      // Taksit formatını kontrol et - string ise "/" içermeli, number ise geçerli
+      if (typeof cleanData.islmTkst === 'string' && !cleanData.islmTkst.includes('/')) {
         throw new Error('Taksit formatı hatalı. Beklenen format: "1 / 1"');
       }
       
@@ -215,7 +215,7 @@ export class IslemController {
       islmAltG: string;
       islmTip: string;
       islmTtr: number;
-      islmTkst: number;
+      islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
       islmBilgi: string;
       OdmDrm: boolean;
       ttrDrm: boolean;
@@ -263,7 +263,7 @@ export class IslemController {
     islmAltG: string; 
     islmTip: string;
     islmTtr: number; 
-    islmTkst: number;
+    // islmTkst alanı güncelleme dışında bırakıldı
     islmBilgi: string;
     OdmDrm: boolean;
     ttrDrm: boolean;
