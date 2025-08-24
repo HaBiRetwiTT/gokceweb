@@ -481,11 +481,26 @@
               size="md"
             />
           </div>
+          <q-btn 
+          color="secondary" 
+          icon="people" 
+          label="PERSONEL TAHAKKUK / ÖDEME İŞLEMLERİ" 
+          @click="onPersonelTahakkukClick"
+          outline
+          size="md"
+          class="personel-tahakkuk-btn"
+          />
         </div>
       </div>
         </div>
       </div>
     </div>
+    
+    <!-- Personel Tahakkuk Modal -->
+    <PersonelTahakkukModal 
+      v-model="showPersonelTahakkukModal"
+      @kaydet="onPersonelTahakkukKaydet"
+    />
   </q-page>
 </template>
 
@@ -493,7 +508,11 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../boot/axios'
+import PersonelTahakkukModal from '../components/PersonelTahakkukModal.vue'
 const saving = ref(false)
+
+// Personel Tahakkuk Modal kontrolü
+const showPersonelTahakkukModal = ref(false)
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -1381,6 +1400,29 @@ async function onKaydet() {
   }
 }
 
+// Personel Tahakkuk butonu click handler
+function onPersonelTahakkukClick() {
+  console.log('PERSONEL TAHAKKUK / ÖDEME İŞLEMLERİ butonuna tıklandı')
+  showPersonelTahakkukModal.value = true
+}
+
+// Personel Tahakkuk Modal kaydet handler
+function onPersonelTahakkukKaydet(data: { personel: string, islemTipi: string, odemeYontemi: string, tutar: number }) {
+  console.log('Seçilen personel:', data.personel)
+  console.log('Seçilen işlem tipi:', data.islemTipi)
+  console.log('Seçilen ödeme yöntemi:', data.odemeYontemi)
+  console.log('Seçilen tutar:', data.tutar)
+  // Modal'ı kapat
+  showPersonelTahakkukModal.value = false
+  // TODO: Actual save functionality will be implemented later
+  $q.notify({
+    type: 'info',
+    message: `${data.personel} - ${data.islemTipi} - ${data.odemeYontemi} - ${data.tutar} TL için tahakkuk/ödeme işlemi kaydedilecek (henüz kodlanmadı)`,
+    position: 'top',
+    timeout: 3000
+  })
+}
+
 // GELİR/GİDER kayıt işlemi
 async function handleGelirGiderKaydet() {
   const kayitlar = []
@@ -1946,6 +1988,27 @@ onMounted(async () => {
   table-layout: fixed;
 }
 
+/* Checkbox elementleri arasındaki mesafeleri azalt */
+.gider-table .q-table tbody tr,
+.gelir-table .q-table tbody tr {
+  height: 24px;
+  min-height: 24px;
+}
+
+.gider-table .q-table td,
+.gelir-table .q-table td {
+  padding: 1px 2px;
+  height: 24px;
+  line-height: 1.1;
+}
+
+.gider-table .q-table th,
+.gelir-table .q-table th {
+  padding: 2px 2px;
+  height: 28px;
+  line-height: 1.1;
+}
+
 .gider-section-card {
   background: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
@@ -2022,21 +2085,30 @@ onMounted(async () => {
 .odeme-araci-card {
   background: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
-  padding: 0.5rem;
+  padding: 0.75rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  border: none;
+  transition: all 0.3s ease;
+}
+
+/* Dark mode adaptasyonu */
+.body--dark .odeme-araci-card {
+  background: rgba(40, 40, 40, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border: none;
 }
 
 .odeme-araci-column {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.2rem;
 }
 
 .odeme-araci-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.15rem 0;
+  padding: 0.05rem 0;
 }
 
 .odeme-tutar-input {
@@ -2076,10 +2148,29 @@ onMounted(async () => {
  }
  
  /* Ödeme container içindeki checkbox'ları her zaman tıklanabilir yap */
- .odeme-container-disabled .q-checkbox {
-   pointer-events: auto !important;
-   opacity: 1 !important;
- }
+.odeme-container-disabled .q-checkbox {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+/* Checkbox elementlerini daha kompakt yap */
+.gider-table .q-checkbox,
+.gelir-table .q-checkbox {
+  margin: 0;
+  padding: 0;
+}
+
+.gider-table .q-checkbox :deep(.q-checkbox__inner),
+.gelir-table .q-checkbox :deep(.q-checkbox__inner) {
+  transform: scale(0.9);
+}
+
+.gider-table .q-checkbox :deep(.q-checkbox__label),
+.gelir-table .q-checkbox :deep(.q-checkbox__label) {
+  font-size: 0.85rem;
+  line-height: 1.1;
+  margin-left: 4px;
+}
  
  .container-disabled .gider-section-card,
  .container-disabled .gelir-section-card {
@@ -2198,14 +2289,12 @@ onMounted(async () => {
   hyphens: auto;
 }
 
-
-
 /* Form Buttons Container */
 .form-buttons-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px 0;
+  padding: 8px 0;
 }
 
 /* Radio Group Container */
@@ -2220,6 +2309,14 @@ onMounted(async () => {
 
 .radio-group .q-radio {
   margin-right: 8px;
+}
+
+.personel-tahakkuk-btn {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 222px;
+  margin-top: -20px;
 }
 
 /* Responsive tasarım */
@@ -2332,9 +2429,20 @@ onMounted(async () => {
 /* Sağ Container - Diğer Kontroller */
 .right-controls-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
+  margin-top: -16px;
+}
+
+/* Radio Group Container - TEDARİKÇİ/MÜŞTERİ için */
+.right-controls-container .radio-group-container {
+  margin-top: 0;
+}
+
+/* Butonlar için ek yukarı çekme */
+.right-controls-container .q-btn {
+  margin-top: -8px;
 }
 
 /* Ödeme kontrol label stilleri */

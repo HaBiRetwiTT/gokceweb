@@ -48,21 +48,21 @@ export class PersonelService {
 
       console.log('🔍 Backend sıralama parametreleri:', { sortBy, sortOrder });
 
-      // Varsayılan sıralama: PrsnYetki alanına göre ASC
-      let orderByClause = 'ORDER BY CAST(PrsnYetki AS INT) ASC';
+        // Varsayılan sıralama: PrsnYetki alanına göre ASC (nvarchar olduğu için sayısal sıralama)
+        let orderByClause = 'ORDER BY CAST(PrsnYetki AS INT) ASC';
 
-      // Eğer sıralama parametreleri verilmişse, bunları kullan
-      if (sortBy && sortOrder) {
-        if (sortBy === 'PrsnYetki') {
-          // PrsnYetki alanı için her zaman INT cast kullan
-          console.log('✅ PrsnYetki sütunu için INT cast sıralaması uygulanıyor');
-          orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${sortOrder}`;
-        } else {
-          // Diğer alanlar için normal sıralama
-          console.log('📝 Diğer sütun için normal sıralama uygulanıyor');
-          orderByClause = `ORDER BY ${sortBy} ${sortOrder}`;
-        }
-      }
+       // Eğer sıralama parametreleri verilmişse, bunları kullan
+       if (sortBy && sortOrder) {
+         if (sortBy === 'PrsnYetki') {
+           // PrsnYetki alanı nvarchar(50) olduğu için INT cast ile sayısal sıralama
+           console.log('✅ PrsnYetki sütunu için INT cast sıralaması uygulanıyor (nvarchar tipi)');
+           orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${sortOrder}`;
+         } else {
+           // Diğer alanlar için normal sıralama
+           console.log('📝 Diğer sütun için normal sıralama uygulanıyor');
+           orderByClause = `ORDER BY ${sortBy} ${sortOrder}`;
+         }
+       }
       console.log('📋 Kullanılacak ORDER BY:', orderByClause);
 
       // Cari service'deki gibi direkt tablo adını kullan
@@ -119,6 +119,19 @@ export class PersonelService {
         throw new Error('Bu işlem için yetkiniz bulunmamaktadır');
       }
 
+      // Zorunlu alan kontrolü
+      if (!personelData.PrsnTCN || personelData.PrsnTCN === '' || personelData.PrsnTCN === null || personelData.PrsnTCN === undefined) {
+        throw new Error('TC Kimlik No alanı zorunludur');
+      }
+
+      if (!personelData.PrsnAdi || personelData.PrsnAdi === '' || personelData.PrsnAdi === null || personelData.PrsnAdi === undefined) {
+        throw new Error('Adı Soyadı alanı zorunludur');
+      }
+
+      if (!personelData.PrsnGrsTrh || personelData.PrsnGrsTrh === '' || personelData.PrsnGrsTrh === null || personelData.PrsnGrsTrh === undefined) {
+        throw new Error('Giriş Tarihi alanı zorunludur');
+      }
+
       const { PrsnNo, PrsnOda, PrsnYtk, ...updateData } = personelData;
 
              // Mevcut personel bilgilerini al (oda-yatak durumu güncelleme için de kullanılacak)
@@ -160,62 +173,62 @@ export class PersonelService {
          }
        }
 
-      // Personel bilgilerini güncelle
-      const updateQuery = `
-        UPDATE tblPersonel SET
-          PrsnAdi = @0,
-          PrsnDurum = @1,
-          PrsnTelNo = @2,
-          PrsnGrsTrh = @3,
-          PrsnCksTrh = @4,
-          PrsnGorev = @5,
-          PrsnYetki = @6,
-          PrsnMaas = @7,
-          PrsnOdGun = @8,
-          PrsnOda = @9,
-          PrsnYtk = @10,
-          PrsnYakini = @11,
-          PrsnDuzey = @12,
-          PrsnUsrNm = @13,
-          PrsnPassw = @14,
-          PrsnDgmTarihi = @15,
-          PrsnOkul = @16,
-          PrsnMedeni = @17,
-          PrsnYknTel = @18,
-          PrsnAdres = @19,
-          PrsnBilgi = @20
-        WHERE PrsnNo = @21
-      `;
+        // Personel bilgilerini güncelle - Veri tipi uyumluluğu için CAST kullan
+       const updateQuery = `
+         UPDATE tblPersonel SET
+           PrsnAdi = @0,
+           PrsnDurum = @1,
+           PrsnTelNo = @2,
+           PrsnGrsTrh = @3,
+           PrsnCksTrh = @4,
+           PrsnGorev = @5,
+           PrsnYetki = CAST(@6 AS nvarchar(50)),
+           PrsnMaas = CAST(@7 AS decimal(10,2)),
+           PrsnOdGun = CAST(@8 AS nvarchar(50)),
+           PrsnOda = @9,
+           PrsnYtk = @10,
+           PrsnYakini = @11,
+           PrsnDuzey = @12,
+           PrsnUsrNm = @13,
+           PrsnPassw = @14,
+           PrsnDgmTarihi = @15,
+           PrsnOkul = @16,
+           PrsnMedeni = @17,
+           PrsnYknTel = @18,
+           PrsnAdres = @19,
+           PrsnBilgi = @20
+         WHERE PrsnNo = @21
+       `;
 
       // Aylık maaş değerini handle et - boş string ise NULL yap
       const maasValue = updateData.PrsnMaas === '' || updateData.PrsnMaas === null || updateData.PrsnMaas === undefined 
         ? null 
         : updateData.PrsnMaas;
 
-      const updateParams = [
-        updateData.PrsnAdi,
-        updateData.PrsnDurum,
-        updateData.PrsnTelNo,
-        updateData.PrsnGrsTrh,
-        updateData.PrsnCksTrh,
-        updateData.PrsnGorev,
-        updateData.PrsnYetki,
-        maasValue,
-        updateData.PrsnOdGun,
-        PrsnOda,
-        PrsnYtk,
-        updateData.PrsnYakini,
-        updateData.PrsnDuzey,
-        updateData.PrsnUsrNm,
-        updateData.PrsnPassw,
-        updateData.PrsnDgmTarihi,
-        updateData.PrsnOkul,
-        updateData.PrsnMedeni,
-        updateData.PrsnYknTel,
-        updateData.PrsnAdres,
-        updateData.PrsnBilgi,
-        PrsnNo
-      ];
+        const updateParams = [
+         updateData.PrsnAdi,                    // PrsnAdi (nvarchar(50))
+         updateData.PrsnDurum,                  // PrsnDurum (nvarchar(50))
+         updateData.PrsnTelNo,                  // PrsnTelNo (nchar(15))
+         updateData.PrsnGrsTrh,                 // PrsnGrsTrh (nchar(10))
+         updateData.PrsnCksTrh,                 // PrsnCksTrh (nchar(10))
+         updateData.PrsnGorev,                  // PrsnGorev (nvarchar(50))
+         String(updateData.PrsnYetki),          // PrsnYetki (nvarchar(50)) - String'e çevir
+         maasValue,                             // PrsnMaas (decimal(10,2))
+         String(updateData.PrsnOdGun),          // PrsnOdGun (nvarchar(50)) - String'e çevir
+         PrsnOda,                               // PrsnOda (nvarchar(50))
+         PrsnYtk,                               // PrsnYtk (nvarchar(50))
+         updateData.PrsnYakini,                 // PrsnYakini (nvarchar(50))
+         updateData.PrsnDuzey,                  // PrsnDuzey (nvarchar(50))
+         updateData.PrsnUsrNm,                  // PrsnUsrNm (nvarchar(50))
+         updateData.PrsnPassw,                  // PrsnPassw (nvarchar(50))
+         updateData.PrsnDgmTarihi,              // PrsnDgmTarihi (nchar(10))
+         updateData.PrsnOkul,                   // PrsnOkul (nvarchar(50))
+         updateData.PrsnMedeni,                 // PrsnMedeni (nvarchar(50))
+         updateData.PrsnYknTel,                 // PrsnYknTel (nchar(15))
+         updateData.PrsnAdres,                  // PrsnAdres (nvarchar(200))
+         updateData.PrsnBilgi,                  // PrsnBilgi (nvarchar(50))
+         PrsnNo                                 // PrsnNo (bigint)
+       ];
 
       console.log('📝 Personel güncelleme sorgusu çalıştırılıyor:', { PrsnNo, PrsnOda, PrsnYtk });
       
@@ -281,6 +294,133 @@ export class PersonelService {
 
     } catch (error) {
       console.error('Backend personel güncelleme hatası:', error);
+      throw error;
+    }
+  }
+
+  async eklePersonel(personelData: any) {
+    try {
+      // Yetki kontrolü
+      const aktifKullanici = await this.getAktifKullaniciAdi();
+      if (!['SAadmin', 'KADİR', 'HARUN'].includes(aktifKullanici)) {
+        throw new Error('Bu işlem için yetkiniz bulunmamaktadır');
+      }
+
+      // Zorunlu alan kontrolü
+      if (!personelData.PrsnTCN || personelData.PrsnTCN === '' || personelData.PrsnTCN === null || personelData.PrsnTCN === undefined) {
+        throw new Error('TC Kimlik No alanı zorunludur');
+      }
+
+      if (!personelData.PrsnAdi || personelData.PrsnAdi === '' || personelData.PrsnAdi === null || personelData.PrsnAdi === undefined) {
+        throw new Error('Adı Soyadı alanı zorunludur');
+      }
+
+      if (!personelData.PrsnGrsTrh || personelData.PrsnGrsTrh === '' || personelData.PrsnGrsTrh === null || personelData.PrsnGrsTrh === undefined) {
+        throw new Error('Giriş Tarihi alanı zorunludur');
+      }
+
+      // Bugünün tarihini DD.MM.YYYY formatında al
+      const bugun = new Date();
+      const gun = String(bugun.getDate()).padStart(2, '0');
+      const ay = String(bugun.getMonth() + 1).padStart(2, '0');
+      const yil = bugun.getFullYear();
+      const bugunTarihi = `${gun}.${ay}.${yil}`;
+
+      // Oda-Yatak kontrolü (eğer girilmişse)
+      if (personelData.PrsnOda && personelData.PrsnYtk) {
+        // Envanter kontrolü
+        const odaYatakEnvanterKontrol = await this.personelRepository.query(
+          'SELECT OdYatDurum FROM tblOdaYatak WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1',
+          [personelData.PrsnOda, personelData.PrsnYtk]
+        );
+
+        if (odaYatakEnvanterKontrol.length === 0) {
+          throw new Error(`Girdiğiniz ${personelData.PrsnOda} Oda + ${personelData.PrsnYtk} Yatak bilgisi envanterimizde bulunamamıştır!`);
+        }
+
+        if (odaYatakEnvanterKontrol[0].OdYatDurum === 'DOLU') {
+          throw new Error(`Seçtiğiniz ${personelData.PrsnOda} Oda - ${personelData.PrsnYtk} Yatak DOLU durumdadır. Başka bir seçim yapınız!`);
+        }
+      }
+
+             // INSERT sorgusu - Veri tipi uyumluluğu için CAST kullan
+       const insertQuery = `
+         INSERT INTO tblPersonel (
+           pKytTarihi, PrsnKllnc, PrsnTCN, PrsnAdi, PrsnDurum, PrsnTelNo, 
+           PrsnGrsTrh, PrsnCksTrh, PrsnGorev, PrsnYetki, PrsnMaas, PrsnOdGun,
+           PrsnUsrNm, PrsnPassw, PrsnDuzey, PrsnOda, PrsnYtk, PrsnDgmTarihi,
+           PrsnOkul, PrsnYakini, PrsnYknTel, PrsnMedeni, PrsnAdres, PrsnBilgi
+         ) VALUES (
+           @0, @1, @2, @3, @4, @5, @6, @7, @8, CAST(@9 AS nvarchar(50)), CAST(@10 AS decimal(10,2)), CAST(@11 AS nvarchar(50)), @12, @13, @14,
+           @15, @16, @17, @18, @19, @20, @21, @22, @23
+         )
+       `;
+
+      // Maaş alanını NULL olarak ayarla (eğer boşsa)
+      const maas = personelData.PrsnMaas && personelData.PrsnMaas !== '' ? personelData.PrsnMaas : null;
+
+        const insertParams = [
+         bugunTarihi,                    // pKytTarihi - Bugünün tarihi (nchar(10))
+         aktifKullanici,                 // PrsnKllnc - Aktif kullanıcı (nvarchar(50))
+         personelData.PrsnTCN,           // PrsnTCN (nchar(11))
+         personelData.PrsnAdi,           // PrsnAdi (nvarchar(50))
+         personelData.PrsnDurum || 'ÇALIŞIYOR', // PrsnDurum (nvarchar(50))
+         personelData.PrsnTelNo || '',   // PrsnTelNo (nchar(15))
+         personelData.PrsnGrsTrh || '',  // PrsnGrsTrh (nchar(10))
+         personelData.PrsnCksTrh || '',  // PrsnCksTrh (nchar(10))
+         personelData.PrsnGorev || '',   // PrsnGorev (nvarchar(50))
+         String(personelData.PrsnYetki || 0),    // PrsnYetki (nvarchar(50)) - String'e çevir
+         maas,                           // PrsnMaas (decimal(10,2))
+         String(personelData.PrsnOdGun || 1),    // PrsnOdGun (nvarchar(50)) - String'e çevir
+         personelData.PrsnUsrNm || '',   // PrsnUsrNm (nvarchar(50))
+         personelData.PrsnPassw || '',   // PrsnPassw (nvarchar(50))
+         personelData.PrsnDuzey || '',   // PrsnDuzey (nvarchar(50))
+         personelData.PrsnOda || '',     // PrsnOda (nvarchar(50))
+         personelData.PrsnYtk || '',     // PrsnYtk (nvarchar(50))
+         personelData.PrsnDgmTarihi || '', // PrsnDgmTarihi (nchar(10))
+         personelData.PrsnOkul || '',    // PrsnOkul (nvarchar(50))
+         personelData.PrsnYakini || '',  // PrsnYakini (nvarchar(50))
+         personelData.PrsnYknTel || '',  // PrsnYknTel (nchar(15))
+         personelData.PrsnMedeni || '',  // PrsnMedeni (nvarchar(50))
+         personelData.PrsnAdres || '',   // PrsnAdres (nvarchar(200))
+         personelData.PrsnBilgi || ''    // PrsnBilgi (nvarchar(50))
+       ];
+
+      console.log('🔍 Personel ekleme sorgusu:', insertQuery);
+      console.log('🔍 Parametreler:', insertParams);
+
+      const result = await this.personelRepository.query(insertQuery, insertParams);
+
+      console.log('✅ Personel başarıyla eklendi:', result);
+
+      // Eğer oda-yatak bilgisi girilmişse, OdYatDurum'u DOLU yap
+      if (personelData.PrsnOda && personelData.PrsnYtk) {
+        try {
+          console.log('🔍 Oda-yatak durumu DOLU yapılıyor:', { oda: personelData.PrsnOda, yatak: personelData.PrsnYtk });
+
+          const odaYatakUpdateQuery = `
+            UPDATE tblOdaYatak
+            SET OdYatDurum = 'DOLU'
+            WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+          `;
+
+          const odaYatakUpdateResult = await this.personelRepository.query(
+            odaYatakUpdateQuery,
+            [personelData.PrsnOda, personelData.PrsnYtk]
+          );
+
+          console.log('✅ Oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
+
+        } catch (odaYatakUpdateError) {
+          console.error('⚠️ Oda-yatak durumu güncellenirken hata oluştu:', odaYatakUpdateError);
+          // Oda-yatak güncelleme hatası olsa bile personel ekleme başarılı sayılır
+        }
+      }
+
+      return { success: true, message: 'Personel başarıyla eklendi' };
+
+    } catch (error) {
+      console.error('Backend personel ekleme hatası:', error);
       throw error;
     }
   }

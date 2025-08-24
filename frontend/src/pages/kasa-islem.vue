@@ -5360,5 +5360,4 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
     color: #ccc;
   }
 
-
 </style> 

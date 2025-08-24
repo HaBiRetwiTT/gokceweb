@@ -126,10 +126,11 @@
                                   <div class="col-12 col-sm-6">
                    <q-input
                      v-model="selectedPersonel.PrsnTCN"
-                     label="TC Kimlik No"
+                     label="TC Kimlik No *"
                      outlined
                      dense
                      readonly
+                     required
                    />
                  </div>
                                    <div class="col-12 col-sm-6">
@@ -143,9 +144,10 @@
                   <div class="col-12 col-sm-6">
                     <q-input
                       v-model="selectedPersonel.PrsnAdi"
-                      label="Adı Soyadı"
+                      label="Adı Soyadı *"
                       outlined
                       dense
+                      required
                     />
                   </div>
                   <div class="col-12 col-sm-6">
@@ -170,9 +172,10 @@
                                                                                                                                                <div class="col-12 col-sm-4">
                       <q-input
                         v-model="selectedPersonel.PrsnGrsTrh"
-                        label="Giriş Tarihi"
+                        label="Giriş Tarihi *"
                         outlined
                         dense
+                        required
                       >
                        <template v-slot:append>
                          <q-icon name="event" class="cursor-pointer">
@@ -248,10 +251,10 @@
                        dense
                        type="text"
                        maxlength="3"
-                       :rules="[val => /^\d{1,3}$/.test(val) || 'En fazla 3 haneli sayı giriniz']"
+                       :rules="[val => /^\d{0,3}$/.test(val) || 'En fazla 3 haneli sayı giriniz']"
                      />
                    </div>
-                                    <div class="col-12 col-sm-4">
+                    <div class="col-12 col-sm-4">
                      <q-input
                        v-model.number="selectedPersonel.PrsnYtk"
                        label="Yatak No"
@@ -280,23 +283,33 @@
                        dense
                      />
                    </div>
-                   <div class="col-12 col-sm-4">
-                     <q-input
-                       v-model="selectedPersonel.PrsnUsrNm"
-                       label="Kullanıcı Adı"
-                       outlined
-                       dense
-                     />
-                   </div>
-                                      <div class="col-12 col-sm-4">
+                                       <div class="col-12 col-sm-4">
                       <q-input
-                        v-model="selectedPersonel.PrsnPassw"
-                        label="Şifre"
+                        v-model="selectedPersonel.PrsnUsrNm"
+                        label="Kullanıcı Adı"
                         outlined
                         dense
-                        type="password"
+                        autocomplete="off"
                       />
                     </div>
+                                                           <div class="col-12 col-sm-4">
+                                               <q-input
+                          v-model="selectedPersonel.PrsnPassw"
+                          label="Şifre"
+                          outlined
+                          dense
+                          :type="showPassword ? 'text' : 'password'"
+                          autocomplete="new-password"
+                        >
+                         <template v-slot:append>
+                           <q-icon
+                             :name="showPassword ? 'visibility_off' : 'visibility'"
+                             class="cursor-pointer"
+                             @click="showPassword = !showPassword"
+                           />
+                         </template>
+                       </q-input>
+                     </div>
                   
                    <!-- Doğum Tarihi, Eğitim, Medeni Durum -->
                                                                                                                                                                <div class="col-12 col-sm-4">
@@ -320,22 +333,28 @@
                          </template>
                        </q-input>
                      </div>
-                                       <div class="col-12 col-sm-4">
-                      <q-input
-                        v-model="selectedPersonel.PrsnOkul"
-                        label="Eğitim"
-                        outlined
-                        dense
-                      />
-                    </div>
-                                       <div class="col-12 col-sm-4">
-                      <q-input
-                        v-model="selectedPersonel.PrsnMedeni"
-                        label="Medeni Durum"
-                        outlined
-                        dense
-                      />
-                    </div>
+                      <div class="col-12 col-sm-4">
+                       <q-select
+                         v-model="selectedPersonel.PrsnOkul"
+                         :options="egitimOptions"
+                         label="Eğitim"
+                         outlined
+                         dense
+                         emit-value
+                         map-options
+                       />
+                     </div>
+                      <div class="col-12 col-sm-4">
+                       <q-select
+                         v-model="selectedPersonel.PrsnMedeni"
+                         :options="medeniDurumOptions"
+                         label="Medeni D."
+                         outlined
+                         dense
+                         emit-value
+                         map-options
+                       />
+                     </div>
                    
                                        <!-- Yakın Telefon ve Adres -->
                     <div class="col-12 col-sm-6">
@@ -371,19 +390,41 @@
           </div>
         </q-card-section>
 
-        <q-card-actions align="right" class="modal-actions">
-                     <q-btn
-             label="DÜZENLE"
-             color="primary"
-             @click="onDuzenleClick"
-             :loading="duzenleLoading"
-           />
-          <q-btn
-            label="KAPAT"
-            color="secondary"
-            v-close-popup
-          />
-        </q-card-actions>
+                 <q-card-actions align="right" class="modal-actions">
+           <div class="row full-width items-center justify-between">
+             <div class="col-auto">
+               <q-btn
+                 label="TEMİZLE"
+                 color="warning"
+                 @click="onTemizleClick"
+                 :loading="temizleLoading"
+               />
+             </div>
+             <div class="col-auto">
+                              <q-btn
+                v-if="!isFormTemizlendi"
+                label="DÜZENLE"
+                color="primary"
+                @click="onDuzenleClick"
+                :loading="duzenleLoading"
+                class="q-mr-sm"
+               />
+               <q-btn
+                v-if="isFormTemizlendi"
+                label="PERSONEL EKLE"
+                color="positive"
+                @click="onPersonelEkleClick"
+                :loading="ekleLoading"
+                class="q-mr-sm"
+               />
+               <q-btn
+                 label="KAPAT"
+                 color="secondary"
+                 v-close-popup
+               />
+             </div>
+           </div>
+         </q-card-actions>
       </q-card>
     </q-dialog>
   </q-page>
@@ -422,10 +463,14 @@ interface Personel {
 
 const loading = ref(false);
 const duzenleLoading = ref(false);
+const temizleLoading = ref(false);
 const personelList = ref<Personel[]>([]);
 const showPersonelModal = ref(false);
 const selectedPersonel = ref<Personel>({} as Personel);
 const modalCard = ref();
+const showPassword = ref(false);
+const isFormTemizlendi = ref(false);
+const ekleLoading = ref(false);
 
 // Date picker popup referansları
 const girisTarihiPopup = ref();
@@ -435,6 +480,20 @@ const dogumTarihiPopup = ref();
 const durumOptions = [
   { label: 'ÇALIŞIYOR', value: 'ÇALIŞIYOR' },
   { label: 'AYRILDI', value: 'AYRILDI' }
+];
+
+const egitimOptions = [
+  { label: 'İLKOKUL', value: 'İLKOKUL' },
+  { label: 'ORTAOKUL', value: 'ORTAOKUL' },
+  { label: 'LİSE', value: 'LİSE' },
+  { label: 'ÜNİVERSİTE', value: 'ÜNİVERSİTE' }
+];
+
+const medeniDurumOptions = [
+  { label: 'EVLİ', value: 'EVLİ' },
+  { label: 'BEKAR', value: 'BEKAR' },
+  { label: 'NİŞANLI', value: 'NİŞANLI' },
+  { label: 'BOŞANMIŞ', value: 'BOŞANMIŞ' }
 ];
 
 const columns = [
@@ -484,7 +543,8 @@ const columns = [
     field: 'PrsnCksTrh',
     align: 'center' as const,
     sortable: true,
-    style: 'width: 100px'
+    style: 'max-width: 70px; display: none;',
+    headerStyle: 'display: none;'
   },
   {
     name: 'PrsnGorev',
@@ -500,7 +560,7 @@ const columns = [
     field: 'PrsnYetki',
     align: 'center' as const,
     sortable: true,
-    style: 'width: 80px'
+    style: 'max-width: 50px'
   },
   {
     name: 'PrsnMaas',
@@ -518,22 +578,22 @@ const columns = [
     sortable: true,
     style: 'width: 80px'
   },
-  {
-    name: 'PrsnOda',
-    label: 'Oda No',
-    field: 'PrsnOda',
-    align: 'center' as const,
-    sortable: true,
-    style: 'width: 80px'
-  },
-  {
-    name: 'PrsnYtk',
-    label: 'Ytk.No',
-    field: 'PrsnYtk',
-    align: 'center' as const,
-    sortable: true,
-    style: 'width: 80px'
-  },
+     {
+     name: 'PrsnOda',
+     label: 'Oda No',
+     field: 'PrsnOda',
+     align: 'center' as const,
+     sortable: true,
+     style: 'max-width: 50px'
+   },
+   {
+     name: 'PrsnYtk',
+     label: 'Ytk.No',
+     field: 'PrsnYtk',
+     align: 'center' as const,
+     sortable: true,
+     style: 'max-width: 50px'
+   },
   {
     name: 'PrsnDgmTarihi',
     label: 'D.Tarihi',
@@ -564,7 +624,7 @@ const columns = [
     field: 'PrsnMedeni',
     align: 'center' as const,
     sortable: true,
-    style: 'width: 100px'
+    style: 'max-width: 70px'
   },
   {
     name: 'PrsnAdres',
@@ -639,6 +699,9 @@ const loadPersonel = async (sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
 const onRowDblClick = (evt: Event, row: Personel) => {
   selectedPersonel.value = { ...row };
   showPersonelModal.value = true;
+  // Modal açıldığında şifreyi gizle ve form durumunu sıfırla
+  showPassword.value = false;
+  isFormTemizlendi.value = false;
 };
 
 // Tarih validasyonu için yardımcı fonksiyon
@@ -766,6 +829,23 @@ const validateAylikMaas = (maas: string | number | null | undefined): { isValid:
   return { isValid: true, message: '' };
 };
 
+// Zorunlu alan validation
+const validateZorunluAlanlar = (tcNo: string | null | undefined, adi: string | null | undefined, girisTarihi: string | null | undefined): { isValid: boolean; message: string } => {
+  if (!tcNo || tcNo === '' || tcNo === null || tcNo === undefined) {
+    return { isValid: false, message: 'TC Kimlik No alanı zorunludur' };
+  }
+  
+  if (!adi || adi === '' || adi === null || adi === undefined) {
+    return { isValid: false, message: 'Adı Soyadı alanı zorunludur' };
+  }
+
+  if (!girisTarihi || girisTarihi === '' || girisTarihi === null || girisTarihi === undefined) {
+    return { isValid: false, message: 'Giriş Tarihi alanı zorunludur' };
+  }
+  
+  return { isValid: true, message: '' };
+};
+
 // Oda No ve Yatak No validasyonu için yardımcı fonksiyon
 const validateOdaYatak = (odaNo: string | number | null | undefined, yatakNo: string | number | null | undefined): { isValid: boolean; message: string } => {
   // Her iki alan da boş olabilir (ikisi de girilmemiş)
@@ -790,9 +870,75 @@ const validateOdaYatak = (odaNo: string | number | null | undefined, yatakNo: st
   return { isValid: true, message: '' };
 };
 
+// Temizle butonu click handler
+const onTemizleClick = () => {
+  try {
+    temizleLoading.value = true;
+    
+    // Seçili personel bilgilerini temizle
+    selectedPersonel.value = {
+      PrsnTCN: '',
+      PrsnAdi: '',
+      PrsnDurum: 'ÇALIŞIYOR',
+      PrsnTelNo: '',
+      PrsnGrsTrh: '24.08.2025', // Bugünün tarihi (zorunlu alan)
+      PrsnCksTrh: '',
+      PrsnGorev: '',
+      PrsnYetki: 0,
+      PrsnMaas: 0.00,
+      PrsnOdGun: 1,
+      PrsnUsrNm: '',
+      PrsnPassw: '',
+      PrsnDuzey: '',
+      PrsnOda: '',
+      PrsnYtk: '',
+      PrsnDgmTarihi: '',
+      PrsnOkul: '',
+      PrsnYakini: '',
+      PrsnYknTel: '',
+      PrsnMedeni: '',
+      PrsnAdres: '',
+      PrsnBilgi: ''
+    };
+    
+    // Şifreyi gizle
+    showPassword.value = false;
+    
+    // Form temizlendi durumunu aktif et
+    isFormTemizlendi.value = true;
+    
+    Notify.create({
+      type: 'positive',
+      message: 'Form temizlendi',
+      position: 'top'
+    });
+    
+  } catch (error) {
+    console.error('Form temizleme hatası:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Form temizlenirken hata oluştu',
+      position: 'top'
+    });
+  } finally {
+    temizleLoading.value = false;
+  }
+};
+
 // Düzenle butonu click handler
 const onDuzenleClick = async () => {
   try {
+    // Zorunlu alan validasyonu
+    const zorunluAlanValidation = validateZorunluAlanlar(selectedPersonel.value.PrsnTCN, selectedPersonel.value.PrsnAdi, selectedPersonel.value.PrsnGrsTrh);
+    if (!zorunluAlanValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: zorunluAlanValidation.message,
+        position: 'top'
+      });
+      return; // Güncelleme yapma, sadece uyarı ver
+    }
+
     // Giriş tarihi validasyonu
     const girisTarihiValidation = validateGirisTarihi(selectedPersonel.value.PrsnGrsTrh);
     if (!girisTarihiValidation.isValid) {
@@ -900,6 +1046,130 @@ const onDuzenleClick = async () => {
     console.log('⚠️ Kullanıcıya gösterilen hata mesajı:', errorMessage);
   } finally {
     duzenleLoading.value = false;
+  }
+};
+
+// Personel Ekle butonu click handler
+const onPersonelEkleClick = async () => {
+  try {
+    // Zorunlu alan validasyonu
+    const zorunluAlanValidation = validateZorunluAlanlar(selectedPersonel.value.PrsnTCN, selectedPersonel.value.PrsnAdi, selectedPersonel.value.PrsnGrsTrh);
+    if (!zorunluAlanValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: zorunluAlanValidation.message,
+        position: 'top'
+      });
+      return; // Ekleme yapma, sadece uyarı ver
+    }
+
+    // Giriş tarihi validasyonu
+    const girisTarihiValidation = validateGirisTarihi(selectedPersonel.value.PrsnGrsTrh);
+    if (!girisTarihiValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: girisTarihiValidation.message,
+        position: 'top'
+      });
+      return; // Ekleme yapma, sadece uyarı ver
+    }
+
+    // Çıkış tarihi validasyonu
+    const cikisTarihiValidation = validateCikisTarihi(selectedPersonel.value.PrsnCksTrh, selectedPersonel.value.PrsnGrsTrh);
+    if (!cikisTarihiValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: cikisTarihiValidation.message,
+        position: 'top'
+      });
+      return; // Ekleme yapma, sadece uyarı ver
+    }
+
+    // Aylık maaş validasyonu
+    const aylikMaasValidation = validateAylikMaas(selectedPersonel.value.PrsnMaas);
+    if (!aylikMaasValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: aylikMaasValidation.message,
+        position: 'top'
+      });
+      return; // Ekleme yapma, sadece uyarı ver
+    }
+
+    // Oda No ve Yatak No validasyonu
+    const odaYatakValidation = validateOdaYatak(selectedPersonel.value.PrsnOda, selectedPersonel.value.PrsnYtk);
+    if (!odaYatakValidation.isValid) {
+      Notify.create({
+        type: 'warning',
+        message: odaYatakValidation.message,
+        position: 'top'
+      });
+      return; // Ekleme yapma, sadece uyarı ver
+    }
+
+    ekleLoading.value = true;
+    
+    console.log('🔍 Personel ekleme başlatılıyor:', selectedPersonel.value);
+    
+    // Backend'e ekleme isteği gönder
+    const response = await api.post('/personel/ekle', selectedPersonel.value);
+    
+    if (response.data.success) {
+      // Başarılı ekleme
+      Notify.create({
+        type: 'positive',
+        message: 'Personel başarıyla eklendi',
+        position: 'top'
+      });
+      
+      // Modal'ı kapat
+      showPersonelModal.value = false;
+      
+      // Grid listeyi yenile
+      await loadPersonel('PrsnYetki', 'ASC');
+      
+    } else {
+      throw new Error(response.data.message || 'Ekleme başarısız');
+    }
+    
+  } catch (error: unknown) {
+    console.error('Personel ekleme hatası:', error);
+    console.log('🔍 Hata türü:', typeof error);
+    console.log('🔍 Hata detayı:', error);
+    
+    let errorMessage = 'Personel eklenirken hata oluştu';
+    
+    // Axios error response kontrolü
+    if (error && typeof error === 'object' && 'response' in error) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      console.log('🔍 API Error response:', apiError.response);
+      console.log('🔍 API Error data:', apiError.response?.data);
+      
+      if (apiError.response?.data?.message) {
+        errorMessage = apiError.response.data.message;
+        console.log('✅ Backend hata mesajı yakalandı:', errorMessage);
+      } else {
+        console.log('❌ Backend hata mesajı bulunamadı');
+      }
+    } 
+    // Standart Error object kontrolü
+    else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = (error as { message: string }).message;
+      console.log('✅ Standart hata mesajı yakalandı:', errorMessage);
+    } else {
+      console.log('❌ Hiçbir hata mesajı yakalanamadı');
+    }
+    
+    // Hata mesajını göster
+    Notify.create({
+      type: 'warning',
+      message: errorMessage,
+      position: 'top'
+    });
+    
+    console.log('⚠️ Kullanıcıya gösterilen hata mesajı:', errorMessage);
+  } finally {
+    ekleLoading.value = false;
   }
 };
 
@@ -1201,16 +1471,25 @@ body.body--dark .modal-actions {
   border-top: 1px solid #495057;
 }
 
-/* Responsive modal tasarımı */
+/* Responsive padding */
 @media (max-width: 768px) {
-  .modal-body {
-    padding: 16px;
+  .modal-actions .q-btn + .q-btn {
+    margin-left: 8px;
   }
+}
   
-  .modal-actions {
-    padding: 12px 16px;
+/* Modal actions butonları arası padding */
+.modal-actions .q-btn + .q-btn {
+  margin-left: 12px;
+}
+
+/* Responsive padding */
+@media (max-width: 768px) {
+  .modal-actions .q-btn + .q-btn {
+    margin-left: 8px;
   }
-  
+}
+
   .form-grid {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -1224,5 +1503,4 @@ body.body--dark .modal-actions {
     height: 44px;
     font-size: 0.9rem;
   }
-}
 </style>
