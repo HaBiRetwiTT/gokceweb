@@ -713,7 +713,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '../boot/axios';
 import { getNakitAkisVerileri, getBugunTarih, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
@@ -1059,6 +1059,19 @@ onMounted(async () => {
   setupModalDraggable();
 });
 
+// Bileşen unmount olduğunda nakit-tablo özel stillerini temizle
+onUnmounted(() => {
+  const borderRemovalStyle = document.getElementById('nakit-tablo-border-removal');
+  if (borderRemovalStyle) {
+    borderRemovalStyle.remove();
+  }
+  
+  const headerBorderRemovalStyle = document.getElementById('nakit-tablo-header-border-removal');
+  if (headerBorderRemovalStyle) {
+    headerBorderRemovalStyle.remove();
+  }
+});
+
 // Sayfayı yenileme fonksiyonu
 async function refreshPage() {
   try {
@@ -1112,42 +1125,49 @@ function applyHeaderStyling() {
       headerElement.style.setProperty('font-weight', '600', 'important');
     });
     
-    // Tarih seçimi altındaki çizgiyi JavaScript ile de kaldır
-    const tableActions = document.querySelectorAll('.table-actions');
-    tableActions.forEach((actionElement) => {
-      const element = actionElement as HTMLElement;
-      element.style.setProperty('border-bottom', 'none', 'important');
-      element.style.setProperty('border', 'none', 'important');
-      element.style.setProperty('outline', 'none', 'important');
-      element.style.setProperty('box-shadow', 'none', 'important');
-    });
+    // Tarih seçimi altındaki çizgiyi JavaScript ile de kaldır - SADECE NAKIT-TABLO SAYFASINDA
+    const nakitTabloPage = document.querySelector('.nakit-tablo-page');
+    if (nakitTabloPage) {
+      const tableActions = nakitTabloPage.querySelectorAll('.table-actions');
+      tableActions.forEach((actionElement) => {
+        const element = actionElement as HTMLElement;
+        element.style.setProperty('border-bottom', 'none', 'important');
+        element.style.setProperty('border', 'none', 'important');
+        element.style.setProperty('outline', 'none', 'important');
+        element.style.setProperty('box-shadow', 'none', 'important');
+      });
+      
+      // Sadece nakit-tablo sayfasındaki tarih input'undaki çizgiyi kaldır
+      const dateInputs = nakitTabloPage.querySelectorAll('.table-actions .q-input, .table-actions .q-input .q-field__control, .table-actions .q-input .q-field__native, .table-actions .q-input .q-field__control-container');
+      dateInputs.forEach((inputElement) => {
+        const element = inputElement as HTMLElement;
+        element.style.setProperty('border-bottom', 'none', 'important');
+        element.style.setProperty('border', 'none', 'important');
+        element.style.setProperty('outline', 'none', 'important');
+        element.style.setProperty('box-shadow', 'none', 'important');
+        element.style.setProperty('border-radius', '0', 'important');
+      });
+    }
     
-    // Tarih input'undaki çizgiyi de kaldır
-    const dateInputs = document.querySelectorAll('.q-input, .q-input .q-field__control, .q-input .q-field__native, .q-input .q-field__control-container');
-    dateInputs.forEach((inputElement) => {
-      const element = inputElement as HTMLElement;
-      element.style.setProperty('border-bottom', 'none', 'important');
-      element.style.setProperty('border', 'none', 'important');
-      element.style.setProperty('outline', 'none', 'important');
-      element.style.setProperty('box-shadow', 'none', 'important');
-      element.style.setProperty('border-radius', '0', 'important');
-    });
-    
-    // Pseudo element'leri de kaldır
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      .q-input .q-field__control::before,
-      .q-input .q-field__control::after,
-      .q-input .q-field__control:before,
-      .q-input .q-field__control:after {
-        border-bottom: none !important;
-        border: none !important;
-        outline: none !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
-      }
-    `;
-    document.head.appendChild(styleElement);
+    // Pseudo element'leri sadece nakit-tablo sayfası için kaldır
+    const existingStyle = document.getElementById('nakit-tablo-header-border-removal');
+    if (!existingStyle) {
+      const styleElement = document.createElement('style');
+      styleElement.id = 'nakit-tablo-header-border-removal';
+      styleElement.textContent = `
+        .nakit-tablo-page .table-actions .q-input .q-field__control::before,
+        .nakit-tablo-page .table-actions .q-input .q-field__control::after,
+        .nakit-tablo-page .table-actions .q-input .q-field__control:before,
+        .nakit-tablo-page .table-actions .q-input .q-field__control:after {
+          border-bottom: none !important;
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+        }
+      `;
+      document.head.appendChild(styleElement);
+    }
   }, 100); // 100ms gecikme
 }
 
@@ -1310,42 +1330,49 @@ async function applyRowStyling(data: NakitAkisRecord[]) {
     headerElement.style.setProperty('font-weight', '600', 'important');
   });
   
-  // Tarih seçimi altındaki çizgiyi JavaScript ile de kaldır
-  const tableActions = document.querySelectorAll('.table-actions');
-  tableActions.forEach((actionElement) => {
-    const element = actionElement as HTMLElement;
-    element.style.setProperty('border-bottom', 'none', 'important');
-    element.style.setProperty('border', 'none', 'important');
-    element.style.setProperty('outline', 'none', 'important');
-    element.style.setProperty('box-shadow', 'none', 'important');
-  });
+  // Tarih seçimi altındaki çizgiyi JavaScript ile de kaldır - SADECE NAKIT-TABLO SAYFASINDA
+  const nakitTabloPage = document.querySelector('.nakit-tablo-page');
+  if (nakitTabloPage) {
+    const tableActions = nakitTabloPage.querySelectorAll('.table-actions');
+    tableActions.forEach((actionElement) => {
+      const element = actionElement as HTMLElement;
+      element.style.setProperty('border-bottom', 'none', 'important');
+      element.style.setProperty('border', 'none', 'important');
+      element.style.setProperty('outline', 'none', 'important');
+      element.style.setProperty('box-shadow', 'none', 'important');
+    });
+    
+    // Sadece nakit-tablo sayfasındaki tarih input'undaki çizgiyi kaldır
+    const dateInputs = nakitTabloPage.querySelectorAll('.table-actions .q-input, .table-actions .q-input .q-field__control, .table-actions .q-input .q-field__native, .table-actions .q-input .q-field__control-container');
+    dateInputs.forEach((inputElement) => {
+      const element = inputElement as HTMLElement;
+      element.style.setProperty('border-bottom', 'none', 'important');
+      element.style.setProperty('border', 'none', 'important');
+      element.style.setProperty('outline', 'none', 'important');
+      element.style.setProperty('box-shadow', 'none', 'important');
+      element.style.setProperty('border-radius', '0', 'important');
+    });
+  }
   
-  // Tarih input'undaki çizgiyi de kaldır
-  const dateInputs = document.querySelectorAll('.q-input, .q-input .q-field__control, .q-input .q-field__native, .q-input .q-field__control-container');
-  dateInputs.forEach((inputElement) => {
-    const element = inputElement as HTMLElement;
-    element.style.setProperty('border-bottom', 'none', 'important');
-    element.style.setProperty('border', 'none', 'important');
-    element.style.setProperty('outline', 'none', 'important');
-    element.style.setProperty('box-shadow', 'none', 'important');
-    element.style.setProperty('border-radius', '0', 'important');
-  });
-  
-  // Pseudo element'leri de kaldır
-  const styleElement = document.createElement('style');
-  styleElement.textContent = `
-    .q-input .q-field__control::before,
-    .q-input .q-field__control::after,
-    .q-input .q-field__control:before,
-    .q-input .q-field__control:after {
-      border-bottom: none !important;
-      border: none !important;
-      outline: none !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-    }
-  `;
-  document.head.appendChild(styleElement);
+  // Pseudo element'leri sadece nakit-tablo sayfası için kaldır
+  const existingStyle = document.getElementById('nakit-tablo-border-removal');
+  if (!existingStyle) {
+    const styleElement = document.createElement('style');
+    styleElement.id = 'nakit-tablo-border-removal';
+    styleElement.textContent = `
+      .nakit-tablo-page .table-actions .q-input .q-field__control::before,
+      .nakit-tablo-page .table-actions .q-input .q-field__control::after,
+      .nakit-tablo-page .table-actions .q-input .q-field__control:before,
+      .nakit-tablo-page .table-actions .q-input .q-field__control:after {
+        border-bottom: none !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+  }
   
   // Önce tüm satırlardan eski CSS sınıflarını temizle
   const allTableRows = document.querySelectorAll('.nakit-tablo-grid tbody tr');
@@ -2655,91 +2682,27 @@ body.body--dark .q-table th {
   background-color: #4a4a4a !important;
 }
 
-/* Tarih seçimi altındaki çizgiyi tamamen kaldır - EN GÜÇLÜ */
-.table-actions,
-.nakit-tablo-grid .table-actions,
-body .table-actions,
-html body .table-actions,
-.q-table .table-actions,
-.q-table__container .table-actions,
+/* Tarih seçimi altındaki çizgiyi tamamen kaldır - SADECE NAKIT-TABLO SAYFASINDA */
 .nakit-tablo-page .table-actions,
-.nakit-tablo-wrapper .table-actions,
-.table-container .table-actions,
-.q-page .table-actions,
-.q-page .nakit-tablo-wrapper .table-actions,
-body .nakit-tablo-page .table-actions,
-html body .nakit-tablo-page .table-actions,
-.body--dark .table-actions,
+.nakit-tablo-page .table-actions .q-input,
+.nakit-tablo-page .table-actions .q-input .q-field__control,
+.nakit-tablo-page .table-actions .q-input .q-field__native,
+.nakit-tablo-page .table-actions .q-input .q-field__control-container,
+.nakit-tablo-page .table-actions .q-input .q-field__control::before,
+.nakit-tablo-page .table-actions .q-input .q-field__control::after,
+.nakit-tablo-page .table-actions .q-input .q-field__control:before,
+.nakit-tablo-page .table-actions .q-input .q-field__control:after {
+  border-bottom: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Dark mode için de aynı - SADECE NAKIT-TABLO SAYFASINDA */
 .body--dark .nakit-tablo-page .table-actions,
-body.body--dark .table-actions,
-.q-input,
-.q-input .q-field__control,
-.q-input .q-field__native,
-.q-input .q-field__control-container,
-.q-input .q-field__control::before,
-.q-input .q-field__control::after,
-.q-input .q-field__control:before,
-.q-input .q-field__control:after {
-  border-bottom: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* Quasar'ın varsayılan border'larını da kaldır - daha güçlü */
-.q-table .table-actions,
-.q-table__container .table-actions,
-.q-page .table-actions,
-.q-page .nakit-tablo-wrapper .table-actions,
-.q-input,
-.q-input .q-field__control,
-.q-input .q-field__native,
-.q-input .q-field__control-container {
-  border-bottom: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* Global override - en güçlü */
-body .table-actions,
-html body .table-actions,
-body .nakit-tablo-page .table-actions,
-html body .nakit-tablo-page .table-actions,
-body .q-input,
-html body .q-input,
-body .q-input .q-field__control,
-html body .q-input .q-field__control {
-  border-bottom: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* Dark mode için de aynı */
-.body--dark .table-actions,
-.body--dark .nakit-tablo-page .table-actions,
-body.body--dark .table-actions,
-.body--dark .q-input,
-.body--dark .q-input .q-field__control,
-body.body--dark .q-input,
-body.body--dark .q-input .q-field__control {
-  border-bottom: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* En agresif override - tüm olası durumları kapsa */
-* .table-actions,
-* .q-input,
-* .q-input .q-field__control,
-* .q-input .q-field__native,
-* .q-input .q-field__control-container {
+.body--dark .nakit-tablo-page .table-actions .q-input,
+.body--dark .nakit-tablo-page .table-actions .q-input .q-field__control {
   border-bottom: none !important;
   border: none !important;
   outline: none !important;
