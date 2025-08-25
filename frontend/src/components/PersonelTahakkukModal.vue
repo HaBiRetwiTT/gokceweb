@@ -89,7 +89,7 @@
               
               <div class="col-12 col-sm-6">
                 <q-input
-                  v-model.number="islemTutar"
+                  v-model.number="effectiveIslemTutar"
                   label="İşlem Tutarı"
                   outlined
                   dense
@@ -97,6 +97,7 @@
                   step="1"
                   min="0"
                   suffix="TL"
+                  :readonly="isIslemTutarReadonly"
                   :rules="[val => val > 0 || 'Tutar 0\'dan büyük olmalıdır']"
                 />
               </div>
@@ -133,7 +134,7 @@
               label="KAYDET"
               color="primary"
               @click="onKaydet"
-              :disable="!selectedPersonel || !selectedIslemTipi || (!selectedOdemeYontemi && !isOdemeYontemiReadonly) || !islemTutar || islemTutar <= 0"
+              :disable="!selectedPersonel || !selectedIslemTipi || (!selectedOdemeYontemi && !isOdemeYontemiReadonly) || !effectiveIslemTutar || effectiveIslemTutar <= 0"
               class="q-mr-sm"
             />
             <q-btn
@@ -224,6 +225,35 @@ const odemeYontemiOptions = computed(() => [
 
 const isOdemeYontemiReadonly = computed(() => {
   return selectedIslemTipi.value === 'maas_tahakkuk' || selectedIslemTipi.value === 'ikramiye_tahakkuk'
+})
+
+const isCikisHesapKapama = computed(() => {
+  return selectedIslemTipi.value === 'cikis_hesap_kapama'
+})
+
+const isIslemTutarReadonly = computed(() => {
+  return isCikisHesapKapama.value
+})
+
+const effectiveIslemTutar = computed({
+  get: () => {
+    if (isCikisHesapKapama.value && personelBakiye.value !== null) {
+      return Math.abs(personelBakiye.value)
+    }
+    return islemTutar.value
+  },
+  set: (value) => {
+    if (!isCikisHesapKapama.value) {
+      islemTutar.value = value
+    }
+  }
+})
+
+// İşlem tipi label'ını almak için computed property
+const selectedIslemTipiLabel = computed(() => {
+  if (!selectedIslemTipi.value) return null
+  const foundOption = islemTipiOptions.value.find(option => option.value === selectedIslemTipi.value)
+  return foundOption?.label || null
 })
 
 // Methods
@@ -322,6 +352,20 @@ async function onKaydet() {
     return
   }
 
+  // Çıkış Hesap Kapama için özel kontrol
+  if (isCikisHesapKapama.value) {
+    if (personelBakiye.value === 0) {
+      $q.notify({
+        type: 'warning',
+        message: 'Personel Cari Bakiyesi YOK!',
+        position: 'top'
+      })
+      // Form'u kapat
+      emit('update:modelValue', false)
+      return
+    }
+  }
+
   if (!selectedOdemeYontemi.value && !isOdemeYontemiReadonly.value) {
     $q.notify({
       type: 'warning',
@@ -331,7 +375,7 @@ async function onKaydet() {
     return
   }
 
-  if (!islemTutar.value || islemTutar.value <= 0) {
+  if (!effectiveIslemTutar.value || effectiveIslemTutar.value <= 0) {
     $q.notify({
       type: 'warning',
       message: 'Lütfen geçerli bir tutar giriniz',
@@ -346,12 +390,44 @@ async function onKaydet() {
     // Loading state'i göster
     loadingPersonel.value = true
     
+    // İşlem tipini belirle (Çıkış Hesap Kapama için özel logic)
+    let finalIslemTipi = selectedIslemTipi.value
+    let islemGrup = undefined
+    
+    if (isCikisHesapKapama.value && personelBakiye.value !== null) {
+      console.log('🔍 Çıkış Hesap Kapama logic:', {
+        isCikisHesapKapama: isCikisHesapKapama.value,
+        personelBakiye: personelBakiye.value,
+        originalIslemTipi: selectedIslemTipi.value
+      })
+      
+      // Çıkış Hesap Kapama için, backend'in ödeme işlemi olarak tanıması için
+      // islemTipi'ni değiştiriyoruz ve islemGrup ekliyoruz
+      if (personelBakiye.value < 0) {
+        // Personel borç vermiş (negatif bakiye) - personelden çıkan
+        finalIslemTipi = 'cikis_hesap_kapama_cikan'
+      } else {
+        // Personele borçluyuz (pozitif bakiye) - personele giren
+        finalIslemTipi = 'cikis_hesap_kapama_giren'
+      }
+      
+      islemGrup = 'Çıkış Hesap Kapama'
+      
+      console.log('📋 Belirlenen final işlem tipi:', {
+        condition: personelBakiye.value < 0 ? 'bakiye < 0 (personelden çıkan)' : 'bakiye >= 0 (personele giren)',
+        finalIslemTipi: finalIslemTipi,
+        islemGrup: islemGrup
+      })
+    }
+    
     // Backend'e gönderilecek veriyi hazırla
     const requestData = {
       personel: selectedPersonel.value,
-      islemTipi: selectedIslemTipi.value,
+      islemTipi: finalIslemTipi,
       odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
-      tutar: islemTutar.value
+      tutar: effectiveIslemTutar.value,
+      islemBilgi: selectedIslemTipiLabel.value, // Daima işlem tipi label bilgisini gönder
+      ...(islemGrup && { islemGrup: islemGrup })
     }
     
     console.log('📝 Gönderilecek veri:', requestData)
@@ -371,9 +447,9 @@ async function onKaydet() {
       // Parent component'e bildiri gönder
       emit('kaydet', {
         personel: selectedPersonel.value,
-        islemTipi: selectedIslemTipi.value,
+        islemTipi: finalIslemTipi,
         odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
-        tutar: islemTutar.value,
+        tutar: effectiveIslemTutar.value,
         result: response.data.data
       })
       
@@ -467,6 +543,12 @@ watch(() => selectedIslemTipi.value, (newValue) => {
   if (newValue === 'maas_tahakkuk' || newValue === 'ikramiye_tahakkuk') {
     // Clear payment method when it becomes readonly
     selectedOdemeYontemi.value = null
+  }
+  
+  // Çıkış Hesap Kapama seçildiğinde tutarı otomatik doldur
+  if (newValue === 'cikis_hesap_kapama' && personelBakiye.value !== null) {
+    // Tutar otomatik olarak computed property ile doldurulacak
+    console.log('🔄 Çıkış Hesap Kapama seçildi, tutar otomatik dolduruldu:', Math.abs(personelBakiye.value))
   }
 })
 

@@ -45,8 +45,8 @@
            @request="onTableRequest"
          >
           <template v-slot:body-cell-cariBakiye="props">
-            <q-td :props="props">
-              <span class="text-weight-medium" :class="getBalanceClass(props.row.cariBakiye)">
+            <q-td :props="props" style="border-right: 2px solid #e0e0e0;">
+              <span class="text-weight-bold" :class="getBalanceClass(props.row.cariBakiye)">
                 {{ formatCurrency(props.row.cariBakiye) }}
               </span>
             </q-td>
@@ -594,7 +594,7 @@ const columns = [
     field: 'cariBakiye',
     align: 'right' as const,
     sortable: false,
-    style: 'width: 120px'
+    style: 'width: 120px; border-right: 2px solid #e0e0e0; font-weight: bold;'
   },
   {
     name: 'PrsnTCN',
@@ -1587,6 +1587,17 @@ onMounted(() => {
   padding: 6px 8px;
   height: 36px;
   line-height: 1.2;
+  text-align: center !important;
+}
+
+/* Daha spesifik selector ile header merkezleme */
+.personel-table .q-table__thead th {
+  text-align: center !important;
+}
+
+/* Quasar table header override */
+.q-table th {
+  text-align: center !important;
 }
 
 .personel-table .q-table td {
@@ -1775,4 +1786,16 @@ body.body--dark .modal-actions {
     height: 44px;
     font-size: 0.9rem;
   }
+
+/* Cari Bakiye sütunu için border stilleri */
+.personel-table .q-table th:first-child,
+.personel-table .q-table td:first-child {
+  border-right: 2px solid #e0e0e0;
+}
+
+/* Dark mode için border rengi */
+body.body--dark .personel-table .q-table th:first-child,
+body.body--dark .personel-table .q-table td:first-child {
+  border-right: 2px solid #424242;
+}
 </style>

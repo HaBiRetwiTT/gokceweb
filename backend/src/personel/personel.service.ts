@@ -494,11 +494,16 @@ export class PersonelService {
         // İşlem tipi kontrolü
         if (tahakkukData.islemTipi === 'borc_iade') {
           islemTip = 'Giren';
+        } else if (tahakkukData.islemTipi === 'cikis_hesap_kapama_giren') {
+          islemTip = 'Giren';
+        } else if (tahakkukData.islemTipi === 'cikis_hesap_kapama_cikan') {
+          islemTip = 'Çıkan';
         } else {
           islemTip = 'Çıkan';
         }
         
-        islemGrup = 'Personel İşlemi';
+        // Frontend'den gelen islemGrup'u kullan, yoksa varsayılan değeri kullan
+        islemGrup = tahakkukData.islemGrup || 'Personel İşlemi';
       }
       
       // İşlem tipi etiketini al
@@ -509,7 +514,9 @@ export class PersonelService {
         'ikramiye_odeme': 'İkramiye Ödemesi',
         'borc_verme': 'Borç Verme',
         'borc_iade': 'Borç İadesi',
-        'cikis_hesap_kapama': 'Çıkış Hesap Kapama'
+        'cikis_hesap_kapama': 'Çıkış Hesap Kapama',
+        'cikis_hesap_kapama_giren': 'Çıkış Hesap Kapama',
+        'cikis_hesap_kapama_cikan': 'Çıkış Hesap Kapama'
       };
       
       const islemTipiLabel = islemTipiLabels[tahakkukData.islemTipi] || tahakkukData.islemTipi;
