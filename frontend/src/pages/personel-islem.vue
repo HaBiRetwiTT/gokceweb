@@ -5,6 +5,16 @@
         <h5 class="q-my-none text-primary personel-baslik">Personel İşlemleri</h5>
         <p class="q-my-none text-caption text-grey-6">Giriş - Çıkış - Maaş</p>
       </div>
+      <div class="col-auto q-mr-md">
+        <q-btn
+          color="orange"
+          icon="account_balance_wallet"
+          label="TOPLU MAAŞ TAHAKKUK"
+          size="md"
+          class="text-weight-bold"
+          @click="onTopluMaasTahakkukClick"
+        />
+      </div>
       <div class="col-auto">
                  <q-btn
            color="primary"
@@ -15,6 +25,7 @@
          />
       </div>
     </div>
+
 
     <q-card>
       <q-card-section>
@@ -33,6 +44,14 @@
            @row-dblclick="onRowDblClick"
            @request="onTableRequest"
          >
+          <template v-slot:body-cell-cariBakiye="props">
+            <q-td :props="props">
+              <span class="text-weight-medium" :class="getBalanceClass(props.row.cariBakiye)">
+                {{ formatCurrency(props.row.cariBakiye) }}
+              </span>
+            </q-td>
+          </template>
+
           <template v-slot:body-cell-PrsnMaas="props">
             <q-td :props="props">
               <span class="text-weight-medium">
@@ -427,11 +446,76 @@
          </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Toplu Maaş Tahakkuk Modal -->
+    <q-dialog v-model="showBulkSalaryModal" persistent>
+      <q-card style="min-width: 400px; max-width: 500px;">
+        <q-card-section class="bg-orange text-white">
+          <div class="text-h6">
+            <q-icon name="account_balance_wallet" class="q-mr-sm" />
+            Toplu Maaş Tahakkuk
+          </div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-md">
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <q-select
+                v-model="selectedMonth"
+                :options="monthOptions"
+                option-label="label"
+                option-value="value"
+                emit-value
+                map-options
+                label="Ay Seçiniz *"
+                outlined
+                dense
+                clearable
+              />
+            </div>
+            <div class="col-12 col-sm-6">
+              <q-select
+                v-model="selectedYear"
+                :options="yearOptions"
+                option-label="label"
+                option-value="value"
+                emit-value
+                map-options
+                label="Yıl Seçiniz *"
+                outlined
+                dense
+              />
+            </div>
+          </div>
+          <div class="q-mt-md text-grey-6">
+            <q-icon name="info" class="q-mr-xs" />
+            Durumu "ÇALIŞIYOR" ve maaşı 0'dan büyük olan tüm personeller için maaş tahakkuku yapılacaktır.
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            label="İPTAL"
+            color="secondary"
+            @click="onBulkSalaryCancel"
+            :disable="bulkSalaryLoading"
+          />
+          <q-btn
+            label="TOPLU TAHAKKUK YAP"
+            color="orange"
+            @click="processBulkSalaryAccrual"
+            :loading="bulkSalaryLoading"
+            :disable="!selectedMonth || !selectedYear"
+            class="text-weight-bold"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { Notify } from 'quasar';
 import { api } from '../boot/axios';
 
@@ -459,6 +543,7 @@ interface Personel {
   PrsnMedeni: string;
   PrsnAdres: string;
   PrsnBilgi: string;
+  cariBakiye?: number;
 }
 
 const loading = ref(false);
@@ -471,6 +556,12 @@ const modalCard = ref();
 const showPassword = ref(false);
 const isFormTemizlendi = ref(false);
 const ekleLoading = ref(false);
+
+// Bulk salary accrual modal states
+const showBulkSalaryModal = ref(false);
+const bulkSalaryLoading = ref(false);
+const selectedMonth = ref<string>('');
+const selectedYear = ref<number>(new Date().getFullYear());
 
 // Date picker popup referansları
 const girisTarihiPopup = ref();
@@ -498,11 +589,19 @@ const medeniDurumOptions = [
 
 const columns = [
   {
+    name: 'cariBakiye',
+    label: 'Cari Bakiye',
+    field: 'cariBakiye',
+    align: 'right' as const,
+    sortable: false,
+    style: 'width: 120px'
+  },
+  {
     name: 'PrsnTCN',
     label: 'TCN',
     field: 'PrsnTCN',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 120px'
   },
   {
@@ -510,7 +609,7 @@ const columns = [
     label: 'Adı Soyadı',
     field: 'PrsnAdi',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 200px'
   },
   {
@@ -518,15 +617,16 @@ const columns = [
     label: 'Durumu',
     field: 'PrsnDurum',
     align: 'center' as const,
-    sortable: true,
-    style: 'width: 100px'
+    sortable: false,
+    style: 'width: 100px; display: none;',
+    headerStyle: 'display: none;'
   },
   {
     name: 'PrsnTelNo',
     label: 'İrtibat No',
     field: 'PrsnTelNo',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 120px'
   },
   {
@@ -534,7 +634,7 @@ const columns = [
     label: 'Giriş T.',
     field: 'PrsnGrsTrh',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 100px'
   },
   {
@@ -542,7 +642,7 @@ const columns = [
     label: 'Çıkış T.',
     field: 'PrsnCksTrh',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'max-width: 70px; display: none;',
     headerStyle: 'display: none;'
   },
@@ -551,7 +651,7 @@ const columns = [
     label: 'Görevi',
     field: 'PrsnGorev',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 150px'
   },
   {
@@ -559,15 +659,16 @@ const columns = [
     label: 'Sıra',
     field: 'PrsnYetki',
     align: 'center' as const,
-    sortable: true,
-    style: 'max-width: 50px'
+    sortable: false,
+    style: 'max-width: 50px; display: none;',
+    headerStyle: 'display: none;'
   },
   {
     name: 'PrsnMaas',
     label: 'Aylık Maaş',
     field: 'PrsnMaas',
     align: 'right' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 120px'
   },
   {
@@ -575,7 +676,7 @@ const columns = [
     label: 'Öd.Gün',
     field: 'PrsnOdGun',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 80px'
   },
      {
@@ -583,7 +684,7 @@ const columns = [
      label: 'Oda No',
      field: 'PrsnOda',
      align: 'center' as const,
-     sortable: true,
+     sortable: false,
      style: 'max-width: 50px'
    },
    {
@@ -591,7 +692,7 @@ const columns = [
      label: 'Ytk.No',
      field: 'PrsnYtk',
      align: 'center' as const,
-     sortable: true,
+     sortable: false,
      style: 'max-width: 50px'
    },
   {
@@ -599,7 +700,7 @@ const columns = [
     label: 'D.Tarihi',
     field: 'PrsnDgmTarihi',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 100px'
   },
   {
@@ -607,7 +708,7 @@ const columns = [
     label: 'Eğitim',
     field: 'PrsnOkul',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 150px'
   },
   {
@@ -615,7 +716,7 @@ const columns = [
     label: 'İzin Günü',
     field: 'PrsnYakini',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 100px'
   },
   {
@@ -623,7 +724,7 @@ const columns = [
     label: 'Med.Drm.',
     field: 'PrsnMedeni',
     align: 'center' as const,
-    sortable: true,
+    sortable: false,
     style: 'max-width: 70px'
   },
   {
@@ -631,7 +732,7 @@ const columns = [
     label: 'Adres',
     field: 'PrsnAdres',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 200px'
   },
   {
@@ -639,7 +740,7 @@ const columns = [
     label: 'Not',
     field: 'PrsnBilgi',
     align: 'left' as const,
-    sortable: true,
+    sortable: false,
     style: 'width: 150px'
   }
 ];
@@ -666,6 +767,10 @@ const loadPersonel = async (sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
     
     if (response.data.success) {
       personelList.value = response.data.data;
+      
+      // Her personel için bakiye bilgisini yükle
+      await loadPersonelBakiyeleri();
+      
       Notify.create({
         type: 'positive',
         message: `${personelList.value.length} personel kaydı yüklendi`,
@@ -693,6 +798,173 @@ const loadPersonel = async (sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
   } finally {
     loading.value = false;
   }
+};
+
+// Personel bakiyelerini yükle
+const loadPersonelBakiyeleri = async () => {
+  try {
+    const bakiyePromises = personelList.value.map(async (personel) => {
+      if (personel.PrsnNo) {
+        try {
+          const response = await api.get(`/personel/bakiye/${personel.PrsnNo}`);
+          if (response.data.success) {
+            personel.cariBakiye = response.data.bakiye;
+          } else {
+            personel.cariBakiye = 0;
+          }
+        } catch (error) {
+          console.error(`Personel ${personel.PrsnNo} bakiye yükleme hatası:`, error);
+          personel.cariBakiye = 0;
+        }
+      } else {
+        personel.cariBakiye = 0;
+      }
+    });
+    
+    await Promise.all(bakiyePromises);
+  } catch (error) {
+    console.error('Bakiye yükleme hatası:', error);
+  }
+};
+
+// Bakiye renk sınıfını belirle
+const getBalanceClass = (balance: number | null | undefined): string => {
+  if (balance === null || balance === undefined) return 'text-grey-6';
+  if (balance > 0) return 'text-positive';
+  if (balance < 0) return 'text-negative';
+  return 'text-grey-6';
+};
+
+// Ay seçenekleri
+const monthOptions = [
+  { label: 'Ocak', value: 'Ocak' },
+  { label: 'Şubat', value: 'Şubat' },
+  { label: 'Mart', value: 'Mart' },
+  { label: 'Nisan', value: 'Nisan' },
+  { label: 'Mayıs', value: 'Mayıs' },
+  { label: 'Haziran', value: 'Haziran' },
+  { label: 'Temmuz', value: 'Temmuz' },
+  { label: 'Ağustos', value: 'Ağustos' },
+  { label: 'Eylül', value: 'Eylül' },
+  { label: 'Ekim', value: 'Ekim' },
+  { label: 'Kasım', value: 'Kasım' },
+  { label: 'Aralık', value: 'Aralık' }
+];
+
+// Yıl seçenekleri (son 2 yıl + gelecek 1 yıl)
+const yearOptions = computed(() => {
+  const currentYear = new Date().getFullYear();
+  return [
+    { label: (currentYear - 2).toString(), value: currentYear - 2 },
+    { label: (currentYear - 1).toString(), value: currentYear - 1 },
+    { label: currentYear.toString(), value: currentYear },
+    { label: (currentYear + 1).toString(), value: currentYear + 1 }
+  ];
+});
+
+// Toplu maaş tahakkuk işlemi
+const processBulkSalaryAccrual = async () => {
+  if (!selectedMonth.value) {
+    Notify.create({
+      type: 'warning',
+      message: 'Lütfen bir ay seçiniz',
+      position: 'top'
+    });
+    return;
+  }
+
+  if (!selectedYear.value) {
+    Notify.create({
+      type: 'warning',
+      message: 'Lütfen bir yıl seçiniz',
+      position: 'top'
+    });
+    return;
+  }
+
+  try {
+    bulkSalaryLoading.value = true;
+    
+    // Çalışan ve maaşı > 0 olan personelleri filtrele
+    const eligiblePersonnel = personelList.value.filter(p => 
+      p.PrsnDurum === 'ÇALIŞIYOR' && p.PrsnMaas && p.PrsnMaas > 0
+    );
+    
+    if (eligiblePersonnel.length === 0) {
+      Notify.create({
+        type: 'warning',
+        message: 'Maaş tahakkuku yapılacak çalışan personel bulunamadı',
+        position: 'top'
+      });
+      return;
+    }
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const islemBilgi = `${selectedMonth.value} ${selectedYear.value} ÜCRET TAHAKKUKU`;
+    
+    // Her personel için tahakkuk işlemi yap
+    for (const personel of eligiblePersonnel) {
+      try {
+        const requestData = {
+          personel: personel.PrsnAdi,
+          islemTipi: 'maas_tahakkuk',
+          islemGrup: 'Maaş Tahakkuku',
+          odemeYontemi: 'tahakkuk',
+          tutar: personel.PrsnMaas,
+          islemBilgi: islemBilgi
+        };
+        
+        const response = await api.post('/personel/tahakkuk-odeme', requestData);
+        
+        if (response.data.success) {
+          successCount++;
+        } else {
+          errorCount++;
+          console.error(`Personel ${personel.PrsnAdi} tahakkuk hatası:`, response.data.message);
+        }
+      } catch (error) {
+        errorCount++;
+        console.error(`Personel ${personel.PrsnAdi} tahakkuk hatası:`, error);
+      }
+    }
+    
+    // Sonuç mesajı
+    const message = `Toplam ${successCount} Adet Personel için MAAŞ TAHAKKUK işlemi yapılmıştır.`;
+    
+    Notify.create({
+      type: successCount > 0 ? 'positive' : 'warning',
+      message: errorCount > 0 ? `${message} (${errorCount} hata)` : message,
+      position: 'top',
+      timeout: 5000
+    });
+    
+    // Modalı kapat ve tabloyu güncelle
+    showBulkSalaryModal.value = false;
+    await loadPersonel();
+    
+  } catch (error) {
+    console.error('Toplu maaş tahakkuk hatası:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Toplu maaş tahakkuk işlemi sırasında hata oluştu',
+      position: 'top'
+    });
+  } finally {
+    bulkSalaryLoading.value = false;
+  }
+};
+
+// Bulk modal kapat handler
+const onBulkSalaryCancel = () => {
+  showBulkSalaryModal.value = false;
+  selectedMonth.value = '';
+  selectedYear.value = new Date().getFullYear();
+};
+
+// Toplu Maaş Tahakkuk butonu click handler
+const onTopluMaasTahakkukClick = () => {
+  showBulkSalaryModal.value = true;
 };
 
 // Çift tık event handler

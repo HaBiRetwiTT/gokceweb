@@ -108,7 +108,25 @@
       <q-card-actions align="right" class="modal-actions">
         <div class="row full-width items-center justify-between">
           <div class="col-auto">
-            <!-- Reserved space for future additional buttons if needed -->
+            <!-- Personel bakiye bilgisi -->
+            <div v-if="selectedPersonel" class="personel-bakiye-info">
+              <span class="bakiye-label">Bakiye: </span>
+              <span v-if="loadingBakiye" class="bakiye-loading">
+                <q-spinner size="12px" />
+              </span>
+              <span v-else class="bakiye-tutar" :class="{ 
+                'bakiye-pozitif': personelBakiye && personelBakiye > 0,
+                'bakiye-negatif': personelBakiye && personelBakiye < 0,
+                'bakiye-sifir': personelBakiye === 0
+              }">
+                {{ personelBakiye !== null ? personelBakiye.toLocaleString('tr-TR', { 
+                  style: 'currency', 
+                  currency: 'TRY',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                }) : '0,00 ₺' }}
+              </span>
+            </div>
           </div>
           <div class="col-auto">
             <q-btn
@@ -145,7 +163,18 @@ const props = defineProps<Props>()
 // Emits
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'kaydet': [data: { personel: string, islemTipi: string, odemeYontemi: string, tutar: number }]
+  'kaydet': [data: { 
+    personel: string
+    islemTipi: string
+    odemeYontemi: string
+    tutar: number
+    result?: {
+      personel: string
+      islemTipi: string
+      tutar: number
+      tarih: string
+    }
+  }]
 }>()
 
 // Quasar instance
@@ -161,6 +190,8 @@ const islemTutar = ref<number>(0)
 const personelList = ref<Array<{ PrsnAdi: string, PrsnNo: number }>>([])
 const filteredPersonelList = ref<Array<{ PrsnAdi: string, PrsnNo: number }>>([])  
 const modalCard = ref()
+const personelBakiye = ref<number | null>(null)
+const loadingBakiye = ref(false)
 
 // Computed
 const show = computed({
@@ -180,6 +211,7 @@ const islemTipiOptions = computed(() => [
   { label: 'İkramiye Tahakkuk', value: 'ikramiye_tahakkuk' },
   { label: 'Maaş Ödemesi', value: 'maas_odeme' },
   { label: 'İkramiye Ödemesi', value: 'ikramiye_odeme' },
+  { label: 'Avans Ödemesi', value: 'avans_odeme' },
   { label: 'Borç Verme', value: 'borc_verme' },
   { label: 'Borç İadesi', value: 'borc_iade' },
   { label: 'Çıkış Hesap Kapama', value: 'cikis_hesap_kapama' }
@@ -195,6 +227,34 @@ const isOdemeYontemiReadonly = computed(() => {
 })
 
 // Methods
+async function loadPersonelBakiye(personelNo: number) {
+  try {
+    loadingBakiye.value = true
+    console.log('💰 Personel bakiyesi yüklüyor, Personel No:', personelNo)
+    
+    const response = await api.get(`/personel/bakiye/${personelNo}`)
+    
+    if (response.data.success) {
+      personelBakiye.value = response.data.bakiye
+      console.log('✨ Personel bakiyesi yüklendi:', personelBakiye.value)
+    } else {
+      throw new Error(response.data.message || 'Personel bakiyesi yüklenemedi')
+    }
+  } catch (error: unknown) {
+    console.error('❌ Personel bakiyesi yükleme hatası:', error)
+    personelBakiye.value = 0
+    
+    // Kullanıcıya hata bildirimi gösterme (sessiz hata)
+    // $q.notify({
+    //   type: 'warning',
+    //   message: 'Personel bakiyesi yüklenemedi',
+    //   position: 'top'
+    // })
+  } finally {
+    loadingBakiye.value = false
+  }
+}
+
 async function loadPersonelList() {
   try {
     loadingPersonel.value = true
@@ -243,7 +303,7 @@ function filterPersonel(val: string, update: (callback: () => void) => void) {
   })
 }
 
-function onKaydet() {
+async function onKaydet() {
   if (!selectedPersonel.value) {
     $q.notify({
       type: 'warning',
@@ -280,24 +340,76 @@ function onKaydet() {
     return
   }
 
-  // Emit the selected values for parent component to handle
-  emit('kaydet', { 
-    personel: selectedPersonel.value, 
-    islemTipi: selectedIslemTipi.value,
-    odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk', // Use 'tahakkuk' for accrual transactions
-    tutar: islemTutar.value
-  })
-  
-  // TODO: Actual save functionality will be implemented later
-  const islemTipiLabel = islemTipiOptions.value.find(option => option.value === selectedIslemTipi.value)?.label
-  const odemeYontemiLabel = selectedOdemeYontemi.value 
-    ? odemeYontemiOptions.value.find(option => option.value === selectedOdemeYontemi.value)?.label
-    : 'Tahakkuk'
-  $q.notify({
-    type: 'info',
-    message: `${selectedPersonel.value} - ${islemTipiLabel} - ${odemeYontemiLabel} - ${islemTutar.value} TL için KAYDET butonu işlevi henüz kodlanmadı`,
-    position: 'top'
-  })
+  try {
+    console.log('🚀 Personel tahakkuk/ödeme kaydı başlatılıyor...')
+    
+    // Loading state'i göster
+    loadingPersonel.value = true
+    
+    // Backend'e gönderilecek veriyi hazırla
+    const requestData = {
+      personel: selectedPersonel.value,
+      islemTipi: selectedIslemTipi.value,
+      odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
+      tutar: islemTutar.value
+    }
+    
+    console.log('📝 Gönderilecek veri:', requestData)
+    
+    // Backend API'sine istek gönder
+    const response = await api.post('/personel/tahakkuk-odeme', requestData)
+    
+    if (response.data.success) {
+      // Başarı mesajı göster
+      $q.notify({
+        type: 'positive',
+        message: response.data.message || 'Personel tahakkuk/ödeme kaydı başarıyla oluşturuldu',
+        position: 'top',
+        timeout: 4000
+      })
+      
+      // Parent component'e bildiri gönder
+      emit('kaydet', {
+        personel: selectedPersonel.value,
+        islemTipi: selectedIslemTipi.value,
+        odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
+        tutar: islemTutar.value,
+        result: response.data.data
+      })
+      
+      // Modal'i kapat
+      emit('update:modelValue', false)
+      
+      console.log('✅ Personel tahakkuk/ödeme kaydı başarıyla tamamlandı')
+      
+    } else {
+      throw new Error(response.data.message || 'Kayıt işlemi başarısız')
+    }
+    
+  } catch (error: unknown) {
+    console.error('❌ Personel tahakkuk/ödeme kaydetme hatası:', error)
+    
+    let errorMessage = 'Personel tahakkuk/ödeme kaydı sırasında hata oluştu'
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const apiError = error as { response?: { data?: { message?: string } } }
+      if (apiError.response?.data?.message) {
+        errorMessage = apiError.response.data.message
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message
+    }
+    
+    $q.notify({
+      type: 'negative',
+      message: errorMessage,
+      position: 'top',
+      timeout: 5000
+    })
+    
+  } finally {
+    loadingPersonel.value = false
+  }
 }
 
 function onKapat() {
@@ -307,6 +419,7 @@ function onKapat() {
   selectedIslemTipi.value = null
   selectedOdemeYontemi.value = null
   islemTutar.value = 0
+  personelBakiye.value = null
   // Close modal
   emit('update:modelValue', false)
 }
@@ -329,16 +442,23 @@ watch(() => props.modelValue, async (newValue) => {
     selectedIslemTipi.value = null
     selectedOdemeYontemi.value = null
     islemTutar.value = 0
+    personelBakiye.value = null
   }
 })
 
-// Watch for personnel selection to update personnel number
-watch(() => selectedPersonel.value, (newPersonel) => {
+// Watch for personnel selection to update personnel number and load balance
+watch(() => selectedPersonel.value, async (newPersonel) => {
   if (newPersonel) {
     const foundPersonel = personelList.value.find(p => p.PrsnAdi === newPersonel)
     selectedPersonelNo.value = foundPersonel?.PrsnNo || null
+    
+    // Load personnel balance using personnel number
+    if (foundPersonel?.PrsnNo) {
+      await loadPersonelBakiye(foundPersonel.PrsnNo)
+    }
   } else {
     selectedPersonelNo.value = null
+    personelBakiye.value = null
   }
 })
 
@@ -514,6 +634,44 @@ function initializeDraggable() {
   padding: 16px 24px;
 }
 
+/* Personel bakiye bilgisi stilleri */
+.personel-bakiye-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.bakiye-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.bakiye-loading {
+  display: flex;
+  align-items: center;
+}
+
+.bakiye-tutar {
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.bakiye-pozitif {
+  color: #4caf50; /* Yeşil - alacaklı */
+}
+
+.bakiye-negatif {
+  color: #f44336; /* Kırmızı - borçlu */
+}
+
+.bakiye-sifir {
+  color: #666; /* Gri - sıfır bakiye */
+}
+
 /* Modal actions butonları arası padding */
 .modal-actions .q-btn + .q-btn {
   margin-left: 12px;
@@ -540,6 +698,23 @@ function initializeDraggable() {
 .body--dark .modal-actions {
   background: #34495e;
   border-top: 1px solid #495057;
+}
+
+/* Dark mode için personel bakiye bilgisi renkleri */
+.body--dark .bakiye-label {
+  color: #e0e0e0; /* Açık gri - dark mode için daha görünür */
+}
+
+.body--dark .bakiye-pozitif {
+  color: #66bb6a; /* Açık yeşil - dark mode için daha parlak */
+}
+
+.body--dark .bakiye-negatif {
+  color: #ef5350; /* Açık kırmızı - dark mode için daha parlak */
+}
+
+.body--dark .bakiye-sifir {
+  color: #bdbdbd; /* Açık gri - dark mode için daha görünür */
 }
 
 /* Modal'ın ekran sınırlarında kalması için */

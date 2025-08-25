@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, Query, Param, HttpException, HttpStatus } from '@nestjs/common';
 import { PersonelService } from './personel.service';
 
 @Controller('personel')
@@ -64,6 +64,76 @@ export class PersonelController {
         {
           success: false,
           message: 'Personel eklenirken beklenmeyen bir hata oluştu',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('tahakkuk-odeme')
+  async kaydetPersonelTahakkukOdeme(@Body() tahakkukData: any) {
+    try {
+      return await this.personelService.kaydetPersonelTahakkukOdeme(tahakkukData);
+    } catch (error) {
+      // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
+      if (error instanceof Error) {
+        throw new HttpException(
+          {
+            success: false,
+            message: error.message,
+            statusCode: HttpStatus.BAD_REQUEST
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Genel hata durumu
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Personel tahakkuk/ödeme işlemi kaydedilirken beklenmeyen bir hata oluştu',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get('bakiye/:personelNo')
+  async getPersonelBakiye(@Param('personelNo') personelNo: string) {
+    try {
+      const personelNoNum = parseInt(personelNo, 10);
+      if (isNaN(personelNoNum)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Geçersiz personel numarası',
+            statusCode: HttpStatus.BAD_REQUEST
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      
+      return await this.personelService.getPersonelBakiye(personelNoNum);
+    } catch (error) {
+      // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
+      if (error instanceof Error) {
+        throw new HttpException(
+          {
+            success: false,
+            message: error.message,
+            statusCode: HttpStatus.BAD_REQUEST
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Genel hata durumu
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Personel bakiye hesaplama hatası',
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR
         },
         HttpStatus.INTERNAL_SERVER_ERROR

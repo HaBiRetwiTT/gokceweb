@@ -2,13 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DatabaseTransactionService } from '../database/database-transaction.service';
+import { DatabaseConfigService } from '../database/database-config.service';
 
 @Injectable()
 export class PersonelService {
   constructor(
     @InjectRepository(Object) // Personel entity'si yok, Object kullanıyoruz
     private readonly personelRepository: Repository<Object>,
-    private readonly databaseTransactionService: DatabaseTransactionService
+    private readonly databaseTransactionService: DatabaseTransactionService,
+    private readonly dbConfig: DatabaseConfigService
   ) {}
 
   /**
@@ -422,6 +424,210 @@ export class PersonelService {
     } catch (error) {
       console.error('Backend personel ekleme hatası:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Güncel işlem tarihini DD.MM.YYYY formatında döndürür
+   */
+  private getCurrentTransactionDate(): string {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()}`;
+  }
+
+  /**
+   * Personel tahakkuk/ödeme işlemlerini tblislem tablosuna kaydeder
+   */
+  async kaydetPersonelTahakkukOdeme(tahakkukData: {
+    personel: string;
+    islemTipi: string;
+    islemGrup?: string;
+    odemeYontemi: string;
+    tutar: number;
+    islemBilgi?: string;
+  }) {
+    try {
+      console.log('🔍 Personel tahakkuk/ödeme kaydı başlatılıyor:', tahakkukData);
+
+      // Aktif kullanıcıyı al
+      const aktifKullanici = await this.getAktifKullaniciAdi();
+      console.log('👥 Aktif kullanıcı:', aktifKullanici);
+
+      // İşlem tarihi
+      const iKytTarihi = this.getCurrentTransactionDate();
+      
+      // Modal form header'daki label değerini al (PrsnNo)
+      const personelQuery = `
+        SELECT TOP 1 PrsnNo 
+        FROM ${this.dbConfig.getTableSchema()}.tblPersonel 
+        WHERE PrsnAdi = @0 AND PrsnDurum = 'ÇALIŞIYOR'
+      `;
+      
+      const personelResult = await this.personelRepository.query(personelQuery, [tahakkukData.personel]);
+      
+      if (!personelResult || personelResult.length === 0) {
+        throw new Error('Seçilen personel bulunamadı');
+      }
+      
+      const prsnNo = personelResult[0].PrsnNo;
+      console.log('📝 Seçilen personel numarası:', prsnNo);
+      
+      // İşlem tipişine göre dinamik parametreleri belirle
+      let islemArac: string;
+      let islemTip: string;
+      let islemGrup: string;
+      
+      // İşlem tipi like '%Tahakkuk%' kontrolü
+      const isTahakkuk = tahakkukData.islemTipi.includes('tahakkuk');
+      
+      if (isTahakkuk) {
+        // Tahakkuk işlemleri
+        islemArac = 'Cari İşlem';
+        islemTip = 'GİDER';
+        // Frontend'den gelen islemGrup'u kullan, yoksa varsayılan değeri kullan
+        islemGrup = tahakkukData.islemGrup || 'Personel Tahakkuku';
+      } else {
+        // Ödeme işlemleri
+        islemArac = tahakkukData.odemeYontemi === 'nakit_kasa' ? 'Nakit Kasa(TL)' : 'Banka EFT';
+        
+        // İşlem tipi kontrolü
+        if (tahakkukData.islemTipi === 'borc_iade') {
+          islemTip = 'Giren';
+        } else {
+          islemTip = 'Çıkan';
+        }
+        
+        islemGrup = 'Personel İşlemi';
+      }
+      
+      // İşlem tipi etiketini al
+      const islemTipiLabels: { [key: string]: string } = {
+        'maas_tahakkuk': 'Maaş Tahakkuk',
+        'ikramiye_tahakkuk': 'İkramiye Tahakkuk',
+        'maas_odeme': 'Maaş Ödemesi',
+        'ikramiye_odeme': 'İkramiye Ödemesi',
+        'borc_verme': 'Borç Verme',
+        'borc_iade': 'Borç İadesi',
+        'cikis_hesap_kapama': 'Çıkış Hesap Kapama'
+      };
+      
+      const islemTipiLabel = islemTipiLabels[tahakkukData.islemTipi] || tahakkukData.islemTipi;
+      
+      // Frontend'den gelen özel islemBilgi'yi kullan, yoksa varsayılan islemTipiLabel kullan
+      const finalIslemBilgi = tahakkukData.islemBilgi || islemTipiLabel;
+      
+      // Stored procedure parametrelerini hazırla
+      const storedProcedures = this.dbConfig.getStoredProcedures();
+      const spQuery = `
+        EXEC ${storedProcedures.islemEkle}
+          @iKytTarihi = @0,
+          @islemKllnc = @1,
+          @islemCrKod = @2,
+          @islemOzel1 = @3,
+          @islemOzel2 = @4,
+          @islemOzel3 = @5,
+          @islemOzel4 = @6,
+          @islemArac = @7,
+          @islemTip = @8,
+          @islemGrup = @9,
+          @islemAltG = @10,
+          @islemBilgi = @11,
+          @islemMiktar = @12,
+          @islemBirim = @13,
+          @islemTutar = @14,
+          @islemDoviz = @15,
+          @islemKur = @16
+      `;
+      
+      const spParams = [
+        iKytTarihi,                           // @0 - iKytTarihi: günün tarihi (DD.MM.YYYY)
+        aktifKullanici,                       // @1 - islemKllnc: aktif kullanıcı PrsnUsrNm
+        `CP${prsnNo}`,                        // @2 - islemCrKod: "CP" + personel numarası
+        '',                                   // @3 - islemOzel1: boş
+        '',                                   // @4 - islemOzel2: boş
+        '',                                   // @5 - islemOzel3: boş
+        '',                                   // @6 - islemOzel4: boş
+        islemArac,                            // @7 - islemArac: dinamik
+        islemTip,                             // @8 - islemTip: dinamik
+        islemGrup,                            // @9 - islemGrup: dinamik
+        tahakkukData.personel,                // @10 - islemAltG: seçilen personel adı
+        finalIslemBilgi,                      // @11 - islemBilgi: frontend'den gelen özel bilgi veya varsayılan
+        1.00,                                 // @12 - islemMiktar: 1.00
+        'Adet',                               // @13 - islemBirim: 'Adet'
+        tahakkukData.tutar,                   // @14 - islemTutar: girilen tutar
+        'TL',                                 // @15 - islemDoviz: 'TL'
+        1                                     // @16 - islemKur: 1
+      ];
+      
+      console.log('📝 Stored procedure çağrısı:', spQuery);
+      console.log('📝 Parametreler:', spParams);
+      
+      // Stored procedure'ü çalıştır
+      await this.personelRepository.query(spQuery, spParams);
+      
+      console.log('✅ Personel tahakkuk/ödeme kaydı başarıyla eklendi');
+      
+      return {
+        success: true,
+        message: `${tahakkukData.personel} için ${islemTipiLabel} kaydı başarıyla oluşturuldu`,
+        data: {
+          personel: tahakkukData.personel,
+          islemTipi: islemTipiLabel,
+          tutar: tahakkukData.tutar,
+          tarih: iKytTarihi
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ Personel tahakkuk/ödeme kaydetme hatası:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new Error(`Personel tahakkuk/ödeme kaydı yapılamadı: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Personel hesap bakiyesini hesaplar (personel numarası ile)
+   */
+  async getPersonelBakiye(personelNo: number): Promise<{ success: boolean; bakiye: number; message: string }> {
+    try {
+      console.log('🔍 Personel bakiye hesaplama başlatılıyor, Personel No:', personelNo);
+
+      // Personel cari kodunu oluştur: CP + personel numarası
+      const cariKod = `CP${personelNo}`;
+      
+      console.log('📝 Personel cari kodu:', cariKod);
+      
+      // Cari hesap bakiyesini hesapla (diğer cari hesap hesaplamalarıyla aynı mantık)
+      const bakiyeQuery = `
+        SELECT 
+          ISNULL(SUM(
+            CASE 
+              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
+              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              ELSE 0
+            END
+          ), 0) as PersonelBakiye
+        FROM ${this.dbConfig.getTableSchema()}.tblislem i
+        WHERE i.islemCrKod = @0
+          AND (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
+      `;
+      
+      const bakiyeResult = await this.personelRepository.query(bakiyeQuery, [cariKod]);
+      const bakiye = Number(bakiyeResult[0]?.PersonelBakiye || 0);
+      
+      console.log('✨ Personel bakiyesi hesaplandı:', bakiye);
+      
+      return {
+        success: true,
+        bakiye: bakiye,
+        message: `${cariKod} için hesap bakiyesi başarıyla hesaplandı`
+      };
+      
+    } catch (error) {
+      console.error('❌ Personel bakiye hesaplama hatası:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new Error(`Personel bakiye hesaplanamadı: ${errorMessage}`);
     }
   }
 }

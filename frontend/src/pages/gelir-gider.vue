@@ -1407,19 +1407,31 @@ function onPersonelTahakkukClick() {
 }
 
 // Personel Tahakkuk Modal kaydet handler
-function onPersonelTahakkukKaydet(data: { personel: string, islemTipi: string, odemeYontemi: string, tutar: number }) {
-  console.log('Seçilen personel:', data.personel)
-  console.log('Seçilen işlem tipi:', data.islemTipi)
-  console.log('Seçilen ödeme yöntemi:', data.odemeYontemi)
-  console.log('Seçilen tutar:', data.tutar)
-  // Modal'ı kapat
-  showPersonelTahakkukModal.value = false
-  // TODO: Actual save functionality will be implemented later
+function onPersonelTahakkukKaydet(data: { 
+  personel: string
+  islemTipi: string
+  odemeYontemi: string
+  tutar: number
+  result?: {
+    personel: string
+    islemTipi: string
+    tutar: number
+    tarih: string
+  }
+}) {
+  console.log('✅ Personel tahakkuk/ödeme işlemi başarıyla tamamlandı:', data)
+  
+  // Modal zaten kapalı, sadece log yapıp onay mesajı göster
+  if (data.result) {
+    console.log('📊 İşlem detayları:', data.result)
+  }
+  
+  // Başarı bildirimi (ek bilgilendirme)
   $q.notify({
     type: 'info',
-    message: `${data.personel} - ${data.islemTipi} - ${data.odemeYontemi} - ${data.tutar} TL için tahakkuk/ödeme işlemi kaydedilecek (henüz kodlanmadı)`,
+    message: `${data.personel} için ${data.islemTipi} işlemi başarıyla kaydedildi`,
     position: 'top',
-    timeout: 3000
+    timeout: 2000
   })
 }
 
