@@ -9,7 +9,15 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     children: [
-      { path: '', component: () => import('../pages/DashboardPage.vue') },
+      { path: '', redirect: () => {
+        // Yönlendirme tamamen router guard'da yapılıyor
+        const username = localStorage.getItem('username') || '';
+        if (['SAadmin', 'KADİR', 'HARUN'].includes(username)) {
+          return '/dashboard';
+        } else {
+          return '/kartli-islem';
+        }
+      }},
       { path: '/dashboard', component: () => import('../pages/DashboardPage.vue') },
       { path: '/musteri-islem', component: () => import('../pages/musteri-islem.vue') },
       { path: '/kartli-islem', component: () => import('../pages/kartli-islem.vue') },

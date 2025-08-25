@@ -29,6 +29,19 @@
         </q-toolbar-title>
 
         <div class="row items-center q-gutter-sm">
+          <!-- Hesap Makinesi İkonu -->
+          <q-btn
+            flat
+            dense
+            round
+            icon="calculate"
+            @click="openCalculator"
+            aria-label="Hesap Makinesi"
+            class="calculator-icon-btn"
+          >
+            <q-tooltip>Hesap Makinesi</q-tooltip>
+          </q-btn>
+          
           <div class="row items-center q-mr-sm header-clock">
             <q-icon name="schedule" size="16px" class="q-mr-xs" />
             <span>{{ dateTimeDisplay }}</span>
@@ -410,6 +423,22 @@ const linksList = computed(() => {
       const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
       if (!currentFilter || !ilk6Kart.includes(currentFilter)) {
         // Dev log kaldırıldı
+        return false;
+      }
+    }
+    
+    // Dashboard sadece SAadmin, KADİR ve HARUN kullanıcılarına göster
+    if (link.title === 'Dashboard') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
+        return false;
+      }
+    }
+    
+    // AI Asistan sadece SAadmin, KADİR ve HARUN kullanıcılarına göster
+    if (link.title === 'AI Asistan') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
         return false;
       }
     }
@@ -826,6 +855,142 @@ async function checkForUpdates() {
   }
 }
 
+// Hesap makinesi açma fonksiyonu
+function openCalculator() {
+  try {
+    // Basit hesap makinesi popup'u
+    const calculatorWindow = window.open('', 'calculator', 
+      'width=350,height=500,resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no');
+    
+    if (calculatorWindow) {
+      const doc = calculatorWindow.document;
+      doc.open();
+      
+      // HTML tag karakterlerini encode ederek kullan
+      const lt = String.fromCharCode(60); // <
+      const gt = String.fromCharCode(62); // >
+      const slash = String.fromCharCode(47); // /
+      
+      const htmlStart = lt + 'html' + gt + lt + 'head' + gt + lt + 'title' + gt + 'Hesap Makinesi' + lt + slash + 'title' + gt + lt + slash + 'head' + gt;
+      const bodyStart = lt + 'body style="font-family: Arial; background: #f0f0f0; padding: 20px;"' + gt;
+      const containerStart = lt + 'div style="background: white; padding: 20px; border-radius: 10px; max-width: 300px;"' + gt;
+      const title = lt + 'h3 style="text-align: center; color: #333;"' + gt + 'Hesap Makinesi' + lt + slash + 'h3' + gt;
+      const display = lt + 'input type="text" id="calc-display" readonly style="width: 100%; padding: 10px; font-size: 20px; text-align: right; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 5px;"' + gt;
+      
+      doc.write(htmlStart);
+      doc.write(bodyStart);
+      doc.write(containerStart);
+      doc.write(title);
+      doc.write(display);
+      
+      // Butonlar
+      const buttons = [
+        ['C', 'CE', '/', '*'],
+        ['7', '8', '9', '-'],
+        ['4', '5', '6', '+'],
+        ['1', '2', '3', '='],
+        ['0', '.', '', '']
+      ];
+      
+      const gridStart = lt + 'div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"' + gt;
+      doc.write(gridStart);
+      
+      buttons.forEach(row => {
+        row.forEach(btn => {
+          if (btn) {
+            const color = btn === '=' ? '#28a745' : 
+                         ['C', 'CE'].includes(btn) ? '#dc3545' : 
+                         ['/', '*', '-', '+'].includes(btn) ? '#007bff' : '#e9ecef';
+            const textColor = ['=', 'C', 'CE', '/', '*', '-', '+'].includes(btn) ? 'white' : '#333';
+            const width = btn === '0' ? '100%' : 'auto';
+            const gridColumn = btn === '0' ? 'span 2' : 'auto';
+            
+            const buttonHtml = lt + 'button onclick="handleClick(\'' + btn + '\')" style="padding: 15px; font-size: 18px; border: none; border-radius: 5px; background: ' + color + '; color: ' + textColor + '; cursor: pointer; grid-column: ' + gridColumn + '; width: ' + width + ';"' + gt + btn + lt + slash + 'button' + gt;
+            doc.write(buttonHtml);
+          }
+        });
+      });
+      
+      const gridEnd = lt + slash + 'div' + gt;
+      const containerEnd = lt + slash + 'div' + gt;
+      doc.write(gridEnd);
+      doc.write(containerEnd);
+      
+      // JavaScript
+      const scriptStart = lt + 'script' + gt;
+      const variables = 'let display = document.getElementById("calc-display"); let currentInput = ""; let operator = ""; let previousInput = "";';
+      
+      const handleClickFunc = `
+        function handleClick(value) {
+          if (value === "C") {
+            currentInput = ""; previousInput = ""; operator = ""; display.value = "";
+          } else if (value === "CE") {
+            currentInput = ""; display.value = "";
+          } else if (["/", "*", "-", "+"].includes(value)) {
+            if (currentInput !== "") {
+              if (previousInput !== "" && operator !== "") calculate();
+              previousInput = currentInput; operator = value; currentInput = "";
+            }
+          } else if (value === "=") {
+            calculate();
+          } else {
+            currentInput += value; display.value = currentInput;
+          }
+        }`;
+      
+      const calculateFunc = `
+        function calculate() {
+          if (previousInput !== "" && currentInput !== "" && operator !== "") {
+            const prev = parseFloat(previousInput);
+            const current = parseFloat(currentInput);
+            let result;
+            switch (operator) {
+              case "+": result = prev + current; break;
+              case "-": result = prev - current; break;
+              case "*": result = prev * current; break;
+              case "/": result = current !== 0 ? prev / current : "Hata"; break;
+            }
+            display.value = result; currentInput = result.toString();
+            previousInput = ""; operator = "";
+          }
+        }`;
+      
+      const scriptEnd = lt + slash + 'script' + gt;
+      const bodyEnd = lt + slash + 'body' + gt;
+      const htmlEnd = lt + slash + 'html' + gt;
+      
+      doc.write(scriptStart);
+      doc.write(variables);
+      doc.write(handleClickFunc);
+      doc.write(calculateFunc);
+      doc.write(scriptEnd);
+      doc.write(bodyEnd);
+      doc.write(htmlEnd);
+      
+      doc.close();
+      calculatorWindow.focus();
+    } else {
+      // Popup blocker varsa bildirim göster
+      Notify.create({
+        type: 'warning',
+        message: 'Hesap makinesi açılamadı. Popup engelleyicisini devre dışı bırakın.',
+        icon: 'block',
+        position: 'top',
+        timeout: 4000
+      });
+    }
+  } catch (error) {
+    console.error('Hesap makinesi açılırken hata:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Hesap makinesi açılamadı.',
+      icon: 'error',
+      position: 'top',
+      timeout: 3000
+    });
+  }
+}
+
 // window global tipini genişlet
 
 declare global {
@@ -1113,6 +1278,51 @@ onUnmounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Hesap Makinesi Butonu Stilleri */
+.calculator-icon-btn {
+  background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4) !important;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+  animation: pulse 2s infinite !important;
+}
+
+.calculator-icon-btn:hover {
+  transform: scale(1.1) rotate(5deg) !important;
+  box-shadow: 0 6px 20px rgba(78, 205, 196, 0.6) !important;
+  background: linear-gradient(135deg, #FF8E53 0%, #FF6B6B 50%, #4ECDC4 100%) !important;
+}
+
+.calculator-icon-btn .q-icon {
+  color: white !important;
+  font-size: 18px !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+}
+
+/* Dark mode için hesap makinesi butonu */
+.body--dark .calculator-icon-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+}
+
+.body--dark .calculator-icon-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 50%, #f093fb 100%) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+/* Pulse animasyonu */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.6), 0 0 0 10px rgba(78, 205, 196, 0.1);
+  }
+  100% {
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+  }
 }
 .logo-container {
   display: flex;

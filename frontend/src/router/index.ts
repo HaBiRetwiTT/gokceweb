@@ -35,8 +35,54 @@ export default route(function (/* { store, ssrContext } */) {
       return '/login';
     }
     
+    // Yetkisiz kullanıcıların kısıtlı sayfalara erişimini engelle
+    if (isLoggedIn) {
+      const username = localStorage.getItem('username') || '';
+      const isAuthorizedUser = ['SAadmin', 'KADİR', 'HARUN'].includes(username);
+      
+      // Dashboard sadece yetkili kullanıcılar
+      if (to.path === '/dashboard' && !isAuthorizedUser) {
+        return '/kartli-islem';
+      }
+      
+      // AI Agent sadece yetkili kullanıcılar
+      if (to.path === '/ai-agent' && !isAuthorizedUser) {
+        return '/kartli-islem';
+      }
+      
+      // Nakit Tablo sadece SAadmin ve HARUN
+      if (to.path === '/nakit-tablo' && !['SAadmin', 'HARUN'].includes(username)) {
+        return '/kartli-islem';
+      }
+      
+      // Personel İşlemleri sadece yetkili kullanıcılar
+      if (to.path === '/personel-islem' && !isAuthorizedUser) {
+        return '/kartli-islem';
+      }
+    }
+    
+    // Login sayfasından yönlendirme - kullanıcı yetkisine göre
     if (to.path === '/login' && isLoggedIn) {
-      return '/';
+      const username = localStorage.getItem('username') || '';
+      // Dashboard'a erişimi olan kullanıcılar dashboard'a yönlendir
+      if (['SAadmin', 'KADİR', 'HARUN'].includes(username)) {
+        return '/dashboard';
+      } else {
+        // Diğer kullanıcılar kartli-islem sayfasına yönlendir
+        return '/kartli-islem';
+      }
+    }
+    
+    // Root path yönlendirmesi - kullanıcı yetkisine göre
+    if (to.path === '/' && isLoggedIn) {
+      const username = localStorage.getItem('username') || '';
+      // Dashboard'a erişimi olan kullanıcılar dashboard'a yönlendir
+      if (['SAadmin', 'KADİR', 'HARUN'].includes(username)) {
+        return '/dashboard';
+      } else {
+        // Diğer kullanıcılar kartli-islem sayfasına yönlendir
+        return '/kartli-islem';
+      }
     }
   });
 
