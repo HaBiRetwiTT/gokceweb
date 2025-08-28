@@ -363,8 +363,9 @@ const loadChartData = async () => {
     })
     
     // Make API call with environment variable (prod'da localhost'a düşmemek için güvenli fallback)
-    const envBaseUrl = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; DEV?: boolean } }).env?.VITE_API_BASE_URL || ''
-    const isDev = !!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
+    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean } }).env || {}
+    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    const isDev = !!envObj.DEV
     const apiBaseUrl = envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : '')
     const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
       params: {
@@ -1016,8 +1017,9 @@ const loadPieChartData = async () => {
     })
     
     // API base URL fallback ve başlangıç tarihini SQL formatına çevir (prod'da localhost'a düşmemek için güvenli fallback)
-    const envBaseUrl = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; DEV?: boolean } }).env?.VITE_API_BASE_URL || ''
-    const isDev = !!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
+    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean } }).env || {}
+    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    const isDev = !!envObj.DEV
     const apiBaseUrl = envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : '')
     let sqlStartDateForPie = ''
     if (startDate.value) {
