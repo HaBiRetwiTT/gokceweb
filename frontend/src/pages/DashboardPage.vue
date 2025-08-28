@@ -218,7 +218,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import type { QPopupProxy } from 'quasar'
 import axios from 'axios'
 import Chart from 'chart.js/auto'
-import type { LegendItem } from 'chart.js'
+import type { LegendItem, Chart as ChartType, TooltipItem } from 'chart.js'
 
 // Date state - başlangıç tarihi boş başlar
 const startDate = ref<string>('')
@@ -228,13 +228,13 @@ const startPicker = ref<QPopupProxy | null>(null)
 
 // Chart related refs
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
-const chartInstance = ref<Chart | null>(null)
+const chartInstance = ref<ChartType | null>(null)
 const chartCanvasDays = ref<HTMLCanvasElement | null>(null)
-const chartInstanceDays = ref<Chart | null>(null)
+const chartInstanceDays = ref<ChartType | null>(null)
 const pieChartAccommodation = ref<HTMLCanvasElement | null>(null)
-const pieChartAccommodationInstance = ref<Chart | null>(null)
+const pieChartAccommodationInstance = ref<ChartType | null>(null)
 const pieChartRoomType = ref<HTMLCanvasElement | null>(null)
-const pieChartRoomTypeInstance = ref<Chart | null>(null)
+const pieChartRoomTypeInstance = ref<ChartType | null>(null)
 const chartLoading = ref(false)
 const checkboxLoading = ref(false) // Checkbox değişiklik koruması
 
@@ -541,13 +541,14 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
       plugins: [{
         // Custom plugin for data labels (bar üstünde sayılar)
         id: 'dataLabels',
-        afterDatasetsDraw: function(chart) {
+        afterDatasetsDraw: function(chart: ChartType) {
           const ctx = chart.ctx
-          chart.data.datasets.forEach((dataset, i) => {
+          chart.data.datasets.forEach((dataset: unknown, i: number) => {
             const meta = chart.getDatasetMeta(i)
             if (!meta.hidden) {
-              meta.data.forEach((element, index) => {
-                if (element && element.x !== undefined && element.y !== undefined) {
+              meta.data.forEach((element: unknown, index: number) => {
+                const point = element as { x: number; y: number }
+                if (point && point.x !== undefined && point.y !== undefined) {
                   // 3D shadow effect için gölge
                   ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
                   ctx.shadowOffsetX = 2
@@ -560,10 +561,11 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
                   ctx.textAlign = 'center'
                   ctx.textBaseline = 'bottom'
                   
-                  const dataValue = dataset.data[index]
+                  const series = dataset as { data: Array<number | string> }
+                  const dataValue = series.data[index]
                   if (dataValue !== null && dataValue !== undefined) {
                     const dataString = dataValue.toString()
-                    ctx.fillText(dataString, element.x, element.y - 8)
+                    ctx.fillText(dataString, point.x, point.y - 8)
                   }
                   
                   // Shadow'u temizle
@@ -688,13 +690,14 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
       plugins: [{
         // Custom plugin for data labels (bar üstünde sayılar)
         id: 'dataLabelsDays',
-        afterDatasetsDraw: function(chart) {
+        afterDatasetsDraw: function(chart: ChartType) {
           const ctx = chart.ctx
-          chart.data.datasets.forEach((dataset, i) => {
+          chart.data.datasets.forEach((dataset: unknown, i: number) => {
             const meta = chart.getDatasetMeta(i)
             if (!meta.hidden) {
-              meta.data.forEach((element, index) => {
-                if (element && element.x !== undefined && element.y !== undefined) {
+              meta.data.forEach((element: unknown, index: number) => {
+                const point = element as { x: number; y: number }
+                if (point && point.x !== undefined && point.y !== undefined) {
                   // 3D shadow effect için gölge
                   ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
                   ctx.shadowOffsetX = 2
@@ -707,10 +710,11 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
                   ctx.textAlign = 'center'
                   ctx.textBaseline = 'bottom'
                   
-                  const dataValue = dataset.data[index]
+                  const series = dataset as { data: Array<number | string> }
+                  const dataValue = series.data[index]
                   if (dataValue !== null && dataValue !== undefined) {
                     const dataString = dataValue.toString()
-                    ctx.fillText(dataString, element.x, element.y - 8)
+                    ctx.fillText(dataString, point.x, point.y - 8)
                   }
                   
                   // Shadow'u temizle
@@ -963,7 +967,7 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
                 font: { size: 11 },
                 padding: 15,
                 boxWidth: 25,
-                generateLabels(chart) {
+                generateLabels(chart: ChartType) {
                   const dataset = chart.data.datasets?.[0]
                   const values = (dataset?.data || []) as unknown as Array<number>
                   const totalLocal = values.reduce((s, v) => s + Number(v || 0), 0)
@@ -980,7 +984,19 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
               }
             },
             tooltip: {
-              enabled: false
+              enabled: true,
+              callbacks: {
+                label(context: TooltipItem<'pie'>) {
+                  const dataset = context.dataset
+                  const rawValues = (dataset.data ?? []) as Array<number | string>
+                  const values = rawValues.map(v => Number(v ?? 0))
+                  const total: number = values.reduce((sum: number, v: number) => sum + v, 0)
+                  const value: number = Number((context.parsed as unknown) ?? 0)
+                  const pct: number = total > 0 ? (value / total) * 100 : 0
+                  const label = typeof context.label === 'string' || typeof context.label === 'number' ? String(context.label) : ''
+                  return `${label}: ${value} (${pct.toFixed(1)}%)`
+                }
+              }
             }
           },
           animation: {
@@ -1029,7 +1045,7 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
                 font: { size: 12 },
                 padding: 15,
                 boxWidth: 25,
-                generateLabels(chart) {
+                generateLabels(chart: ChartType) {
                   const dataset = chart.data.datasets?.[0]
                   const values = (dataset?.data || []) as unknown as Array<number>
                   const totalLocal = values.reduce((s, v) => s + Number(v || 0), 0)
@@ -1046,7 +1062,19 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
               }
             },
             tooltip: {
-              enabled: false
+              enabled: true,
+              callbacks: {
+                label(context: TooltipItem<'pie'>) {
+                  const dataset = context.dataset
+                  const rawValues = (dataset.data ?? []) as Array<number | string>
+                  const values = rawValues.map(v => Number(v ?? 0))
+                  const total: number = values.reduce((sum: number, v: number) => sum + v, 0)
+                  const value: number = Number((context.parsed as unknown) ?? 0)
+                  const pct: number = total > 0 ? (value / total) * 100 : 0
+                  const label = typeof context.label === 'string' || typeof context.label === 'number' ? String(context.label) : ''
+                  return `${label}: ${value} (${pct.toFixed(1)}%)`
+                }
+              }
             }
           },
           animation: {
