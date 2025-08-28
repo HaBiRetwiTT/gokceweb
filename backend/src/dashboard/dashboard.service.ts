@@ -2854,6 +2854,7 @@ async getChartDataByTimePeriod(
             ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays
+        , SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
       FROM tblKonaklama 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
@@ -2938,7 +2939,8 @@ async getChartDataByTimePeriod(
                 THEN DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104))
                 ELSE DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104))
               END
-            ) as TotalDays
+            ) as TotalDays,
+            SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
           FROM tblKonaklama 
           WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
             AND (
@@ -2952,7 +2954,8 @@ async getChartDataByTimePeriod(
         wr.Year,
         wr.WeekNumber,
         ISNULL(kd.Count, 0) as Count,
-        ISNULL(kd.TotalDays, 0) as TotalDays
+        ISNULL(kd.TotalDays, 0) as TotalDays,
+        ISNULL(kd.TotalAmount, 0) as TotalAmount
       FROM WeekRanges wr
       LEFT JOIN KonaklamaData kd ON wr.Year = kd.Year AND wr.WeekNumber = kd.WeekNumber
       ORDER BY wr.Year, wr.WeekNumber
@@ -2970,7 +2973,7 @@ async getChartDataByTimePeriod(
     
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 HAFTALAR sonuç:', result.length, 'hafta bulundu')
-    console.log('📊 Hafta detayları:', result.map(r => ({ Year: r.Year, Week: r.WeekNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    console.log('📊 Hafta detayları:', result.map(r => ({ Year: r.Year, Week: r.WeekNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     return result
   }
   
@@ -3016,7 +3019,8 @@ async getChartDataByTimePeriod(
             THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
             ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
           END
-        ) as TotalDays
+        ) as TotalDays,
+        SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
       FROM tblKonaklama 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
@@ -3040,7 +3044,7 @@ async getChartDataByTimePeriod(
     
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 AYLAR sonuç:', result.length, 'ay bulundu')
-    console.log('📊 Ay detayları:', result.map(r => ({ Year: r.Year, Month: r.MonthNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    console.log('📊 Ay detayları:', result.map(r => ({ Year: r.Year, Month: r.MonthNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     
     return result
   }
@@ -3087,7 +3091,8 @@ async getChartDataByTimePeriod(
             THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
             ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
           END
-        ) as TotalDays
+        ) as TotalDays,
+        SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
       FROM tblKonaklama 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
@@ -3111,7 +3116,7 @@ async getChartDataByTimePeriod(
     
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 ÇEYREKLER sonuç:', result.length, 'çeyrek bulundu')
-    console.log('📊 Çeyrek detayları:', result.map(r => ({ Year: r.Year, Quarter: r.QuarterNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    console.log('📊 Çeyrek detayları:', result.map(r => ({ Year: r.Year, Quarter: r.QuarterNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     
     return result
   }
@@ -3161,7 +3166,8 @@ async getChartDataByTimePeriod(
             THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
             ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
           END
-        ) as TotalDays
+        ) as TotalDays,
+        SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
       FROM tblKonaklama 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
@@ -3189,7 +3195,7 @@ async getChartDataByTimePeriod(
     
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 YARI YILLAR sonuç:', result.length, 'yarı yıl bulundu')
-    console.log('📊 Yarı yıl detayları:', result.map(r => ({ Year: r.Year, HalfYear: r.HalfYear, Count: r.Count, TotalDays: r.TotalDays })))
+    console.log('📊 Yarı yıl detayları:', result.map(r => ({ Year: r.Year, HalfYear: r.HalfYear, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     
     return result
   }
@@ -3235,7 +3241,8 @@ async getChartDataByTimePeriod(
             THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
             ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
           END
-        ) as TotalDays
+        ) as TotalDays,
+        SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
       FROM tblKonaklama 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
@@ -3259,7 +3266,7 @@ async getChartDataByTimePeriod(
     
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 YILLAR sonuç:', result.length, 'yıl bulundu')
-    console.log('📊 Yıl detayları:', result.map(r => ({ Year: r.Year, Count: r.Count, TotalDays: r.TotalDays })))
+    console.log('📊 Yıl detayları:', result.map(r => ({ Year: r.Year, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     
     return result
   }

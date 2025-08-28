@@ -184,14 +184,24 @@
             </q-card-section>
           </q-card>
 
-          <!-- Bar Chart Container - Konaklama Günleri -->
-          <q-card class="chart-card bar-chart-single q-mb-lg">
-            <q-card-section class="chart-section">
-                <div class="chart-container">
-                  <canvas ref="chartCanvasDays" width="400" height="200"></canvas>
-                </div>
-            </q-card-section>
-          </q-card>
+          <!-- Row: Toplam Konaklama Günleri (sol) + Toplam Konaklama Tutarı (sağ) -->
+          <div class="bar-charts-row q-mb-lg">
+            <q-card class="chart-card bar-chart-left">
+              <q-card-section class="chart-section">
+                  <div class="chart-container">
+                    <canvas ref="chartCanvasDays" width="400" height="200"></canvas>
+                  </div>
+              </q-card-section>
+            </q-card>
+
+            <q-card class="chart-card bar-chart-right">
+              <q-card-section class="chart-section">
+                  <div class="chart-container">
+                    <canvas ref="chartCanvasAmount" width="400" height="200"></canvas>
+                  </div>
+              </q-card-section>
+            </q-card>
+          </div>
         </div>
 
 
@@ -223,6 +233,14 @@ import type { LegendItem, Chart as ChartType, TooltipItem } from 'chart.js'
 // Date state - başlangıç tarihi boş başlar
 const startDate = ref<string>('')
 
+// Yardımcı: Bar üstü etiketleri için K formatı (küsuratsız)
+const formatToK = (n: number): string => {
+  if (!isFinite(n)) return '0'
+  const abs = Math.abs(n)
+  if (abs >= 1000) return `${Math.round(n / 1000)}K`
+  return `${Math.round(n)}`
+}
+
 // Popup references with proper typing
 const startPicker = ref<QPopupProxy | null>(null)
 
@@ -231,6 +249,8 @@ const chartCanvas = ref<HTMLCanvasElement | null>(null)
 const chartInstance = ref<ChartType | null>(null)
 const chartCanvasDays = ref<HTMLCanvasElement | null>(null)
 const chartInstanceDays = ref<ChartType | null>(null)
+const chartCanvasAmount = ref<HTMLCanvasElement | null>(null)
+const chartInstanceAmount = ref<ChartType | null>(null)
 const pieChartAccommodation = ref<HTMLCanvasElement | null>(null)
 const pieChartAccommodationInstance = ref<ChartType | null>(null)
 const pieChartRoomType = ref<HTMLCanvasElement | null>(null)
@@ -383,7 +403,7 @@ const loadChartData = async () => {
 }
 
 // Chart update method
-const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: number; MonthNumber?: number; QuarterNumber?: number; HalfYear?: number; Count: number; TotalDays: number }>, timePeriod: string) => {
+const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: number; MonthNumber?: number; QuarterNumber?: number; HalfYear?: number; Count: number; TotalDays: number; TotalAmount?: number }>, timePeriod: string) => {
   console.log('🎨 updateChart çağrıldı:', { dataLength: data?.length, timePeriod, hasCanvas: !!chartCanvas.value })
   
   if (!chartCanvas.value) {
@@ -409,6 +429,9 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
   if (chartInstanceDays.value) {
     chartInstanceDays.value.destroy()
   }
+  if (chartInstanceAmount.value) {
+    chartInstanceAmount.value.destroy()
+  }
   
   // Prepare chart data
   const labels = data.map(item => {
@@ -432,6 +455,7 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
   
   const counts = data.map(item => item.Count)  // ✅ reverse() kaldırıldı
   const totalDays = data.map(item => item.TotalDays)  // Konaklama günleri
+  const totalAmount = data.map(item => Number(item.TotalAmount || 0)) // Toplam tutar
   
   // Create new chart
   const ctx = chartCanvas.value.getContext('2d')
@@ -562,9 +586,9 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
                   ctx.textBaseline = 'bottom'
                   
                   const series = dataset as { data: Array<number | string> }
-                  const dataValue = series.data[index]
+                  const dataValue = Number(series.data[index] ?? 0)
                   if (dataValue !== null && dataValue !== undefined) {
-                    const dataString = dataValue.toString()
+                    const dataString = formatToK(dataValue)
                     ctx.fillText(dataString, point.x, point.y - 8)
                   }
                   
@@ -711,13 +735,130 @@ const updateChart = (data: Array<{ Date?: string; Year?: number; WeekNumber?: nu
                   ctx.textBaseline = 'bottom'
                   
                   const series = dataset as { data: Array<number | string> }
-                  const dataValue = series.data[index]
+                  const dataValue = Number(series.data[index] ?? 0)
                   if (dataValue !== null && dataValue !== undefined) {
-                    const dataString = dataValue.toString()
+                    const dataString = formatToK(dataValue)
                     ctx.fillText(dataString, point.x, point.y - 8)
                   }
                   
                   // Shadow'u temizle
+                  ctx.shadowColor = 'transparent'
+                  ctx.shadowOffsetX = 0
+                  ctx.shadowOffsetY = 0
+                  ctx.shadowBlur = 0
+                }
+              })
+            }
+          })
+        }
+      }]
+    })
+  }
+
+  // Create third chart for total amount
+  const ctxAmount = chartCanvasAmount.value?.getContext('2d')
+  if (ctxAmount) {
+    chartInstanceAmount.value = new Chart(ctxAmount, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Toplam Tutar (₺)',
+          data: totalAmount,
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.85)',
+            'rgba(16, 185, 129, 0.85)',
+            'rgba(234, 179, 8, 0.85)',
+            'rgba(99, 102, 241, 0.85)',
+            'rgba(244, 63, 94, 0.85)',
+            'rgba(52, 211, 153, 0.85)',
+            'rgba(250, 204, 21, 0.85)',
+            'rgba(147, 51, 234, 0.85)',
+            'rgba(251, 113, 133, 0.85)',
+            'rgba(20, 184, 166, 0.85)',
+            'rgba(99, 102, 241, 0.85)',
+            'rgba(234, 179, 8, 0.85)'
+          ],
+          borderColor: [
+            'rgba(59, 130, 246, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(234, 179, 8, 1)',
+            'rgba(99, 102, 241, 1)',
+            'rgba(244, 63, 94, 1)',
+            'rgba(52, 211, 153, 1)',
+            'rgba(250, 204, 21, 1)',
+            'rgba(147, 51, 234, 1)',
+            'rgba(251, 113, 133, 1)',
+            'rgba(20, 184, 166, 1)',
+            'rgba(99, 102, 241, 1)',
+            'rgba(234, 179, 8, 1)'
+          ],
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: 'Toplam Konaklama Tutarı',
+            color: '#ffffff',
+            font: {
+              size: 14,
+              weight: 'bold'
+            },
+            padding: { top: 2, bottom: 10 },
+            align: 'start'
+          },
+          legend: { display: false },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#ffffff', font: { size: 12, weight: 'bold' } },
+            grid: { display: false }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#ffffff', font: { size: 12, weight: 'bold' } },
+            grid: { color: 'rgba(255, 255, 255, 0.1)', lineWidth: 1 }
+          }
+        },
+        animation: { duration: 1200, easing: 'easeInOutQuart' }
+      },
+      plugins: [{
+        id: 'dataLabelsAmount',
+        afterDatasetsDraw: function(chart: ChartType) {
+          const ctx = chart.ctx
+          // Değerleri K formatında (küsuratsız) yaz
+          chart.data.datasets.forEach((dataset: unknown, i: number) => {
+            const meta = chart.getDatasetMeta(i)
+            if (!meta.hidden) {
+              meta.data.forEach((element: unknown, index: number) => {
+                const point = element as { x: number; y: number }
+                if (point && point.x !== undefined && point.y !== undefined) {
+                  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+                  ctx.shadowOffsetX = 2
+                  ctx.shadowOffsetY = 2
+                  ctx.shadowBlur = 4
+
+                  ctx.fillStyle = '#ffffff'
+                  ctx.font = 'bold 12px Arial'
+                  ctx.textAlign = 'center'
+                  ctx.textBaseline = 'bottom'
+
+                  const series = dataset as { data: Array<number | string> }
+                  const dataValue = Number(series.data[index] ?? 0)
+                  const dataString = formatToK(dataValue)
+                  ctx.fillText(dataString, point.x, point.y - 8)
+
                   ctx.shadowColor = 'transparent'
                   ctx.shadowOffsetX = 0
                   ctx.shadowOffsetY = 0
@@ -952,6 +1093,7 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          radius: '100%',
           plugins: {
             title: {
               display: true,
@@ -1030,6 +1172,7 @@ const updatePieCharts = (data: { accommodation: Array<{ Type: string; Count: num
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          radius: '100%',
           plugins: {
             title: {
               display: true,
@@ -1350,13 +1493,34 @@ onMounted(() => {
   flex-direction: column;
   margin-left: -85rem;
   margin-top: 4.9rem;
+  min-width: 581px;
   max-width: 581px;
 }
 
 .bar-chart-single {
   width: 100%;
+}
+
+.bar-charts-row {
+  display: flex;
+  gap: 1.4rem;
+  margin-bottom: -15px;
+}
+
+.bar-chart-left {
+  flex: 1;
+  min-width: 581px;
   min-height: 200px;
-  margin-bottom: 1rem;
+  margin-top: -7px;
+  margin-bottom: 10px;
+}
+
+.bar-chart-right {
+  flex: 1.4; /* sağ grafiği daha geniş yap */
+  min-width: 760px;
+  min-height: 200px;
+  margin-top: -37px;
+  margin-bottom: 10px;
 }
 
 .bar-chart-single:last-child {
@@ -1383,15 +1547,17 @@ onMounted(() => {
   flex-direction: column;
   gap: 1rem;
   min-width: 350px;
+  min-height: 360px;
+  height: 360px;
 }
 
 .pie-chart {
-  min-height: 350px;
-  height: 350px;
+  min-height: 360px;
+  height: 360px;
 }
 
 .pie-chart .chart-container {
-  height: 320px;
+  height: 360px;
   width: 100%;
 }
 
@@ -1421,12 +1587,12 @@ onMounted(() => {
   
   .pie-chart {
     flex: 1;
-    min-height: 300px;
-    height: 300px;
+    min-height: 360px;
+    height: 360px;
   }
   
   .pie-chart .chart-container {
-    height: 290px;
+    height: 360px;
   }
   .pie-chart .chart-container canvas { width: 100% !important; height: 100% !important; }
 }
@@ -1458,12 +1624,12 @@ onMounted(() => {
   }
   
   .pie-chart {
-    min-height: 270px;
-    height: 270px;
+    min-height: 360px;
+    height: 360px;
   }
   
   .pie-chart .chart-container {
-    height: 240px;
+    height: 360px;
   }
   .pie-chart .chart-container canvas { width: 100% !important; height: 100% !important; }
 }

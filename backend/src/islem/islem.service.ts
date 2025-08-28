@@ -210,6 +210,7 @@ export class IslemService {
 
       // İşlem türü filtresi (6'lı radio için islemArac alanı)
       let islemAracFilter = '';
+      let depozitoFilter = '';
       if (islemArac) {
         // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
         let dbIslemArac = '';
@@ -230,12 +231,18 @@ export class IslemService {
             dbIslemArac = 'Acenta Tahsilat';
             break;
           case 'depozito':
+            // Depozito kayıtları çoğunlukla islemArac alanında değil, islemBilgi içinde işaretleniyor.
+            // Bu yüzden islemArac filtresi uygulamak yerine, islemBilgi bazlı filtre kullanıyoruz.
             dbIslemArac = 'Depozito';
+            depozitoFilter = `AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
             break;
           default:
             dbIslemArac = islemArac;
         }
-        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        // Depozito seçildiyse islemArac filtresi uygulanmaz; diğerlerinde uygulanır
+        if (islemArac !== 'depozito') {
+          islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        }
       }
 
       // İşlem yönü filtresi (2'li radio için islemTip alanı) - ANA TABLO İÇİN GEREKSİZ
@@ -243,7 +250,7 @@ export class IslemService {
       // Ana tablo günlük özet olduğu için islemTip filtresi eklenmiyor
       // Detay tabloda islemTip filtresi kullanılıyor
 
-      console.log('🔍 Filtreler:', { islemAracFilter, islemTipFilter })
+      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter })
 
       // Toplam kayıt sayısını al
       const countQuery = `
@@ -251,6 +258,7 @@ export class IslemService {
         FROM ${schemaName}.${tableName}
         WHERE 1=1
         ${islemAracFilter}
+        ${depozitoFilter}
       `;
 
       console.log('🔍 Count Query:', countQuery)
@@ -263,15 +271,25 @@ export class IslemService {
       // Sayfalama hesaplamaları
       const offset = (page - 1) * rowsPerPage;
 
-      // Ana sorgu
+      // Ana sorgu - Depozito için gelir/gider islemBilgi'ye göre toplanır
+      const gelirExpr =
+        islemArac === 'depozito'
+          ? "SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar ELSE 0 END)"
+          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} THEN islemTutar ELSE 0 END)`;
+      const giderExpr =
+        islemArac === 'depozito'
+          ? "SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar ELSE 0 END)"
+          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} THEN islemTutar ELSE 0 END)`;
+
       const query = `
         SELECT 
           CONVERT(VARCHAR(10), iKytTarihi, 104) as iKytTarihi,
-          SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} THEN islemTutar ELSE 0 END) as gelir,
-          SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} THEN islemTutar ELSE 0 END) as gider
+          ${gelirExpr} as gelir,
+          ${giderExpr} as gider
         FROM ${schemaName}.${tableName}
         WHERE 1=1
         ${islemAracFilter}
+        ${depozitoFilter}
         GROUP BY CONVERT(VARCHAR(10), iKytTarihi, 104), CONVERT(DATE, iKytTarihi, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
@@ -436,6 +454,7 @@ export class IslemService {
 
       // İşlem türü filtresi (6'lı radio için islemArac alanı)
       let islemAracFilter = '';
+      let depozitoFilter = '';
       if (islemArac) {
         // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
         let dbIslemArac = '';
@@ -457,26 +476,38 @@ export class IslemService {
             break;
           case 'depozito':
             dbIslemArac = 'Depozito';
+            // Depozito kayıtları çoğunlukla islemArac alanında tutulmuyor; islemBilgi ile belirleniyor
+            depozitoFilter = `AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
             break;
           default:
             dbIslemArac = islemArac;
         }
-        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        // Depozito seçildiyse islemArac filtresi uygulama; diğerlerinde uygula
+        if (islemArac !== 'depozito') {
+          islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        }
       }
 
       // İşlem yönü filtresi (2'li radio için islemTip alanı)
       let islemTipFilter = '';
       if (islemTip) {
-        // Frontend'den gelen islemTip değerini islemArac seçimine göre doğru veritabanı değerine çevir
-        let dbIslemTip = '';
-        if (islemArac === 'cari') {
-          // Cari İşlem için GELİR/GİDER kullan
-          dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
+        // Depozito için yön filtrelemesini islemBilgi ile yap
+        if (islemArac === 'depozito') {
+          if (islemTip === 'Giren') {
+            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'`;
+          } else if (islemTip === 'Çıkan') {
+            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%'`;
+          }
         } else {
-          // Diğer islemArac seçimleri için Giren/Çıkan kullan
-          dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
+          // Diğerleri için mevcut eşleme
+          let dbIslemTip = '';
+          if (islemArac === 'cari') {
+            dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
+          } else {
+            dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
+          }
+          islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
         }
-        islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
       }
 
       console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter })
@@ -493,6 +524,7 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
+        ${depozitoFilter}
       `;
 
       console.log('🔍 Detay Count Query:', countQuery)
@@ -520,6 +552,7 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
+        ${depozitoFilter}
         ORDER BY islemNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
