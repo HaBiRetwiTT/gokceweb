@@ -432,7 +432,7 @@ export class DashboardService {
       const result: any[] = await this.musteriRepository.query(query);
       const tipler = result.map((item: any) => (item as { KnklmOdaTip: string }).KnklmOdaTip);
       return ['TÜMÜ', ...tipler];
-    } catch (error) {
+      } catch (error) {
       console.error('getOdaTipleri hatası:', error);
       return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
     }
@@ -480,7 +480,7 @@ export class DashboardService {
       const finalResult = ['TÜMÜ', ...odaTipleri.sort()];
       
       return finalResult;
-    } catch (error) {
+      } catch (error) {
       console.error('getOdaTipleriByKonaklama hatası:', error);
       return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
     }
@@ -570,7 +570,7 @@ export class DashboardService {
       const konaklamaTipleri = [...new Set(musteriListesi.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
       
       return ['TÜMÜ', ...konaklamaTipleri.sort()];
-    } catch (error) {
+      } catch (error) {
       console.error('getDinamikKonaklamaTipleri hatası:', error);
       return ['TÜMÜ', 'GÜNLÜK', 'HAFTALIK', 'AYLIK'];
     }
@@ -804,7 +804,7 @@ export class DashboardService {
         SuresiGecentOda: number | string | null;
       }>;
       return result;
-    } catch (error) {
+      } catch (error) {
       console.error('getOdaDolulukDurumu hatası:', error);
       return [];
     }
@@ -986,7 +986,7 @@ export class DashboardService {
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 
       return result;
-    } catch (error) {
+      } catch (error) {
       console.error('getSuresiDolanMusteri hatası:', error);
       throw new Error('Süresi dolan müşteri listesi alınamadı');
     }
@@ -1124,7 +1124,7 @@ export class DashboardService {
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
       
       return result;
-    } catch (error) {
+      } catch (error) {
       console.error('getYeniMusteri hatası:', error);
       throw new Error('Yeni müşteri listesi alınamadı');
     }
@@ -1711,7 +1711,7 @@ export class DashboardService {
       
       if (result.length > 0) {
         const kayit = result[0];
-        return {
+      return {
           isKaraListe: kayit.KnklmKrLst === 'EVET',
           karaListeNot: kayit.KnklmNot || '',
           knklmNo: kayit.knklmNo,
@@ -2537,7 +2537,7 @@ export class DashboardService {
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;
           }
-        } catch (error) {
+    } catch (error) {
           this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
@@ -2557,7 +2557,7 @@ export class DashboardService {
         // Türkçe karakter desteği için font yükle
         try {
           doc.font('./fonts/DejaVuSans.ttf');
-        } catch (error) {
+    } catch (error) {
           this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
@@ -2672,7 +2672,7 @@ export class DashboardService {
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;
           }
-        } catch (error) {
+    } catch (error) {
           this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
@@ -2692,7 +2692,7 @@ export class DashboardService {
         // Türkçe karakter desteği için font yükle
         try {
           doc.font('./fonts/DejaVuSans.ttf');
-        } catch (error) {
+    } catch (error) {
           this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
@@ -2782,6 +2782,488 @@ export class DashboardService {
     }
   }
 
+// ... existing code ...
+
+async getChartDataByTimePeriod(
+  selectedAccommodationTypes: string[],
+  selectedRoomTypes: string[],
+  startDate: string,
+  timePeriod: string
+) {
+  switch (timePeriod) {
+    case 'gunler':
+      return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    case 'haftalar':
+      return this.getChartDataByWeeks(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    case 'aylar':
+      return this.getChartDataByMonths(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    case 'ceyrekler':
+      return this.getChartDataByQuarters(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    case 'yarı-yillar':
+      return this.getChartDataByHalfYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    case 'yillar':
+      return this.getChartDataByYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    default:
+      return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
+  }
+}
+  
+  // Chart data methods for different time periods
+  async getChartDataByDays(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByDays çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: startDate varsa o tarihten SONRAKİ 12 gün, yoksa bugünden ÖNCEKİ 12 gün
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      // Verilen tarih formatını SQL Server'a uygun hale getir
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Seçilen tarihten SONRA 11 gün (seçilen tarih dahil toplam 12 gün)
+      const endDate = new Date(baseDate.getTime() + 11 * 24 * 60 * 60 * 1000)
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 gün + bugün (toplam 12 gün)
+      const startDateObj = new Date(today.getTime() - 11 * 24 * 60 * 60 * 1000)
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    console.log('🔍 Tarih aralığı:', { sqlStartDate, sqlEndDate })
+    
+    const query = `
+      SELECT 
+        CONVERT(DATE, KnklmGrsTrh, 104) as Date,
+        COUNT(*) as Count,
+        SUM(
+          CASE 
+            WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+          END
+        ) as TotalDays
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY CONVERT(DATE, KnklmGrsTrh, 104)
+      ORDER BY Date
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 SQL Query:', query)
+    console.log('🔍 SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('🔍 GÜNLER sonuç:', result.length, 'gün bulundu')
+    console.log('🔍 SQL Result:', result.map(r => ({ Date: r.Date, Count: r.Count, TotalDays: r.TotalDays })))
+    
+    return result
+  }
+  
+  async getChartDataByWeeks(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByWeeks çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: son 12 hafta mantığı
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Seçilen tarihten SONRA 11 hafta (seçilen tarih dahil toplam 12 hafta)
+      const endDate = new Date(baseDate.getTime() + 11 * 7 * 24 * 60 * 60 * 1000)
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 hafta + bu hafta (toplam 12 hafta)
+      const startDateObj = new Date(today.getTime() - 11 * 7 * 24 * 60 * 60 * 1000)
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    console.log('🔍 Hafta tarih aralığı:', { sqlStartDate, sqlEndDate })
+    
+    const query = `
+      WITH WeekRanges AS (
+        -- 12 haftalık periyot için hafta listesi oluştur (başlangıç tarihinden ileriye doğru)
+        SELECT 
+          YEAR(DATEADD(WEEK, n.number, @${selectedAccommodationTypes.length + selectedRoomTypes.length})) as Year,
+          DATEPART(WEEK, DATEADD(WEEK, n.number, @${selectedAccommodationTypes.length + selectedRoomTypes.length})) as WeekNumber,
+          DATEADD(WEEK, n.number, @${selectedAccommodationTypes.length + selectedRoomTypes.length}) as WeekStartDate
+        FROM (
+          SELECT 0 as number UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 
+          UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11
+        ) n
+      ),
+              KonaklamaData AS (
+          SELECT 
+            YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+            DATEPART(WEEK, CONVERT(DATE, KnklmGrsTrh, 104)) as WeekNumber,
+            COUNT(*) as Count,
+            SUM(
+              CASE 
+                WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+                THEN DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104))
+                ELSE DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104))
+              END
+            ) as TotalDays
+          FROM tblKonaklama 
+          WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+            AND (
+              ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+            )
+            AND KnklmGrsTrh IS NOT NULL
+            AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+          GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(WEEK, CONVERT(DATE, KnklmGrsTrh, 104))
+        )
+      SELECT 
+        wr.Year,
+        wr.WeekNumber,
+        ISNULL(kd.Count, 0) as Count,
+        ISNULL(kd.TotalDays, 0) as TotalDays
+      FROM WeekRanges wr
+      LEFT JOIN KonaklamaData kd ON wr.Year = kd.Year AND wr.WeekNumber = kd.WeekNumber
+      ORDER BY wr.Year, wr.WeekNumber
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 HAFTALAR SQL Query:', query)
+    console.log('🔍 HAFTALAR SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('📊 HAFTALAR sonuç:', result.length, 'hafta bulundu')
+    console.log('📊 Hafta detayları:', result.map(r => ({ Year: r.Year, Week: r.WeekNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    return result
+  }
+  
+  async getChartDataByMonths(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByMonths çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: son 12 ay mantığı
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Seçilen tarihten 11 ay sonra (seçilen tarih dahil toplam 12 ay)
+      const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 11, baseDate.getDate())
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 ay + bu ay (toplam 12 ay)
+      const startDateObj = new Date(today.getFullYear(), today.getMonth() - 11, today.getDate())
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    const query = `
+      SELECT 
+        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) as MonthNumber,
+        COUNT(*) as Count,
+        SUM(
+          CASE 
+            WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+          END
+        ) as TotalDays
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), MONTH(CONVERT(DATE, KnklmGrsTrh, 104))
+      ORDER BY Year, MonthNumber
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 AYLAR SQL Query:', query)
+    console.log('🔍 AYLAR SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('📊 AYLAR sonuç:', result.length, 'ay bulundu')
+    console.log('📊 Ay detayları:', result.map(r => ({ Year: r.Year, Month: r.MonthNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    
+    return result
+  }
+  
+  async getChartDataByQuarters(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByQuarters çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: son 12 çeyrek mantığı
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Başlangıç tarihinden 11 çeyrek sonra (başlangıç dahil toplam 12 çeyrek)
+      const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 33, baseDate.getDate()) // 11*3=33 ay
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 çeyrek + bu çeyrek (toplam 12 çeyrek)
+      const startDateObj = new Date(today.getFullYear(), today.getMonth() - 33, today.getDate()) // 11*3=33 ay
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    const query = `
+      SELECT 
+        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        DATEPART(QUARTER, CONVERT(DATE, KnklmGrsTrh, 104)) as QuarterNumber,
+        COUNT(*) as Count,
+        SUM(
+          CASE 
+            WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+          END
+        ) as TotalDays
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(QUARTER, CONVERT(DATE, KnklmGrsTrh, 104))
+      ORDER BY Year, QuarterNumber
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 ÇEYREKLER SQL Query:', query)
+    console.log('🔍 ÇEYREKLER SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('📊 ÇEYREKLER sonuç:', result.length, 'çeyrek bulundu')
+    console.log('📊 Çeyrek detayları:', result.map(r => ({ Year: r.Year, Quarter: r.QuarterNumber, Count: r.Count, TotalDays: r.TotalDays })))
+    
+    return result
+  }
+  
+  async getChartDataByHalfYears(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByHalfYears çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: son 12 yarı yıl mantığı
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Başlangıç tarihinden 11 yarı yıl sonra (başlangıç dahil toplam 12 yarı yıl)
+      const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 66, baseDate.getDate()) // 11*6=66 ay
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 yarı yıl + bu yarı yıl (toplam 12 yarı yıl)
+      const startDateObj = new Date(today.getFullYear(), today.getMonth() - 66, today.getDate()) // 11*6=66 ay
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    const query = `
+      SELECT 
+        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        CASE 
+          WHEN MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
+          ELSE 2 
+        END as HalfYear,
+        COUNT(*) as Count,
+        SUM(
+          CASE 
+            WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+          END
+        ) as TotalDays
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), 
+        CASE 
+          WHEN MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
+          ELSE 2 
+        END
+      ORDER BY Year, HalfYear
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 YARI YILLAR SQL Query:', query)
+    console.log('🔍 YARI YILLAR SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('📊 YARI YILLAR sonuç:', result.length, 'yarı yıl bulundu')
+    console.log('📊 Yarı yıl detayları:', result.map(r => ({ Year: r.Year, HalfYear: r.HalfYear, Count: r.Count, TotalDays: r.TotalDays })))
+    
+    return result
+  }
+  
+  async getChartDataByYears(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
+    console.log('📊 getChartDataByYears çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
+    
+    // Tarih mantığı: son 12 yıl mantığı
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Başlangıç tarihinden 11 yıl sonra (başlangıç dahil toplam 12 yıl)
+      const endDate = new Date(baseDate.getFullYear() + 11, baseDate.getMonth(), baseDate.getDate())
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden önceki 11 yıl + bu yıl (toplam 12 yıl)
+      const startDateObj = new Date(today.getFullYear() - 11, today.getMonth(), today.getDate())
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    const query = `
+      SELECT 
+        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        COUNT(*) as Count,
+        SUM(
+          CASE 
+            WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
+            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+          END
+        ) as TotalDays
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104))
+      ORDER BY Year
+    `
+    
+    const params = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      sqlStartDate,
+      sqlEndDate
+    ]
+    
+    console.log('📊 YILLAR SQL Query:', query)
+    console.log('🔍 YILLAR SQL Params:', params)
+    
+    const result = await this.musteriRepository.query(query, params)
+    console.log('📊 YILLAR sonuç:', result.length, 'yıl bulundu')
+    console.log('📊 Yıl detayları:', result.map(r => ({ Year: r.Year, Count: r.Count, TotalDays: r.TotalDays })))
+    
+    return result
+  }
+
   // Yardımcı fonksiyonlar
   private formatDate(dateString: string): string {
     if (!dateString) return '';
@@ -2816,6 +3298,150 @@ export class DashboardService {
       style: 'currency',
       currency: 'TRY'
     }).format(amount);
+  }
+
+  async getPieChartData(
+    selectedAccommodationTypes: string[],
+    selectedRoomTypes: string[],
+    startDate: string,
+    timePeriod: string
+  ) {
+    console.log('🥧 getPieChartData çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate, timePeriod })
+    
+    // Tarih aralığını hesapla
+    const dateRange = this.calculateDateRange(startDate, timePeriod)
+    
+    // Konaklama tipi dağılımı
+    const accommodationQuery = `
+      SELECT 
+        KnklmTip as Type,
+        COUNT(*) as Count
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY KnklmTip
+      ORDER BY Count DESC
+    `
+    
+    const accommodationParams = [
+      ...selectedAccommodationTypes,
+      ...selectedRoomTypes.map(roomType => `%${roomType}%`),
+      dateRange.sqlStartDate,
+      dateRange.sqlEndDate
+    ]
+    
+    console.log('🥧 Accommodation SQL:', accommodationQuery)
+    console.log('🥧 Accommodation Params:', accommodationParams)
+    
+    const accommodationResult = await this.musteriRepository.query(accommodationQuery, accommodationParams)
+    
+    // Oda tipi dağılımı - sadece oda tipini al (diğer karakterleri filtrele)
+    const roomTypeQuery = `
+      SELECT 
+        CASE 
+          WHEN KnklmOdaTip LIKE '%Tek Kişilik%' THEN 'Tek Kişilik'
+          WHEN KnklmOdaTip LIKE '%2 Kişilik%' THEN '2 Kişilik'
+          WHEN KnklmOdaTip LIKE '%4 Kişilik%' THEN '4 Kişilik'
+          WHEN KnklmOdaTip LIKE '%Dormitory%' THEN 'Dormitory'
+          WHEN KnklmOdaTip LIKE '%Camsız%' THEN 'Camsız'
+          WHEN KnklmOdaTip LIKE '%Camlı%' THEN 'Camlı'
+          WHEN KnklmOdaTip LIKE '%(A)%' THEN '(A)'
+          WHEN KnklmOdaTip LIKE '%+TV%' THEN '+TV'
+          ELSE 'Diğer'
+        END as Type,
+        COUNT(*) as Count
+      FROM tblKonaklama 
+      WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
+        AND (
+          ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
+        )
+        AND KnklmGrsTrh IS NOT NULL
+        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY 
+        CASE 
+          WHEN KnklmOdaTip LIKE '%Tek Kişilik%' THEN 'Tek Kişilik'
+          WHEN KnklmOdaTip LIKE '%2 Kişilik%' THEN '2 Kişilik'
+          WHEN KnklmOdaTip LIKE '%4 Kişilik%' THEN '4 Kişilik'
+          WHEN KnklmOdaTip LIKE '%Dormitory%' THEN 'Dormitory'
+          WHEN KnklmOdaTip LIKE '%Camsız%' THEN 'Camsız'
+          WHEN KnklmOdaTip LIKE '%Camlı%' THEN 'Camlı'
+          WHEN KnklmOdaTip LIKE '%(A)%' THEN '(A)'
+          WHEN KnklmOdaTip LIKE '%+TV%' THEN '+TV'
+          ELSE 'Diğer'
+        END
+      ORDER BY Count DESC
+    `
+    
+    const roomTypeResult = await this.musteriRepository.query(roomTypeQuery, accommodationParams)
+    
+    console.log('🥧 Accommodation Result:', accommodationResult)
+    console.log('🥧 Room Type Result:', roomTypeResult)
+    
+    return {
+      accommodation: accommodationResult,
+      roomType: roomTypeResult
+    }
+  }
+
+  private calculateDateRange(startDate: string, timePeriod: string) {
+    const today = new Date()
+    let sqlStartDate: string
+    let sqlEndDate: string
+    
+    if (startDate && startDate.trim() !== '') {
+      const convertDateForSQL = (dateString: string) => {
+        if (dateString.includes('-')) return dateString
+        if (dateString.includes('.')) {
+          const [day, month, year] = dateString.split('.')
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        return dateString
+      }
+      
+      const baseDate = new Date(convertDateForSQL(startDate))
+      sqlStartDate = convertDateForSQL(startDate)
+      
+      // Seçilen tarihten sonraki periyotları hesapla
+      let endDate: Date
+      switch (timePeriod) {
+        case 'gunler':
+          endDate = new Date(baseDate.getTime() + 11 * 24 * 60 * 60 * 1000)
+          break
+        case 'haftalar':
+          endDate = new Date(baseDate.getTime() + 11 * 7 * 24 * 60 * 60 * 1000)
+          break
+        case 'aylar':
+          endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 11, baseDate.getDate())
+          break
+        default:
+          endDate = new Date(baseDate.getTime() + 11 * 24 * 60 * 60 * 1000)
+      }
+      sqlEndDate = endDate.toISOString().split('T')[0]
+    } else {
+      // Bugünden geriye periyotları hesapla
+      let startDateObj: Date
+      switch (timePeriod) {
+        case 'gunler':
+          startDateObj = new Date(today.getTime() - 11 * 24 * 60 * 60 * 1000)
+          break
+        case 'haftalar':
+          startDateObj = new Date(today.getTime() - 11 * 7 * 24 * 60 * 60 * 1000)
+          break
+        case 'aylar':
+          startDateObj = new Date(today.getFullYear(), today.getMonth() - 11, today.getDate())
+          break
+        default:
+          startDateObj = new Date(today.getTime() - 11 * 24 * 60 * 60 * 1000)
+      }
+      sqlStartDate = startDateObj.toISOString().split('T')[0]
+      sqlEndDate = today.toISOString().split('T')[0]
+    }
+    
+    return { sqlStartDate, sqlEndDate }
   }
 
 }

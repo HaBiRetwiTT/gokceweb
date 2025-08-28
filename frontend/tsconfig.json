@@ -45,6 +45,7 @@
   ],
   "exclude": [
     "node_modules",
-    "src/components/ExampleComponent.vue"
+    "src/components/ExampleComponent.vue",
+    "src/pages/DashboardPage_0ld.vue"
   ]
 }

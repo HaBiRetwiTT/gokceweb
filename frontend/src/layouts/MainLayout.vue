@@ -860,7 +860,7 @@ function openCalculator() {
   try {
     // Basit hesap makinesi popup'u
     const calculatorWindow = window.open('', 'calculator', 
-      'width=350,height=500,resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no');
+      'width=275,height=355,resizable=yes,scrollbars=no,status=no,toolbar=no,menubar=no,location=no');
     
     if (calculatorWindow) {
       const doc = calculatorWindow.document;
@@ -872,15 +872,13 @@ function openCalculator() {
       const slash = String.fromCharCode(47); // /
       
       const htmlStart = lt + 'html' + gt + lt + 'head' + gt + lt + 'title' + gt + 'Hesap Makinesi' + lt + slash + 'title' + gt + lt + slash + 'head' + gt;
-      const bodyStart = lt + 'body style="font-family: Arial; background: #f0f0f0; padding: 20px;"' + gt;
-      const containerStart = lt + 'div style="background: white; padding: 20px; border-radius: 10px; max-width: 300px;"' + gt;
-      const title = lt + 'h3 style="text-align: center; color: #333;"' + gt + 'Hesap Makinesi' + lt + slash + 'h3' + gt;
-      const display = lt + 'input type="text" id="calc-display" readonly style="width: 100%; padding: 10px; font-size: 20px; text-align: right; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 5px;"' + gt;
+      const bodyStart = lt + 'body style="font-family: Arial; background: #f0f0f0; padding: 15px;"' + gt;
+      const containerStart = lt + 'div style="background: white; padding: 15px; border-radius: 10px; max-width: 280px;"' + gt;
+      const display = lt + 'input type="text" id="calc-display" readonly style="width: 100%; padding: 8px; font-size: 18px; text-align: right; margin-bottom: 8px; border: 2px solid #ddd; border-radius: 5px;"' + gt;
       
       doc.write(htmlStart);
       doc.write(bodyStart);
       doc.write(containerStart);
-      doc.write(title);
       doc.write(display);
       
       // Butonlar
@@ -905,7 +903,7 @@ function openCalculator() {
             const width = btn === '0' ? '100%' : 'auto';
             const gridColumn = btn === '0' ? 'span 2' : 'auto';
             
-            const buttonHtml = lt + 'button onclick="handleClick(\'' + btn + '\')" style="padding: 15px; font-size: 18px; border: none; border-radius: 5px; background: ' + color + '; color: ' + textColor + '; cursor: pointer; grid-column: ' + gridColumn + '; width: ' + width + ';"' + gt + btn + lt + slash + 'button' + gt;
+            const buttonHtml = lt + 'button onclick="handleClick(\'' + btn + '\')" style="padding: 12px; font-size: 16px; border: none; border-radius: 5px; background: ' + color + '; color: ' + textColor + '; cursor: pointer; grid-column: ' + gridColumn + '; width: ' + width + ';"' + gt + btn + lt + slash + 'button' + gt;
             doc.write(buttonHtml);
           }
         });

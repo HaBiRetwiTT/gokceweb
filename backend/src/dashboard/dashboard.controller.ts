@@ -27,6 +27,55 @@ export class DashboardController {
     }
   }
 
+  @Get('chart')
+  async getChartData(
+    @Query('timePeriod') timePeriod: string,
+    @Query('accommodationTypes') accommodationTypes: string,
+    @Query('roomTypes') roomTypes: string,
+    @Query('startDate') startDate: string
+  ) {
+
+    console.log('📊 Chart endpoint çağrıldı:', { timePeriod, accommodationTypes, roomTypes, startDate })
+
+    const selectedAccommodationTypes = accommodationTypes.split(',')
+    const selectedRoomTypes = roomTypes.split(',')
+    
+    console.log('🔍 Parametreler:', { selectedAccommodationTypes, selectedRoomTypes })
+  
+    const result = await this.dashboardService.getChartDataByTimePeriod(
+      selectedAccommodationTypes,
+      selectedRoomTypes,
+      startDate,
+      timePeriod
+  )
+  
+  console.log('📊 Chart verisi döndü:', result)
+  return result
+}
+
+@Get('pie-data')
+async getPieChartData(
+  @Query('timePeriod') timePeriod: string,
+  @Query('accommodationTypes') accommodationTypes: string,
+  @Query('roomTypes') roomTypes: string,
+  @Query('startDate') startDate: string
+) {
+  console.log('🥧 Pie chart endpoint çağrıldı:', { timePeriod, accommodationTypes, roomTypes, startDate })
+  
+  const selectedAccommodationTypes = accommodationTypes.split(',')
+  const selectedRoomTypes = roomTypes.split(',')
+  
+  const result = await this.dashboardService.getPieChartData(
+    selectedAccommodationTypes,
+    selectedRoomTypes,
+    startDate,
+    timePeriod
+  )
+  
+  console.log('🥧 Pie chart verisi döndü:', result)
+  return result
+}
+
   // Alternatif: View'dan direkt sorgulama
   @Get('musteri-konaklama-view')
   async getMusteriKonaklamaView(@Query('tip') tip?: string) {
