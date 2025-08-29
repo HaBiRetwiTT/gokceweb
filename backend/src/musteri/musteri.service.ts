@@ -3069,11 +3069,15 @@ export class MusteriService {
       // Günün tarihi (işlem tarihi parametresi)
       const cikisTarihi = body.islemTarihi ? body.islemTarihi.split('T')[0].split('-').reverse().join('.') : this.formatDate(new Date());
       // En büyük KnklmNo'lu kaydı güncelle
-      // KnklmNot bilgisini güncelle: mevcut KnklmNot + ' -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'
+      // KnklmNot bilgisini güncelle: iadesiz ise ekstra not ekle
+      const iadesizCikis = Boolean(body?.giderKaydiOlmasin);
+      const knklmNotExpr = iadesizCikis
+        ? `ISNULL(KnklmNot, '') + ' -/- İADESİZ ERKEN ÇIKIŞ YAPILDI -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'`
+        : `ISNULL(KnklmNot, '') + ' -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'`;
       const updateKonaklamaQuery = `
         UPDATE ${schemaName}.tblKonaklama
         SET KnklmCksTrh = @1,
-            KnklmNot = ISNULL(KnklmNot, '') + ' -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'
+            KnklmNot = ${knklmNotExpr}
         WHERE KnklmMstrNo = @0
           AND KnklmNo = (SELECT MAX(KnklmNo) FROM ${schemaName}.tblKonaklama WHERE KnklmMstrNo = @0)
       `;
@@ -3082,27 +3086,32 @@ export class MusteriService {
       // 2. Oda-yatak kaydını KİRLİ yap
       await this.bosaltOdaYatakWithTransaction(queryRunner, body.odaYatak, body.kullaniciAdi);
 
-      // 3. tblislem'e GİDER kaydı ekle
+      // 3. tblislem'e GİDER kaydı ekle (iadesiz çıkışta atla)
       const storedProcedures = this.dbConfig.getStoredProcedures();
-      await this.transactionService.executeStoredProcedure(queryRunner, storedProcedures.islemEkle, [
-        this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
-        body.kullaniciAdi, // @1 - islemKllnc (artık dinamik, zorunlu)
-        cariKod, // @2 - islemCrKod
-        islemOzel1, // @3 - islemOzel1
-        islemOzel2, // @4 - islemOzel2
-        islemOzel3, // @5 - islemOzel3
-        '', // @6 - islemOzel4
-        'Cari İşlem', // @7 - islemArac
-        'GİDER', // @8 - islemTip
-        'Konaklama', // @9 - islemGrup
-        musteriData.MstrAdi, // @10 - islemAltG
-        this.addOdemeVadesiToIslemBilgi('ERKEN ÇIKIŞ FARKI', body.odemeVadesi), // @11 - islemBilgi (ödeme vadesi ile)
-        1.00, // @12 - islemMiktar
-        'ADET', // @13 - islemBirim
-        body.giderTutar, // @14 - islemTutar
-        'TL', // @15 - islemDoviz
-        1.00 // @16 - islemKur
-      ]);
+      const giderKaydiOlmasin = Boolean(body?.giderKaydiOlmasin);
+      if (!giderKaydiOlmasin) {
+        await this.transactionService.executeStoredProcedure(queryRunner, storedProcedures.islemEkle, [
+          this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
+          body.kullaniciAdi, // @1 - islemKllnc (artık dinamik, zorunlu)
+          cariKod, // @2 - islemCrKod
+          islemOzel1, // @3 - islemOzel1
+          islemOzel2, // @4 - islemOzel2
+          islemOzel3, // @5 - islemOzel3
+          '', // @6 - islemOzel4
+          'Cari İşlem', // @7 - islemArac
+          'GİDER', // @8 - islemTip
+          'Konaklama', // @9 - islemGrup
+          musteriData.MstrAdi, // @10 - islemAltG
+          this.addOdemeVadesiToIslemBilgi('ERKEN ÇIKIŞ FARKI', body.odemeVadesi), // @11 - islemBilgi (ödeme vadesi ile)
+          1.00, // @12 - islemMiktar
+          'ADET', // @13 - islemBirim
+          body.giderTutar, // @14 - islemTutar
+          'TL', // @15 - islemDoviz
+          1.00 // @16 - islemKur
+        ]);
+      } else {
+        console.log('[erkenCikisYap] İADESİZ çıkış tespit edildi; gider kaydı oluşturulmadı.');
+      }
 
       // 4. EN SON: tblMusteri'de MstrDurum 'AYRILDI' yap
       const updateDurumQuery = `UPDATE ${schemaName}.tblMusteri SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
