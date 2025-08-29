@@ -197,7 +197,7 @@
           @focus="onSearchFocus"
           @blur="onSearchBlur"
           debounce="300"
-          placeholder="En az 3 rakam yada 7 karakter"
+          placeholder="3 rakam yada en az 7 karakter"
         >
           <template v-slot:prepend>
             <q-icon name="search" />
@@ -2774,6 +2774,11 @@ async function refreshData() {
   window.kartliIslemSelectedNormalMusteri = null
   selectedCustomer.value = null
   window.dispatchEvent(new Event('ekHizmetlerMusteriChanged'));
+  // 🔥 Yenilemede bakiye/depozito göstergelerini de sıfırla
+  selectedMusteriBakiye.value = 0
+  selectedMusteriDepozito.value = 0
+  selectedFirmaBakiye.value = 0
+  ;(window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0
   
   sortingInProgress = false  // Manuel yenileme için API çağrısına izin ver
   
@@ -3788,6 +3793,13 @@ function onSearchChange(newValue: string | number | null) {
     filteredBorcluMusteriListesi.value = []
     filteredBakiyesizHesaplarListesi.value = []
     filteredCariHareketlerListesi.value = []
+
+    // 🔥 Seçimi ve bakiyeleri de sıfırla
+    selectedNormalMusteri.value = null
+    selectedMusteriBakiye.value = 0
+    selectedMusteriDepozito.value = 0
+    selectedFirmaBakiye.value = 0
+    ;(window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0
   }
   
   void performSearch(searchValue)
@@ -5436,6 +5448,14 @@ watch(selectedNormalMusteri, (val) => {
   window.kartliIslemSelectedNormalMusteri = val ?? null;
   console.log('🔥 selectedNormalMusteri değişti:', val?.MstrAdi || 'BOŞ');
   
+  // 🔥 Hiç müşteri seçili değilse bakiye ve depozito göstergelerini temizle
+  if (!val) {
+    selectedMusteriBakiye.value = 0;
+    selectedMusteriDepozito.value = 0;
+    selectedFirmaBakiye.value = 0;
+    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
+  }
+
   // 🔥 Eğer Cari Hareketler tablosu görünüyorsa ve müşteri değiştiyse, tabloyu güncelle
   if (showCariHareketler.value && val && currentFilter.value && ['normal-musteriler', 'suresi-dolan', 'bugun-cikan', 'yeni-musteri', 'yeni-giris', 'toplam-aktif'].includes(currentFilter.value)) {
     console.log('🔥 Cari Hareketler tablosu güncelleniyor, yeni müşteri:', val.MstrAdi);

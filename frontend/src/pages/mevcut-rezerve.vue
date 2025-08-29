@@ -120,9 +120,8 @@
                 }"
               >
                 <div class="doluluk-indicator">
-                  <!-- Ana İçerik - Sadece dolu hücrelerde göster -->
-                  <div v-if="doluluk.dolu" class="hucre-content">
-                    <div class="cell-top" :style="getTopStyle(doluluk)">
+                  <div class="hucre-content">
+                    <div v-if="doluluk.dolu" class="cell-top" :style="getTopStyle(doluluk)">
                       <div class="dolu-sayisi">D: {{ doluluk.konaklamaDetaylari.length }}</div>
                       <div class="bos-sayisi" :class="{ 'sifir-deger': doluluk.bosYatakSayisi === 0 }">B: {{ doluluk.bosYatakSayisi }}</div>
                       <!-- Tooltip: YALNIZCA ÜST BÖLÜMDE AKTİF -->
@@ -175,7 +174,7 @@
                         </div>
                       </q-tooltip>
                     </div>
-                    <div class="cell-bottom" :style="getBottomStyle(doluluk)">
+                    <div class="cell-bottom" :style="getBottomStyle(doluluk as any)">
                       <div 
                         v-if="(doluluk as any).rezervasyonSayisi && (doluluk as any).rezervasyonSayisi > 0"
                         class="rezerve-sayisi neutral-stat"

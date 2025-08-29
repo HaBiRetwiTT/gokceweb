@@ -146,10 +146,11 @@
         class="new-record-modal draggable-modal"
       >
         <q-card-section class="modal-header" style="cursor: move;">
-          <div class="modal-title-section">
+          <div class="modal-title-section" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
             <div class="modal-title-left">
               <span class="modal-title">FON KAYIT İŞLEMLERİ</span>
             </div>
+            <q-btn dense flat round icon="calculate" @click="onOpenCalculator" :title="'Hesap Makinesi'" />
           </div>
         </q-card-section>
 
@@ -403,11 +404,11 @@
         class="new-record-modal draggable-modal"
       >
             <q-card-section class="modal-header" style="cursor: move;">
-      <div class="modal-title-section">
+      <div class="modal-title-section" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <div class="modal-title-left">
           <span class="modal-title">SEÇİLEN FON KAYIT DÜZENLEME İŞLEMLERİ</span>
         </div>
-        <div class="modal-title-right">
+        <div class="row items-center" style="gap:8px;">
           <q-input
             v-model="selectedFKasaNo"
             dense
@@ -416,6 +417,7 @@
             class="fKasaNo-label"
             style="width: 120px;"
           />
+          <q-btn dense flat round icon="calculate" @click="onOpenCalculator" :title="'Hesap Makinesi'" />
         </div>
       </div>
     </q-card-section>
@@ -719,6 +721,9 @@ import { api } from '../boot/axios';
 import { getNakitAkisVerileri, getBugunTarih, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
 
 const $q = useQuasar();
+function onOpenCalculator() {
+  window.dispatchEvent(new Event('openCalculator'))
+}
 
 // Reactive data
 const tableData = ref<NakitAkisRecord[]>([]);

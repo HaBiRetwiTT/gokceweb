@@ -185,14 +185,15 @@
         <q-card style="min-width:520px;max-width:95vw;" class="ek-hizmetler-modal-card">
           <q-card-section>
             <div
-              class="text-h6 draggable-ek-hizmetler-header"
+              class="draggable-ek-hizmetler-header"
               @mousedown="onEkHizmetlerDragStart"
               @touchstart="onEkHizmetlerDragStart"
               @mouseenter="ekHizmetlerHeaderHover = true"
               @mouseleave="ekHizmetlerHeaderHover = false"
-              :style="ekHizmetlerHeaderHover ? 'cursor: move;' : ''"
+              :style="(ekHizmetlerHeaderHover ? 'cursor: move;' : '') + '; display:flex; align-items:center; justify-content:space-between; gap:8px;'"
             >
-              Ek Hizmetler
+              <div class="text-h6">Ek Hizmetler</div>
+              <q-btn dense flat round icon="calculate" @click="openCalculator" :title="'Hesap Makinesi'" />
             </div>
             <div v-if="selectedEkHizmetlerMusteriAdi" class="ekhizmetler-musteri-adi">
               Müşteri Adı: {{ selectedEkHizmetlerMusteriAdi }}
@@ -401,6 +402,14 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/personel-islem',
     iconColor: '#FF9800'
   }
+  ,
+  {
+    title: 'Admin Panel',
+    caption: 'Temel Değişiklikler',
+    icon: 'admin_panel_settings',
+    link: '/admin-panel',
+    iconColor: '#E91E63'
+  }
 ];
 
 // Mevcut route'u takip et
@@ -455,6 +464,13 @@ const linksList = computed(() => {
     if (link.title === 'Personel İşlemleri') {
       const currentUsername = username.value || '';
       if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
+        return false;
+      }
+    }
+    // Admin Panel sadece SAadmin ve HARUN kullanıcılarına göster
+    if (link.title === 'Admin Panel') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
         return false;
       }
     }
@@ -1191,6 +1207,9 @@ onMounted(() => {
   // Sürüm bilgisini sadece ilk yüklemede çek
   void fetchVersion()
   pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
+
+  // Modal içinden hesap makinesi talebini dinle
+  window.addEventListener('openCalculator', openCalculator);
   
   window.addEventListener('ekHizmetlerMusteriChanged', () => {
     ekHizmetlerMusteriRefresh.value++;
@@ -1219,6 +1238,7 @@ onUnmounted(() => {
     clearInterval(dateTimeIntervalId);
     dateTimeIntervalId = null;
   }
+  window.removeEventListener('openCalculator', openCalculator);
 });
 
 </script>

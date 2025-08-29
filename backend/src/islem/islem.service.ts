@@ -1598,9 +1598,9 @@ export class IslemService {
         INSERT INTO ${schemaName}.${islemRSTTableName} (
           islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, islemOzel4,
           islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, islemArac, islemTip,
-          islemGrup, islemAltG, islemMiktar, islemTutar
+          islemGrup, islemAltG, islemMiktar, islemTutar, Onay
         ) VALUES (
-          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17
+          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17, @18
         )
       `;
 
@@ -1623,6 +1623,7 @@ export class IslemService {
         islemData.islemAltG,
         islemData.islemMiktar,
         islemData.islemTutar,
+        0
       ];
 
       await this.dataSource.query(insertQuery, insertParams);
@@ -1870,9 +1871,9 @@ export class IslemService {
         INSERT INTO ${schemaName}.${tblIslemARV} (
           islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, 
           islemOzel4, islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, 
-          islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar
+          islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar, Onay
         ) VALUES (
-          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17
+          @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17, @18
         )
       `;
 
@@ -1895,6 +1896,7 @@ export class IslemService {
         dataToArchive.islemAltG,
         dataToArchive.islemMiktar,
         dataToArchive.islemTutar,
+        0
       ];
 
       await this.dataSource.query(archiveQuery, archiveParams);
@@ -2084,6 +2086,28 @@ export class IslemService {
       console.error('❌ Arşiv kaydı geri yükleme hatası:', error);
       throw new Error(`Arşiv kaydı geri yüklenemedi: ${error.message}`);
     }
+  }
+
+  /**
+   * tblislemRST.Onay alanını günceller
+   */
+  async setIslemRSTOnay(islemNo: number, onay: number): Promise<{ success: boolean }> {
+    const schemaName = this.dbConfig.getTableSchema();
+    const tableName = this.dbConfig.getTableName('tblislemRST');
+    const query = `UPDATE ${schemaName}.${tableName} SET Onay = @1 WHERE islemNo = @0`;
+    await this.dataSource.query(query, [islemNo, onay]);
+    return { success: true };
+  }
+
+  /**
+   * tblislemARV.Onay alanını günceller
+   */
+  async setIslemARVOnay(islemNo: number, onay: number): Promise<{ success: boolean }> {
+    const schemaName = this.dbConfig.getTableSchema();
+    const tableName = this.dbConfig.getTableName('tblislemARV');
+    const query = `UPDATE ${schemaName}.${tableName} SET Onay = @1 WHERE islemNo = @0`;
+    await this.dataSource.query(query, [islemNo, onay]);
+    return { success: true };
   }
 
   /**
@@ -2527,7 +2551,7 @@ export class IslemService {
         SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
                islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
                islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
-               islemAltG, islemMiktar, islemTutar
+               islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemRST 
         ORDER BY islemNo DESC
       `;
@@ -2545,6 +2569,33 @@ export class IslemService {
       
     } catch (error) {
       throw new Error(`Tüm RST kayıtları alınamadı: ${error.message}`);
+    }
+  }
+
+  /**
+   * Tüm ARV kayıtlarını getirir (debug/listeleme amaçlı)
+   */
+  async getAllArvRecords(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
+               islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
+               islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
+               islemAltG, islemMiktar, islemTutar, Onay
+        FROM tblislemARV 
+        ORDER BY islemNo DESC
+      `;
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      try {
+        await queryRunner.connect();
+        const result = await queryRunner.query(query);
+        return result || [];
+      } finally {
+        await queryRunner.release();
+      }
+    } catch (error) {
+      throw new Error(`Tüm ARV kayıtları alınamadı: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

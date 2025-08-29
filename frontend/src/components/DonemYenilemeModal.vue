@@ -10,6 +10,7 @@
       <q-card-section class="row items-center q-pb-sm q-pt-sm">
         <div class="text-subtitle1 text-grey-8 text-weight-medium">{{ modalTitle }}</div>
         <q-space />
+        <q-btn dense flat round icon="calculate" @click="onOpenCalculator" class="q-ml-sm" :title="'Hesap Makinesi'" />
       </q-card-section>
 
       <q-card-section class="q-pt-none">
@@ -551,8 +552,13 @@ interface Emits {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+type ModalEmits = Emits & { (e: 'open-calculator'): void }
+const emit = defineEmits<ModalEmits>();
 const $q = useQuasar();
+function onOpenCalculator() {
+  // MainLayout'taki hesap makinesini tetikle
+  window.dispatchEvent(new Event('openCalculator'));
+}
 
 // Popup referansı
 const odemeVadesiPopup = ref();

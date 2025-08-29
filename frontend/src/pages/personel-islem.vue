@@ -127,15 +127,16 @@
          class="personel-bilgi-modal draggable-modal"
        >
                  <q-card-section class="modal-header" style="cursor: move;">
-           <div class="modal-title-section">
-             <div class="modal-title-left">
-               <span class="modal-title">Personel Bilgileri</span>
-             </div>
-             <div class="modal-title-right">
-               <span class="personel-no">No: {{ selectedPersonel.PrsnNo || '-' }}</span>
-             </div>
-           </div>
-         </q-card-section>
+          <div class="modal-title-section" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div class="modal-title-left">
+              <span class="modal-title">Personel Bilgileri</span>
+            </div>
+            <div class="row items-center" style="gap:8px;">
+              <span class="personel-no">No: {{ selectedPersonel.PrsnNo || '-' }}</span>
+              <q-btn dense flat round icon="calculate" @click="onOpenCalculator" :title="'Hesap Makinesi'" />
+            </div>
+          </div>
+        </q-card-section>
 
         <q-card-section class="q-pt-md modal-body">
                      <div class="row q-col-gutter-md">
@@ -518,6 +519,10 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { Notify } from 'quasar';
 import { api } from '../boot/axios';
+
+function onOpenCalculator() {
+  window.dispatchEvent(new Event('openCalculator'))
+}
 
 interface Personel {
   PrsnNo?: number;

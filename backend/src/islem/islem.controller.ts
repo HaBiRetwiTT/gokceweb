@@ -1171,6 +1171,50 @@ export class IslemController {
   }
 
   /**
+   * Tüm ARV kayıtlarını getirir (listeleme)
+   */
+  @Get('arv-records-all')
+  async getAllArvRecords() {
+    try {
+      const arvRecords = await this.islemService.getAllArvRecords();
+      return {
+        success: true,
+        data: arvRecords,
+        message: `${arvRecords.length} ARV kaydı bulundu`,
+        count: arvRecords.length,
+      };
+    } catch (error: unknown) {
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'ARV kayıtları alınırken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** Onay güncelle: RST */
+  @Post('rst-onay-guncelle')
+  async setRstOnay(@Body() body: { islemNo: number; onay: number }) {
+    const { islemNo, onay } = body || ({} as any)
+    if (!islemNo || (onay !== 0 && onay !== 1)) {
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST)
+    }
+    const sonuc = await this.islemService.setIslemRSTOnay(islemNo, onay)
+    return { success: true, data: sonuc }
+  }
+
+  /** Onay güncelle: ARV */
+  @Post('arv-onay-guncelle')
+  async setArvOnay(@Body() body: { islemNo: number; onay: number }) {
+    const { islemNo, onay } = body || ({} as any)
+    if (!islemNo || (onay !== 0 && onay !== 1)) {
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST)
+    }
+    const sonuc = await this.islemService.setIslemARVOnay(islemNo, onay)
+    return { success: true, data: sonuc }
+  }
+
+  /**
    * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
    */
   @Post('rst-records-batch')

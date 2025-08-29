@@ -4,7 +4,10 @@
   <q-dialog v-model="show" persistent transition-show="fade" transition-hide="fade">
     <q-card style="min-width: 700px; max-width: 98vw;" class="odeme-islem-modal-card">
       <q-card-section>
-        <div class="text-h6 text-center q-mb-lg">Müşteri Tahsilat Formu</div>
+        <div class="row items-center justify-between q-mb-md">
+          <div class="text-h6">Müşteri Tahsilat Formu</div>
+          <q-btn dense flat round icon="calculate" @click="onOpenCalculator" :title="'Hesap Makinesi'" />
+        </div>
         <div class="tahsilat-form-wrapper">
           <div class="row items-center q-mb-lg">
             <div class="text-subtitle1 q-mr-md">Müşteri Adı:</div>
@@ -183,6 +186,10 @@ function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
     console.log(...args);
   }
+}
+
+function onOpenCalculator() {
+  window.dispatchEvent(new Event('openCalculator'))
 }
 
 // Global müşteri tipi - bu formun ihtiyaç duyduğu asgari alanlar
