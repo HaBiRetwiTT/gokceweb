@@ -1796,6 +1796,7 @@ interface RstRecord {
   islemAltG: string;
   islemMiktar: number;
   islemTutar: number;
+  Onay?: 0 | 1 | '0' | '1' | boolean;
 }
 
 // Detay tablo için özel sıralama fonksiyonu
@@ -3588,7 +3589,12 @@ const loadRstRecordsBatch = async (islemNoList: number[]): Promise<number[]> => 
     })
     
     if (response.data.success) {
-      const rstRecords = response.data.data
+      // Onay=1 olanları gözardı et
+      const rstRecords = (response.data.data as RstRecord[]).filter(r => {
+        const v = r?.Onay
+        if (v === 1 || v === '1' || v === true) return false
+        return true
+      })
       console.log('🔥 RST kayıtları başarıyla alındı, kayıt sayısı:', rstRecords.length)
       
       // Sadece islemNo'ları döndür
@@ -3620,11 +3626,15 @@ const loadRstIslemNoList = async () => {
       const response = await api.get('/islem/rst-records-all')
       
       if (response.data.success) {
-        const allRstRecords = response.data.data
+        // Onay=1 olanları gözardı et
+        const allRstRecords = (response.data.data as RstRecord[]).filter(r => {
+          const v = r?.Onay
+          return !(v === 1 || v === '1' || v === true)
+        })
         console.log(`🔥 Tüm RST kayıtları alındı: ${allRstRecords.length} kayıt`)
         
         // RST kayıtlarını analiz et
-        const rstAnalysis = analyzeRstRecords(allRstRecords as RstRecord[])
+        const rstAnalysis = analyzeRstRecords(allRstRecords)
         console.log('📊 RST Analizi:', rstAnalysis)
         
         // Detay tabloda görünen kayıtlarla eşleşen RST kayıtlarını bul
@@ -3633,7 +3643,7 @@ const loadRstIslemNoList = async () => {
           console.log(`🔍 Detay tabloda ${detailIslemNoList.length} kayıt var`)
           
           // RST kayıtlarından detay tabloda görünenleri filtrele
-          rstList = (allRstRecords as RstRecord[])
+          rstList = (allRstRecords)
             .filter((rst: RstRecord) => detailIslemNoList.includes(rst.islemNo))
             .map((rst: RstRecord) => rst.islemNo)
           
@@ -3649,7 +3659,7 @@ const loadRstIslemNoList = async () => {
           console.log(`ℹ️ RST tablosunda toplam ${allRstRecords.length} kayıt var`)
           
           // Farklı tarih ve kombinasyonlardaki RST kayıtlarını listele
-          const differentCombinations = getDifferentRstCombinations(allRstRecords as RstRecord[])
+          const differentCombinations = getDifferentRstCombinations(allRstRecords)
           if (differentCombinations.length > 0) {
             console.log('🔍 Farklı kombinasyonlarda RST kayıtları:')
             differentCombinations.forEach(combo => {

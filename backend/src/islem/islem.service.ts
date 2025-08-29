@@ -2510,7 +2510,7 @@ export class IslemService {
         SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
                islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
                islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
-               islemAltG, islemMiktar, islemTutar
+               islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemRST 
         WHERE islemNo IN (${placeholders})
         ORDER BY islemNo DESC
