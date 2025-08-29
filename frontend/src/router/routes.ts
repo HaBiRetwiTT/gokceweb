@@ -29,7 +29,8 @@ const routes: RouteRecordRaw[] = [
       { path: '/ai-agent', component: () => import('../pages/ai-agent.vue') },
       { path: '/nakit-tablo', component: () => import('../pages/nakit-tablo.vue') },
       { path: '/personel-islem', component: () => import('../pages/personel-islem.vue') },
-      { path: '/admin-panel', component: () => import('../pages/admin-panel.vue') }
+      { path: '/admin-panel', component: () => import('../pages/admin-panel.vue') },
+      { path: '/kazanc-tablo', component: () => import('../pages/kazanc-tablo.vue') }
       //{ path: '/odeme-islem', component: () => import('../pages/odeme-islem.vue') },
     ],
     meta: { requiresAuth: true }

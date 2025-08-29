@@ -1,9 +1,8 @@
 <template>
   <q-page class="q-pa-md">
-
     <!-- Üst Grid: tblislemRST -->
-    <q-card class="q-mb-lg">
-      <q-card-section class="row items-center no-wrap">
+    <q-card class="q-mb-sm">
+      <q-card-section class="row items-center no-wrap admin-compact-header">
         <div class="text-subtitle1 text-weight-bold">İşlem Kayıt Değişiklikleri (Orjinal Kayıt)</div>
         <q-space />
         <div class="row items-center q-gutter-sm">
@@ -13,7 +12,7 @@
             color="primary"
             :disable="loadingRST || loadingARV"
             @click="onShowHiddenClick"
-            :label="'GİZLENEN KAYITLARI GÖSTER'"
+            :label="'ONAYLANMIŞ KAYITLARI GÖSTER'"
           />
           <q-btn
             dense
@@ -68,7 +67,7 @@
 
     <!-- Alt Grid: tblislemARV -->
     <q-card>
-      <q-card-section class="text-subtitle1 text-weight-bold">Silinen İşlem Kayıtları</q-card-section>
+      <q-card-section class="text-subtitle1 text-weight-bold admin-compact-header">Silinen İşlem Kayıtları</q-card-section>
       <q-table
         :rows="rowsARVDisplay"
         :columns="columnsARV"
@@ -459,6 +458,16 @@ function normalizeOnay(value: unknown): 0 | 1 {
 }
 .body--dark .onayli-cell {
   background-color: #33a05f;
+}
+
+/* Alt başlık satırı için kompakt görünüm */
+.admin-compact-header {
+  padding: 4px 8px !important;
+  font-size: 13px;
+  line-height: 1.15;
+}
+.admin-compact-header .text-subtitle1 {
+  font-size: 13px !important;
 }
 </style>
 

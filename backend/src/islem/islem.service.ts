@@ -98,6 +98,254 @@ export class IslemService {
   }
 
   /**
+   * Kar/Zarar özeti: Belirtilen tarih aralığında islemTip bazında (GELİR/GİDER) islemGrup toplamları
+   */
+  async getKarZararOzet(
+    startDDMMYYYY: string,
+    endDDMMYYYY: string,
+  ): Promise<{ gelir: Array<{ islemGrup: string; toplam: number }>; gider: Array<{ islemGrup: string; toplam: number }> }> {
+    try {
+      const schemaName = this.dbConfig.getTableSchema();
+      const tableName = this.dbConfig.getTableName('tblislem');
+
+      const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
+
+      const gelirQuery = `
+        SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
+        FROM ${schemaName}.${tableName}
+        WHERE ${baseWhere} AND islemTip = 'GELİR'
+        GROUP BY islemGrup
+        ORDER BY toplam DESC`;
+
+      const giderQuery = `
+        SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
+        FROM ${schemaName}.${tableName}
+        WHERE ${baseWhere} AND islemTip = 'GİDER'
+        GROUP BY islemGrup
+        ORDER BY toplam DESC`;
+
+      const gelir = await this.dataSource.query(gelirQuery, [startDDMMYYYY, endDDMMYYYY]);
+      const gider = await this.dataSource.query(giderQuery, [startDDMMYYYY, endDDMMYYYY]);
+
+      return {
+        gelir: (gelir || []).map((r: any) => ({ islemGrup: r.islemGrup || '', toplam: Number(r.toplam) || 0 })),
+        gider: (gider || []).map((r: any) => ({ islemGrup: r.islemGrup || '', toplam: Number(r.toplam) || 0 })),
+      };
+    } catch (error) {
+      throw new Error(`Kar/Zarar özeti alınamadı: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Kar/Zarar seri: seçilen perioda göre 12 dilimlik GELİR/GİDER toplamları
+   * Şimdilik 'gunler' desteklenir; diğer periodlar ilerletilecektir.
+   */
+  async getKarZararSeri(
+    period: string,
+    endDDMMYYYY: string,
+  ): Promise<Array<{ label: string; gelir: number; gider: number; dateISO?: string }>> {
+    const schemaName = this.dbConfig.getTableSchema();
+    const tableName = this.dbConfig.getTableName('tblislem');
+    // Period parametresini güvenli şekilde normalize et (trim + küçük harf + Türkçe karakter dönüşümleri)
+    const rawPeriod = (period ?? 'gunler').toString();
+    const periodLower = rawPeriod
+      .trim()
+      .toLowerCase()
+      .replace(/ı/g, 'i')
+      .replace(/ğ/g, 'g')
+      .replace(/ş/g, 's')
+      .replace(/ü/g, 'u')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c');
+
+    let query = '';
+    if (periodLower === 'haftalar') {
+      query = `
+        WITH Seq AS (
+          SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+          SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        ), Weeks AS (
+          SELECT 
+            i,
+            -- Haftanın pazartesi başlangıcı ve pazar bitişi
+            DATEADD(DAY, - (DATEPART(WEEKDAY, CONVERT(DATE, @0, 104)) + 5) % 7, CONVERT(DATE, DATEADD(WEEK, - (11 - i), CONVERT(DATE, @0, 104)), 104)) AS weekStart,
+            DATEADD(DAY, + (6 - (DATEPART(WEEKDAY, CONVERT(DATE, @0, 104)) + 5) % 7), CONVERT(DATE, DATEADD(WEEK, - (11 - i), CONVERT(DATE, @0, 104)), 104)) AS weekEnd
+          FROM Seq
+        ), Sums AS (
+          SELECT 
+            w.i,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM Weeks w
+          LEFT JOIN ${schemaName}.${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd
+          GROUP BY w.i
+        )
+        SELECT 
+          CONCAT(CONVERT(VARCHAR(5), weekStart, 104), '-', CONVERT(VARCHAR(5), weekEnd, 104)) AS label,
+          ISNULL(s.gelir,0) AS gelir,
+          ISNULL(s.gider,0) AS gider,
+          CONVERT(VARCHAR(10), weekEnd, 23) AS dateISO
+        FROM Weeks w
+        LEFT JOIN Sums s ON s.i = w.i
+        ORDER BY w.i ASC;`
+    } else if (periodLower === 'aylar') {
+      query = `
+        WITH Seq AS (
+          SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+          SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        ), Months AS (
+          SELECT 
+            i,
+            DATEADD(DAY, 1, EOMONTH(DATEADD(MONTH, - (11 - i), CONVERT(DATE, @0, 104)), -1)) AS monthStart,
+            EOMONTH(DATEADD(MONTH, - (11 - i), CONVERT(DATE, @0, 104))) AS monthEnd
+          FROM Seq
+        ), Sums AS (
+          SELECT 
+            m.i,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM Months m
+          LEFT JOIN ${schemaName}.${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd
+          GROUP BY m.i
+        )
+        SELECT 
+          RIGHT('0' + CAST(DATEPART(month, monthStart) AS VARCHAR(2)), 2) + '.' + CAST(DATEPART(year, monthStart) AS VARCHAR(4)) AS label,
+          ISNULL(s.gelir,0) AS gelir,
+          ISNULL(s.gider,0) AS gider,
+          CONVERT(VARCHAR(10), monthEnd, 23) AS dateISO
+        FROM Months m
+        LEFT JOIN Sums s ON s.i = m.i
+        ORDER BY m.i ASC;`
+    } else if (periodLower === 'ceyrekler') {
+      query = `
+        WITH Seq AS (
+          SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+          SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        ), Quarters AS (
+          SELECT 
+            i,
+            DATEADD(quarter, DATEDIFF(quarter, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0) AS qStart,
+            DATEADD(day, -1, DATEADD(quarter, 1, DATEADD(quarter, DATEDIFF(quarter, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0))) AS qEnd
+          FROM Seq
+        ), Sums AS (
+          SELECT 
+            q.i,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM Quarters q
+          LEFT JOIN ${schemaName}.${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd
+          GROUP BY q.i
+        )
+        SELECT 
+          CONCAT('Q', DATEPART(quarter, qStart), '.', DATEPART(year, qStart)) AS label,
+          ISNULL(s.gelir,0) AS gelir,
+          ISNULL(s.gider,0) AS gider,
+          CONVERT(VARCHAR(10), qEnd, 23) AS dateISO
+        FROM Quarters q
+        LEFT JOIN Sums s ON s.i = q.i
+        ORDER BY q.i ASC;`;
+    } else if (periodLower === 'yari' || periodLower === 'yari-yillar') {
+      query = `
+        WITH Seq AS (
+          SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+          SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        ), HalfYears AS (
+          SELECT 
+            i,
+            DATEADD(month, ((DATEDIFF(month, 0, CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0) AS hStart,
+            DATEADD(day, -1, DATEADD(month, 6, DATEADD(month, ((DATEDIFF(month, 0, CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0))) AS hEnd
+          FROM Seq
+        ), Sums AS (
+          SELECT 
+            h.i,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM HalfYears h
+          LEFT JOIN ${schemaName}.${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd
+          GROUP BY h.i
+        )
+        SELECT 
+          CONCAT('Y', CASE WHEN DATEPART(month, hStart) = 1 THEN '1' ELSE '2' END, '.', DATEPART(year, hStart)) AS label,
+          ISNULL(s.gelir,0) AS gelir,
+          ISNULL(s.gider,0) AS gider,
+          CONVERT(VARCHAR(10), hEnd, 23) AS dateISO
+        FROM HalfYears h
+        LEFT JOIN Sums s ON s.i = h.i
+        ORDER BY h.i ASC;`;
+    } else if (periodLower === 'yillar') {
+      query = `
+        WITH Seq AS (
+          SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+          SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        ), Years AS (
+          SELECT 
+            i,
+            DATEADD(year, DATEDIFF(year, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0) AS yStart,
+            DATEADD(day, -1, DATEADD(year, 1, DATEADD(year, DATEDIFF(year, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0))) AS yEnd
+          FROM Seq
+        ), Sums AS (
+          SELECT 
+            y.i,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM Years y
+          LEFT JOIN ${schemaName}.${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN y.yStart AND y.yEnd
+          GROUP BY y.i
+        )
+        SELECT 
+          CAST(DATEPART(year, yStart) AS VARCHAR(4)) AS label,
+          ISNULL(s.gelir,0) AS gelir,
+          ISNULL(s.gider,0) AS gider,
+          CONVERT(VARCHAR(10), yEnd, 23) AS dateISO
+        FROM Years y
+        LEFT JOIN Sums s ON s.i = y.i
+        ORDER BY y.i ASC;`;
+    } else {
+      // 12 gün: son gün end, geriye 11 gün
+      query = `
+      WITH Seq AS (
+        SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
+        SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+      ), Days AS (
+        SELECT 
+          i,
+          CONVERT(DATE, DATEADD(DAY, - (11 - i), CONVERT(DATE, @0, 104)), 104) AS d
+        FROM Seq
+      ), Sums AS (
+        SELECT 
+          d.d,
+          SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+          SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+        FROM Days d
+        LEFT JOIN ${schemaName}.${tableName} t
+          ON CONVERT(DATE, t.iKytTarihi, 104) = d.d
+        GROUP BY d.d
+      )
+      SELECT 
+        CONVERT(VARCHAR(5), d.d, 104) AS label,
+        ISNULL(s.gelir,0) AS gelir,
+        ISNULL(s.gider,0) AS gider,
+        CONVERT(VARCHAR(10), d.d, 23) AS dateISO
+      FROM Days d
+      LEFT JOIN Sums s ON s.d = d.d
+      ORDER BY d.d ASC;`;
+    }
+
+    const rows = await this.dataSource.query(query, [endDDMMYYYY]);
+    return (rows || []).map((r: any) => ({
+      label: r.label,
+      gelir: Number(r.gelir) || 0,
+      gider: Number(r.gider) || 0,
+      dateISO: r.dateISO,
+    }));
+  }
+
+  /**
    * tblFonKasaY tablosundan islmGrup seçimine göre islmAltG distinct listesi getirir
    * @param islmGrup İslm grubu (islmGrup alanı)
    * @returns İslm alt grupları listesi

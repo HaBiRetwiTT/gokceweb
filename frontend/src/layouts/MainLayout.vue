@@ -326,6 +326,12 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/dashboard'
   },
   {
+    title: 'Kar/Zarar Tablo',
+    caption: 'Gelir/Gider Rasyolar',
+    icon: 'leaderboard',
+    link: '/kazanc-tablo'
+  },
+  {
     title: 'Müşteri Kayıt İşlemi',
     caption: 'Kaydet - Güncelle',
     icon: 'person_add',
@@ -464,6 +470,13 @@ const linksList = computed(() => {
     if (link.title === 'Personel İşlemleri') {
       const currentUsername = username.value || '';
       if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
+        return false;
+      }
+    }
+    // Kar/Zarar Tablo sadece SAadmin, HARUN ve KADİR kullanıcılarına göster
+    if (link.title === 'Kar/Zarar Tablo') {
+      const currentUsername = username.value || '';
+      if (!['SAadmin', 'HARUN', 'KADİR'].includes(currentUsername)) {
         return false;
       }
     }

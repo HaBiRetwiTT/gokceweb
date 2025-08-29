@@ -1214,6 +1214,26 @@ export class IslemController {
     return { success: true, data: sonuc }
   }
 
+  /** Kar/Zarar özeti */
+  @Get('kar-zarar-ozet')
+  async getKarZararOzet(@Query('start') start: string, @Query('end') end: string) {
+    if (!start || !end) {
+      throw new HttpException('start ve end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
+    }
+    const data = await this.islemService.getKarZararOzet(start, end)
+    return { success: true, data }
+  }
+
+  /** Kar/Zarar seri (12 dilim) */
+  @Get('kar-zarar-seri')
+  async getKarZararSeri(@Query('period') period = 'gunler', @Query('end') end: string) {
+    if (!end) {
+      throw new HttpException('end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
+    }
+    const data = await this.islemService.getKarZararSeri(period, end)
+    return { success: true, data }
+  }
+
   /**
    * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
    */
