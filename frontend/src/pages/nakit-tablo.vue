@@ -590,22 +590,13 @@
                 <div class="taksit-group">
                   <label class="taksit-label">Taksit</label>
                   <q-input
-                    v-model.number="newRecord.islmTkst"
+                    v-model="newRecord.islmTkst"
                     dense
                     outlined
                     class="form-input taksit-input"
-                    type="number"
-                    min="1"
-                    max="120"
-                    step="1"
-                    inputmode="numeric"
-                    placeholder="1"
+                    type="text"
+                    placeholder="1 / 1"
                     readonly
-                    :rules="[
-                      val => !!val || 'Taksit bilgisi gerekli',
-                      val => val >= 1 || 'Taksit en az 1 olmalı',
-                      val => val <= 120 || 'Taksit en fazla 120 olmalı'
-                    ]"
                   />
                 </div>
                 <!-- Kayıt Takip Checkbox -->
@@ -975,7 +966,7 @@ const columns = [
     field: 'islmBilgi',
     align: 'left' as const,
     sortable: false,
-    style: 'width: 180px'
+    style: 'max-width: 550px'
   }
   // Ödeme Durumu ve Tutar Durumu sütunları kaldırıldı
 ];
@@ -1291,8 +1282,18 @@ watch(tableData, async () => {
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
 
-// İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle
-  watch(() => newRecord.value.islmGrup, async (newKategori) => {
+// İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle ve işlem tanımı alanını temizle
+watch(() => newRecord.value.islmGrup, async (newKategori, oldKategori) => {
+  // İşlem kategorisi değiştiğinde işlem tanımı alanını temizle
+  if (newKategori !== oldKategori) {
+    // İşlem tanımı modelini temizle
+    islemTanimiModel.value = '';
+    // İşlem tanımı text input'unu temizle
+    islemTanimiText.value = '';
+    // newRecord.islmAltG alanını da temizle
+    newRecord.value.islmAltG = '';
+  }
+  
   if (newKategori) {
     try {
       const altGruplar = await getIslmAltGruplar(newKategori);
@@ -1564,6 +1565,8 @@ async function saveNewRecord() {
       toplamTutar: newRecord.value.islmTtr
     });
     
+    let response: { data?: { fKasaNo?: number; success?: boolean; message?: string }; status: number } | null = null;
+    
     // Tek taksit ise direkt kaydet
     if (taksitSayisi === 1) {
       // Manuel girilen bilgiyi direkt kullan (Kalan(TL): ekleme)
@@ -1588,75 +1591,105 @@ async function saveNewRecord() {
       if (tekTaksitResponse.status !== 201 && tekTaksitResponse.status !== 200) {
         throw new Error('Tek taksit kaydı eklenemedi');
       }
+      
+      // Backend'den gelen fKasaNo bilgisini logla
+      if (tekTaksitResponse.data && tekTaksitResponse.data.fKasaNo) {
+        console.log('🔥 Backend\'den gelen fKasaNo:', tekTaksitResponse.data.fKasaNo);
+      }
+      
+      // Response'u kullan
+      response = tekTaksitResponse;
+      
     } else {
       // Çoklu taksit için her taksit için ayrı kayıt ekle
+      let lastResponse = null;
+      
       for (let i = 1; i <= taksitSayisi; i++) {
-      const taksitTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, i - 1);
-      
-      // Kalan tutarı hesapla (bu taksit ödendikten sonra kalan)
-      const kalanTutar = newRecord.value.islmTtr - (taksitTutari * i);
-      
-      // Manuel girilen bilgiyi en başa ekle
-      let taksitAciklama = '';
-      
-      // Eğer manuel bilgi varsa, onu en başa ekle
-      if (newRecord.value.islmBilgi && newRecord.value.islmBilgi.trim()) {
-        taksitAciklama = newRecord.value.islmBilgi.trim();
+        const taksitTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, i - 1);
+        
+        // Kalan tutarı hesapla (bu taksit ödendikten sonra kalan)
+        const kalanTutar = newRecord.value.islmTtr - (taksitTutari * i);
+        
+        // Manuel girilen bilgiyi en başa ekle
+        let taksitAciklama = '';
+        
+        // Eğer manuel bilgi varsa, onu en başa ekle
+        if (newRecord.value.islmBilgi && newRecord.value.islmBilgi.trim()) {
+          taksitAciklama = newRecord.value.islmBilgi.trim();
+        }
+        
+        // Otomatik taksit bilgilerini ekle
+        if (taksitAciklama) {
+          taksitAciklama += ' -/- ';
+        }
+        taksitAciklama += `- Kalan(TL): ${kalanTutar}`;
+        
+        // Son taksit değilse Son Vade bilgisini ekle
+        if (i < taksitSayisi) {
+          const sonVadeTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, taksitSayisi - 1);
+          taksitAciklama += ` - Son Vade: ${sonVadeTarihi}`;
+        }
+        
+        const taksitData = {
+          ...requestData,
+          islmTtr: taksitTutari,
+          islmTkst: `${i} / ${taksitSayisi}`,
+          OdmVade: taksitTarihi,
+          islmBilgi: taksitAciklama
+        };
+        
+        console.log(`🔥 ${i}. taksit kaydı ekleniyor:`, taksitData);
+        
+        // Backend'e taksit kaydı ekle
+        const taksitResponse = await api.post('/islem/nakit-akis-ekle', taksitData);
+        
+        if (taksitResponse.status !== 201 && taksitResponse.status !== 200) {
+          throw new Error(`${i}. taksit kaydı eklenemedi`);
+        }
+        
+        // Son response'u sakla
+        lastResponse = taksitResponse;
+        
+        // İlk taksit için fKasaNo bilgisini logla
+        if (i === 1 && taksitResponse.data && taksitResponse.data.fKasaNo) {
+          console.log('🔥 İlk taksit için Backend\'den gelen fKasaNo:', taksitResponse.data.fKasaNo);
+        }
       }
       
-      // Otomatik taksit bilgilerini ekle
-      if (taksitAciklama) {
-        taksitAciklama += ' -/- ';
-      }
-      taksitAciklama += `- Kalan(TL): ${kalanTutar}`;
-      
-      // Son taksit değilse Son Vade bilgisini ekle
-      if (i < taksitSayisi) {
-        const sonVadeTarihi = hesaplaTaksitTarihi(newRecord.value.OdmVade, taksitSayisi - 1);
-        taksitAciklama += ` - Son Vade: ${sonVadeTarihi}`;
-      }
-      
-      const taksitData = {
-        ...requestData,
-        islmTtr: taksitTutari,
-        islmTkst: `${i} / ${taksitSayisi}`,
-        OdmVade: taksitTarihi,
-        islmBilgi: taksitAciklama
-      };
-      
-      console.log(`🔥 ${i}. taksit kaydı ekleniyor:`, taksitData);
-      
-      // Backend'e taksit kaydı ekle
-      const taksitResponse = await api.post('/islem/nakit-akis-ekle', taksitData);
-      
-      if (taksitResponse.status !== 201 && taksitResponse.status !== 200) {
-        throw new Error(`${i}. taksit kaydı eklenemedi`);
-      }
+      // Son taksit response'unu kullan
+      response = lastResponse;
     }
-    }
-    
-    // Son taksit response'unu kullan
-    const response = { status: 200, data: { success: true } };
     
     // 🔥 DEBUG: Backend response'unu logla
     console.log('🔥 Backend response:', response);
+    
+    if (!response) {
+      throw new Error('Backend response alınamadı');
+    }
+    
     console.log('🔥 Response status:', response.status);
     console.log('🔥 Response data:', response.data);
+    
+    // 🔥 Backend success kontrolü - öncelikli kontrol
+    if (response.data && 'success' in response.data && response.data.success === false) {
+      // Backend'den hata geldi
+      throw new Error(response.data.message || 'Backend\'den hata mesajı alınamadı');
+    }
     
     // 🔥 HTTP status kontrolü - 201 Created veya 200 OK ise başarılı
     if (response.status === 201 || response.status === 200) {
       // Başarı mesajı
-  $q.notify({
-    type: 'positive',
-    message: 'Yeni kayıt başarıyla eklendi!',
-    position: 'top'
-  });
+      $q.notify({
+        type: 'positive',
+        message: 'Yeni kayıt başarıyla eklendi!',
+        position: 'top'
+      });
 
       // Modal'ı kapat
-  showNewRecordModal.value = false;
-  
+      showNewRecordModal.value = false;
+      
       // İşlem tanımı alanlarını temizle
-  islemTanimiText.value = '';
+      islemTanimiText.value = '';
       islemTanimiModel.value = null;
       islemTanimiOptions.value = [...originalIslemTanimiOptions.value];
       
@@ -1664,7 +1697,7 @@ async function saveNewRecord() {
       await loadData();
       
       console.log('🔥 Yeni kayıt backend\'e eklendi ve tablo güncellendi');
-    } else if (response.data && response.data.success === true) {
+    } else if (response.data && 'success' in response.data && response.data.success === true) {
       // Alternatif olarak response.data.success kontrolü
       $q.notify({
         type: 'positive',

@@ -1234,6 +1234,26 @@ export class IslemController {
     return { success: true, data }
   }
 
+  /** Grup detay kayıtları */
+  @Get('grup-detay')
+  async getGrupDetay(@Query('grup') grup: string, @Query('islemTip') islemTip: string, @Query('start') start: string, @Query('end') end: string) {
+    if (!grup || !islemTip || !start || !end) {
+      throw new HttpException('grup, islemTip, start ve end zorunludur', HttpStatus.BAD_REQUEST)
+    }
+    const data = await this.islemService.getGrupDetay(grup, islemTip, start, end)
+    return { success: true, data }
+  }
+
+  /** Bar chart detay kayıtları */
+  @Get('bar-chart-detay')
+  async getBarChartDetay(@Query('label') label: string, @Query('islemTip') islemTip: string, @Query('start') start: string, @Query('end') end: string) {
+    if (!label || !islemTip || !start || !end) {
+      throw new HttpException('label, islemTip, start ve end zorunludur', HttpStatus.BAD_REQUEST)
+    }
+    const data = await this.islemService.getBarChartDetay(label, islemTip, start, end)
+    return { success: true, data }
+  }
+
   /**
    * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
    */
