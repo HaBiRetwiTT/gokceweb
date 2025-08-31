@@ -20,6 +20,7 @@ import { OdemeIslemService } from './odeme-islem.service';
 import { DatabaseTransactionService } from './database/database-transaction.service';
 import { HotelRunnerModule } from './hotelrunner/hotelrunner.module';
 import { PersonelModule } from './personel/personel.module';
+import { AdminModule } from './admin/admin.module';
 
 // Load environment variables
 dotenv.config({
@@ -45,6 +46,7 @@ dotenv.config({
     AgentModule,
     HotelRunnerModule,
     PersonelModule,
+    AdminModule,
   ],
   controllers: [AppController, OdemeIslemController],
   providers: [AppService, DatabaseConfigService, OdemeIslemService, DatabaseTransactionService],

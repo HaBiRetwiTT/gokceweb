@@ -410,11 +410,18 @@ const allLinksList: EssentialLinkProps[] = [
   }
   ,
   {
+    title: 'Düzeltme Kontrol',
+    caption: 'Değişen / Silinen',
+    icon: 'check_circle',
+    link: '/kontrol-onay',
+    iconColor: '#E91E63'
+  },
+  {
     title: 'Admin Panel',
     caption: 'Temel Değişiklikler',
     icon: 'admin_panel_settings',
     link: '/admin-panel',
-    iconColor: '#E91E63'
+    iconColor: '#FF5722'
   }
 ];
 
@@ -480,13 +487,21 @@ const linksList = computed(() => {
         return false;
       }
     }
-    // Admin Panel sadece SAadmin ve HARUN kullanıcılarına göster
-    if (link.title === 'Admin Panel') {
-      const currentUsername = username.value || '';
-      if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
-        return false;
-      }
-    }
+         // Düzeltme Kontrol sadece SAadmin ve HARUN kullanıcılarına göster
+     if (link.title === 'Düzeltme Kontrol') {
+       const currentUsername = username.value || '';
+       if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
+         return false;
+       }
+     }
+     
+     // Admin Panel sadece SAadmin ve HARUN kullanıcılarına göster
+     if (link.title === 'Admin Panel') {
+       const currentUsername = username.value || '';
+       if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
+         return false;
+       }
+     }
     
     // Ek Hizmetler tüm kartlarda görünür (sadece sayfa kontrolü)
     
