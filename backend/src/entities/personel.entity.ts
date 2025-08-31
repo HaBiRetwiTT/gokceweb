@@ -24,8 +24,7 @@ export class Personel {
   @Column({ name: 'PrsnTelNo', type: 'nvarchar', length: 15, nullable: true })
   PrsnTelNo?: string;
 
-  @Column({ name: 'PrsnEposta', type: 'nvarchar', length: 30, nullable: true })
-  PrsnEposta?: string;
+
 
   @Column({ name: 'PrsnUsrNm', type: 'nvarchar', length: 50, nullable: true })
   PrsnUsrNm?: string;
