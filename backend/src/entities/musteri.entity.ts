@@ -1,11 +1,13 @@
 /* eslint-disable prettier/prettier */
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-// Schema production'da harunta, development'ta dbo olacak
-@Entity('tblMusteri')
+@Entity('tblMusteri', { schema: 'harunta' })
 export class Musteri {
   @PrimaryGeneratedColumn({ name: 'MstrNo', type: 'bigint' })
   MstrNo: number;
+
+  @Column({ name: 'mKytTarihi', type: 'nchar', length: 10 })
+  mKytTarihi: string;
 
   @Column({ name: 'MstrKllnc', type: 'nvarchar', length: 10 })
   MstrKllnc: string;
@@ -68,5 +70,5 @@ export class Musteri {
   MstrResim?: Buffer;
 
   @Column({ name: 'MstrNot', type: 'nvarchar', length: 'MAX', nullable: true })
-  MstrNot?: string;  
+  MstrNot?: string;
 }

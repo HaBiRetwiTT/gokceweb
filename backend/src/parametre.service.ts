@@ -23,7 +23,7 @@ export class ParametreService {
         ORDER BY Prm01
     `;
     // debug
-    // this.debugLog('Environment:', process.env.NODE_ENV, 'Table:', tables.parametreler, 'Query:', query);
+    // this.debugLog('Table:', tables.parametreler, 'Query:', query);
 
     try {
       const resultUnknown = await this.parametreRepository.query(query);

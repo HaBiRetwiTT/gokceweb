@@ -156,7 +156,7 @@ export class HotelRunnerService {
     const rawUpserted = { count: 0 };
 
     return await this.tx.executeInTransaction(async (queryRunner) => {
-      const schema = this.dbConfig.getTableSchema();
+      const rawTableName = this.dbConfig.getTableName('tblHRzvnRaw');
 
       // 1) HR'den rezervasyonları çek
       const url = `${this.baseUrl}reservations`;
@@ -181,14 +181,14 @@ export class HotelRunnerService {
         const updatedAtRaw = this.toDdMmYyyy(it.updated_at || new Date());
         const rawJson = JSON.stringify(it);
 
-        const rawExistsSql = `SELECT COUNT(1) as cnt FROM ${schema}.tblHRzvnRaw WHERE hrResId = @0`;
+        const rawExistsSql = `SELECT COUNT(1) as cnt FROM ${rawTableName} WHERE hrResId = @0`;
         const rawEx = await this.tx.executeQuery(queryRunner, rawExistsSql, [
           hrResId,
         ]);
         const rawCnt = Number(rawEx?.[0]?.cnt || 0);
         if (rawCnt > 0) {
           const rawUpdateSql = `
-            UPDATE ${schema}.tblHRzvnRaw SET
+            UPDATE ${rawTableName} SET
               durum = @1,
               updatedAt = @2,
               rawJson = @3
@@ -201,7 +201,7 @@ export class HotelRunnerService {
           ]);
         } else {
           const rawInsertSql = `
-            INSERT INTO ${schema}.tblHRzvnRaw (hrResId, durum, updatedAt, rawJson)
+            INSERT INTO ${rawTableName} (hrResId, durum, updatedAt, rawJson)
             VALUES (@0,@1,@2,@3)`;
           await this.tx.executeQuery(queryRunner, rawInsertSql, [
             hrResId,
@@ -264,7 +264,8 @@ export class HotelRunnerService {
 
         let odaTipiProj = '';
         if (hrCode) {
-          const mapSql = `SELECT TOP 1 projectOdaTip FROM ${schema}.tblHRRoomTypeMap WHERE hrCode = @0 AND aktif = 1`;
+          const mapTableName = this.dbConfig.getTableName('tblHRRoomTypeMap');
+          const mapSql = `SELECT TOP 1 projectOdaTip FROM ${mapTableName} WHERE hrCode = @0 AND aktif = 1`;
           const mapRes = await this.tx.executeQuery(queryRunner, mapSql, [
             hrCode,
           ]);
@@ -314,9 +315,10 @@ export class HotelRunnerService {
         const paidStatus = this.computePaidStatus(it);
 
         // Lokal olarak 'checked_in' veya 'no_show' yapılan kayıtları HR senkronu ile EZME
+        const zvnTableName = this.dbConfig.getTableName('tblHRzvn');
         const existsSql = `
           SELECT COUNT(1) as cnt
-          FROM ${schema}.tblHRzvn WITH (NOLOCK)
+          FROM ${zvnTableName} WITH (NOLOCK)
           WHERE hrResId = @0
             AND ISNULL(durum,'') NOT IN ('checked_in','no_show')`;
         const ex = await this.tx.executeQuery(queryRunner, existsSql, [
@@ -326,7 +328,7 @@ export class HotelRunnerService {
 
         if (cnt > 0) {
           const updateSql = `
-            UPDATE ${schema}.tblHRzvn SET
+            UPDATE ${zvnTableName} SET
               durum = @1,
               musteriTCKN = @2,
               adSoyad = @3,
@@ -366,7 +368,7 @@ export class HotelRunnerService {
           structuredUpdated.count += 1;
         } else {
           const insertSql = `
-            INSERT INTO ${schema}.tblHRzvn (
+            INSERT INTO ${zvnTableName} (
               hrResId, durum, musteriTCKN, adSoyad, email, tel, ulkeKodu, odaTipiHR, odaTipiProj,
               grsTrh, cksTrh, odemeDoviz, ucret, paidStatus, kanal, updatedAt, hrCode
             ) VALUES (@0,@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15,@16)`;
@@ -403,7 +405,8 @@ export class HotelRunnerService {
 
   // Bekleyen rezervasyonlar: grsTrh <= bugün ve durum = 'confirmed'
   async getPendingReservations(): Promise<any[]> {
-    const schema = this.dbConfig.getTableSchema();
+    const zvnTableName = this.dbConfig.getTableName('tblHRzvn');
+    const rawTableName = this.dbConfig.getTableName('tblHRzvnRaw');
     return await this.tx.executeInTransaction(async (qr) => {
       const sql = `
         SELECT 
@@ -425,10 +428,10 @@ export class HotelRunnerService {
           z.ucret,
           z.odemeDoviz,
           z.durum
-        FROM ${schema}.tblHRzvn z
+        FROM ${zvnTableName} z
         OUTER APPLY (
           SELECT TOP 1 rawJson
-          FROM ${schema}.tblHRzvnRaw r
+          FROM ${rawTableName} r
           WHERE r.hrResId = z.hrResId
           ORDER BY r.updatedAt DESC
         ) rw
@@ -441,10 +444,10 @@ export class HotelRunnerService {
 
   // tblHRzvnRaw.rawJson içinden hr_number'ı çözer
   private async resolveHrNumber(hrResId: string): Promise<string> {
-    const schema = this.dbConfig.getTableSchema();
+    const rawTableName = this.dbConfig.getTableName('tblHRzvnRaw');
     try {
       return await this.tx.executeInTransaction(async (qr) => {
-        const sql = `SELECT TOP 1 rawJson FROM ${schema}.tblHRzvnRaw WHERE hrResId = @0 ORDER BY updatedAt DESC`;
+        const sql = `SELECT TOP 1 rawJson FROM ${rawTableName} WHERE hrResId = @0 ORDER BY updatedAt DESC`;
         const rows = await this.tx.executeQuery(qr, sql, [hrResId]);
         const raw = rows?.[0]?.rawJson as string | undefined;
         if (!raw) return hrResId;
@@ -581,9 +584,9 @@ export class HotelRunnerService {
     hrResId: string,
     status: 'checked_in' | 'no_show',
   ): Promise<{ success: boolean; message: string }> {
-    const schema = this.dbConfig.getTableSchema();
+    const zvnTableName = this.dbConfig.getTableName('tblHRzvn');
     return await this.tx.executeInTransaction(async (qr) => {
-      const sql = `UPDATE ${schema}.tblHRzvn SET durum = @1, updatedAt = @2 WHERE hrResId = @0`;
+      const sql = `UPDATE ${zvnTableName} SET durum = @1, updatedAt = @2 WHERE hrResId = @0`;
       await this.tx.executeQuery(qr, sql, [
         hrResId,
         status,

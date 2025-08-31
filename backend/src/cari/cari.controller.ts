@@ -6,9 +6,8 @@ export class CariController {
   constructor(private readonly cariService: CariService) {}
 
   private debugLog(...args: unknown[]): void {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(...args);
-    }
+    // Production'da logging kapalı
+    console.log(...args);
   }
 
   @Get('health')

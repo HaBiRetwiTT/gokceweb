@@ -11,9 +11,7 @@ export class ParametreAlternativeService {
   ) {}
 
   // TypeORM entity kullanarak - schema otomatik olarak doğru belirlenir
-  async getEkHizmetlerWithEntity(): Promise<
-    { Prm01: string; PrmAdi: string; Prm04: number }[]
-  > {
+  async getEkHizmetlerWithEntity(): Promise<Parametre[]> {
     console.log('🔥 ENTITY METHOD - Using TypeORM entity with auto-schema');
 
     try {
@@ -33,7 +31,7 @@ export class ParametreAlternativeService {
       console.error('🔥 ENTITY METHOD - ERROR:', error);
 
       // Fallback: QB kullanarak
-      return await this.parametreRepository
+      const fallbackResult = await this.parametreRepository
         .createQueryBuilder('p')
         .select(['p.Prm01', 'p.PrmAdi', 'p.Prm04'])
         .where('p.Prm01 IN (:...values)', {
@@ -41,6 +39,8 @@ export class ParametreAlternativeService {
         })
         .orderBy('p.Prm01', 'ASC')
         .getMany();
+      
+      return fallbackResult;
     }
   }
 

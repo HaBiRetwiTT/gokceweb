@@ -1,11 +1,9 @@
+/* eslint-disable prettier/prettier */
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity({
-  name: 'tblCari',
-  schema: process.env.NODE_ENV === 'production' ? 'harunta' : 'dbo',
-})
+@Entity('tblCari', { schema: 'harunta' })
 export class Cari {
-  @PrimaryGeneratedColumn('increment', { name: 'CariNo' })
+  @PrimaryGeneratedColumn({ name: 'CariNo', type: 'bigint' })
   CariNo: number;
 
   @Column({ name: 'cKytTarihi', type: 'nchar', length: 10 })
@@ -24,20 +22,20 @@ export class Cari {
   CariAdi: string;
 
   @Column({ name: 'CariVD', type: 'nvarchar', length: 25, nullable: true })
-  CariVD: string;
+  CariVD?: string;
 
   @Column({ name: 'CariVTCN', type: 'nvarchar', length: 20, nullable: true })
-  CariVTCN: string;
+  CariVTCN?: string;
 
   @Column({ name: 'CariYetkili', type: 'nvarchar', length: 20, nullable: true })
-  CariYetkili: string;
+  CariYetkili?: string;
 
   @Column({ name: 'CariTelNo', type: 'nvarchar', length: 15, nullable: true })
-  CariTelNo: string;
+  CariTelNo?: string;
 
   @Column({ name: 'CariEposta', type: 'nvarchar', length: 30, nullable: true })
-  CariEposta: string;
+  CariEposta?: string;
 
   @Column({ name: 'CariAdres', type: 'nvarchar', length: 200, nullable: true })
-  CariAdres: string;
+  CariAdres?: string;
 }

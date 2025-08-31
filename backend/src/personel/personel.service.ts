@@ -458,9 +458,10 @@ export class PersonelService {
       const iKytTarihi = this.getCurrentTransactionDate();
       
       // Modal form header'daki label değerini al (PrsnNo)
+      const personelTableName = this.dbConfig.getTableName('tblPersonel');
       const personelQuery = `
         SELECT TOP 1 PrsnNo 
-        FROM ${this.dbConfig.getTableSchema()}.tblPersonel 
+        FROM ${personelTableName} 
         WHERE PrsnAdi = @0 AND PrsnDurum = 'ÇALIŞIYOR'
       `;
       
@@ -606,6 +607,7 @@ export class PersonelService {
       console.log('📝 Personel cari kodu:', cariKod);
       
       // Cari hesap bakiyesini hesapla (diğer cari hesap hesaplamalarıyla aynı mantık)
+      const islemTableName = this.dbConfig.getTableName('tblislem');
       const bakiyeQuery = `
         SELECT 
           ISNULL(SUM(
@@ -615,7 +617,7 @@ export class PersonelService {
               ELSE 0
             END
           ), 0) as PersonelBakiye
-        FROM ${this.dbConfig.getTableSchema()}.tblislem i
+        FROM ${islemTableName} i
         WHERE i.islemCrKod = @0
           AND (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;

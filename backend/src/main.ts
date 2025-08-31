@@ -4,10 +4,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
 function debugLog(...args: unknown[]): void {
-  if (process.env.NODE_ENV !== 'production') {
-     
-    console.log(...args);
-  }
+  // Production'da logging kapalı
+  console.log(...args);
 }
 
 async function bootstrap() {
@@ -45,7 +43,7 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
   
-  await app.listen(process.env.PORT ?? 3000);
-  debugLog(`Backend running on port ${process.env.PORT ?? 3000}`);
+  await app.listen(3000);
+  debugLog(`Backend running on port 3000`);
 }
 void bootstrap();

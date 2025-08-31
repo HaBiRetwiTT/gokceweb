@@ -1629,8 +1629,6 @@ export class MusteriService {
       console.log('Konaklama Not (string):', typeof konaklamaNot, konaklamaNot);
       console.log('Toplam Konaklama Bedeli (number):', typeof toplamKonaklamaBedeli, toplamKonaklamaBedeli);
       
-      const schemaName = this.dbConfig.getTableSchema();
-      
       // Önce TC'den müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
@@ -1640,9 +1638,10 @@ export class MusteriService {
       console.log('Müşteri numarası:', musteriNo);
       
       // Oda tip fiyatlarını al
+      const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
       const fiyatQuery = `
         SELECT OdLfytGun 
-        FROM ${schemaName}.tblOdaTipLfyt 
+        FROM ${odaTipLifyatTableName} 
         WHERE OdTipAdi = @0
       `;
       const fiyatResult: { OdLfytGun: number }[] = await this.transactionService.executeQuery(
@@ -1655,9 +1654,10 @@ export class MusteriService {
       }
       
       // Mevcut konaklama kaydından iskonto bilgisini al
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const eskiKonaklamaQuery = `
         SELECT Knklmisk, KnklmLfyt 
-        FROM ${schemaName}.tblKonaklama 
+        FROM ${konaklamaTableName} 
         WHERE KnklmMstrNo = @0 AND KnklmCksTrh IS NULL
       `;
       const eskiKonaklamaResult: { Knklmisk: number; KnklmLfyt: number }[] = await this.transactionService.executeQuery(
@@ -1691,7 +1691,7 @@ export class MusteriService {
       
       // tblKonaklama güncelleme - knklmisk alanı da dahil
       const updateQuery = `
-        UPDATE ${schemaName}.tblKonaklama 
+        UPDATE ${konaklamaTableName} 
         SET 
           KnklmKllnc = @0,
           KnklmOdaTip = @1,
@@ -1750,11 +1750,10 @@ export class MusteriService {
       console.log('=== updateOdaYatakDurumlariWithTransaction başlatıldı ===');
       console.log({ eskiOdaNo, eskiYatakNo, yeniOdaNo, yeniYatakNo });
       
-      const schemaName = this.dbConfig.getTableSchema();
-      
       // 1. Eski odayı BOŞ yap
+      const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const eskiOdaQuery = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'BOŞ'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
@@ -1764,7 +1763,7 @@ export class MusteriService {
       
       // 2. Yeni odayı DOLU yap
       const yeniOdaQuery = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
@@ -1868,8 +1867,6 @@ export class MusteriService {
       // Kullanıcı adını belirle
       const kullaniciAdi = username || 'admin';
       
-      const schemaName = this.dbConfig.getTableSchema();
-      
       // Önce TC'den müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
@@ -1879,9 +1876,10 @@ export class MusteriService {
       console.log('Müşteri numarası:', musteriNo);
       
       // Oda tip fiyatlarını al
+      const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
       const fiyatQuery = `
         SELECT OdLfytGun 
-        FROM ${schemaName}.tblOdaTipLfyt 
+        FROM ${odaTipLifyatTableName} 
         WHERE OdTipAdi = @0
       `;
       const fiyatResult: { OdLfytGun: number }[] = await this.musteriRepository.query(fiyatQuery, [yeniOdaTip]);
@@ -1892,9 +1890,10 @@ export class MusteriService {
       }
       
       // Mevcut konaklama kaydından iskonto bilgisini al
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const eskiKonaklamaQuery = `
         SELECT Knklmisk, KnklmLfyt 
-        FROM ${schemaName}.tblKonaklama 
+        FROM ${konaklamaTableName} 
         WHERE KnklmMstrNo = @0 AND KnklmCksTrh IS NULL
       `;
       const eskiKonaklamaResult: { Knklmisk: number; KnklmLfyt: number }[] = await this.musteriRepository.query(eskiKonaklamaQuery, [musteriNo]);
@@ -1919,7 +1918,7 @@ export class MusteriService {
       
       // tblKonaklama güncelleme - knklmisk alanı da dahil
       const updateQuery = `
-        UPDATE ${schemaName}.tblKonaklama 
+        UPDATE ${konaklamaTableName} 
         SET 
           KnklmKllnc = @0,
           KnklmOdaTip = @1,
@@ -1977,11 +1976,10 @@ export class MusteriService {
       console.log('=== updateOdaYatakDurumlari başlatıldı ===');
       console.log({ eskiOdaNo, eskiYatakNo, yeniOdaNo, yeniYatakNo });
       
-      const schemaName = this.dbConfig.getTableSchema();
-      
       // 1. Eski odayı BOŞ yap
+      const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const eskiOdaQuery = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'BOŞ'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
@@ -1991,7 +1989,7 @@ export class MusteriService {
       
       // 2. Yeni odayı DOLU yap
       const yeniOdaQuery = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
@@ -2122,8 +2120,8 @@ export class MusteriService {
       );
       
       // Müşteri numarasını al
-      const schemaName = this.dbConfig.getTableSchema();
-      const musteriNoQuery = `SELECT TOP 1 MstrNo FROM ${schemaName}.tblMusteri ORDER BY MstrNo DESC`;
+      const musteriTableName = this.dbConfig.getTableName('tblMusteri');
+      const musteriNoQuery = `SELECT TOP 1 MstrNo FROM ${musteriTableName} ORDER BY MstrNo DESC`;
       const musteriNoResult: { MstrNo: number }[] = await this.transactionService.executeQuery(
         queryRunner, 
         musteriNoQuery, 
@@ -2447,15 +2445,15 @@ export class MusteriService {
 
         // 🔥 DEPOZİTO TAHSİLATI ARACI VE TUTARINA GÖRE SON "=DEPOZİTO ALACAĞI=" KAYDINI GÜNCELLE
         try {
-          const schemaName = this.dbConfig.getTableSchema();
           const alinacakTutar = Number(islemData.depozito.bedel) || 0;
           const tahsilatArac = 'Nakit Kasa(TL)'; // Yukarıda kullanılan islemArac değeri ile aynı
           if (alinacakTutar > 0) {
             // 1) İlgili müşterinin cari kodunu bul (zaten var): cariKod
             // 2) En son "=DEPOZİTO ALACAĞI=" kaydını çek
+            const islemTableName = this.dbConfig.getTableName('tblislem');
             const selectSql = `
               SELECT TOP 1 islemNo, islemTutar
-              FROM ${schemaName}.tblislem WITH (UPDLOCK, ROWLOCK)
+              FROM ${islemTableName} WITH (UPDLOCK, ROWLOCK)
               WHERE islemCrKod = @0 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
               ORDER BY islemNo DESC`;
             const rows: { islemNo: number; islemTutar: number }[] = await this.transactionService.executeQuery(queryRunner, selectSql, [cariKod]);
@@ -2465,13 +2463,13 @@ export class MusteriService {
               if (kalan > 0) {
                 // 3a) UPDATE: Tutarı düş ve aracı tahsilat aracına eşitle
                 const updateSql = `
-                  UPDATE ${schemaName}.tblislem
+                  UPDATE ${islemTableName}
                   SET islemTutar = @0, islemArac = @1
                   WHERE islemNo = @2`;
                 await this.transactionService.executeQuery(queryRunner, updateSql, [kalan, tahsilatArac, islemNo]);
               } else {
                 // 3b) DELETE: Kalan ≤ 0 ise kaydı sil
-                const deleteSql = `DELETE FROM ${schemaName}.tblislem WHERE islemNo = @0`;
+                const deleteSql = `DELETE FROM ${islemTableName} WHERE islemNo = @0`;
                 await this.transactionService.executeQuery(queryRunner, deleteSql, [islemNo]);
               }
             }
@@ -2510,11 +2508,10 @@ export class MusteriService {
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
       
-      const schemaName = this.dbConfig.getTableSchema();
-      
       // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const query = `
-        UPDATE ${schemaName}.tblKonaklama 
+        UPDATE ${konaklamaTableName} 
         SET KnklmCksTrh = KnklmPlnTrh
         WHERE KnklmMstrNo = @0 
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
@@ -2756,8 +2753,8 @@ export class MusteriService {
       );
 
       // 4. Müşteri durumunu 'AYRILDI' yap
-      const schemaName = this.dbConfig.getTableSchema();
-      const query = `UPDATE ${schemaName}.tblMusteri SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
+      const musteriTableName = this.dbConfig.getTableName('tblMusteri');
+      const query = `UPDATE ${musteriTableName} SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
       await this.transactionService.executeQuery(queryRunner, query, [cikisData.tcNo]);
       
       console.log(`Müşteri ${cikisData.tcNo} çıkış işlemi tamamlandı. Durum 'AYRILDI' olarak güncellendi (Transaction-Safe).`);
@@ -2791,9 +2788,9 @@ export class MusteriService {
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
       
-      const schemaName = this.dbConfig.getTableSchema();
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const query = `
-        UPDATE ${schemaName}.tblKonaklama 
+        UPDATE ${konaklamaTableName} 
         SET KnklmKrLst = @0, KnklmNot = @1 
         WHERE KnklmMstrNo = @2 AND KnklmPlnTrh = @3 AND KnklmCksTrh IS NULL
       `;
@@ -2836,9 +2833,9 @@ export class MusteriService {
         kullanici: kullaniciAdiFinal
       });
       
-      const schemaName = this.dbConfig.getTableSchema();
+      const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const query = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'KİRLİ', 
             odYatKllnc = @2, 
             oKytTarihi = @3
@@ -2871,10 +2868,10 @@ export class MusteriService {
       const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
       const bugunTarihi = this.formatDate(new Date());
       const kullaniciAdiFinal = kullaniciAdi || 'admin';
-      const schemaName = this.dbConfig.getTableSchema();
+      const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
       const query = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU', 
             odYatKllnc = @2, 
             oKytTarihi = @3
@@ -2885,7 +2882,7 @@ export class MusteriService {
 
       // Ek güvence: OdYatKod üzerinden de güncelle (SP'nin WHERE OdYatKod kullandığı senaryolar için)
       const queryByKod = `
-        UPDATE ${schemaName}.tblOdaYatak 
+        UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU', 
             odYatKllnc = @1, 
             oKytTarihi = @2
@@ -2923,12 +2920,12 @@ export class MusteriService {
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
       
-      const schemaName = this.dbConfig.getTableSchema();
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const bugunTarihi = this.formatDate(new Date()); // DD.MM.YYYY formatında
       
       // Mevcut konaklama kaydının KnklmCksTrh'ni bugünün tarihi ile güncelle
       const query = `
-        UPDATE ${schemaName}.tblKonaklama 
+        UPDATE ${konaklamaTableName} 
         SET 
           KnklmCksTrh = @0,
           KnklmKllnc = @1
@@ -3063,7 +3060,6 @@ export class MusteriService {
       const musteriData = await this.getMusteriBilgiByTCN(body.tcNo);
       if (!musteriData || !musteriData.MstrNo) throw new Error('Müşteri bulunamadı');
       const musteriNo = musteriData.MstrNo;
-      const schemaName = this.dbConfig.getTableSchema();
       // CariKod oluştur
       const cariKod = musteriData.MstrHspTip === 'Bireysel' ? `MB${musteriNo}` : `MK${musteriNo}`;
       // Günün tarihi (işlem tarihi parametresi)
@@ -3074,12 +3070,13 @@ export class MusteriService {
       const knklmNotExpr = iadesizCikis
         ? `ISNULL(KnklmNot, '') + ' -/- İADESİZ ERKEN ÇIKIŞ YAPILDI -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'`
         : `ISNULL(KnklmNot, '') + ' -/- ERKEN ÇIKIŞ FARKI: ${body.giderTutar}'`;
+      const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const updateKonaklamaQuery = `
-        UPDATE ${schemaName}.tblKonaklama
+        UPDATE ${konaklamaTableName}
         SET KnklmCksTrh = @1,
             KnklmNot = ${knklmNotExpr}
         WHERE KnklmMstrNo = @0
-          AND KnklmNo = (SELECT MAX(KnklmNo) FROM ${schemaName}.tblKonaklama WHERE KnklmMstrNo = @0)
+          AND KnklmNo = (SELECT MAX(KnklmNo) FROM ${konaklamaTableName} WHERE KnklmMstrNo = @0)
       `;
       await this.transactionService.executeQuery(queryRunner, updateKonaklamaQuery, [musteriNo, cikisTarihi]);
 
@@ -3114,7 +3111,8 @@ export class MusteriService {
       }
 
       // 4. EN SON: tblMusteri'de MstrDurum 'AYRILDI' yap
-      const updateDurumQuery = `UPDATE ${schemaName}.tblMusteri SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
+      const musteriTableName = this.dbConfig.getTableName('tblMusteri');
+      const updateDurumQuery = `UPDATE ${musteriTableName} SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
       await this.transactionService.executeQuery(queryRunner, updateDurumQuery, [body.tcNo]);
     });
   }

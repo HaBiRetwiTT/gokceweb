@@ -52,8 +52,8 @@ export class AuthService {
           message: 'Giriş başarılı',
           user: {
             id: personel.PrsnNo,
-            username: personel.PrsnUsrNm,
-            fullName: personel.PrsnAdi || personel.PrsnUsrNm,
+            username: personel.PrsnUsrNm || '',
+            fullName: personel.PrsnAdi || personel.PrsnUsrNm || '',
             isAdmin: false,
           },
         };

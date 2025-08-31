@@ -23,22 +23,12 @@ export class JwtMiddleware implements NestMiddleware {
       typeof rawKullaniciAdi === 'string' ? rawKullaniciAdi : undefined;
 
     if (kullaniciAdi) {
-      // Production'da placeholder kimlik ataması yapma
-      if (process.env.NODE_ENV === 'production') {
-        // Prod ortamında sadece username aktar, id/isAdmin belirleme
-        req.user = {
-          username: kullaniciAdi,
-          id: -1, // bilinmiyor
-          isAdmin: false,
-        };
-      } else {
-        // Geliştirme ortamı için kolaylık sağla
-        req.user = {
-          username: kullaniciAdi,
-          id: 0, // dev placeholder
-          isAdmin: kullaniciAdi === 'admin',
-        };
-      }
+      // Production ortamında sadece username aktar, id/isAdmin belirleme
+      req.user = {
+        username: kullaniciAdi,
+        id: -1, // bilinmiyor
+        isAdmin: false,
+      };
     }
 
     next();

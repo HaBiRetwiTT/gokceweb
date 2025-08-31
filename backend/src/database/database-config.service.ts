@@ -6,40 +6,61 @@ export class DatabaseConfigService {
   private readonly spSchema: string;
 
   constructor() {
-    // Environment değişkenlerinden schema isimlerini al
-    // Production: Tables/Views = harunta, SP = dbo
-    // Development: Tables/Views = dbo, SP = dbo
-    this.tableSchema =
-      process.env.DB_TABLE_SCHEMA ||
-      (process.env.NODE_ENV === 'production' ? 'harunta' : 'dbo');
-    this.spSchema = process.env.DB_SP_SCHEMA || 'dbo';
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
-      );
-    }
+    // Sadece production schema kullanılıyor
+    // Tables/Views = harunta, SP = dbo
+    this.tableSchema = 'harunta';
+    this.spSchema = 'dbo';
+    
+    console.log(
+      `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
+    );
   }
 
   /**
    * Database connection configuration'ını döndürür
    */
   getDatabaseConfig() {
+    // Environment variables kontrol et
+    const dbHost = process.env.DB_HOST;
+    const dbPort = process.env.DB_PORT;
+    const dbUsername = process.env.DB_USERNAME;
+    const dbPassword = process.env.DB_PASSWORD;
+    const dbDatabase = process.env.DB_DATABASE;
+    const dbInstanceName = process.env.DB_INSTANCE_NAME;
+
+    // Kritik environment variables eksikse uygulama başlamasın
+    if (!dbHost || !dbUsername || !dbPassword || !dbDatabase) {
+      const errorMessage = '❌ Kritik veritabanı environment variables eksik!';
+      const details = `
+📁 .env.production dosyası oluşturulmalı ve şu değerler tanımlanmalı:
+   DB_HOST=${dbHost ? '✅' : '❌'} (${dbHost || 'eksik'})
+   DB_USERNAME=${dbUsername ? '✅' : '❌'} (${dbUsername || 'eksik'})
+   DB_PASSWORD=${dbPassword ? '✅' : '❌'} (${dbPassword ? '***' : 'eksik'})
+   DB_DATABASE=${dbDatabase ? '✅' : '❌'} (${dbDatabase || 'eksik'})
+   DB_PORT=${dbPort ? '✅' : '❌'} (${dbPort || '1433'})
+      `;
+      
+      console.error(errorMessage);
+      console.error(details);
+      throw new Error('Veritabanı konfigürasyonu eksik! .env.production dosyası oluşturulmalı.');
+    }
+
     return {
       type: 'mssql' as const,
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '1433'),
-      username: process.env.DB_USERNAME || 'harunta',
-      password: process.env.DB_PASSWORD || '14531453',
-      database: process.env.DB_DATABASE || 'gokcepansiyon2010',
+      host: dbHost,
+      port: parseInt(dbPort || '1433'),
+      username: dbUsername,
+      password: dbPassword,
+      database: dbDatabase,
       synchronize: false, // Production'da asla true yapma!
-      logging: process.env.NODE_ENV === 'development',
+      logging: false, // Production'da logging kapalı
       autoLoadEntities: true,
       options: {
         // VB.NET bağlantı string'ine uygun ayarlar
         encrypt: false, // Production'da false, SSL sertifika sorunu olabilir
         trustServerCertificate: true, // Sertifika güvenlik sorununu çözer
         enableArithAbort: true,
-        instanceName: process.env.DB_INSTANCE_NAME || undefined,
+        instanceName: dbInstanceName || undefined,
         // Unicode desteği
         charset: 'utf8',
         // Windows Authentication kullanmıyor
@@ -58,13 +79,6 @@ export class DatabaseConfigService {
   }
 
   /**
-   * Tablo schema'sını döndürür
-   */
-  getTableSchema(): string {
-    return this.tableSchema;
-  }
-
-  /**
    * Stored Procedure schema'sını döndürür
    */
   getSpSchema(): string {
@@ -75,7 +89,7 @@ export class DatabaseConfigService {
    * Tam tablo adını döndürür (schema + tablo)
    */
   getTableName(tableName: string): string {
-    return tableName; // Sadece tablo adını döndür, schema ayrı olarak kullanılacak
+    return `[${this.tableSchema}].[${tableName}]`;
   }
 
   /**

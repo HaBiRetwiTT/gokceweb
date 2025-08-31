@@ -52,7 +52,7 @@ export class KonaklamaTakvimService {
 
   // Kat / Oda planı: Katlara göre oda numaralarını döndür
   async getKatOdaPlan(): Promise<{ floors: number[]; floorToRooms: Record<string, { odaNo: number; odaTip: string; yatak: number; dolu: number; ariza: boolean; kirli: boolean }[]>; maxCols: number }> {
-    const schema = this.dbConfig.getTableSchema();
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
     const sql = `
       SELECT 
         odYatOdaNo as OdaNo,
@@ -61,7 +61,7 @@ export class KonaklamaTakvimService {
         SUM(CASE WHEN odYatDurum = 'DOLU' THEN 1 ELSE 0 END) as DoluSayisi,
         MAX(CASE WHEN UPPER(LTRIM(RTRIM(odYatDurum))) IN ('ARIZA', 'ARIZALI') THEN 1 ELSE 0 END) as HasAriza,
         MAX(CASE WHEN UPPER(LTRIM(RTRIM(odYatDurum))) IN ('KİRLİ', 'KIRLI', 'KIRLI ') THEN 1 ELSE 0 END) as HasKirli
-      FROM ${schema}.tblOdaYatak
+      FROM ${odaYatakTableName}
       WHERE odYatOdaNo IS NOT NULL AND odYatOdaNo <> ''
       GROUP BY odYatOdaNo, odYatOdaTip
     `;
@@ -151,13 +151,13 @@ export class KonaklamaTakvimService {
     if (!odaNo || !isFinite(Number(odaNo))) {
       return { success: false, message: 'Geçersiz odaNo' };
     }
-    const schema = this.dbConfig.getTableSchema();
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
     const odaNoStr = String(odaNo);
     if (ariza) {
       // ARIZA EKLE: Odadaki tüm yatakların BOŞ olduğundan emin ol
       const kontrolQuery = `
         SELECT COUNT(*) AS cnt
-        FROM ${schema}.tblOdaYatak
+        FROM ${odaYatakTableName}
         WHERE odYatOdaNo = @0
           AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
       `;
@@ -166,12 +166,12 @@ export class KonaklamaTakvimService {
       if (cnt > 0) {
         return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
       }
-      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'ARIZA' WHERE odYatOdaNo = @0`;
+      const updateQuery = `UPDATE ${odaYatakTableName} SET odYatDurum = 'ARIZA' WHERE odYatOdaNo = @0`;
       await this.musteriRepository.query(updateQuery, [odaNoStr]);
       return { success: true, odaNo, ariza };
     } else {
       // ARIZA KALDIR: Odadaki tüm ARIZA yataklarını BOŞ yap
-      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) = 'ARIZA'`;
+      const updateQuery = `UPDATE ${odaYatakTableName} SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) = 'ARIZA'`;
       await this.musteriRepository.query(updateQuery, [odaNoStr]);
       return { success: true, odaNo, ariza };
     }
@@ -181,13 +181,13 @@ export class KonaklamaTakvimService {
     if (!odaNo || !isFinite(Number(odaNo))) {
       return { success: false, message: 'Geçersiz odaNo' };
     }
-    const schema = this.dbConfig.getTableSchema();
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
     const odaNoStr = String(odaNo);
     if (kirli) {
       // KİRLİ YAP: tüm yataklar BOŞ olmalı
       const kontrolQuery = `
         SELECT COUNT(*) AS cnt
-        FROM ${schema}.tblOdaYatak
+        FROM ${odaYatakTableName}
         WHERE odYatOdaNo = @0
           AND UPPER(LTRIM(RTRIM(odYatDurum))) <> 'BOŞ'
       `;
@@ -196,11 +196,11 @@ export class KonaklamaTakvimService {
       if (cnt > 0) {
         return { success: false, message: 'ODA DURUMU = BOŞ = DEĞİL İŞLEM YAPILAMIYOR...' }
       }
-      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'KİRLİ' WHERE odYatOdaNo = @0`;
+      const updateQuery = `UPDATE ${odaYatakTableName} SET odYatDurum = 'KİRLİ' WHERE odYatOdaNo = @0`;
       await this.musteriRepository.query(updateQuery, [odaNoStr]);
       return { success: true, odaNo, kirli };
     } else {
-      const updateQuery = `UPDATE ${schema}.tblOdaYatak SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) IN ('KİRLİ','KIRLI')`;
+      const updateQuery = `UPDATE ${odaYatakTableName} SET odYatDurum = 'BOŞ' WHERE odYatOdaNo = @0 AND UPPER(LTRIM(RTRIM(odYatDurum))) IN ('KİRLİ','KIRLI')`;
       await this.musteriRepository.query(updateQuery, [odaNoStr]);
       return { success: true, odaNo, kirli };
     }
@@ -346,7 +346,7 @@ export class KonaklamaTakvimService {
    * @returns Map<odaTipiProj, Map<DD.MM.YYYY, number>>
    */
   private async getRezervasyonSayilariHaritasi(startISO: string, endISO: string, gunler: string[]): Promise<Map<string, Map<string, string | number>>> {
-    const schema = this.dbConfig.getTableSchema();
+    const hrZvnTableName = this.dbConfig.getTableName('tblHRzvn');
     const resultMap = new Map<string, Map<string, string | number>>();
 
     // Güvenli tarih parametreleri oluştur
@@ -365,7 +365,7 @@ export class KonaklamaTakvimService {
         odaTipiProj,
         grsTrh,
         cksTrh
-      FROM ${schema}.tblHRzvn
+      FROM ${hrZvnTableName}
       WHERE durum = 'confirmed'
         AND odaTipiProj IS NOT NULL AND LTRIM(RTRIM(odaTipiProj)) <> ''
         AND TRY_CONVERT(date, grsTrh, 104) IS NOT NULL
@@ -440,7 +440,7 @@ export class KonaklamaTakvimService {
    * Map<odaTipiProj, totalCount>
    */
   private async getRezervasyonToplamHaritasi(): Promise<Map<string, number>> {
-    const schema = this.dbConfig.getTableSchema();
+    const hrZvnTableName = this.dbConfig.getTableName('tblHRzvn');
     const sql = `
       SELECT 
         odaTipiProj,
@@ -457,7 +457,7 @@ export class KonaklamaTakvimService {
             ELSE 0 
           END
         ) AS cnt
-      FROM ${schema}.tblHRzvn
+      FROM ${hrZvnTableName}
       WHERE durum = 'confirmed' 
         AND odaTipiProj IS NOT NULL 
         AND LTRIM(RTRIM(odaTipiProj)) <> ''

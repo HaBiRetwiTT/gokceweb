@@ -59,61 +59,69 @@
                 </q-td>
               </template>
 
-                             <template v-slot:body-cell-OdLfytGun="props">
-                 <q-td :props="props">
-                                        <q-input
-                       v-model.number="props.row.OdLfytGun"
-                       dense
-                       outlined
-                       type="number"
-                       step="0.01"
-                       min="0"
-                       class="writable-input compact-input"
-                     />
-                 </q-td>
-               </template>
+                                             <template v-slot:body-cell-OdLfytGun="props">
+                  <q-td :props="props">
+                                         <q-input
+                        v-model="props.row.OdLfytGun"
+                        dense
+                        outlined
+                        type="text"
+                        class="writable-input compact-input currency-input"
+                        style="text-align: center;"
+                        @input="formatCurrency($event, props.row, 'OdLfytGun')"
+                        @blur="formatCurrencyOnBlur($event, props.row, 'OdLfytGun')"
+                        @focus="formatCurrencyOnFocus($event, props.row, 'OdLfytGun')"
+                      />
+                  </q-td>
+                </template>
 
-               <template v-slot:body-cell-OdLfytHft="props">
-                 <q-td :props="props">
-                                        <q-input
-                       v-model.number="props.row.OdLfytHft"
-                       dense
-                       outlined
-                       type="number"
-                       step="0.01"
-                       min="0"
-                       class="writable-input compact-input"
-                     />
-                 </q-td>
-               </template>
+                  <template v-slot:body-cell-OdLfytHft="props">
+                  <q-td :props="props">
+                                         <q-input
+                        v-model="props.row.OdLfytHft"
+                        dense
+                        outlined
+                        type="text"
+                        class="writable-input compact-input currency-input"
+                        style="text-align: center;"
+                        @input="formatCurrency($event, props.row, 'OdLfytHft')"
+                        @blur="formatCurrencyOnBlur($event, props.row, 'OdLfytHft')"
+                        @focus="formatCurrencyOnFocus($event, props.row, 'OdLfytHft')"
+                      />
+                  </q-td>
+                </template>
 
-               <template v-slot:body-cell-OdLfytAyl="props">
-                 <q-td :props="props">
-                                        <q-input
-                       v-model.number="props.row.OdLfytAyl"
-                       dense
-                       outlined
-                       type="number"
-                       step="0.01"
-                       min="0"
-                       class="writable-input compact-input"
-                     />
-                 </q-td>
-               </template>
+                               <template v-slot:body-cell-OdLfytAyl="props">
+                  <q-td :props="props">
+                                         <q-input
+                        v-model="props.row.OdLfytAyl"
+                        dense
+                        outlined
+                        type="text"
+                        class="writable-input compact-input currency-input"
+                        style="text-align: center;"
+                        @input="formatCurrency($event, props.row, 'OdLfytAyl')"
+                        @blur="formatCurrencyOnBlur($event, props.row, 'OdLfytAyl')"
+                        @focus="formatCurrencyOnFocus($event, props.row, 'OdLfytAyl')"
+                      />
+                  </q-td>
+                </template>
 
-               <template v-slot:body-cell-OdDpzt="props">
-                 <q-td :props="props">
-                                        <q-input
-                       v-model.number="props.row.OdDpzt"
-                       dense
-                       outlined
-                       type="number"
-                       step="0.01"
-                       min="0"
-                       class="writable-input compact-input"
-                     />
-                 </q-td>
-               </template>
+                               <template v-slot:body-cell-OdDpzt="props">
+                  <q-td :props="props">
+                                         <q-input
+                        v-model="props.row.OdDpzt"
+                        dense
+                        outlined
+                        type="text"
+                        class="writable-input compact-input currency-input"
+                        style="text-align: center;"
+                        @input="formatCurrency($event, props.row, 'OdDpzt')"
+                        @blur="formatCurrencyOnBlur($event, props.row, 'OdDpzt')"
+                        @focus="formatCurrencyOnFocus($event, props.row, 'OdDpzt')"
+                      />
+                  </q-td>
+                </template>
             </q-table>
           </q-card-section>
         </q-card>
@@ -145,10 +153,11 @@ import { api } from '../boot/axios';
 interface OdaTipLifyatRow {
   OdTipNo: number;
   OdTipAdi: string;
-  OdLfytGun: number;
-  OdLfytHft: number;
-  OdLfytAyl: number;
-  OdDpzt: number;
+  OdLfytGun: string | number;
+  OdLfytHft: string | number;
+  OdLfytAyl: string | number;
+  OdDpzt: string | number;
+  [key: string]: string | number;
 }
 
 interface ApiResponse {
@@ -190,7 +199,7 @@ const odaTipLifyatColumns = [
     name: 'OdLfytGun',
     label: 'Günlük Fiyat',
     field: 'OdLfytGun',
-    align: 'right' as const,
+    align: 'center' as const,
     sortable: true,
     style: 'max-width: 120px'
   },
@@ -198,7 +207,7 @@ const odaTipLifyatColumns = [
     name: 'OdLfytHft',
     label: 'Haftalık Fiyat',
     field: 'OdLfytHft',
-    align: 'right' as const,
+    align: 'center' as const,
     sortable: true,
     style: 'max-width: 120px'
   },
@@ -206,7 +215,7 @@ const odaTipLifyatColumns = [
     name: 'OdLfytAyl',
     label: 'Aylık Fiyat',
     field: 'OdLfytAyl',
-    align: 'right' as const,
+    align: 'center' as const,
     sortable: true,
     style: 'max-width: 120px'
   },
@@ -214,9 +223,9 @@ const odaTipLifyatColumns = [
     name: 'OdDpzt',
     label: 'Depozito (Günlük)',
     field: 'OdDpzt',
-    align: 'right' as const,
+    align: 'center' as const,
     sortable: true,
-    style: 'max-width: 120px'
+    style: 'max-width: 140px'
   }
 ];
 
@@ -232,10 +241,13 @@ function toggleGizliKayitlar() {
   if (gizliKayitlarGosteriliyor.value) {
     // Tüm kayıtları göster
     odaTipLifyatRows.value = [...tumKayitlar.value];
-  } else {
-    // Günlük fiyat 1 olanları gizle
-    odaTipLifyatRows.value = tumKayitlar.value.filter(row => row.OdLfytGun !== 1);
-  }
+     } else {
+           // Günlük fiyat 1 olanları gizle
+      odaTipLifyatRows.value = tumKayitlar.value.filter(row => {
+        const gunlukFiyat = parseInt(row.OdLfytGun.toString().replace(/\./g, '')) || 0;
+        return gunlukFiyat !== 1;
+      });
+   }
 }
 
 // Oda Tip Lifyat verilerini getir
@@ -249,18 +261,21 @@ async function getOdaTipLifyatData() {
         // Tüm kayıtları parse et ve sakla
         const parsedData = response.data.data.map((row: OdaTipLifyatRow) => ({
           ...row,
-          // Sayısal değerleri number olarak parse et
-          OdLfytGun: Number(row.OdLfytGun) || 0,
-          OdLfytHft: Number(row.OdLfytHft) || 0,
-          OdLfytAyl: Number(row.OdLfytAyl) || 0,
-          OdDpzt: Number(row.OdDpzt) || 0
+          // Sayısal değerleri string olarak parse et ve TL formatında göster
+          OdLfytGun: formatCurrencyForDisplay(Number(row.OdLfytGun) || 0),
+          OdLfytHft: formatCurrencyForDisplay(Number(row.OdLfytHft) || 0),
+          OdLfytAyl: formatCurrencyForDisplay(Number(row.OdLfytAyl) || 0),
+          OdDpzt: formatCurrencyForDisplay(Number(row.OdDpzt) || 0)
         }));
         
         // Tüm kayıtları sakla
         tumKayitlar.value = [...parsedData];
         
-        // Varsayılan olarak Günlük fiyat 1 olanları gizle
-        odaTipLifyatRows.value = parsedData.filter(row => row.OdLfytGun !== 1);
+                          // Varsayılan olarak Günlük fiyat 1 olanları gizle
+          odaTipLifyatRows.value = parsedData.filter(row => {
+            const gunlukFiyat = parseInt(row.OdLfytGun.toString().replace(/\./g, '')) || 0;
+            return gunlukFiyat !== 1;
+          });
       
       $q.notify({
         type: 'positive',
@@ -287,18 +302,65 @@ async function getOdaTipLifyatData() {
   }
 }
 
+// Currency formatlama fonksiyonları
+function formatCurrencyForDisplay(value: number): string {
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}
+
+function formatCurrency(event: Event, row: OdaTipLifyatRow, field: keyof OdaTipLifyatRow) {
+  const target = event.target as HTMLInputElement;
+  let value = target.value;
+  
+  // Sadece sayıları kabul et (nokta karakterini kaldır)
+  value = value.replace(/[^\d]/g, '');
+  
+  row[field] = value;
+}
+
+function formatCurrencyOnBlur(event: Event, row: OdaTipLifyatRow, field: keyof OdaTipLifyatRow) {
+  const target = event.target as HTMLInputElement;
+  const value = target.value;
+  
+  if (value && value !== '') {
+    // Sayıyı parse et
+    const numValue = parseInt(value);
+    if (!isNaN(numValue)) {
+      // TL formatında göster (örn: 1.500)
+      const formattedValue = numValue.toLocaleString('tr-TR');
+      row[field] = formattedValue;
+    }
+  }
+}
+
+function formatCurrencyOnFocus(event: Event, row: OdaTipLifyatRow, field: keyof OdaTipLifyatRow) {
+  const value = row[field];
+  
+  if (typeof value === 'string' && value.includes(',')) {
+    // TL formatından sayıya çevir (örn: 1.500 -> 1500)
+    const cleanValue = value.replace(/\./g, '');
+    const numValue = parseInt(cleanValue);
+    if (!isNaN(numValue)) {
+      row[field] = numValue.toString();
+    }
+  }
+}
+
 // Değiştirilen kayıtları güncelle
 async function guncelleKayitlar() {
   try {
     guncellemeLoading.value = true;
     
-         // Değiştirilen kayıtları filtrele (basit kontrol)
-     const guncellenecekKayitlar = odaTipLifyatRows.value.filter(row => 
-       row.OdLfytGun !== undefined || 
-       row.OdLfytHft !== undefined || 
-       row.OdLfytAyl !== undefined || 
-       row.OdDpzt !== undefined
-     );
+                                       // Değiştirilen kayıtları filtrele ve sayısal değerlere çevir
+       const guncellenecekKayitlar = odaTipLifyatRows.value.map(row => ({
+         ...row,
+         OdLfytGun: parseInt(row.OdLfytGun.toString().replace(/\./g, '')) || 0,
+         OdLfytHft: parseInt(row.OdLfytHft.toString().replace(/\./g, '')) || 0,
+         OdLfytAyl: parseInt(row.OdLfytAyl.toString().replace(/\./g, '')) || 0,
+         OdDpzt: parseInt(row.OdDpzt.toString().replace(/\./g, '')) || 0
+       }));
     
     if (guncellenecekKayitlar.length === 0) {
       $q.notify({
@@ -327,10 +389,13 @@ async function guncelleKayitlar() {
        // Verileri yeniden yükle
        await getOdaTipLifyatData();
        
-       // Güncelleme sonrası gizli kayıtları tekrar gizle (eğer gizli mod aktifse)
-       if (!gizliKayitlarGosteriliyor.value) {
-         odaTipLifyatRows.value = tumKayitlar.value.filter(row => row.OdLfytGun !== 1);
-       }
+                               // Güncelleme sonrası gizli kayıtları tekrar gizle (eğer gizli mod aktifse)
+         if (!gizliKayitlarGosteriliyor.value) {
+           odaTipLifyatRows.value = tumKayitlar.value.filter(row => {
+             const gunlukFiyat = parseInt(row.OdLfytGun.toString().replace(/\./g, '')) || 0;
+             return gunlukFiyat !== 1;
+           });
+         }
      } else {
       throw new Error(response.data.message || 'Güncelleme sırasında hata oluştu');
     }
@@ -463,8 +528,117 @@ async function guncelleKayitlar() {
 
 .admin-panel-table .q-table td:nth-child(3), /* OdLfytGun */
 .admin-panel-table .q-table td:nth-child(4), /* OdLfytHft */
-.admin-panel-table .q-table td:nth-child(5)  /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(5), /* OdLfytAyl */
 .admin-panel-table .q-table td:nth-child(6) { /* OdDpzt */
   max-width: 120px;
+  text-align: center;
+}
+
+/* Fiyat sütunlarındaki input alanlarını centered yap */
+.admin-panel-table .q-table td:nth-child(3) .q-input, /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) .q-input, /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) .q-input, /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) .q-input { /* OdDpzt */
+  text-align: center;
+}
+
+.admin-panel-table .q-table td:nth-child(3) .q-input input, /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) .q-input input, /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) .q-input input, /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) .q-input input { /* OdDpzt */
+  text-align: center !important;
+}
+
+/* Daha spesifik seçiciler ile input alanlarını centered yap */
+.admin-panel-table .q-table td:nth-child(3) .q-field__control input, /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) .q-field__control input, /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) .q-field__control input, /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) .q-field__control input { /* OdDpzt */
+  text-align: center !important;
+}
+
+/* Compact input için de centered yap */
+.admin-panel-table .q-table td:nth-child(3) .compact-input .q-field__control input, /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) .compact-input .q-field__control input, /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) .compact-input .q-field__control input, /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) .compact-input .q-field__control input { /* OdDpzt */
+  text-align: center !important;
+}
+
+/* Writable input için de centered yap */
+.admin-panel-table .q-table td:nth-child(3) .writable-input .q-field__control input, /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) .writable-input .q-field__control input, /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) .writable-input .q-field__control input, /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) .writable-input .q-field__control input { /* OdDpzt */
+  text-align: center !important;
+}
+
+/* En güçlü seçici ile tüm input alanlarını centered yap */
+.admin-panel-table .q-table td:nth-child(3) input[type="number"], /* OdLfytGun */
+.admin-panel-table .q-table td:nth-child(4) input[type="number"], /* OdLfytHft */
+.admin-panel-table .q-table td:nth-child(5) input[type="number"], /* OdLfytAyl */
+.admin-panel-table .q-table td:nth-child(6) input[type="number"] { /* OdDpzt */
+  text-align: center !important;
+}
+
+/* Global input centered override */
+.admin-panel-table input[type="number"] {
+  text-align: center !important;
+}
+
+/* En güçlü CSS override - tüm input'ları centered yap */
+.admin-panel-table input {
+  text-align: center !important;
+}
+
+/* Quasar'ın varsayılan stillerini override et */
+.admin-panel-table .q-field__control input {
+  text-align: center !important;
+}
+
+/* Inline style ile override */
+.admin-panel-table input[style*="text-align"] {
+  text-align: center !important;
+}
+
+/* En güçlü override - tüm input'ları zorla centered yap */
+.admin-panel-table input,
+.admin-panel-table .q-field__control input,
+.admin-panel-table .q-input input,
+.admin-panel-table .q-field input {
+  text-align: center !important;
+}
+
+/* Quasar'ın tüm stillerini override et */
+.admin-panel-table .q-field__control input[type="number"],
+.admin-panel-table .q-field__control input[type="text"] {
+  text-align: center !important;
+}
+
+/* Global override - tüm sayfa için */
+.admin-panel-table * {
+  text-align: center !important;
+}
+
+/* Sadece Oda Tip Adı sütunu left align olsun */
+.admin-panel-table .q-table td:nth-child(2),
+.admin-panel-table .q-table th:nth-child(2) {
+  text-align: left !important;
+}
+
+/* Currency input stilleri */
+.currency-input input {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.currency-input .q-field__control {
+  background-color: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+}
+
+.currency-input:focus-within .q-field__control {
+  background-color: #fff8e1 !important;
+  border-color: #ffd54f !important;
 }
 </style>

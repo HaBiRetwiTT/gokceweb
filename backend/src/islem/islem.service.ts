@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { DatabaseConfigService } from '../database/database-config.service';
+import { Islem } from '../entities/islem.entity';
 import * as PDFDocument from 'pdfkit';
 import * as ExcelJS from 'exceljs';
 
@@ -27,6 +28,8 @@ export class IslemService {
   constructor(
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @InjectRepository(Islem)
+    private readonly islemRepository: Repository<Islem>,
     private readonly dbConfig: DatabaseConfigService,
   ) {}
 
@@ -105,21 +108,20 @@ export class IslemService {
     endDDMMYYYY: string,
   ): Promise<{ gelir: Array<{ islemGrup: string; toplam: number }>; gider: Array<{ islemGrup: string; toplam: number }> }> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
 
       const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
 
       const gelirQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GELİR'
         GROUP BY islemGrup
         ORDER BY toplam DESC`;
 
       const giderQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GİDER'
         GROUP BY islemGrup
         ORDER BY toplam DESC`;
@@ -144,7 +146,6 @@ export class IslemService {
     period: string,
     endDDMMYYYY: string,
   ): Promise<Array<{ label: string; gelir: number; gider: number; dateISO?: string }>> {
-    const schemaName = this.dbConfig.getTableSchema();
     const tableName = this.dbConfig.getTableName('tblislem');
     // Period parametresini güvenli şekilde normalize et (trim + küçük harf + Türkçe karakter dönüşümleri)
     const rawPeriod = (period ?? 'gunler').toString();
@@ -177,7 +178,7 @@ export class IslemService {
             SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
             SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Weeks w
-          LEFT JOIN ${schemaName}.${tableName} t
+          LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd
           GROUP BY w.i
         )
@@ -206,7 +207,7 @@ export class IslemService {
             SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
             SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Months m
-          LEFT JOIN ${schemaName}.${tableName} t
+          LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd
           GROUP BY m.i
         )
@@ -235,7 +236,7 @@ export class IslemService {
             SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
             SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Quarters q
-          LEFT JOIN ${schemaName}.${tableName} t
+          LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd
           GROUP BY q.i
         )
@@ -264,7 +265,7 @@ export class IslemService {
             SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
             SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM HalfYears h
-          LEFT JOIN ${schemaName}.${tableName} t
+          LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd
           GROUP BY h.i
         )
@@ -293,7 +294,7 @@ export class IslemService {
             SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
             SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Years y
-          LEFT JOIN ${schemaName}.${tableName} t
+          LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN y.yStart AND y.yEnd
           GROUP BY y.i
         )
@@ -316,16 +317,16 @@ export class IslemService {
           i,
           CONVERT(DATE, DATEADD(DAY, - (11 - i), CONVERT(DATE, @0, 104)), 104) AS d
         FROM Seq
-      ), Sums AS (
-        SELECT 
-          d.d,
-          SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-          SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
-        FROM Days d
-        LEFT JOIN ${schemaName}.${tableName} t
-          ON CONVERT(DATE, t.iKytTarihi, 104) = d.d
-        GROUP BY d.d
-      )
+              ), Sums AS (
+          SELECT 
+            d.d,
+            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+          FROM Days d
+          LEFT JOIN ${tableName} t
+            ON CONVERT(DATE, t.iKytTarihi, 104) = d.d
+          GROUP BY d.d
+        )
       SELECT 
         CONVERT(VARCHAR(5), d.d, 104) AS label,
         ISNULL(s.gelir,0) AS gelir,
@@ -364,7 +365,7 @@ export class IslemService {
         // tblFonKasaY tablosundan islmGrup alanına göre islmAltG distinct listesi
         const query = `
           SELECT DISTINCT islmAltG 
-          FROM [gokcepansiyon2010].[harunta].[tblFonKasaY] 
+          FROM ${this.dbConfig.getTableName('tblFonKasaY')} 
           WHERE islmGrup = '${islmGrup}' 
           ORDER BY islmAltG
         `;
@@ -449,10 +450,9 @@ export class IslemService {
         rowsPerPage: typeof rowsPerPage 
       })
       
-      const schemaName = this.dbConfig.getTableSchema();
       const tableName = this.dbConfig.getTableName('tblislem');
       
-      console.log('🔍 Veritabanı bilgileri:', { schemaName, tableName })
+      console.log('🔍 Veritabanı bilgileri:', { tableName })
 
       // Tarih filtresi kaldırıldı - sadece islemArac ve islemTip seçimlerine göre günlük gruplama
 
@@ -489,7 +489,7 @@ export class IslemService {
         }
         // Depozito seçildiyse islemArac filtresi uygulanmaz; diğerlerinde uygulanır
         if (islemArac !== 'depozito') {
-          islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
         }
       }
 
@@ -503,7 +503,7 @@ export class IslemService {
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE 1=1
         ${islemAracFilter}
         ${depozitoFilter}
@@ -534,7 +534,7 @@ export class IslemService {
           CONVERT(VARCHAR(10), iKytTarihi, 104) as iKytTarihi,
           ${gelirExpr} as gelir,
           ${giderExpr} as gider
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE 1=1
         ${islemAracFilter}
         ${depozitoFilter}
@@ -610,7 +610,8 @@ export class IslemService {
         (await this.getAktifKullaniciAdi());
       // Kullanıcıyı tblPersonel'de doğrula ve varsa PrsnUsrNm tam değeriyle yaz
       try {
-        const prsnQuery = `SELECT TOP 1 PrsnUsrNm FROM ${this.dbConfig.getTableSchema()}.tblPersonel WHERE PrsnUsrNm = @0`;
+        const personelTableName = this.dbConfig.getTableName('tblPersonel');
+      const prsnQuery = `SELECT TOP 1 PrsnUsrNm FROM ${personelTableName} WHERE PrsnUsrNm = @0`;
         const prsnUnknown = (await this.dataSource.query(prsnQuery, [
           aktifKullanici,
         ])) as unknown;
@@ -624,7 +625,8 @@ export class IslemService {
 
       // nKasaNo sütunu bazı ortamlarda IDENTITY, bazı ortamlarda manuel olabilir.
       // Dinamik tespit et ve uygun INSERT stratejisini uygula.
-      const tableFullName = `${this.dbConfig.getTableSchema()}.tblKasaDevir`;
+      const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
+      const tableFullName = kasaDevirTableName;
       const identityCheckQuery = `SELECT COLUMNPROPERTY(OBJECT_ID('${tableFullName}'),'nKasaNo','IsIdentity') as isIdentity`;
       const idChkUnknown = (await this.dataSource.query(
         identityCheckQuery,
@@ -695,10 +697,10 @@ export class IslemService {
         rowsPerPage: typeof rowsPerPage 
       })
       
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
       
-      console.log('🔍 Detay veritabanı bilgileri:', { schemaName, tableName })
+      console.log('🔍 Detay veritabanı bilgileri:', { tableName })
 
       // İşlem türü filtresi (6'lı radio için islemArac alanı)
       let islemAracFilter = '';
@@ -732,7 +734,7 @@ export class IslemService {
         }
         // Depozito seçildiyse islemArac filtresi uygulama; diğerlerinde uygula
         if (islemArac !== 'depozito') {
-          islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
         }
       }
 
@@ -748,13 +750,13 @@ export class IslemService {
           }
         } else {
           // Diğerleri için mevcut eşleme
-          let dbIslemTip = '';
-          if (islemArac === 'cari') {
-            dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
-          } else {
-            dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
-          }
-          islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
+        let dbIslemTip = '';
+        if (islemArac === 'cari') {
+          dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
+        } else {
+          dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
+        }
+        islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
         }
       }
 
@@ -768,7 +770,7 @@ export class IslemService {
       // Toplam kayıt sayısını al
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
@@ -796,7 +798,7 @@ export class IslemService {
           islemGrup as islemGrup,
           islemTutar as islemTutar,
           islemBilgi as islemBilgi
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
@@ -1102,7 +1104,7 @@ export class IslemService {
    */
   async getDepozitoIslemleri(): Promise<any[]> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       // Tarih aralığı (son 1 yıl) - DD.MM.YYYY formatında
@@ -1129,7 +1131,7 @@ export class IslemService {
            i.iKytTarihi as tarih,
            SUM(CASE WHEN i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN i.islemTutar ELSE 0 END) as gelir,
            SUM(CASE WHEN i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN i.islemTutar ELSE 0 END) as gider
-         FROM ${schemaName}.${tableName} i
+         FROM ${tableName} i
          WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')
          AND CONVERT(DATE, i.iKytTarihi, 104) >= CONVERT(DATE, @0, 104)
          AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @1, 104)
@@ -1288,7 +1290,7 @@ export class IslemService {
     try {
       console.log('🔍 getGuncelBakiye çağrıldı:', { islemArac, islemTip })
       
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       let islemAracim = '';
@@ -1340,7 +1342,7 @@ export class IslemService {
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
-        FROM ${schemaName}.${tableName} i
+        FROM ${tableName} i
         ${islemAracim}
         AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
       `;
@@ -1377,7 +1379,7 @@ export class IslemService {
     secilenTarih: string,
   ): Promise<number> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       let islemAracim = '';
@@ -1425,7 +1427,7 @@ export class IslemService {
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
           SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
-        FROM ${schemaName}.${tableName} i
+        FROM ${tableName} i
         ${islemAracim}
         AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
         AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
@@ -1455,7 +1457,7 @@ export class IslemService {
    */
   async getIslemDetay(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       const query = `
@@ -1478,7 +1480,7 @@ export class IslemService {
           islemAltG,
           islemMiktar,
           islemTutar
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemNo = @0
       `;
 
@@ -1499,12 +1501,12 @@ export class IslemService {
    */
   async getIslemGruplari(): Promise<string[]> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       const query = `
         SELECT DISTINCT islemGrup
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemGrup IS NOT NULL AND islemGrup <> '' AND islemGrup NOT LIKE '%Kasa%' AND islemAltG NOT LIKE '%FON KAYIT%'
         ORDER BY islemGrup
       `;
@@ -1523,12 +1525,12 @@ export class IslemService {
    */
   async getCariHesaplar(): Promise<string[]> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblCari');
 
       const query = `
         SELECT CariAdi
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE CariAdi IS NOT NULL AND CariAdi <> ''
         ORDER BY CariAdi
       `;
@@ -1551,9 +1553,10 @@ export class IslemService {
       const offset = (page - 1) * rowsPerPage;
 
       // Toplam kayıt sayısını al
+      const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir
+        FROM ${kasaDevirTableName}
       `;
 
       const countDevirUnknown = (await this.dataSource.query(
@@ -1568,7 +1571,7 @@ export class IslemService {
           kd.nKytTarihi as DevirTarihi,
           kd.nKasaDvrAln as DevirEden,
           kd.nKasaYekun as KasaYekun
-        FROM ${this.dbConfig.getTableSchema()}.tblKasaDevir kd
+        FROM ${kasaDevirTableName} kd
         ORDER BY kd.nKasaNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
@@ -1614,9 +1617,10 @@ export class IslemService {
     try {
       // Şimdilik varsayılan kullanıcı olarak SAadmin kullanıyoruz
       // TODO: Gerçek authentication sistemi entegre edildiğinde bu kısım güncellenecek
+      const personelTableName = this.dbConfig.getTableName('tblPersonel');
       const query = `
         SELECT TOP 1 PrsnUsrNm 
-        FROM ${this.dbConfig.getTableSchema()}.tblPersonel 
+        FROM ${personelTableName} 
         WHERE PrsnUsrNm = 'SAadmin'
       `;
 
@@ -1798,12 +1802,12 @@ export class IslemService {
    */
   async checkIslemRSTExists(islemNo: number): Promise<boolean> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislemRST');
 
       const query = `
         SELECT COUNT(*) as count
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemNo = @0
       `;
 
@@ -1822,14 +1826,14 @@ export class IslemService {
    */
   async aktarIslemRST(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const islemTableName = this.dbConfig.getTableName('tblislem');
       const islemRSTTableName = this.dbConfig.getTableName('tblislemRST');
 
       // Önce tblislem tablosundan kaydı getir
       const getIslemQuery = `
         SELECT *
-        FROM ${schemaName}.${islemTableName}
+        FROM ${islemTableName}
         WHERE islemNo = @0
       `;
 
@@ -1843,7 +1847,7 @@ export class IslemService {
 
       // tblislemRST tablosuna aktar
       const insertQuery = `
-        INSERT INTO ${schemaName}.${islemRSTTableName} (
+        INSERT INTO ${islemRSTTableName} (
           islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, islemOzel4,
           islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, islemArac, islemTip,
           islemGrup, islemAltG, islemMiktar, islemTutar, Onay
@@ -1892,12 +1896,12 @@ export class IslemService {
    */
   async getIslemRSTDetay(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislemRST');
 
       const query = `
         SELECT *
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemNo = @0
       `;
 
@@ -1919,11 +1923,11 @@ export class IslemService {
    */
   async silIslemRST(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislemRST');
 
       const query = `
-        DELETE FROM ${schemaName}.${tableName}
+        DELETE FROM ${tableName}
         WHERE islemNo = @0
       `;
 
@@ -1945,11 +1949,11 @@ export class IslemService {
    */
   async guncelleIslem(islemNo: number, updateData: any): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       const query = `
-        UPDATE ${schemaName}.${tableName}
+        UPDATE ${tableName}
         SET 
           iKytTarihi = @1,
           islemKllnc = @2,
@@ -2011,13 +2015,13 @@ export class IslemService {
    */
   async resetIslemFromRST(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslemRST = this.dbConfig.getTableName('tblislemRST');
       const tblIslem = this.dbConfig.getTableName('tblislem');
 
       // tblislemRST'den ilgili kaydı çek
       const rstRecord = await this.dataSource.query(
-        `SELECT * FROM ${schemaName}.${tblIslemRST} WHERE islemNo = @0`,
+        `SELECT * FROM ${tblIslemRST} WHERE islemNo = @0`,
         [islemNo],
       );
 
@@ -2031,7 +2035,7 @@ export class IslemService {
 
       // tblislem tablosunu güncelle
       const query = `
-        UPDATE ${schemaName}.${tblIslem}
+        UPDATE ${tblIslem}
         SET
           iKytTarihi = @1,
           islemKllnc = @2,
@@ -2095,7 +2099,7 @@ export class IslemService {
    */
   async silIslem(islemNo: number, username?: string): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslem = this.dbConfig.getTableName('tblislem');
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
@@ -2104,7 +2108,7 @@ export class IslemService {
 
       // Önce tblislem tablosundan kaydı çek
       const islemRecord = await this.dataSource.query(
-        `SELECT * FROM ${schemaName}.${tblIslem} WHERE islemNo = @0`,
+        `SELECT * FROM ${tblIslem} WHERE islemNo = @0`,
         [islemNo],
       );
 
@@ -2116,7 +2120,7 @@ export class IslemService {
 
       // tblislemARV tablosuna arşiv kaydı ekle
       const archiveQuery = `
-        INSERT INTO ${schemaName}.${tblIslemARV} (
+        INSERT INTO ${tblIslemARV} (
           islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, islemOzel3, 
           islemOzel4, islemBirim, islemDoviz, islemKur, islemBilgi, islemCrKod, 
           islemArac, islemTip, islemGrup, islemAltG, islemMiktar, islemTutar, Onay
@@ -2151,7 +2155,7 @@ export class IslemService {
 
       // Şimdi tblislem tablosundan kaydı sil
       const deleteQuery = `
-        DELETE FROM ${schemaName}.${tblIslem} WHERE islemNo = @0
+        DELETE FROM ${tblIslem} WHERE islemNo = @0
       `;
 
       const deleteResult = await this.dataSource.query(deleteQuery, [islemNo]);
@@ -2178,11 +2182,11 @@ export class IslemService {
    */
   async getIslemARVEnBuyuk(): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
       const query = `
-        SELECT TOP 1 * FROM ${schemaName}.${tblIslemARV}
+        SELECT TOP 1 * FROM ${tblIslemARV}
         ORDER BY islemNo DESC
       `;
 
@@ -2205,13 +2209,13 @@ export class IslemService {
    */
   async getIslemARVSonraki(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
       // Basit yaklaşım: mevcut islemNo'dan büyük olan en küçük islemNo'yu bul
       const nextRecordQuery = `
         SELECT TOP 1 *
-        FROM ${schemaName}.${tblIslemARV}
+        FROM ${tblIslemARV}
         WHERE islemNo > @0
         ORDER BY islemNo ASC
       `;
@@ -2235,13 +2239,13 @@ export class IslemService {
    */
   async getIslemARVOnceki(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
 
       // Basit yaklaşım: mevcut islemNo'dan küçük olan en büyük islemNo'yu bul
       const previousRecordQuery = `
         SELECT TOP 1 *
-        FROM ${schemaName}.${tblIslemARV}
+        FROM ${tblIslemARV}
         WHERE islemNo < @0
         ORDER BY islemNo DESC
       `;
@@ -2264,13 +2268,13 @@ export class IslemService {
    */
   async geriYukleIslemARV(islemNo: number): Promise<any> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tblIslemARV = this.dbConfig.getTableName('tblislemARV');
       const tblIslem = this.dbConfig.getTableName('tblislem');
 
       // Arşiv kaydını getir
       const arvRecord = await this.dataSource.query(
-        `SELECT * FROM ${schemaName}.${tblIslemARV} WHERE islemNo = @0`,
+        `SELECT * FROM ${tblIslemARV} WHERE islemNo = @0`,
         [islemNo],
       );
 
@@ -2282,7 +2286,7 @@ export class IslemService {
 
       // tblislem tablosuna geri yükle
       const insertQuery = `
-        INSERT INTO ${schemaName}.${tblIslem} (
+        INSERT INTO ${tblIslem} (
           iKytTarihi, islemKllnc, islemCrKod, islemOzel1, islemOzel2,
           islemOzel3, islemOzel4, islemArac, islemTip, islemGrup,
           islemAltG, islemBilgi, islemMiktar, islemBirim, islemTutar,
@@ -2321,7 +2325,7 @@ export class IslemService {
 
       // Arşiv kaydını sil
       const deleteResult = await this.dataSource.query(
-        `DELETE FROM ${schemaName}.${tblIslemARV} WHERE islemNo = @0`,
+        `DELETE FROM ${tblIslemARV} WHERE islemNo = @0`,
         [islemNo],
       );
 
@@ -2340,9 +2344,9 @@ export class IslemService {
    * tblislemRST.Onay alanını günceller
    */
   async setIslemRSTOnay(islemNo: number, onay: number): Promise<{ success: boolean }> {
-    const schemaName = this.dbConfig.getTableSchema();
+
     const tableName = this.dbConfig.getTableName('tblislemRST');
-    const query = `UPDATE ${schemaName}.${tableName} SET Onay = @1 WHERE islemNo = @0`;
+    const query = `UPDATE ${tableName} SET Onay = @1 WHERE islemNo = @0`;
     await this.dataSource.query(query, [islemNo, onay]);
     return { success: true };
   }
@@ -2351,9 +2355,9 @@ export class IslemService {
    * tblislemARV.Onay alanını günceller
    */
   async setIslemARVOnay(islemNo: number, onay: number): Promise<{ success: boolean }> {
-    const schemaName = this.dbConfig.getTableSchema();
+
     const tableName = this.dbConfig.getTableName('tblislemARV');
-    const query = `UPDATE ${schemaName}.${tableName} SET Onay = @1 WHERE islemNo = @0`;
+    const query = `UPDATE ${tableName} SET Onay = @1 WHERE islemNo = @0`;
     await this.dataSource.query(query, [islemNo, onay]);
     return { success: true };
   }
@@ -2480,10 +2484,10 @@ export class IslemService {
     OdmDrm: boolean;
     ttrDrm: boolean;
   }): Promise<{ success: boolean; message: string; islmNo?: number }> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    
-    try {
-      await queryRunner.connect();
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
       await queryRunner.startTransaction();
       
       // Transaction timeout'u artır (60 saniye)
@@ -2507,8 +2511,9 @@ export class IslemService {
         console.log('🔥 Bugünün tarihinde ve ilk taksit - ek işlem kayıtları oluşturulacak');
         
         // tblFonKasaY tablosuna INSERT
+        const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
         const insertQuery = `
-          INSERT INTO ${this.dbConfig.getTableSchema()}.tblFonKasaY (
+          INSERT INTO ${fonKasaYTableName} (
             OdmVade, islmArac, islmGrup, islmAltG, islmTip, 
             islmTtr, islmTkst, islmBilgi, OdmDrm, ttrDrm
           ) VALUES (
@@ -2652,8 +2657,9 @@ export class IslemService {
         // Sadece tblFonKasaY tablosuna INSERT (ek işlem yok)
         console.log('🔥 Sadece tblFonKasaY kaydı - ek işlem yok');
         
+        const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
         const insertQuery = `
-          INSERT INTO ${this.dbConfig.getTableSchema()}.tblFonKasaY (
+          INSERT INTO ${fonKasaYTableName} (
             OdmVade, islmArac, islmGrup, islmAltG, islmTip, 
             islmTtr, islmTkst, islmBilgi, OdmDrm, ttrDrm
           ) VALUES (
@@ -2707,10 +2713,10 @@ export class IslemService {
   async deleteNakitAkis(data: {
     fKasaNo: number; // Silme için gerekli (WHERE koşulu)
   }): Promise<{ success: boolean; message: string }> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    
-    try {
-      await queryRunner.connect();
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
       await queryRunner.startTransaction();
       
       // Transaction timeout'u artır (60 saniye)
@@ -2719,9 +2725,11 @@ export class IslemService {
       // 1. ÖNCE İLGİLİ tblislem KAYITLARINI SİL
       console.log('🔥 İlgili tblislem kayıtları siliniyor, fKasaNo:', data.fKasaNo);
       
+      const tableName = this.dbConfig.getTableName('tblislem');
       // Önce mevcut kayıt bilgilerini al (islmGrup için)
+      const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
       const getKayitQuery = `
-        SELECT islmGrup FROM ${this.dbConfig.getTableSchema()}.tblFonKasaY WHERE fKasaNo = @0
+        SELECT islmGrup FROM ${fonKasaYTableName} WHERE fKasaNo = @0
       `;
       
       const kayitResult = await queryRunner.manager.query(getKayitQuery, [data.fKasaNo]);
@@ -2737,7 +2745,7 @@ export class IslemService {
         
         // tblislem tablosundan ilgili kayıtları sil
         const deleteIslemQuery = `
-          DELETE FROM ${this.dbConfig.getTableSchema()}.tblislem 
+          DELETE FROM ${tableName} 
           WHERE islemAltG = @0
         `;
         
@@ -2756,51 +2764,51 @@ export class IslemService {
       console.log('🔥 tblFonKasaY kaydı siliniyor');
       
       const deleteFonQuery = `
-        DELETE FROM ${this.dbConfig.getTableSchema()}.tblFonKasaY 
-        WHERE fKasaNo = @0
-      `;
-      
+          DELETE FROM ${fonKasaYTableName} 
+          WHERE fKasaNo = @0
+        `;
+        
       const deleteFonParams = [
-        data.fKasaNo,           // @0 - fKasaNo (WHERE koşulu)
-      ];
-      
-      // 🔥 DEBUG: DELETE query ve parametreleri logla
+          data.fKasaNo,           // @0 - fKasaNo (WHERE koşulu)
+        ];
+        
+        // 🔥 DEBUG: DELETE query ve parametreleri logla
       console.log('🔥 DELETE tblFonKasaY Query:', deleteFonQuery);
       console.log('🔥 DELETE tblFonKasaY Params:', deleteFonParams);
-      
+        
       const result = await queryRunner.manager.query(deleteFonQuery, deleteFonParams);
-      
-      // 🔥 DEBUG: DELETE sonucunu logla
+        
+        // 🔥 DEBUG: DELETE sonucunu logla
       console.log('🔥 DELETE tblFonKasaY Result:', result);
       console.log('🔥 DELETE tblFonKasaY affectedRows:', result?.affectedRows);
-      
-      // SQL Server'da DELETE sonucu undefined olabilir ama kayıt silinmiş olabilir
-      if (!result) {
-        console.log('🔥 DELETE Result undefined - SQL Server davranışı, kayıt silinmiş olabilir');
-      } else if (result.affectedRows === 0) {
-        console.error('🔥 DELETE başarısız - affectedRows: 0');
-        throw new Error('Kayıt bulunamadı veya silinemedi');
-      }
-      
-      console.log('🔥 DELETE başarılı - affectedRows:', result?.affectedRows || 'undefined (SQL Server)');
+        
+        // SQL Server'da DELETE sonucu undefined olabilir ama kayıt silinmiş olabilir
+        if (!result) {
+          console.log('🔥 DELETE Result undefined - SQL Server davranışı, kayıt silinmiş olabilir');
+        } else if (result.affectedRows === 0) {
+          console.error('🔥 DELETE başarısız - affectedRows: 0');
+          throw new Error('Kayıt bulunamadı veya silinemedi');
+        }
+        
+        console.log('🔥 DELETE başarılı - affectedRows:', result?.affectedRows || 'undefined (SQL Server)');
       
       // Transaction'ı commit et
       await queryRunner.commitTransaction();
-      
-      const response = {
-        success: true,
+        
+        const response = {
+          success: true,
         message: 'Nakit akış kaydı ve ilgili işlem kayıtları başarıyla silindi'
-      };
-      
-      console.log('🔥 Service DELETE response:', response);
-      return response;
-      
+        };
+        
+        console.log('🔥 Service DELETE response:', response);
+        return response;
+        
     } catch (error) {
       console.error('🔥 Hata oluştu, transaction rollback yapılıyor:', error);
       await queryRunner.rollbackTransaction();
       throw new Error(`Nakit akış kaydı silinirken hata: ${error.message}`);
-    } finally {
-      await queryRunner.release();
+      } finally {
+        await queryRunner.release();
     }
   }
 
@@ -2853,8 +2861,9 @@ export class IslemService {
       console.log('🔥 Silinecek islemAltG pattern:', silinecekIslemAltG);
       
       // tblislem tablosundan mevcut ek işlem kayıtlarını sil
+      const tableName = this.dbConfig.getTableName('tblislem');
       const deleteQuery = `
-        DELETE FROM ${this.dbConfig.getTableSchema()}.tblislem 
+        DELETE FROM ${tableName} 
         WHERE islemAltG = @0
       `;
       
@@ -2955,8 +2964,9 @@ export class IslemService {
       // 2. YENİ KAYIT EKLE (kalan tutar için) - direkt INSERT
       console.log('🔥 Yeni kayıt ekleniyor (kalan tutar için)');
       
+      const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
       const yeniKayitQuery = `
-        INSERT INTO ${this.dbConfig.getTableSchema()}.tblFonKasaY (
+        INSERT INTO ${fonKasaYTableName} (
           OdmVade, islmArac, islmGrup, islmAltG, islmTip, 
           islmTtr, islmTkst, islmBilgi, OdmDrm, ttrDrm
         ) VALUES (
@@ -2987,7 +2997,7 @@ export class IslemService {
       console.log('🔥 Mevcut kayıt güncelleniyor (ödenen tutar için)');
       
       const updateQuery = `
-        UPDATE ${this.dbConfig.getTableSchema()}.tblFonKasaY 
+        UPDATE ${fonKasaYTableName} 
         SET 
           islmTtr = @0
         WHERE fKasaNo = @1
@@ -3041,10 +3051,10 @@ export class IslemService {
     fKasaNo: number; // Güncelleme için gerekli (WHERE koşulu)
     isKismiOdeme?: boolean; // Kısmi ödeme kontrolü için
   }): Promise<{ success: boolean; message: string }> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    
-    try {
-      await queryRunner.connect();
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
       await queryRunner.startTransaction();
       
       // Transaction timeout'u artır (60 saniye)
@@ -3060,8 +3070,9 @@ export class IslemService {
       console.log('🔥 Silinecek islemAltG pattern:', silinecekIslemAltG);
       
       // tblislem tablosundan mevcut ek işlem kayıtlarını sil
+      const tableName = this.dbConfig.getTableName('tblislem');
       const deleteQuery = `
-        DELETE FROM ${this.dbConfig.getTableSchema()}.tblislem 
+        DELETE FROM ${tableName} 
         WHERE islemAltG = @0
       `;
       
@@ -3076,37 +3087,38 @@ export class IslemService {
       // 2. tblFonKasaY tablosunda UPDATE (islmTkst hariç - readonly alan)
       console.log('🔥 tblFonKasaY kaydı güncelleniyor (islmTkst hariç)');
       
-      const updateQuery = `
-        UPDATE ${this.dbConfig.getTableSchema()}.tblFonKasaY 
-        SET 
-          OdmVade = @0,
-          islmArac = @1,
-          islmGrup = @2,
-          islmAltG = @3,
-          islmTip = @4,
-          islmTtr = @5,
-          islmBilgi = @6,
-          OdmDrm = @7,
-          ttrDrm = @8
-        WHERE fKasaNo = @9
-      `;
-      
-      const updateParams = [
-        data.OdmVade,           // @0 - OdmVade
-        data.islmArac,          // @1 - islmArac
-        data.islmGrup,          // @2 - islmGrup
-        data.islmAltG,          // @3 - islmAltG
-        data.islmTip,           // @4 - islmTip
-        data.islmTtr,           // @5 - islmTtr
-        data.islmBilgi,         // @6 - islmBilgi
-        data.OdmDrm ? 1 : 0,    // @7 - OdmDrm (boolean -> int)
-        data.ttrDrm ? 1 : 0,    // @8 - ttrDrm (boolean -> int)
-        data.fKasaNo,           // @9 - fKasaNo (WHERE clause)
-      ];
-      
-      console.log('🔥 UPDATE Query:', updateQuery);
-      console.log('🔥 UPDATE Params:', updateParams);
-      
+        const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
+        const updateQuery = `
+          UPDATE ${fonKasaYTableName} 
+          SET 
+            OdmVade = @0,
+            islmArac = @1,
+            islmGrup = @2,
+            islmAltG = @3,
+            islmTip = @4,
+            islmTtr = @5,
+            islmBilgi = @6,
+            OdmDrm = @7,
+            ttrDrm = @8
+          WHERE fKasaNo = @9
+        `;
+        
+        const updateParams = [
+          data.OdmVade,           // @0 - OdmVade
+          data.islmArac,          // @1 - islmArac
+          data.islmGrup,          // @2 - islmGrup
+          data.islmAltG,          // @3 - islmAltG
+          data.islmTip,           // @4 - islmTip
+          data.islmTtr,           // @5 - islmTtr
+          data.islmBilgi,         // @6 - islmBilgi
+          data.OdmDrm ? 1 : 0,    // @7 - OdmDrm (boolean -> int)
+          data.ttrDrm ? 1 : 0,    // @8 - ttrDrm (boolean -> int)
+          data.fKasaNo,           // @9 - fKasaNo (WHERE clause)
+        ];
+        
+        console.log('🔥 UPDATE Query:', updateQuery);
+        console.log('🔥 UPDATE Params:', updateParams);
+        
       const updateResult = await queryRunner.manager.query(updateQuery, updateParams);
       console.log('🔥 UPDATE Result:', updateResult);
       
@@ -3122,7 +3134,7 @@ export class IslemService {
        
        // Mevcut kayıttan taksit bilgisini al (güncelleme sırasında mevcut değer kullanılır)
        const mevcutKayitQuery = `
-         SELECT islmTkst FROM ${this.dbConfig.getTableSchema()}.tblFonKasaY WHERE fKasaNo = @0
+         SELECT islmTkst FROM ${fonKasaYTableName} WHERE fKasaNo = @0
        `;
        const mevcutKayitResult = await queryRunner.manager.query(mevcutKayitQuery, [data.fKasaNo]);
        const mevcutTaksit = mevcutKayitResult[0]?.islmTkst || '1';
@@ -3230,21 +3242,21 @@ export class IslemService {
       
       // Transaction'ı commit et
       await queryRunner.commitTransaction();
-      
-      const response = {
-        success: true,
+        
+        const response = {
+          success: true,
         message: 'Nakit akış kaydı ve ek işlem kayıtları başarıyla güncellendi'
-      };
-      
-      console.log('🔥 Service UPDATE response:', response);
-      return response;
-      
+        };
+        
+        console.log('🔥 Service UPDATE response:', response);
+        return response;
+        
     } catch (error) {
       console.error('🔥 Hata oluştu, transaction rollback yapılıyor:', error);
       await queryRunner.rollbackTransaction();
       throw new Error(`Nakit akış kaydı güncellenirken hata: ${error.message}`);
-    } finally {
-      await queryRunner.release();
+      } finally {
+        await queryRunner.release();
     }
   }
 
@@ -3296,7 +3308,7 @@ export class IslemService {
    */
   async getGrupDetay(grup: string, islemTip: string, startDDMMYYYY: string, endDDMMYYYY: string): Promise<any[]> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       const query = `
@@ -3310,7 +3322,7 @@ export class IslemService {
           islemBilgi,
           islemMiktar,
           islemTutar
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemGrup = @0
           AND islemTip = @1
           AND CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @2, 104) AND CONVERT(DATE, @3, 104)
@@ -3329,7 +3341,7 @@ export class IslemService {
    */
   async getBarChartDetay(label: string, islemTip: string, startDDMMYYYY: string, endDDMMYYYY: string): Promise<any[]> {
     try {
-      const schemaName = this.dbConfig.getTableSchema();
+
       const tableName = this.dbConfig.getTableName('tblislem');
 
       // Label'dan tarih aralığını belirle
@@ -3374,7 +3386,7 @@ export class IslemService {
           islemBilgi,
           islemMiktar,
           islemTutar
-        FROM ${schemaName}.${tableName}
+        FROM ${tableName}
         WHERE islemTip = @0
           ${dateFilter}
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC, islemNo DESC

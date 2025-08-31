@@ -14,18 +14,16 @@ import { IslemModule } from './islem/islem.module';
 import { AgentModule } from './agent/agent.module';
 import { DatabaseConfigService } from './database/database-config.service';
 import { JwtMiddleware } from './auth/jwt.middleware';
-import * as dotenv from 'dotenv';
 import { OdemeIslemController } from './odeme-islem.controller';
 import { OdemeIslemService } from './odeme-islem.service';
 import { DatabaseTransactionService } from './database/database-transaction.service';
 import { HotelRunnerModule } from './hotelrunner/hotelrunner.module';
 import { PersonelModule } from './personel/personel.module';
 import { AdminModule } from './admin/admin.module';
+import * as dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config({
-  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development'
-});
+// Production environment variables yükle
+dotenv.config({ path: '.env.production' });
 
 @Module({
   imports: [

@@ -179,11 +179,11 @@ export class MusteriController {
               odaNo = parts[0]?.trim() || '';
               yatakNo = parts[1]?.trim() || '';
             }
-            const schemaName = this.dbConfig.getTableSchema();
+            const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
             const bugunTarihi = this.formatDate(new Date());
             await this.transactionService.executeQuery(
               queryRunner,
-              `UPDATE ${schemaName}.tblOdaYatak SET odYatDurum = 'BOŞ', odYatKllnc = @2, oKytTarihi = @3 WHERE odYatOdaNo = @0 AND odYatYtkNo = @1`,
+              `UPDATE ${odaYatakTableName} SET odYatDurum = 'BOŞ', odYatKllnc = @2, oKytTarihi = @3 WHERE odYatOdaNo = @0 AND odYatYtkNo = @1`,
               [odaNo, yatakNo, kullaniciAdi, bugunTarihi]
             );
           } else {
@@ -261,10 +261,10 @@ export class MusteriController {
         try {
           const hrResId = String(musteriData?.hrResId || '').trim();
           if (hrResId) {
-            const schema = this.dbConfig.getTableSchema();
+            const hrZvnTableName = this.dbConfig.getTableName('tblHRzvn');
             await this.transactionService.executeQuery(
               queryRunner,
-              `UPDATE ${schema}.tblHRzvn SET durum = 'checked_in', updatedAt = @1 WHERE hrResId = @0`,
+              `UPDATE ${hrZvnTableName} SET durum = 'checked_in', updatedAt = @1 WHERE hrResId = @0`,
               [hrResId, this.formatDate(new Date())]
             );
           }
@@ -1071,32 +1071,15 @@ export class MusteriController {
       return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   }
-  // Prod ortamında test uçlarını kapat
+  // Test endpoint'leri production'da devre dışı
   @Get('test-endpoint')
   getTest() {
-    if (process.env.NODE_ENV === 'production') {
-      return { success: false, message: 'Endpoint disabled in production' };
-    }
-    return { message: 'Test endpoint çalışıyor!' };
+    return { success: false, message: 'Endpoint disabled in production' };
   }
 
   @Get('test-simple')
   async testSimple() {
-    if (process.env.NODE_ENV === 'production') {
-      return { success: false, message: 'Endpoint disabled in production' };
-    }
-    try {
-      return {
-        success: true,
-        message: 'Basit test endpoint çalışıyor!',
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Test endpoint hatası: ' + (error instanceof Error ? error.message : String(error))
-      };
-    }
+    return { success: false, message: 'Endpoint disabled in production' };
   }
 
   // Konaklama Geçmişi PDF Raporu

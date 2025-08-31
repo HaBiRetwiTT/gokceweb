@@ -86,10 +86,8 @@ type KonaklamaGecmisRow = {
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
   private debugLog(...args: unknown[]): void {
-    if (process.env.NODE_ENV !== 'production') {
-       
-      console.log(...args);
-    }
+    // Production'da logging kapalı
+    console.log(...args);
   }
   private statsCache: { data: any; timestamp: number } | null = null;
   private readonly CACHE_DURATION = 0; // Cache devre dışı - her zaman güncel veri
@@ -2532,7 +2530,7 @@ export class DashboardService {
       let musteriAdi = '';
       if (data.length > 0) {
         try {
-          const musteriQuery = `SELECT MstrAdi FROM [harunta].[tblMusteri] WHERE MstrTCN = @0`;
+          const musteriQuery = `SELECT MstrAdi FROM ${this.dbConfig.getTables().musteri} WHERE MstrTCN = @0`;
           const musteriResult = await this.musteriRepository.query(musteriQuery, [tcKimlik]);
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;
@@ -2667,7 +2665,7 @@ export class DashboardService {
       let musteriAdi = '';
       if (data.length > 0) {
         try {
-          const musteriQuery = `SELECT MstrAdi FROM [harunta].[tblMusteri] WHERE MstrTCN = @0`;
+          const musteriQuery = `SELECT MstrAdi FROM ${this.dbConfig.getTables().musteri} WHERE MstrTCN = @0`;
           const musteriResult = await this.musteriRepository.query(musteriQuery, [tcKimlik]);
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;

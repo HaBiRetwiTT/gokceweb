@@ -176,17 +176,17 @@ export class OdemeIslemService {
               first.MstrHspTip === 'Kurumsal'
                 ? `MK${musteriNo}`
                 : `MB${musteriNo}`;
-            const schema = this.dbConfig.getTableSchema();
+            const tableName = this.dbConfig.getTableName('tblislem');
             const updateQuery = `
               WITH lastRow AS (
                 SELECT TOP (1) islemNo
-                FROM ${schema}.tblislem
+                FROM ${tableName}
                 WHERE islemCrKod = @1 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
                 ORDER BY islemNo DESC
               )
               UPDATE t
               SET t.islemArac = @0
-              FROM ${schema}.tblislem AS t
+              FROM ${tableName} AS t
               INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
             `;
             await this.transactionService.executeQuery(

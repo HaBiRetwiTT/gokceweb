@@ -16,7 +16,7 @@ export class AdminService {
    */
   async getOdaTipLifyat(): Promise<any[]> {
     try {
-      const tableSchema = this.dbConfig.getTableSchema();
+      const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
       const query = `
         SELECT 
           OdTipNo,
@@ -25,7 +25,7 @@ export class AdminService {
           OdLfytHft,
           OdLfytAyl,
           OdDpzt
-        FROM [${tableSchema}].tblOdaTipLfyt
+        FROM ${odaTipLifyatTableName}
         ORDER BY OdTipNo
       `;
 
@@ -59,9 +59,9 @@ export class AdminService {
       for (const kayit of kayitlar) {
         try {
           // UPDATE sorgusu
-          const tableSchema = this.dbConfig.getTableSchema();
+          const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
           const updateQuery = `
-            UPDATE [${tableSchema}].tblOdaTipLfyt
+            UPDATE ${odaTipLifyatTableName}
             SET 
               OdLfytGun = @0,
               OdLfytHft = @1,
