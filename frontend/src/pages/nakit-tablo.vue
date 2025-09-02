@@ -743,6 +743,9 @@ const ertelemeTarihi = ref('');
 const odenenTutar = ref(0);
 const eskiTutar = ref(0); // Güncelleme öncesi eski tutar bilgisi
 
+// Form initialize flag'i - form initialize edilirken kategori değişikliği temizleme işlemini bypass etmek için
+const isFormInitializing = ref(false);
+
 // Devreden bakiye güncelleme fonksiyonu
 async function updateDevredenBakiye(tarih: string) {
   try {
@@ -1284,6 +1287,11 @@ watch(tableData, async () => {
 
 // İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle ve işlem tanımı alanını temizle
 watch(() => newRecord.value.islmGrup, async (newKategori, oldKategori) => {
+  // Form initialize edilirken temizleme işlemini bypass et
+  if (isFormInitializing.value) {
+    return;
+  }
+  
   // İşlem kategorisi değiştiğinde işlem tanımı alanını temizle
   if (newKategori !== oldKategori) {
     // İşlem tanımı modelini temizle
@@ -1309,7 +1317,7 @@ watch(() => newRecord.value.islmGrup, async (newKategori, oldKategori) => {
     islemTanimiOptions.value = [];
     originalIslemTanimiOptions.value = [];
   }
-});
+}, { immediate: false });
 
 // CSS sınıflarını uygulayan fonksiyon - daha güçlü
 async function applyRowStyling(data: NakitAkisRecord[]) {
@@ -1769,6 +1777,9 @@ function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
   // Edit modal'ı aç
   showEditModal.value = true;
   
+  // Form initialize flag'ini aktif et
+  isFormInitializing.value = true;
+  
   // Seçilen kaydın bilgilerini form elementlerine yaz
   newRecord.value = {
     OdmVade: row.OdmVade || '',
@@ -1789,8 +1800,11 @@ function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
   
   // fKasaNo'yu global ref'e sakla (güncelleme için)
   selectedFKasaNo.value = row.fKasaNo || 0;
-  console.log('🔥 Seçilen kayıt fKasaNo:', row.fKasaNo);
-  console.log('🔥 selectedFKasaNo.value:', selectedFKasaNo.value);
+  
+  // Form initialize tamamlandı, flag'i kapat
+  void nextTick(() => {
+    isFormInitializing.value = false;
+  });
   
   // Erteleme tarihi ve ödenen tutarı sıfırla
   ertelemeTarihi.value = '';
@@ -2124,6 +2138,9 @@ function decrementTaksit() {
 function closeEditModal() {
   // Edit modal'ı kapat
   showEditModal.value = false;
+  
+  // Form initialize flag'ini sıfırla
+  isFormInitializing.value = false;
   
   // Form verilerini temizle
   editRecord.value = {
