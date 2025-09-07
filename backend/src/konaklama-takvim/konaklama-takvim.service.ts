@@ -216,7 +216,6 @@ export class KonaklamaTakvimService {
       
       // 🔥 CTE OPTİMİZASYONU: Aktif konaklamaları daha verimli getir
       const query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri
           SELECT 
@@ -268,6 +267,7 @@ export class KonaklamaTakvimService {
                  END,
                  KnklmOdaNo ASC, 
                  KnklmYtkNo ASC
+        OPTION (MAXDOP 1)
       `;
       
       const result = (await this.musteriRepository.query(query)) as unknown as AktifKonaklamaRow[];

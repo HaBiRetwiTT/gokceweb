@@ -178,8 +178,7 @@ export class OdemeIslemService {
                 : `MB${musteriNo}`;
             const tableName = this.dbConfig.getTableName('tblislem');
             const updateQuery = `
-              SET MAXDOP = 2;
-              WITH lastRow AS (
+        WITH lastRow AS (
                 SELECT TOP (1) islemNo
                 FROM ${tableName}
                 WHERE islemCrKod = @1 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
@@ -189,6 +188,7 @@ export class OdemeIslemService {
               SET t.islemArac = @0
               FROM ${tableName} AS t
               INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
+              OPTION (MAXDOP 1)
             `;
             await this.transactionService.executeQuery(
               queryRunner,

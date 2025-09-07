@@ -120,8 +120,7 @@ export class DashboardService {
 
     // Toplam sayıyı hesapla
     const countSql = `
-      SET MAXDOP = 2;
-      WITH src AS (
+        WITH src AS (
         SELECT v.MstrTCN, v.knklmNo
         FROM ${views.musteriKonaklama} v
         WHERE 
@@ -145,8 +144,7 @@ export class DashboardService {
 
     // Hedef kartı belirle: öncelik Bugün Çıkan > Süresi Dolan > Devam Eden > Yeni Müşteri > Yeni Giriş
     const dataSql = `
-      SET MAXDOP = 2;
-      WITH src AS (
+        WITH src AS (
         SELECT 
           v.MstrTCN,
           v.MstrHspTip,
@@ -257,8 +255,7 @@ export class DashboardService {
 
     // Not: Bazı kurulumlarda KnklmCksTrh view'da bulunmayabilir; bu yüzden NULL cast ediyoruz
     const sql = `
-      SET MAXDOP = 2;
-      WITH src AS (
+        WITH src AS (
         SELECT 
           v.MstrTCN,
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
@@ -633,7 +630,6 @@ export class DashboardService {
       
       // 🔥 TEK SORGU OPTİMİZASYONU: Tüm istatistikleri tek CTE ile hesapla
       const unifiedStatsQuery = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri
           SELECT 
@@ -765,6 +761,7 @@ export class DashboardService {
         CROSS JOIN BugunCikanStats bcs
         CROSS JOIN BorcluAlacakliStats bas
         CROSS JOIN SuresiDolanStats sds
+        OPTION (MAXDOP 1)
       `;
       
       const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
@@ -788,7 +785,6 @@ export class DashboardService {
     try {
       const views = this.dbConfig.getViews();
       const query = `
-        SET MAXDOP = 2;
         SELECT 
           KnklmOdaTip,
           COUNT(*) as DoluOdaSayisi,
@@ -798,6 +794,7 @@ export class DashboardService {
           AND KnklmCksTrh = ''
         GROUP BY KnklmOdaTip
         ORDER BY KnklmOdaTip
+        OPTION (MAXDOP 1)
       `;
       
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
@@ -822,7 +819,6 @@ export class DashboardService {
       
       // 🔥 DEBUG: Stats sorgusu ile aynı mantığı kullan
       let query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
@@ -884,6 +880,7 @@ export class DashboardService {
           AND ak.KnklmNot NOT LIKE '%- Yeni Giriş:%'
           AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
           AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
+        OPTION (MAXDOP 1)
       `;
 
       const parameters: string[] = [];
@@ -919,7 +916,6 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
       let query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
@@ -977,6 +973,7 @@ export class DashboardService {
         ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
+        OPTION (MAXDOP 1)
       `;
 
       const parameters: string[] = [];
@@ -1057,7 +1054,6 @@ export class DashboardService {
       const tables = this.dbConfig.getTables();
 
       let query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
@@ -1116,6 +1112,7 @@ export class DashboardService {
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot LIKE '%- Yeni Müşteri:%'
+        OPTION (MAXDOP 1)
       `;
 
       const parameters: string[] = [];
@@ -1144,7 +1141,6 @@ export class DashboardService {
       const tables = this.dbConfig.getTables();
 
       let query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
@@ -1203,6 +1199,7 @@ export class DashboardService {
         WHERE ak.rn = 1
           AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
           AND ak.KnklmNot LIKE '%- Yeni Giriş:%'
+        OPTION (MAXDOP 1)
       `;
 
       const parameters: string[] = [];
@@ -1284,7 +1281,6 @@ export class DashboardService {
       
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
       const query = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
@@ -1370,7 +1366,6 @@ export class DashboardService {
       
       // Toplam sayıyı ayrı hesapla (daha hızlı)
       const countQuery = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
@@ -1384,6 +1379,7 @@ export class DashboardService {
         FROM ${tables.cari} c
         INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye > 0
+        OPTION (MAXDOP 1)
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
@@ -1414,7 +1410,6 @@ export class DashboardService {
       
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU
       const query = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
             SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
 			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
@@ -1439,7 +1434,6 @@ export class DashboardService {
       
       // Toplam sayıyı ayrı hesapla (daha hızlı) - YENİ SORGU KODU
       const countQuery = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
             SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
 			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
@@ -1481,7 +1475,6 @@ export class DashboardService {
       
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
       const query = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
@@ -1546,7 +1539,6 @@ export class DashboardService {
       
       // Toplam sayıyı ayrı hesapla (daha hızlı)
       const countQuery = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
@@ -1560,6 +1552,7 @@ export class DashboardService {
         FROM ${tables.cari} c
         INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye < 0
+        OPTION (MAXDOP 1)
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
@@ -1613,7 +1606,6 @@ export class DashboardService {
       
       // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
       const query = `
-        SET MAXDOP = 2;
         WITH MusteriCariKod AS (
           -- TC'den cari kod bulma
           SELECT 
@@ -1688,6 +1680,7 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+        OPTION (MAXDOP 1)
       `;
       
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
@@ -1718,6 +1711,7 @@ export class DashboardService {
         WHERE m.MstrTCN = @0
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY k.knklmNo DESC
+        OPTION (MAXDOP 1)
       `;
       
       const resultUnknown = (await this.musteriRepository.query(query, [tcKimlik])) as unknown;
@@ -1802,6 +1796,7 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+        OPTION (MAXDOP 1)
       `;
 
       const parameters: string[] = [];
@@ -1886,6 +1881,7 @@ export class DashboardService {
         WHERE m.MstrTCN = @0
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY k.knklmNo DESC
+        OPTION (MAXDOP 1)
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
@@ -2115,7 +2111,6 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
       const query = `
-        SET MAXDOP = 2;
         WITH AylikGelir AS (
           SELECT 
             YEAR(CONVERT(date, k.kKytTarihi, 104)) as Yil,
@@ -2154,7 +2149,6 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
       const query = `
-        SET MAXDOP = 2;
         WITH OdaBilgileri AS (
           SELECT DISTINCT 
             oy.OdaNo,
@@ -2204,7 +2198,6 @@ export class DashboardService {
       
       // 🔥 CTE OPTİMİZASYONU: Konaklama tipi dağılımını daha verimli hesapla
       const query = `
-        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Aktif konaklamaları getir
           SELECT 
@@ -2251,7 +2244,6 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
       const query = `
-        SET MAXDOP = 2;
         WITH Son7Gun AS (
           SELECT 
             CONVERT(date, DATEADD(day, -6, GETDATE())) as Tarih
@@ -2517,7 +2509,6 @@ export class DashboardService {
       
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU (hem bakiye hem depozito 0 olan müşteriler)
       const query = `
-        SET MAXDOP = 2;
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
             SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
 			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
@@ -2936,8 +2927,7 @@ async getChartDataByTimePeriod(
     console.log('🔍 Hafta tarih aralığı:', { sqlStartDate, sqlEndDate })
     
     const query = `
-      SET MAXDOP = 2;
-      WITH WeekRanges AS (
+        WITH WeekRanges AS (
         -- 12 haftalık periyot için hafta listesi oluştur (başlangıç tarihinden ileriye doğru)
         SELECT 
           YEAR(DATEADD(WEEK, n.number, @${selectedAccommodationTypes.length + selectedRoomTypes.length})) as Year,

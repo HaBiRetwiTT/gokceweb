@@ -113,20 +113,20 @@ export class IslemService {
       const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
 
       const gelirQuery = `
-        SET MAXDOP = 2;
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GELİR'
         GROUP BY islemGrup
-        ORDER BY toplam DESC`;
+        ORDER BY toplam DESC
+        OPTION (MAXDOP 1)`;
 
       const giderQuery = `
-        SET MAXDOP = 2;
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GİDER'
         GROUP BY islemGrup
-        ORDER BY toplam DESC`;
+        ORDER BY toplam DESC
+        OPTION (MAXDOP 1)`;
 
       const gelir = await this.dataSource.query(gelirQuery, [startDDMMYYYY, endDDMMYYYY]);
       const gider = await this.dataSource.query(giderQuery, [startDDMMYYYY, endDDMMYYYY]);
@@ -164,7 +164,6 @@ export class IslemService {
     let query = '';
     if (periodLower === 'haftalar') {
       query = `
-        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -195,7 +194,6 @@ export class IslemService {
         ORDER BY w.i ASC;`
     } else if (periodLower === 'aylar') {
       query = `
-        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -225,7 +223,6 @@ export class IslemService {
         ORDER BY m.i ASC;`
     } else if (periodLower === 'ceyrekler') {
       query = `
-        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -255,7 +252,6 @@ export class IslemService {
         ORDER BY q.i ASC;`;
     } else if (periodLower === 'yari' || periodLower === 'yari-yillar') {
       query = `
-        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -285,7 +281,6 @@ export class IslemService {
         ORDER BY h.i ASC;`;
     } else if (periodLower === 'yillar') {
       query = `
-        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -550,6 +545,7 @@ export class IslemService {
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
+        OPTION (MAXDOP 1)
       `;
 
       console.log('🔍 Ana Query:', query)
@@ -799,7 +795,6 @@ export class IslemService {
 
       // Ana sorgu
       const query = `
-        SET MAXDOP = 2;
         SELECT 
           islemNo,
           iKytTarihi,
@@ -815,6 +810,7 @@ export class IslemService {
         ORDER BY islemNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
+        OPTION (MAXDOP 1)
       `;
 
       console.log('🔍 Detay Ana Query:', query)
@@ -1146,6 +1142,7 @@ export class IslemService {
          AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @1, 104)
          GROUP BY i.iKytTarihi
          ORDER BY CONVERT(DATE, i.iKytTarihi, 104) DESC
+         OPTION (MAXDOP 1)
        `;
 
       const depoUnknown = (await this.dataSource.query(query, [
@@ -1584,6 +1581,7 @@ export class IslemService {
         ORDER BY kd.nKasaNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
+        OPTION (MAXDOP 1)
       `;
 
       const devirUnknown = (await this.dataSource.query(query)) as unknown;
@@ -2197,6 +2195,7 @@ export class IslemService {
       const query = `
         SELECT TOP 1 * FROM ${tblIslemARV}
         ORDER BY islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const result = await this.dataSource.query(query);
@@ -2257,6 +2256,7 @@ export class IslemService {
         FROM ${tblIslemARV}
         WHERE islemNo < @0
         ORDER BY islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const previousRecordResult = await this.dataSource.query(previousRecordQuery, [islemNo]);
@@ -3336,6 +3336,7 @@ export class IslemService {
           AND islemTip = @1
           AND CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @2, 104) AND CONVERT(DATE, @3, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC, islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const result = await this.dataSource.query(query, [grup, islemTip, startDDMMYYYY, endDDMMYYYY]);
@@ -3399,6 +3400,7 @@ export class IslemService {
         WHERE islemTip = @0
           ${dateFilter}
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC, islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const result = await this.dataSource.query(query, params);
@@ -3431,6 +3433,7 @@ export class IslemService {
         FROM tblislemRST 
         WHERE islemNo IN (${placeholders})
         ORDER BY islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -3471,6 +3474,7 @@ export class IslemService {
                islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemRST 
         ORDER BY islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -3501,6 +3505,7 @@ export class IslemService {
                islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemARV 
         ORDER BY islemNo DESC
+        OPTION (MAXDOP 1)
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
