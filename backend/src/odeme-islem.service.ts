@@ -178,6 +178,7 @@ export class OdemeIslemService {
                 : `MB${musteriNo}`;
             const tableName = this.dbConfig.getTableName('tblislem');
             const updateQuery = `
+              SET MAXDOP = 2;
               WITH lastRow AS (
                 SELECT TOP (1) islemNo
                 FROM ${tableName}

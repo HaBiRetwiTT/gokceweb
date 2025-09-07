@@ -219,7 +219,7 @@ export class MusteriService {
   async checkTCExists(tcNo: string): Promise<boolean> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT COUNT(*) as count FROM ${tables.musteri} WHERE MstrTCN = @0`;
+      const query = `SET MAXDOP = 2; SELECT COUNT(*) as count FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: { count: number }[] = await this.musteriRepository.query(query, [tcNo]);
       return result[0]?.count > 0;
     } catch (error) {
@@ -231,7 +231,7 @@ export class MusteriService {
   async checkMusteriDurum(tcNo: string): Promise<{ exists: boolean; durum?: string; message: string }> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT MstrDurum FROM ${tables.musteri} WHERE MstrTCN = @0`;
+      const query = `SET MAXDOP = 2; SELECT MstrDurum FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: { MstrDurum: string }[] = await this.musteriRepository.query(query, [tcNo]);
       
       if (result.length === 0) {
@@ -289,7 +289,7 @@ export class MusteriService {
   async getMusteriBilgiByTCN(tcNo: string): Promise<any> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.musteri} WHERE MstrTCN = @0`;
+      const query = `SET MAXDOP = 2; SELECT * FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
       return result[0] || null;
     } catch (error) {
@@ -301,7 +301,7 @@ export class MusteriService {
   async getMusteriBilgiByNo(mstrNo: number): Promise<any> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.musteri} WHERE MstrNo = @0`;
+      const query = `SET MAXDOP = 2; SELECT * FROM ${tables.musteri} WHERE MstrNo = @0`;
       const result: any[] = await this.musteriRepository.query(query, [mstrNo]);
       return result[0] || null;
     } catch (error) {
@@ -930,7 +930,7 @@ export class MusteriService {
   async getFirmaList(): Promise<string[]> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT DISTINCT MstrFirma FROM ${tables.musteri} WHERE MstrFirma IS NOT NULL AND MstrFirma != '' ORDER BY MstrFirma`;
+      const query = `SET MAXDOP = 2; SELECT DISTINCT MstrFirma FROM ${tables.musteri} WHERE MstrFirma IS NOT NULL AND MstrFirma != '' ORDER BY MstrFirma`;
       const result: { MstrFirma: string }[] = await this.musteriRepository.query(query);
       return result.map(item => item.MstrFirma);
     } catch (error) {
@@ -1058,7 +1058,7 @@ export class MusteriService {
   async getOdaTipleri(): Promise<string[]> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT DISTINCT OdYatOdaTip FROM ${tables.odaYatak} WHERE OdYatOdaTip IS NOT NULL AND OdYatOdaTip != '' ORDER BY OdYatOdaTip`;
+      const query = `SET MAXDOP = 2; SELECT DISTINCT OdYatOdaTip FROM ${tables.odaYatak} WHERE OdYatOdaTip IS NOT NULL AND OdYatOdaTip != '' ORDER BY OdYatOdaTip`;
       const result: { OdYatOdaTip: string }[] = await this.odaYatakRepository.query(query);
       return result.map(item => item.OdYatOdaTip);
     } catch (error) {
@@ -1074,6 +1074,7 @@ export class MusteriService {
       
       // Basit ve hızlı sorgu: Sadece tblOdaYatak'tan oda tiplerini getir
       const query = `
+        SET MAXDOP = 2;
         SELECT 
           OdYatOdaTip as OdaTipi,
           COUNT(*) as BosOdaSayisi
@@ -1184,7 +1185,7 @@ export class MusteriService {
       
       // Raw SQL ile direkt sorgula
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.odaTipLfyt} WHERE OdTipAdi = @0`
+      const query = `SET MAXDOP = 2; SELECT * FROM ${tables.odaTipLfyt} WHERE OdTipAdi = @0`
       const result: any[] = await this.musteriRepository.query(query, [odaTipi])
       console.log('Raw SQL sonucu:', result)
       
@@ -3184,6 +3185,7 @@ export class MusteriService {
       
       // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
       const query = `
+        SET MAXDOP = 2;
         WITH MusteriCariKod AS (
           -- TC'den cari kod bulma
           SELECT 
@@ -3243,6 +3245,7 @@ export class MusteriService {
       
       // 🔥 CTE OPTİMİZASYONU: Firma cari hareketlerini tek sorguda getir
       const query = `
+        SET MAXDOP = 2;
         WITH FirmaMusterileri AS (
           -- Firma müşterilerini ve cari kodlarını hesapla
           SELECT 

@@ -216,6 +216,7 @@ export class KonaklamaTakvimService {
       
       // 🔥 CTE OPTİMİZASYONU: Aktif konaklamaları daha verimli getir
       const query = `
+        SET MAXDOP = 2;
         WITH AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri
           SELECT 

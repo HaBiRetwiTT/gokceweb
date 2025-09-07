@@ -113,6 +113,7 @@ export class IslemService {
       const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
 
       const gelirQuery = `
+        SET MAXDOP = 2;
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GELİR'
@@ -120,6 +121,7 @@ export class IslemService {
         ORDER BY toplam DESC`;
 
       const giderQuery = `
+        SET MAXDOP = 2;
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
         WHERE ${baseWhere} AND islemTip = 'GİDER'
@@ -162,6 +164,7 @@ export class IslemService {
     let query = '';
     if (periodLower === 'haftalar') {
       query = `
+        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -192,6 +195,7 @@ export class IslemService {
         ORDER BY w.i ASC;`
     } else if (periodLower === 'aylar') {
       query = `
+        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -221,6 +225,7 @@ export class IslemService {
         ORDER BY m.i ASC;`
     } else if (periodLower === 'ceyrekler') {
       query = `
+        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -250,6 +255,7 @@ export class IslemService {
         ORDER BY q.i ASC;`;
     } else if (periodLower === 'yari' || periodLower === 'yari-yillar') {
       query = `
+        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -279,6 +285,7 @@ export class IslemService {
         ORDER BY h.i ASC;`;
     } else if (periodLower === 'yillar') {
       query = `
+        SET MAXDOP = 2;
         WITH Seq AS (
           SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
           SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -309,6 +316,7 @@ export class IslemService {
     } else {
       // 12 gün: son gün end, geriye 11 gün
       query = `
+      SET MAXDOP = 2;
       WITH Seq AS (
         SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL
         SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
@@ -791,6 +799,7 @@ export class IslemService {
 
       // Ana sorgu
       const query = `
+        SET MAXDOP = 2;
         SELECT 
           islemNo,
           iKytTarihi,
