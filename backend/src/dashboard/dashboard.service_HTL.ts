@@ -630,138 +630,143 @@ export class DashboardService {
       
       // 🔥 TEK SORGU OPTİMİZASYONU: Tüm istatistikleri tek CTE ile hesapla
       const unifiedStatsQuery = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri
-          SELECT 
-            v.MstrTCN,
-            v.MstrAdi,
-            v.KnklmTip,
-            v.KnklmNfyt,
-            v.KnklmGrsTrh,
-            v.KnklmPlnTrh,
-            v.KnklmNot,
-            v.knklmNo,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-        ),
-        ToplamAktifStats AS (
-          -- Toplam aktif konaklama istatistikleri
-          SELECT 
-            COUNT(*) as ToplamAktifKonaklama,
-            SUM(CASE WHEN KnklmTip = 'GÜNLÜK' THEN 1 ELSE 0 END) as GunlukKonaklama,
-            SUM(CASE WHEN KnklmTip = 'HAFTALIK' THEN 1 ELSE 0 END) as HaftalikKonaklama,
-            SUM(CASE WHEN KnklmTip = 'AYLIK' THEN 1 ELSE 0 END) as AylikKonaklama,
-            SUM(KnklmNfyt) as ToplamGelir,
-            AVG(KnklmNfyt) as OrtalamaGelir
-          FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-            AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
-            AND rn = 1
-        ),
-        YeniMusteriStats AS (
-          -- Yeni müşteri istatistikleri
-          SELECT COUNT(*) as YeniMusteriKonaklama
-          FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot LIKE '%- Yeni Müşteri:%'
-            AND rn = 1
-        ),
-        YeniGirisStats AS (
-          -- Yeni giriş istatistikleri
-          SELECT COUNT(*) as YeniGirisKonaklama
-          FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot LIKE '%- Yeni Giriş:%'
-            AND rn = 1
-        ),
-        DevamEdenStats AS (
-          -- Devam eden konaklama istatistikleri
-          SELECT COUNT(*) as DevamEdenKonaklama
-          FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-            AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Müşteri:%')
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Giriş:%')
-            AND rn = 1
-        ),
-        SuresiDolanStats AS (
-          -- Süresi dolan konaklama istatistikleri (grid tablo ile uyumlu)
-          SELECT COUNT(*) as SuresiGecentKonaklama
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-            AND CONVERT(Date, v.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
-            AND v.knklmNo = (
-              SELECT MAX(v2.knklmNo) 
-              FROM ${views.musteriKonaklama} v2 
-              WHERE v2.MstrTCN = v.MstrTCN
-                AND v2.MstrDurum = 'KALIYOR'
-                AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
-            )
-        ),
-        BugunCikanStats AS (
-          -- Bugün çıkan müşteri istatistikleri
-          SELECT COUNT(*) as BugünCikanKonaklama
-          FROM ${tables.konaklama} k
-          INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
-          WHERE CONVERT(Date, k.knklmCksTrh, 104) = CONVERT(Date, GETDATE(), 104)
-            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-            AND k.knklmNo = (
-              SELECT MAX(k2.knklmNo) 
-              FROM ${tables.konaklama} k2 
-              WHERE k2.knklmMstrNo = k.knklmMstrNo
-            )
-        ),
-        MusteriBakiyeleri AS (
-          -- Müşteri bakiye hesaplamaları (yeni mantık)
-          SELECT 
-            islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
-          FROM ${tables.islem}
-          WHERE islemCrKod LIKE 'M%'
-          GROUP BY islemCrKod
-        ),
-        BorcluAlacakliStats AS (
-          -- Borçlu ve alacaklı müşteri istatistikleri (yeni mantık)
-          SELECT 
-            COUNT(CASE WHEN mb.MusteriBakiye > 0 THEN 1 END) as BorcluMusteriSayisi,
-            COUNT(CASE WHEN mb.MusteriBakiye < 0 THEN 1 END) as AlacakliMusteriSayisi,
-            COUNT(CASE WHEN mb.MusteriBakiye = 0 AND mb.DepozitoBakiye = 0 THEN 1 END) as BakiyesizHesaplarSayisi
-          FROM ${tables.cari} c
-          INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
-          WHERE left(c.CariKod,1)='M'
-        )
+WITH AktifKonaklamalar AS (
+    SELECT 
+        v.MstrTCN,
+        v.MstrAdi,
+        v.KnklmTip,
+        v.KnklmNfyt,
+        v.KnklmGrsTrh,
+        v.KnklmPlnTrh,
+        v.KnklmNot,
+        v.knklmNo,
+        ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
+    FROM ${views.musteriKonaklama} v
+    WHERE v.MstrDurum = 'KALIYOR' 
+      AND v.KnklmCksTrh IS NULL
+      AND v.MstrAdi NOT LIKE 'PERSONEL %'
+),
+ToplamAktifStats AS (
+    SELECT 
+        COUNT(*) as ToplamAktifKonaklama,
+        SUM(CASE WHEN KnklmTip = 'GÜNLÜK' THEN 1 ELSE 0 END) as GunlukKonaklama,
+        SUM(CASE WHEN KnklmTip = 'HAFTALIK' THEN 1 ELSE 0 END) as HaftalikKonaklama,
+        SUM(CASE WHEN KnklmTip = 'AYLIK' THEN 1 ELSE 0 END) as AylikKonaklama,
+        SUM(KnklmNfyt) as ToplamGelir,
+        AVG(KnklmNfyt) as OrtalamaGelir
+    FROM AktifKonaklamalar
+    WHERE KnklmPlnTrh > CAST(GETDATE() AS date)
+      AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
+      AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
+      AND rn = 1
+),
+YeniMusteriStats AS (
+    SELECT COUNT(*) as YeniMusteriKonaklama
+    FROM AktifKonaklamalar
+    WHERE CAST(KnklmGrsTrh AS date) = CAST(GETDATE() AS date)
+      AND KnklmNot LIKE '%- Yeni Müşteri:%'
+      AND rn = 1
+),
+YeniGirisStats AS (
+    SELECT COUNT(*) as YeniGirisKonaklama
+    FROM AktifKonaklamalar
+    WHERE CAST(KnklmGrsTrh AS date) = CAST(GETDATE() AS date)
+      AND KnklmNot LIKE '%- Yeni Giriş:%'
+      AND rn = 1
+),
+DevamEdenStats AS (
+    SELECT COUNT(*) as DevamEdenKonaklama
+    FROM AktifKonaklamalar
+    WHERE KnklmPlnTrh > CAST(GETDATE() AS date)
+      AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
+      AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
+      AND NOT (CAST(KnklmGrsTrh AS date) = CAST(GETDATE() AS date) AND KnklmNot LIKE '%- Yeni Müşteri:%')
+      AND NOT (CAST(KnklmGrsTrh AS date) = CAST(GETDATE() AS date) AND KnklmNot LIKE '%- Yeni Giriş:%')
+      AND rn = 1
+),
+SuresiDolanStats AS (
+    SELECT COUNT(*) as SuresiGecentKonaklama
+    FROM (
         SELECT 
-          tas.ToplamAktifKonaklama,
-          tas.GunlukKonaklama,
-          tas.HaftalikKonaklama,
-          tas.AylikKonaklama,
-          tas.ToplamGelir,
-          tas.OrtalamaGelir,
-          yms.YeniMusteriKonaklama,
-          ygs.YeniGirisKonaklama,
-          des.DevamEdenKonaklama,
-          bcs.BugünCikanKonaklama,
-          bas.BorcluMusteriSayisi,
-          bas.AlacakliMusteriSayisi,
-          bas.BakiyesizHesaplarSayisi,
-          sds.SuresiGecentKonaklama
-        FROM ToplamAktifStats tas
-        CROSS JOIN YeniMusteriStats yms
-        CROSS JOIN YeniGirisStats ygs
-        CROSS JOIN DevamEdenStats des
-        CROSS JOIN BugunCikanStats bcs
-        CROSS JOIN BorcluAlacakliStats bas
-        CROSS JOIN SuresiDolanStats sds
-        OPTION (MAXDOP 1);
+            v.MstrTCN,
+            v.KnklmPlnTrh,
+            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
+        FROM ${views.musteriKonaklama} v
+        WHERE v.MstrDurum = 'KALIYOR'
+          AND v.KnklmCksTrh IS NULL
+          AND v.MstrAdi NOT LIKE 'PERSONEL %'
+    ) x
+    WHERE x.rn = 1
+      AND x.KnklmPlnTrh <= CAST(GETDATE() AS date)
+),
+BugunCikanStats AS (
+    SELECT COUNT(*) as BugunCikanKonaklama
+    FROM (
+        SELECT 
+            k.knklmMstrNo,
+            k.KnklmCksTrh,
+            ROW_NUMBER() OVER (PARTITION BY k.knklmMstrNo ORDER BY k.knklmNo DESC) as rn
+        FROM ${tables.konaklama} k
+        INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
+        WHERE k.KnklmCksTrh IS NOT NULL
+          AND CONVERT(Date, k.KnklmCksTrh, 104) = CONVERT(Date, GETDATE(), 104)
+          AND m.MstrAdi NOT LIKE 'PERSONEL %'
+    ) y
+    WHERE y.rn = 1
+),
+MusteriBakiyeleri AS (
+    SELECT 
+        islemCrKod,
+        SUM(CASE 
+                WHEN islemTip IN ('GELİR','Çıkan') 
+                     AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' 
+                     AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'
+                THEN islemTutar 
+                WHEN islemTip IN ('GİDER','Giren') 
+                     AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' 
+                     AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'
+                THEN -islemTutar 
+                ELSE 0 END) as MusteriBakiye,
+        SUM(CASE 
+                WHEN islemTip = 'Giren'  AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar
+                WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%'   THEN -islemTutar
+                ELSE 0 END) as DepozitoBakiye
+    FROM ${tables.islem}
+    WHERE islemCrKod LIKE 'M%'
+    GROUP BY islemCrKod
+),
+BorcluAlacakliStats AS (
+    SELECT 
+        COUNT(CASE WHEN mb.MusteriBakiye > 0 THEN 1 END) as BorcluMusteriSayisi,
+        COUNT(CASE WHEN mb.MusteriBakiye < 0 THEN 1 END) as AlacakliMusteriSayisi,
+        COUNT(CASE WHEN mb.MusteriBakiye = 0 AND mb.DepozitoBakiye = 0 THEN 1 END) as BakiyesizHesaplarSayisi
+    FROM ${tables.cari} c
+    INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
+    WHERE LEFT(c.CariKod,1)='M'
+)
+SELECT 
+    tas.ToplamAktifKonaklama,
+    tas.GunlukKonaklama,
+    tas.HaftalikKonaklama,
+    tas.AylikKonaklama,
+    tas.ToplamGelir,
+    tas.OrtalamaGelir,
+    yms.YeniMusteriKonaklama,
+    ygs.YeniGirisKonaklama,
+    des.DevamEdenKonaklama,
+    bcs.BugunCikanKonaklama,
+    bas.BorcluMusteriSayisi,
+    bas.AlacakliMusteriSayisi,
+    bas.BakiyesizHesaplarSayisi,
+    sds.SuresiGecentKonaklama
+FROM ToplamAktifStats tas
+CROSS JOIN YeniMusteriStats yms
+CROSS JOIN YeniGirisStats ygs
+CROSS JOIN DevamEdenStats des
+CROSS JOIN BugunCikanStats bcs
+CROSS JOIN BorcluAlacakliStats bas
+CROSS JOIN SuresiDolanStats sds
+OPTION (MAXDOP 1);
       `;
       
       const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
@@ -819,67 +824,63 @@ export class DashboardService {
       
       // 🔥 DEBUG: Stats sorgusu ile aynı mantığı kullan
       let query = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri (stats ile uyumlu)
-          SELECT 
-            v.MstrTCN,
-            v.MstrAdi,
-            v.KnklmTip,
-            v.KnklmNfyt,
-            v.KnklmGrsTrh,
-            v.KnklmPlnTrh,
-            v.KnklmNot,
-            v.knklmNo,
-            v.MstrFirma,
-            v.MstrTelNo,
-            v.KnklmOdaTip,
-            v.KnklmOdaNo,
-            v.KnklmYtkNo,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-        )
+WITH AktifKonaklamalar AS (
+    SELECT 
+        v.MstrTCN,
+        v.MstrAdi,
+        v.KnklmTip,
+        v.KnklmNfyt,
+        v.KnklmGrsTrh,
+        v.KnklmPlnTrh,
+        v.KnklmNot,
+        v.knklmNo,
+        v.MstrFirma,
+        v.MstrTelNo,
+        v.KnklmOdaTip,
+        v.KnklmOdaNo,
+        v.KnklmYtkNo,
+        ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
+    FROM ${views.musteriKonaklama} v
+    WHERE v.MstrDurum = 'KALIYOR' 
+      AND v.KnklmCksTrh IS NULL
+      AND v.MstrAdi NOT LIKE 'PERSONEL %'
+)
+SELECT 
+    ak.MstrTCN, 
+    ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+    ak.MstrFirma, 
+    ak.MstrAdi, 
+    ak.MstrTelNo, 
+    ak.KnklmOdaTip, 
+    ak.KnklmOdaNo, 
+    ak.KnklmYtkNo, 
+    ak.KnklmTip, 
+    ak.KnklmNfyt, 
+    ak.KnklmGrsTrh, 
+    ak.KnklmPlnTrh, 
+    ak.KnklmNot,
+    ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+    ISNULL(k.KnklmKrLst, '') as KnklmKrLst
+FROM AktifKonaklamalar ak
+LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
+LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+LEFT JOIN (
+    SELECT knklmMstrNo, KnklmCksTrh
+    FROM (
         SELECT 
-          ak.MstrTCN, 
-          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          ak.MstrFirma, 
-          ak.MstrAdi, 
-          ak.MstrTelNo, 
-          ak.KnklmOdaTip, 
-          ak.KnklmOdaNo, 
-          ak.KnklmYtkNo, 
-          ak.KnklmTip, 
-          ak.KnklmNfyt, 
-          ak.KnklmGrsTrh, 
-          ak.KnklmPlnTrh, 
-          ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
-          ISNULL(k.KnklmKrLst, '') as KnklmKrLst
-        FROM AktifKonaklamalar ak
-        LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
-        LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
             k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
-        WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-          AND ak.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-          AND ak.KnklmNot NOT LIKE '%- Yeni Giriş:%'
-          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
-          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
+            k2.KnklmCksTrh,
+            ROW_NUMBER() OVER (PARTITION BY k2.knklmMstrNo ORDER BY k2.knklmNo DESC) as rn
+        FROM ${tables.konaklama} k2
+    ) t
+    WHERE t.rn = 1
+) lastStay ON m.MstrNo = lastStay.knklmMstrNo
+WHERE ak.rn = 1
+  AND CONVERT(Date, ak.KnklmPlnTrh, 104) >= CONVERT(Date, GETDATE(), 104)
+  AND ak.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
+  AND ak.KnklmNot NOT LIKE '%- Yeni Giriş:%'
+  AND NOT (CAST(ak.KnklmGrsTrh AS date) = CAST(GETDATE() AS date) AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
+  AND NOT (CAST(ak.KnklmGrsTrh AS date) = CAST(GETDATE() AS date) AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
       `;
 
       const parameters: string[] = [];
@@ -915,63 +916,59 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
       let query = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri (stats ile uyumlu)
-          SELECT 
-            v.MstrTCN,
-            v.MstrAdi,
-            v.KnklmTip,
-            v.KnklmNfyt,
-            v.KnklmGrsTrh,
-            v.KnklmPlnTrh,
-            v.KnklmNot,
-            v.knklmNo,
-            v.MstrFirma,
-            v.MstrTelNo,
-            v.KnklmOdaTip,
-            v.KnklmOdaNo,
-            v.KnklmYtkNo,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-        )
+WITH AktifKonaklamalar AS (
+    SELECT 
+        v.MstrTCN,
+        v.MstrAdi,
+        v.KnklmTip,
+        v.KnklmNfyt,
+        v.KnklmGrsTrh,
+        v.KnklmPlnTrh,
+        v.KnklmNot,
+        v.knklmNo,
+        v.MstrFirma,
+        v.MstrTelNo,
+        v.KnklmOdaTip,
+        v.KnklmOdaNo,
+        v.KnklmYtkNo,
+        ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
+    FROM ${views.musteriKonaklama} v
+    WHERE v.MstrDurum = 'KALIYOR' 
+      AND v.KnklmCksTrh IS NULL
+      AND v.MstrAdi NOT LIKE 'PERSONEL %'
+)
+SELECT 
+    ak.MstrTCN, 
+    ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+    ak.MstrFirma, 
+    ak.MstrAdi, 
+    ak.MstrTelNo, 
+    ak.KnklmOdaTip, 
+    ak.KnklmOdaNo, 
+    ak.KnklmYtkNo, 
+    ak.KnklmTip, 
+    ak.KnklmNfyt, 
+    ak.KnklmGrsTrh, 
+    ak.KnklmPlnTrh, 
+    ak.KnklmNot,
+    ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+    ISNULL(k.KnklmKrLst, '') as KnklmKrLst
+FROM AktifKonaklamalar ak
+LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
+LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+LEFT JOIN (
+    SELECT knklmMstrNo, KnklmCksTrh
+    FROM (
         SELECT 
-          ak.MstrTCN, 
-          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          ak.MstrFirma, 
-          ak.MstrAdi, 
-          ak.MstrTelNo, 
-          ak.KnklmOdaTip, 
-          ak.KnklmOdaNo, 
-          ak.KnklmYtkNo, 
-          ak.KnklmTip, 
-          ak.KnklmNfyt, 
-          ak.KnklmGrsTrh, 
-          ak.KnklmPlnTrh, 
-          ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
-          ISNULL(k.KnklmKrLst, '') as KnklmKrLst
-        FROM AktifKonaklamalar ak
-        LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
-        LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
             k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
-        WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
+            k2.KnklmCksTrh,
+            ROW_NUMBER() OVER (PARTITION BY k2.knklmMstrNo ORDER BY k2.knklmNo DESC) as rn
+        FROM ${tables.konaklama} k2
+    ) t
+    WHERE t.rn = 1
+) lastStay ON m.MstrNo = lastStay.knklmMstrNo
+WHERE ak.rn = 1
+  AND CONVERT(Date, ak.KnklmPlnTrh, 104) < CONVERT(Date, GETDATE(), 104) + 1
       `;
 
       const parameters: string[] = [];
@@ -1052,70 +1049,52 @@ export class DashboardService {
       const tables = this.dbConfig.getTables();
 
       let query = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri (stats ile uyumlu)
-          SELECT 
-            v.MstrTCN,
-            v.MstrAdi,
-            v.KnklmTip,
-            v.KnklmNfyt,
-            v.KnklmGrsTrh,
-            v.KnklmPlnTrh,
-            v.KnklmNot,
-            v.knklmNo,
-            v.MstrFirma,
-            v.MstrTelNo,
-            v.KnklmOdaTip,
-            v.KnklmOdaNo,
-            v.KnklmYtkNo,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-        )
-        SELECT 
-          ak.MstrTCN, 
-          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          ak.MstrFirma, 
-          ak.MstrAdi, 
-          ak.MstrTelNo, 
-          ak.KnklmOdaTip, 
-          ak.KnklmOdaNo, 
-          ak.KnklmYtkNo, 
-          ak.KnklmTip, 
-          ak.KnklmNfyt, 
-          ak.KnklmGrsTrh, 
-          ak.KnklmPlnTrh, 
-          ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
-          ISNULL(k.KnklmKrLst, '') as KnklmKrLst
-        FROM AktifKonaklamalar ak
-        LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
-        LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
-            k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
-        WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-          AND ak.KnklmNot LIKE '%- Yeni Müşteri:%'
+SELECT 
+    ak.MstrTCN, 
+    ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+    ak.MstrFirma, 
+    ak.MstrAdi, 
+    ak.MstrTelNo, 
+    ak.KnklmOdaTip, 
+    ak.KnklmOdaNo, 
+    ak.KnklmYtkNo, 
+    ak.KnklmTip, 
+    ak.KnklmNfyt, 
+    ak.KnklmGrsTrh, 
+    ak.KnklmPlnTrh, 
+    ak.KnklmNot,
+    ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+    ISNULL(k.KnklmKrLst, '') as KnklmKrLst
+FROM ${tables.musteri} m
+OUTER APPLY (
+    SELECT TOP 1 *
+    FROM ${views.musteriKonaklama} v
+    WHERE v.MstrTCN = m.MstrTCN
+      AND v.MstrDurum = 'KALIYOR'
+      AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+      AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+    ORDER BY v.knklmNo DESC
+) ak
+LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+LEFT JOIN (
+    SELECT k2.knklmMstrNo, k2.KnklmCksTrh
+    FROM ${tables.konaklama} k2
+    INNER JOIN (
+        SELECT knklmMstrNo, MAX(knklmNo) as maxKnklmNo
+        FROM ${tables.konaklama}
+        GROUP BY knklmMstrNo
+    ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+) lastStay ON m.MstrNo = lastStay.knklmMstrNo
+WHERE ak.KnklmGrsTrh >= CAST(GETDATE() AS DATE)
+  AND ak.KnklmGrsTrh < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
+  AND ak.KnklmNot LIKE '%- Yeni Müşteri:%
+OPTION (MAXDOP 1)';
       `;
 
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @0`;
         parameters.push(knklmTipi);
       }
 
@@ -1138,70 +1117,52 @@ export class DashboardService {
       const tables = this.dbConfig.getTables();
 
       let query = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri (stats ile uyumlu)
-          SELECT 
-            v.MstrTCN,
-            v.MstrAdi,
-            v.KnklmTip,
-            v.KnklmNfyt,
-            v.KnklmGrsTrh,
-            v.KnklmPlnTrh,
-            v.KnklmNot,
-            v.knklmNo,
-            v.MstrFirma,
-            v.MstrTelNo,
-            v.KnklmOdaTip,
-            v.KnklmOdaNo,
-            v.KnklmYtkNo,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-        )
-        SELECT 
-          ak.MstrTCN, 
-          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          ak.MstrFirma, 
-          ak.MstrAdi, 
-          ak.MstrTelNo, 
-          ak.KnklmOdaTip, 
-          ak.KnklmOdaNo, 
-          ak.KnklmYtkNo, 
-          ak.KnklmTip, 
-          ak.KnklmNfyt, 
-          ak.KnklmGrsTrh, 
-          ak.KnklmPlnTrh, 
-          ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
-          ISNULL(k.KnklmKrLst, '') as KnklmKrLst
-        FROM AktifKonaklamalar ak
-        LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
-        LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
-            k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
-        WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-          AND ak.KnklmNot LIKE '%- Yeni Giriş:%'
+SELECT 
+    ak.MstrTCN, 
+    ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+    ak.MstrFirma, 
+    ak.MstrAdi, 
+    ak.MstrTelNo, 
+    ak.KnklmOdaTip, 
+    ak.KnklmOdaNo, 
+    ak.KnklmYtkNo, 
+    ak.KnklmTip, 
+    ak.KnklmNfyt, 
+    ak.KnklmGrsTrh, 
+    ak.KnklmPlnTrh, 
+    ak.KnklmNot,
+    ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+    ISNULL(k.KnklmKrLst, '') as KnklmKrLst
+FROM ${tables.musteri} m
+OUTER APPLY (
+    SELECT TOP 1 v.*
+    FROM ${views.musteriKonaklama} v
+    WHERE v.MstrTCN = m.MstrTCN
+      AND v.MstrDurum = 'KALIYOR'
+      AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+      AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+    ORDER BY v.knklmNo DESC
+) ak
+LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
+LEFT JOIN (
+    SELECT k2.knklmMstrNo, k2.KnklmCksTrh
+    FROM ${tables.konaklama} k2
+    INNER JOIN (
+        SELECT knklmMstrNo, MAX(knklmNo) as maxKnklmNo
+        FROM ${tables.konaklama}
+        GROUP BY knklmMstrNo
+    ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+) lastStay ON m.MstrNo = lastStay.knklmMstrNo
+WHERE ak.KnklmGrsTrh >= CAST(GETDATE() AS DATE)
+  AND ak.KnklmGrsTrh < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
+  AND ak.KnklmNot LIKE '%- Yeni Giriş:%'
+OPTION (MAXDOP 1);
       `;
 
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @0`;
         parameters.push(knklmTipi);
       }
 

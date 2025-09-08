@@ -3185,48 +3185,45 @@ export class MusteriService {
       
       // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
       const query = `
-        WITH MusteriCariKod AS (
-          -- TC'den cari kod bulma
-          SELECT 
-            CASE 
-              WHEN m.MstrHspTip = 'Kurumsal' THEN 'MK' + CAST(m.MstrNo AS VARCHAR(10))
-              ELSE 'MB' + CAST(m.MstrNo AS VARCHAR(10))
-            END as CariKod
-          FROM ${tables.musteri} m
-          WHERE m.MstrTCN = @0
-            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-        ),
-        CariHareketler AS (
-          -- Cari hareketleri getir
-          SELECT 
-            i.iKytTarihi,
-            i.islemKllnc,
-            i.islemOzel1,
-            i.islemOzel2,
-            i.islemOzel3,
-            i.islemArac,
-            i.islemTip,
-            i.islemGrup,
-            i.islemBilgi,
-            i.islemTutar,
-            ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
-          FROM ${tables.islem} i
-          INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
-        )
-        SELECT 
-          iKytTarihi,
-          islemKllnc,
-          islemOzel1,
-          islemOzel2,
-          islemOzel3,
-          islemArac,
-          islemTip,
-          islemGrup,
-          islemBilgi,
-          islemTutar
-        FROM CariHareketler
-        ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
-        OPTION (MAXDOP 1);
+    WITH MusteriCariKod AS (
+    SELECT CASE 
+             WHEN m.MstrHspTip = 'Kurumsal' THEN 'MK' + CAST(m.MstrNo AS VARCHAR(10))
+             ELSE 'MB' + CAST(m.MstrNo AS VARCHAR(10))
+           END as CariKod
+    FROM ${tables.musteri} m
+    WHERE m.MstrTCN = @0
+      AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+)
+, CariHareketler AS (
+    SELECT 
+        i.iKytTarihi,
+        i.islemKllnc,
+        i.islemOzel1,
+        i.islemOzel2,
+        i.islemOzel3,
+        i.islemArac,
+        i.islemTip,
+        i.islemGrup,
+        i.islemBilgi,
+        i.islemTutar,
+        ROW_NUMBER() OVER (ORDER BY i.iKytTarihi DESC, i.islemNo DESC) as rn
+    FROM ${tables.islem} i
+    INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
+)
+SELECT 
+    iKytTarihi,
+    islemKllnc,
+    islemOzel1,
+    islemOzel2,
+    islemOzel3,
+    islemArac,
+    islemTip,
+    islemGrup,
+    islemBilgi,
+    islemTutar
+FROM CariHareketler
+ORDER BY iKytTarihi DESC, rn
+OPTION (MAXDOP 1);
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
@@ -3245,39 +3242,22 @@ export class MusteriService {
       
       // 🔥 CTE OPTİMİZASYONU: Firma cari hareketlerini tek sorguda getir
       const query = `
-        WITH FirmaMusterileri AS (
-          -- Firma müşterilerini ve cari kodlarını hesapla
-          SELECT 
-            MstrNo,
-            MstrHspTip,
-            CASE 
-              WHEN MstrHspTip = 'Bireysel' THEN 'MB' + CAST(MstrNo AS VARCHAR(10))
-              ELSE 'MK' + CAST(MstrNo AS VARCHAR(10))
-            END as CariKod
-          FROM ${tables.musteri} 
-          WHERE MstrFirma = @0
-        ),
-        FirmaCariHareketleri AS (
-          -- Firma müşterilerinin cari hareketlerini getir
-          SELECT 
-            i.iKytTarihi,
-            i.islemTip,
-            i.islemBilgi,
-            i.islemTutar,
-            i.islemBirim,
-            ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
-          FROM ${tables.islem} i
-          INNER JOIN FirmaMusterileri fm ON i.islemCrKod = fm.CariKod
-        )
-        SELECT 
-          iKytTarihi,
-          islemTip,
-          islemBilgi,
-          islemTutar,
-          islemBirim
-        FROM FirmaCariHareketleri
-        ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
-        OPTION (MAXDOP 1);
+SELECT 
+    i.iKytTarihi,
+    i.islemTip,
+    i.islemBilgi,
+    i.islemTutar,
+    i.islemBirim
+FROM ${tables.islem} i
+INNER JOIN ${tables.musteri} m 
+    ON i.islemCrKod = CASE 
+                        WHEN m.MstrHspTip = 'Bireysel' 
+                          THEN 'MB' + CAST(m.MstrNo AS VARCHAR(10))
+                          ELSE 'MK' + CAST(m.MstrNo AS VARCHAR(10))
+                      END
+WHERE m.MstrFirma = @0
+ORDER BY i.iKytTarihi DESC, i.islemNo DESC
+OPTION (MAXDOP 1);
       `;
       
       const hareketler = await this.musteriRepository.query(query, [firmaAdi]);

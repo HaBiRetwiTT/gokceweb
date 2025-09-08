@@ -307,7 +307,8 @@ export class IslemService {
           CONVERT(VARCHAR(10), yEnd, 23) AS dateISO
         FROM Years y
         LEFT JOIN Sums s ON s.i = y.i
-        ORDER BY y.i ASC;`;
+        ORDER BY y.i ASC
+        OPTION (MAXDOP 1);`;
     } else {
       // 12 gün: son gün end, geriye 11 gün
       query = `
@@ -336,7 +337,7 @@ export class IslemService {
         CONVERT(VARCHAR(10), d.d, 23) AS dateISO
       FROM Days d
       LEFT JOIN Sums s ON s.d = d.d
-      ORDER BY d.d ASC;
+      ORDER BY d.d ASC
       OPTION (MAXDOP 1);`;
     }
 
