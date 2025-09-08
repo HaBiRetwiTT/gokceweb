@@ -219,7 +219,7 @@ export class MusteriService {
   async checkTCExists(tcNo: string): Promise<boolean> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT COUNT(*) as count FROM ${tables.musteri} WHERE MstrTCN = @0 OPTION (MAXDOP 1);`;
+      const query = `SELECT COUNT(*) as count FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: { count: number }[] = await this.musteriRepository.query(query, [tcNo]);
       return result[0]?.count > 0;
     } catch (error) {
@@ -231,7 +231,7 @@ export class MusteriService {
   async checkMusteriDurum(tcNo: string): Promise<{ exists: boolean; durum?: string; message: string }> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT MstrDurum FROM ${tables.musteri} WHERE MstrTCN = @0 OPTION (MAXDOP 1);`;
+      const query = `SELECT MstrDurum FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: { MstrDurum: string }[] = await this.musteriRepository.query(query, [tcNo]);
       
       if (result.length === 0) {
@@ -289,7 +289,7 @@ export class MusteriService {
   async getMusteriBilgiByTCN(tcNo: string): Promise<any> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.musteri} WHERE MstrTCN = @0 OPTION (MAXDOP 1);`;
+      const query = `SELECT * FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
       return result[0] || null;
     } catch (error) {
@@ -301,7 +301,7 @@ export class MusteriService {
   async getMusteriBilgiByNo(mstrNo: number): Promise<any> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.musteri} WHERE MstrNo = @0 OPTION (MAXDOP 1);`;
+      const query = `SELECT * FROM ${tables.musteri} WHERE MstrNo = @0`;
       const result: any[] = await this.musteriRepository.query(query, [mstrNo]);
       return result[0] || null;
     } catch (error) {
@@ -930,7 +930,7 @@ export class MusteriService {
   async getFirmaList(): Promise<string[]> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT DISTINCT MstrFirma FROM ${tables.musteri} WHERE MstrFirma IS NOT NULL AND MstrFirma != '' ORDER BY MstrFirma OPTION (MAXDOP 1);`;
+      const query = `SELECT DISTINCT MstrFirma FROM ${tables.musteri} WHERE MstrFirma IS NOT NULL AND MstrFirma != '' ORDER BY MstrFirma`;
       const result: { MstrFirma: string }[] = await this.musteriRepository.query(query);
       return result.map(item => item.MstrFirma);
     } catch (error) {
@@ -1058,7 +1058,7 @@ export class MusteriService {
   async getOdaTipleri(): Promise<string[]> {
     try {
       const tables = this.dbConfig.getTables();
-      const query = `SELECT DISTINCT OdYatOdaTip FROM ${tables.odaYatak} WHERE OdYatOdaTip IS NOT NULL AND OdYatOdaTip != '' ORDER BY OdYatOdaTip OPTION (MAXDOP 1);`;
+      const query = `SELECT DISTINCT OdYatOdaTip FROM ${tables.odaYatak} WHERE OdYatOdaTip IS NOT NULL AND OdYatOdaTip != '' ORDER BY OdYatOdaTip`;
       const result: { OdYatOdaTip: string }[] = await this.odaYatakRepository.query(query);
       return result.map(item => item.OdYatOdaTip);
     } catch (error) {
@@ -1083,7 +1083,6 @@ export class MusteriService {
           AND OdYatDurum = 'BOŞ'
         GROUP BY OdYatOdaTip
         ORDER BY OdYatOdaTip
-        OPTION (MAXDOP 1);
       `;
       
       const result: { OdaTipi: string; BosOdaSayisi: number }[] = await this.odaYatakRepository.query(query);
@@ -1185,7 +1184,7 @@ export class MusteriService {
       
       // Raw SQL ile direkt sorgula
       const tables = this.dbConfig.getTables();
-      const query = `SELECT * FROM ${tables.odaTipLfyt} WHERE OdTipAdi = @0 OPTION (MAXDOP 1);`
+      const query = `SELECT * FROM ${tables.odaTipLfyt} WHERE OdTipAdi = @0`
       const result: any[] = await this.musteriRepository.query(query, [odaTipi])
       console.log('Raw SQL sonucu:', result)
       
@@ -3226,7 +3225,7 @@ export class MusteriService {
           islemTutar
         FROM CariHareketler
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
@@ -3277,7 +3276,7 @@ export class MusteriService {
           islemBirim
         FROM FirmaCariHareketleri
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const hareketler = await this.musteriRepository.query(query, [firmaAdi]);
@@ -3362,7 +3361,6 @@ export class MusteriService {
       FROM ${tables.islem}
       WHERE islemCrKod = @0
       ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
-      OPTION (MAXDOP 1);
     `;
     return await this.musteriRepository.query(query, [cariKod]);
   }

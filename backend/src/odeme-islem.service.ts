@@ -188,8 +188,7 @@ export class OdemeIslemService {
               SET t.islemArac = @0
               FROM ${tableName} AS t
               INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
-              OPTION (MAXDOP 1);
-            `;
+            `; //OPTION (MAXDOP 2);
             await this.transactionService.executeQuery(
               queryRunner,
               updateQuery,

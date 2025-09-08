@@ -761,7 +761,7 @@ export class DashboardService {
         CROSS JOIN BugunCikanStats bcs
         CROSS JOIN BorcluAlacakliStats bas
         CROSS JOIN SuresiDolanStats sds
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
@@ -794,7 +794,6 @@ export class DashboardService {
           AND KnklmCksTrh = ''
         GROUP BY KnklmOdaTip
         ORDER BY KnklmOdaTip
-        OPTION (MAXDOP 1);
       `;
       
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
@@ -886,7 +885,7 @@ export class DashboardService {
       let paramIndex = 0;
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @${paramIndex} OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @${paramIndex} OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
         paramIndex++;
       }
@@ -977,7 +976,7 @@ export class DashboardService {
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
       }
 
@@ -1115,7 +1114,7 @@ export class DashboardService {
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
       }
 
@@ -1201,7 +1200,7 @@ export class DashboardService {
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 1);`;
+        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
       }
 
@@ -1375,7 +1374,7 @@ export class DashboardService {
         FROM ${tables.cari} c
         INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye > 0
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
@@ -1548,7 +1547,7 @@ export class DashboardService {
         FROM ${tables.cari} c
         INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye < 0
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
@@ -1676,7 +1675,7 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
@@ -1707,7 +1706,6 @@ export class DashboardService {
         WHERE m.MstrTCN = @0
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY k.knklmNo DESC
-        OPTION (MAXDOP 1);
       `;
       
       const resultUnknown = (await this.musteriRepository.query(query, [tcKimlik])) as unknown;
@@ -1792,13 +1790,12 @@ export class DashboardService {
           AND k2.knklmCksTrh != ''
           AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-        OPTION (MAXDOP 1);
       `;
 
       const parameters: string[] = [];
       
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND k2.KnklmTip = @${parameters.length}`;
+        query += ` AND k2.KnklmTip = @${parameters.length} OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
       }
 
@@ -1877,7 +1874,7 @@ export class DashboardService {
         WHERE m.MstrTCN = @0
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY k.knklmNo DESC
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);

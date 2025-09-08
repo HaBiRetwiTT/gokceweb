@@ -267,7 +267,7 @@ export class KonaklamaTakvimService {
                  END,
                  KnklmOdaNo ASC, 
                  KnklmYtkNo ASC
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
       
       const result = (await this.musteriRepository.query(query)) as unknown as AktifKonaklamaRow[];

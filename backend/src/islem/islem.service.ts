@@ -118,7 +118,7 @@ export class IslemService {
         WHERE ${baseWhere} AND islemTip = 'GELİR'
         GROUP BY islemGrup
         ORDER BY toplam DESC
-        OPTION (MAXDOP 1);`;
+      `;
 
       const giderQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
@@ -126,7 +126,7 @@ export class IslemService {
         WHERE ${baseWhere} AND islemTip = 'GİDER'
         GROUP BY islemGrup
         ORDER BY toplam DESC
-        OPTION (MAXDOP 1);`;
+        `;
 
       const gelir = await this.dataSource.query(gelirQuery, [startDDMMYYYY, endDDMMYYYY]);
       const gider = await this.dataSource.query(giderQuery, [startDDMMYYYY, endDDMMYYYY]);
@@ -336,8 +336,8 @@ export class IslemService {
         CONVERT(VARCHAR(10), d.d, 23) AS dateISO
       FROM Days d
       LEFT JOIN Sums s ON s.d = d.d
-      ORDER BY d.d ASC;
-      OPTION (MAXDOP 1);`;
+      ORDER BY d.d ASC
+      OPTION (MAXDOP 2);`;
     }
 
     const rows = await this.dataSource.query(query, [endDDMMYYYY]);
@@ -545,7 +545,7 @@ export class IslemService {
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
 
       console.log('🔍 Ana Query:', query)
@@ -810,7 +810,7 @@ export class IslemService {
         ORDER BY islemNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
 
       console.log('🔍 Detay Ana Query:', query)
@@ -1142,7 +1142,7 @@ export class IslemService {
          AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @1, 104)
          GROUP BY i.iKytTarihi
          ORDER BY CONVERT(DATE, i.iKytTarihi, 104) DESC
-         OPTION (MAXDOP 1);
+         OPTION (MAXDOP 2);
        `;
 
       const depoUnknown = (await this.dataSource.query(query, [
@@ -1581,7 +1581,7 @@ export class IslemService {
         ORDER BY kd.nKasaNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
 
       const devirUnknown = (await this.dataSource.query(query)) as unknown;
@@ -2195,7 +2195,6 @@ export class IslemService {
       const query = `
         SELECT TOP 1 * FROM ${tblIslemARV}
         ORDER BY islemNo DESC
-        OPTION (MAXDOP 1);
       `;
 
       const result = await this.dataSource.query(query);
@@ -2256,7 +2255,6 @@ export class IslemService {
         FROM ${tblIslemARV}
         WHERE islemNo < @0
         ORDER BY islemNo DESC
-        OPTION (MAXDOP 1);
       `;
 
       const previousRecordResult = await this.dataSource.query(previousRecordQuery, [islemNo]);
@@ -3336,7 +3334,7 @@ export class IslemService {
           AND islemTip = @1
           AND CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @2, 104) AND CONVERT(DATE, @3, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC, islemNo DESC
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
 
       const result = await this.dataSource.query(query, [grup, islemTip, startDDMMYYYY, endDDMMYYYY]);
@@ -3400,7 +3398,7 @@ export class IslemService {
         WHERE islemTip = @0
           ${dateFilter}
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC, islemNo DESC
-        OPTION (MAXDOP 1);
+        OPTION (MAXDOP 2);
       `;
 
       const result = await this.dataSource.query(query, params);
@@ -3433,7 +3431,6 @@ export class IslemService {
         FROM tblislemRST 
         WHERE islemNo IN (${placeholders})
         ORDER BY islemNo DESC
-        OPTION (MAXDOP 1);
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -3474,7 +3471,6 @@ export class IslemService {
                islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemRST 
         ORDER BY islemNo DESC
-        OPTION (MAXDOP 1);
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -3505,7 +3501,6 @@ export class IslemService {
                islemAltG, islemMiktar, islemTutar, Onay
         FROM tblislemARV 
         ORDER BY islemNo DESC
-        OPTION (MAXDOP 1);
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
