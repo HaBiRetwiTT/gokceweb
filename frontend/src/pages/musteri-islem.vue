@@ -192,8 +192,9 @@
                     color="primary"
                     label-color="primary"
                     class="kurumsal-responsive"
-                    :readonly="guncellemeModuAktif"
-                    :disable="guncellemeModuAktif"
+                    :readonly="guncellemeModuAktif && !rzvrytkModuAktif"
+                    :disable="guncellemeModuAktif && !rzvrytkModuAktif"
+                    maxlength="17"
                     @focus="onTCNFocus"
                     @input="onTCNInput"
                     @blur="onTCNBlur"
@@ -500,7 +501,7 @@
                   <div class="col bedel-islemler-col">
               <q-btn 
                 @click="submitForm"
-                :label="guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET'" 
+                :label="rzvrytkModuAktif ? 'TC DEĞİŞTİR' : (guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET')" 
                 color="primary" 
                 :loading="loading" 
                 :disable="loading"
@@ -957,6 +958,17 @@ const guncellemeModuAktif = ref(false)
 const veriYukleniyor = ref(false) // Veri yükleme sırasında watchers'ları disable etmek için
 // TC değişiklik kontrolü için orijinal değer
 const originalTCN = ref('')
+
+// RZVRYTK özel durumu için değişkenler
+const rzvrytkModuAktif = ref(false) // RZVRYTK formatı için özel mod
+const cachedTCN = ref('') // Eski TC Kimlik No'yu cache'lemek için
+
+// RZVRYTK format kontrolü
+function isRzvrytkFormat(tcNo: string): boolean {
+  if (!tcNo || typeof tcNo !== 'string') return false
+  const rzvrytkRegex = /^RZVRYTK_\d{5}$/
+  return rzvrytkRegex.test(tcNo)
+}
 const extraForm = ref({
   MstrDgmTarihi: '',
   MstrTel2: '',
@@ -1565,6 +1577,23 @@ onMounted(async () => {
   // 🔥 Ödeme vadesi alanına bugünün tarihini default olarak ata
   form.value.OdemeVadesi = bugunTarihi.value
   
+  // 🔥 URL query parametresinden TC Kimlik No kontrolü (kartlı işlem sayfasından gelen yönlendirme)
+  const urlParams = new URLSearchParams(window.location.search);
+  const tcnFromUrl = urlParams.get('tcn');
+  if (tcnFromUrl) {
+    console.log('🔥 URL\'den TC Kimlik No alındı:', tcnFromUrl);
+    form.value.MstrTCN = tcnFromUrl;
+    
+    // RZVRYTK formatı ise otomatik olarak onTCNBlur tetikle
+    if (isRzvrytkFormat(tcnFromUrl)) {
+      console.log('🔥 RZVRYTK formatı tespit edildi, otomatik işlem başlatılıyor');
+      // Kısa bir gecikme ile onTCNBlur'u tetikle
+      setTimeout(() => {
+        void onTCNBlur();
+      }, 500);
+    }
+  }
+  
   // SessionStorage'dan TC kimlik auto-fill kontrolü (her zaman)
   await checkAndApplyAutoFillTCKimlik()
 
@@ -1692,6 +1721,102 @@ async function submitForm() {
   loading.value = true
   notify.value = ''
   
+  // RZVRYTK MODU: TC Kimlik No değiştirme işlemi
+  if (rzvrytkModuAktif.value) {
+    // RZVRYTK modunda sadece temel alanları kontrol et
+    if (!form.value.MstrTCN) {
+      notify.value = 'TC Kimlik No / Pasaport No zorunludur'
+      loading.value = false
+      return
+    }
+    
+    if (!form.value.MstrTelNo) {
+      notify.value = 'Telefon No zorunludur'
+      loading.value = false
+      return
+    }
+    
+    if (!form.value.MstrAdi) {
+      notify.value = 'Müşteri Adı zorunludur'
+      loading.value = false
+      return
+    }
+    
+    if (form.value.MstrHspTip === 'Kurumsal' && !extraForm.value.MstrFirma) {
+      notify.value = 'Firma seçimi zorunludur'
+      loading.value = false
+      return
+    }
+    
+    // Cache'lenen eski TC kontrolü
+    if (!cachedTCN.value) {
+      notify.value = 'Eski TC Kimlik No bulunamadı - Sayfayı yenileyin'
+      loading.value = false
+      return
+    }
+    
+    // Yeni TC ile eski TC aynı ise normal güncelleme yap
+    if (form.value.MstrTCN === cachedTCN.value) {
+      notify.value = 'TC Kimlik No değişmedi - Normal güncelleme yapılıyor'
+      // Normal güncelleme moduna geç
+      guncellemeModuAktif.value = true
+      rzvrytkModuAktif.value = false
+      // Recursive call yap
+      await submitForm()
+      return
+    }
+    
+    try {
+      const updateData = {
+        ...extraForm.value,
+        MstrAdi: form.value.MstrAdi,
+        MstrTelNo: form.value.MstrTelNo,
+        MstrHspTip: form.value.MstrHspTip,
+        eskiTCN: cachedTCN.value,
+        yeniTCN: form.value.MstrTCN
+      }
+      
+      const response = await api.post(`/musteri/rzvrytk-tc-degistir`, updateData)
+      if (response.data.success) {
+        notify.value = response.data.message || 'TC Kimlik No başarıyla değiştirildi!'
+        
+        // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+        window.dispatchEvent(new Event('statsNeedsUpdate'));
+        
+        // 3 saniye sonra mesajı temizle ve formu sıfırla
+        setTimeout(() => {
+          notify.value = ''
+          // RZVRYTK modunu kapat ve formu temizle
+          rzvrytkModuAktif.value = false
+          cachedTCN.value = ''
+          clearForm()
+        }, 3000)
+      } else {
+        notify.value = 'TC değiştirme sırasında hata oluştu!'
+      }
+    } catch (error) {
+      console.error('TC değiştirme hatası:', error)
+      
+      if (
+        isAxiosError(error) &&
+        error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'message' in error.response.data &&
+        typeof (error.response.data as { message: unknown }).message === 'string'
+      ) {
+        notify.value = (error.response.data as { message: string }).message;
+      } else if (error instanceof Error && typeof error.message === 'string') {
+        notify.value = error.message;
+      } else {
+        notify.value = 'TC değiştirme sırasında hata oluştu!';
+      }
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
   // GÜNCELLEME MODU: Sadece müşteri bilgilerini güncelle
   if (guncellemeModuAktif.value) {
     // Güncelleme modunda sadece temel alanları kontrol et
@@ -2071,6 +2196,9 @@ function clearForm() {
   // Müşteri durumunu temizle
   musteriDurumu.value = ''
   guncellemeModuAktif.value = false
+  // RZVRYTK modunu temizle
+  rzvrytkModuAktif.value = false
+  cachedTCN.value = ''
   // Veri yükleme flagını sıfırla
   veriYukleniyor.value = false
   // Ek bilgiler container'ını gizle
@@ -2257,6 +2385,12 @@ function onOdemeVadesiSelected(date: string) {
 function onTCNFocus() {
   // TC input'a odaklanıldığında orijinal değeri kaydet
   originalTCN.value = form.value.MstrTCN || ''
+  
+  // RZVRYTK modunda ise eski TC'yi cache'le
+  if (rzvrytkModuAktif.value && form.value.MstrTCN) {
+    cachedTCN.value = form.value.MstrTCN
+    console.log('RZVRYTK modu - Eski TC cache\'lendi:', cachedTCN.value)
+  }
 }
 
 // TC kimlik no değişikliği - form temizleme kontrolü
@@ -2420,6 +2554,133 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
 // TC kimlik no blur kontrolü - 3 aşamalı sistem
 async function onTCNBlur() {
   const currentTCN = form.value.MstrTCN?.trim() || ''
+  
+  // 🔥 RZVRYTK OTOMATIK NUMARA KONTROLÜ
+  if (currentTCN === 'RZVRYTK') {
+    try {
+      console.log('RZVRYTK kontrolü başlatılıyor...')
+      // RZVRYTK_ ile başlayan kayıtları getir
+      const response = await api.get('/musteri/rzvrytk-kayitlari')
+      console.log('API Response:', response.data)
+      
+      if (response.data.success) {
+        const kayitlar = response.data.data || []
+        console.log('Kayıtlar:', kayitlar)
+        
+        if (kayitlar.length === 0) {
+          // Hiç kayıt yoksa 00001 ile başla
+          console.log('Hiç kayıt yok, RZVRYTK_00001 oluşturuluyor')
+          form.value.MstrTCN = 'RZVRYTK_00001'
+          notify.value = 'Otomatik numara oluşturuldu: RZVRYTK_00001'
+          setTimeout(() => {
+            notify.value = ''
+          }, 3000)
+        } else {
+          // En büyük numarayı bul
+          let maxNumara = 0
+          kayitlar.forEach((kayit: { mstrTCN: string }) => {
+            const tcNo = kayit.mstrTCN || ''
+            if (tcNo.startsWith('RZVRYTK_')) {
+              const numaraStr = tcNo.substring(8) // RZVRYTK_ kısmını çıkar
+              const numara = parseInt(numaraStr, 10)
+              if (!isNaN(numara) && numara > maxNumara) {
+                maxNumara = numara
+              }
+            }
+          })
+          
+          // Bir sonraki numarayı oluştur (5 haneli format)
+          const yeniNumara = maxNumara + 1
+          const yeniTCN = `RZVRYTK_${yeniNumara.toString().padStart(5, '0')}`
+          form.value.MstrTCN = yeniTCN
+          
+          notify.value = `Otomatik numara oluşturuldu: ${yeniTCN}`
+          setTimeout(() => {
+            notify.value = ''
+          }, 3000)
+        }
+      }
+    } catch (error) {
+      console.error('RZVRYTK numara oluşturma hatası:', error)
+      console.error('Hata detayı:', error)
+      notify.value = `Otomatik numara oluşturulamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`
+      setTimeout(() => {
+        notify.value = ''
+      }, 5000)
+    }
+    return
+  }
+
+  // 🔥 RZVRYTK FORMAT KONTROLÜ - Özel güncelleme modu
+  if (isRzvrytkFormat(currentTCN)) {
+    try {
+      console.log('RZVRYTK format kontrolü başlatılıyor:', currentTCN)
+      // RZVRYTK formatındaki kaydı getir
+      const response = await api.get(`/musteri/musteri-durum-kontrol/${currentTCN}`)
+      
+      if (response.data.success && response.data.data && response.data.data.exists) {
+        // Kayıt bulundu - özel güncelleme modunu aktif et
+        rzvrytkModuAktif.value = true
+        guncellemeModuAktif.value = false // Normal güncelleme modunu kapat
+        musteriDurumu.value = 'RZVRYTK_UPDATE'
+        
+        // Müşteri bilgilerini getir ve form alanlarına doldur
+        const musteriResponse = await api.get(`/musteri/musteri-bilgi/${currentTCN}`)
+        if (musteriResponse.data.success && musteriResponse.data.data) {
+          const musteriData = musteriResponse.data.data
+          
+          // Ana form alanlarını doldur
+          form.value.MstrAdi = musteriData.MstrAdi || ''
+          form.value.MstrTelNo = musteriData.MstrTelNo || ''
+          form.value.MstrHspTip = musteriData.MstrHspTip || 'Bireysel'
+          
+          // Ek form alanlarını doldur
+          extraForm.value.MstrDgmTarihi = musteriData.MstrDgmTarihi || ''
+          extraForm.value.MstrTel2 = musteriData.MstrTel2 || ''
+          extraForm.value.MstrEposta = musteriData.MstrEposta || ''
+          extraForm.value.MstrMeslek = musteriData.MstrMeslek || ''
+          extraForm.value.MstrYakini = musteriData.MstrYakini || ''
+          extraForm.value.MstrYknTel = musteriData.MstrYknTel || ''
+          extraForm.value.MstrAdres = musteriData.MstrAdres || ''
+          extraForm.value.MstrNot = musteriData.MstrNot || ''
+          
+          // Kurumsal alanları doldur
+          if (musteriData.MstrHspTip === 'Kurumsal') {
+            extraForm.value.MstrFirma = musteriData.MstrFirma || ''
+            extraForm.value.MstrVD = musteriData.MstrVD || ''
+            extraForm.value.MstrVno = musteriData.MstrVno || ''
+            extraForm.value.MstrFrmTel = musteriData.MstrFrmTel || ''
+            extraForm.value.MstrFrmMdr = musteriData.MstrFrmMdr || ''
+            extraForm.value.MstrMdrTel = musteriData.MstrMdrTel || ''
+          }
+          
+          notify.value = 'RZVRYTK kaydı bulundu - TC Kimlik No değiştirilebilir'
+          setTimeout(() => {
+            notify.value = ''
+          }, 3000)
+        }
+      } else {
+        // RZVRYTK formatında ama kayıt bulunamadı
+        rzvrytkModuAktif.value = false
+        guncellemeModuAktif.value = false
+        musteriDurumu.value = 'YENI'
+        notify.value = 'RZVRYTK formatında kayıt bulunamadı - Yeni kayıt modu'
+        setTimeout(() => {
+          notify.value = ''
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('RZVRYTK format kontrolü hatası:', error)
+      rzvrytkModuAktif.value = false
+      guncellemeModuAktif.value = false
+      musteriDurumu.value = ''
+      notify.value = 'RZVRYTK format kontrolü başarısız'
+      setTimeout(() => {
+        notify.value = ''
+      }, 3000)
+    }
+    return
+  }
   
   // 🚨 KARA LİSTE KONTROLÜ - TC girilir girilmez kontrol et
   if (currentTCN && currentTCN.length >= 5) {

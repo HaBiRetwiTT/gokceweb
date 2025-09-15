@@ -3364,4 +3364,95 @@ export class MusteriService {
     `;
     return await this.musteriRepository.query(query, [cariKod]);
   }
+
+  // RZVRYTK ile başlayan kayıtları getir
+  async getRzvrytkKayitlari(): Promise<any[]> {
+    const tables = this.dbConfig.getTables();
+    const query = `
+      SELECT mstrTCN
+      FROM ${tables.musteri}
+      WHERE mstrTCN LIKE 'RZVRYTK_%'
+      ORDER BY mstrTCN DESC
+    `;
+    console.log('RZVRYTK sorgusu:', query);
+    console.log('Tablo adı:', tables.musteri);
+    const result = await this.musteriRepository.query(query);
+    console.log('RZVRYTK sorgu sonucu:', result);
+    return result;
+  }
+
+  // RZVRYTK TC değiştirme işlemi - çifte UPDATE
+  async rzvrytkTcDegistir(eskiTCN: string, yeniTCN: string, updateData: Partial<Musteri>, username?: string): Promise<any> {
+    return this.transactionService.executeInTransaction(async (queryRunner) => {
+      const tables = this.dbConfig.getTables();
+      const musteriRepo = queryRunner.manager.getRepository(Musteri);
+      
+      // Kullanıcı adını belirle
+      const kullaniciAdi = username || 'admin';
+      
+      // 1. Eski TC ile müşteri kaydını bul
+      const mevcutMusteri = await musteriRepo.findOne({ where: { MstrTCN: eskiTCN } });
+      if (!mevcutMusteri) {
+        throw new NotFoundException(`Eski TC No'su ${eskiTCN} olan müşteri bulunamadı.`);
+      }
+
+      // 2. Yeni TC'nin başka bir kayıtta kullanılmadığını kontrol et
+      const yeniTCKontrol = await musteriRepo.findOne({ where: { MstrTCN: yeniTCN } });
+      if (yeniTCKontrol) {
+        throw new Error(`Yeni TC No'su ${yeniTCN} zaten başka bir kayıtta kullanılıyor.`);
+      }
+
+      // 3. tblMusteri tablosunda UPDATE işlemi (mstrTCN dahil)
+      const musteriUpdateQuery = `
+        UPDATE ${tables.musteri}
+        SET 
+          MstrTCN = @1, MstrAdi = @2, MstrTelNo = @3, MstrHspTip = @4, MstrDgmTarihi = @5, MstrTel2 = @6,
+          MstrEposta = @7, MstrMeslek = @8, MstrYakini = @9, MstrYknTel = @10, MstrAdres = @11,
+          MstrNot = @12, MstrFirma = @13, MstrVD = @14, MstrVno = @15, MstrFrmTel = @16,
+          MstrFrmMdr = @17, MstrMdrTel = @18
+        WHERE MstrTCN = @0`;
+      
+      const musteriParams = [
+        eskiTCN, // @0 - WHERE koşulu
+        yeniTCN, // @1 - Yeni TC Kimlik No
+        updateData.MstrAdi || mevcutMusteri.MstrAdi,
+        updateData.MstrTelNo || mevcutMusteri.MstrTelNo,
+        updateData.MstrHspTip || mevcutMusteri.MstrHspTip,
+        updateData.MstrDgmTarihi || mevcutMusteri.MstrDgmTarihi,
+        updateData.MstrTel2 || mevcutMusteri.MstrTel2,
+        updateData.MstrEposta || mevcutMusteri.MstrEposta,
+        updateData.MstrMeslek || mevcutMusteri.MstrMeslek,
+        updateData.MstrYakini || mevcutMusteri.MstrYakini,
+        updateData.MstrYknTel || mevcutMusteri.MstrYknTel,
+        updateData.MstrAdres || mevcutMusteri.MstrAdres,
+        updateData.MstrNot || mevcutMusteri.MstrNot,
+        updateData.MstrFirma !== undefined ? updateData.MstrFirma : mevcutMusteri.MstrFirma,
+        updateData.MstrVD || mevcutMusteri.MstrVD,
+        updateData.MstrVno || mevcutMusteri.MstrVno,
+        updateData.MstrFrmTel || mevcutMusteri.MstrFrmTel,
+        updateData.MstrFrmMdr || mevcutMusteri.MstrFrmMdr,
+        updateData.MstrMdrTel || mevcutMusteri.MstrMdrTel,
+      ];
+
+      await queryRunner.query(musteriUpdateQuery, musteriParams);
+
+      // 4. tblCari tablosunda UPDATE işlemi (CariVTCN güncelle)
+      const cariUpdateQuery = `
+        UPDATE ${tables.cari}
+        SET CariVTCN = @1
+        WHERE CariVTCN = @0`;
+      
+      const cariParams = [eskiTCN, yeniTCN];
+      await queryRunner.query(cariUpdateQuery, cariParams);
+
+      console.log(`RZVRYTK TC değiştirme başarılı: ${eskiTCN} -> ${yeniTCN}`);
+      
+      return {
+        success: true,
+        message: `TC Kimlik No başarıyla değiştirildi: ${eskiTCN} -> ${yeniTCN}`,
+        eskiTCN,
+        yeniTCN
+      };
+    });
+  }
 } 

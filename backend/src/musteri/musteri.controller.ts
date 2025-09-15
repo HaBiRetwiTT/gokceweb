@@ -1530,4 +1530,41 @@ export class MusteriController {
       res.status(500).json({ success: false, message: 'Cari hareketler Excel raporu oluşturulamadı' });
     }
   }
+
+  // RZVRYTK kayıtlarını getir
+  @Get('rzvrytk-kayitlari')
+  async getRzvrytkKayitlari() {
+    try {
+      const kayitlar = await this.musteriService.getRzvrytkKayitlari();
+      return {
+        success: true,
+        data: kayitlar
+      };
+    } catch (error) {
+      console.error('RZVRYTK kayıtları getirme hatası:', error);
+      throw new HttpException('RZVRYTK kayıtları getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // RZVRYTK TC değiştirme işlemi
+  @Post('rzvrytk-tc-degistir')
+  async rzvrytkTcDegistir(@Body() body: any, @Req() req) {
+    try {
+      const { eskiTCN, yeniTCN, ...updateData } = body;
+      const kullaniciAdi = req.user?.username || updateData.kullaniciAdi;
+      
+      if (!eskiTCN || !yeniTCN) {
+        throw new HttpException('Eski TC ve yeni TC bilgileri gerekli', HttpStatus.BAD_REQUEST);
+      }
+      
+      const result = await this.musteriService.rzvrytkTcDegistir(eskiTCN, yeniTCN, updateData, kullaniciAdi);
+      return result;
+    } catch (error) {
+      console.error('RZVRYTK TC değiştirme hatası:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(error.message || 'TC değiştirme işlemi başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

@@ -530,6 +530,7 @@
 import { ref, watch, computed, onMounted } from 'vue';
 import { api } from '../boot/axios';
 import { useQuasar, Notify } from 'quasar';
+import { useRouter } from 'vue-router';
 import type { MusteriKonaklama } from './models';
 
 function debugLog(...args: unknown[]) {
@@ -555,9 +556,44 @@ const props = defineProps<Props>();
 type ModalEmits = Emits & { (e: 'open-calculator'): void }
 const emit = defineEmits<ModalEmits>();
 const $q = useQuasar();
+const router = useRouter();
 function onOpenCalculator() {
   // MainLayout'taki hesap makinesini tetikle
   window.dispatchEvent(new Event('openCalculator'));
+}
+
+// RZVRYTK formatı kontrolü
+function isRzvrytkFormat(tcNo: string): boolean {
+  if (!tcNo || typeof tcNo !== 'string') return false
+  const rzvrytkRegex = /^RZVRYTK_\d{5}$/
+  return rzvrytkRegex.test(tcNo)
+}
+
+// RZVRYTK formatı tespit edildiğinde çıkış işlemini engelle
+function checkRzvrytkAndBlockExit(tcNo: string): boolean {
+  if (isRzvrytkFormat(tcNo)) {
+    $q.notify({
+      color: 'negative',
+      icon: 'warning',
+      message: 'Rezerve TC. No kaydı olan Müşteri için ÇIKIŞ İŞLEMİ YAPILAMAZ!',
+      position: 'top',
+      timeout: 5000
+    });
+    
+    // Modal'ı kapat
+    closeModal();
+    
+    // Müşteri işlem sayfasına yönlendir ve TC Kimlik No'yu aktar
+    setTimeout(() => {
+      void router.push({
+        path: '/musteri-islem',
+        query: { tcn: tcNo }
+      });
+    }, 1000);
+    
+    return true; // Çıkış işlemi engellendi
+  }
+  return false; // Normal işlem devam edebilir
 }
 
 // Popup referansı
@@ -905,6 +941,11 @@ function closeModal() {
 function handleCikisYap() {
   if (!props.selectedData) return;
 
+  // 🔥 RZVRYTK FORMATI KONTROLÜ - Çıkış işlemini engelle
+  if (checkRzvrytkAndBlockExit(props.selectedData.MstrTCN)) {
+    return;
+  }
+
   // Eğer buton label'ı ERKEN ÇIKIŞ ise özel fonksiyona yönlendir
   if (cikisYapButtonLabel.value === 'ERKEN ÇIKIŞ') {
     handleErkenCikisYap();
@@ -1021,6 +1062,11 @@ function handleCikisYap() {
 // ERKEN ÇIKIŞ işlemleri için ana fonksiyon (detaylar eklenecek)
 function handleErkenCikisYap() {
   if (!props.selectedData) return;
+
+  // 🔥 RZVRYTK FORMATI KONTROLÜ - Erken çıkış işlemini engelle
+  if (checkRzvrytkAndBlockExit(props.selectedData.MstrTCN)) {
+    return;
+  }
 
   // İşlem tarihi (bugün)
   const bugun = new Date();
@@ -2505,6 +2551,14 @@ function erkenCikisHesaplamaDialoguAc() {
 
 // Erken çıkış hesaplama dialogunda onay fonksiyonu
 function onErkenCikisDialogOnayla() {
+  if (!props.selectedData) return;
+  
+  // 🔥 RZVRYTK FORMATI KONTROLÜ - Erken çıkış işlemini engelle
+  if (checkRzvrytkAndBlockExit(props.selectedData.MstrTCN)) {
+    showErkenCikisDialog.value = false;
+    return;
+  }
+  
   showErkenCikisDialog.value = false;
   // Dialogdan gelen tutar ve not ile işlemleri başlat
   void erkenCikisIslemleriYap({
@@ -2516,6 +2570,14 @@ function onErkenCikisDialogOnayla() {
 
 // Yeni method ekle:
 function onErkenCikisIadesizCikis() {
+  if (!props.selectedData) return;
+  
+  // 🔥 RZVRYTK FORMATI KONTROLÜ - Erken çıkış işlemini engelle
+  if (checkRzvrytkAndBlockExit(props.selectedData.MstrTCN)) {
+    showErkenCikisDialog.value = false;
+    return;
+  }
+  
   // EVET kodunu çalıştır ama gider kaydı yapılmasın
   void erkenCikisIslemleriYap({
     giderTutar: Number(erkenCikisDialogData.value.giderBedel) || 0,
