@@ -474,9 +474,9 @@
               color="primary" 
               icon="save" 
               label="Kaydet" 
-              @click="onKaydet"
-              :disable="saving || seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
-              :loading="saving"
+              @click="() => executeSave(onKaydet)"
+              :disable="saving || isSaving || seciliGiderAdedi === 0 || genelToplam === 0 || !odemeKontrolGecerli"
+              :loading="saving || isSaving"
               unelevated
               size="md"
             />
@@ -508,8 +508,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { api } from '../boot/axios'
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention'
 import PersonelTahakkukModal from '../components/PersonelTahakkukModal.vue'
 const saving = ref(false)
+
+// Çift tıklama önleme
+const { isProcessing: isSaving, executeOnce: executeSave } = useDoubleClickPrevention(2000)
 
 // Personel Tahakkuk Modal kontrolü
 const showPersonelTahakkukModal = ref(false)

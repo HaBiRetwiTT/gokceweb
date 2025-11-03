@@ -45,11 +45,6 @@ export default route(function (/* { store, ssrContext } */) {
         return '/kartli-islem';
       }
       
-      // AI Agent sadece yetkili kullanıcılar
-      if (to.path === '/ai-agent' && !isAuthorizedUser) {
-        return '/kartli-islem';
-      }
-      
       // Nakit Tablo sadece SAadmin ve HARUN
       if (to.path === '/nakit-tablo' && !['SAadmin', 'HARUN'].includes(username)) {
         return '/kartli-islem';

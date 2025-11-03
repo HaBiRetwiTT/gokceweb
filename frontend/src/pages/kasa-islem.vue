@@ -885,8 +885,9 @@
               label="Kaydet" 
             color="primary" 
               icon="save"
-              @click="onKaydet"
-            :disabled="isArchiveMode"
+              @click="() => executeSave(onKaydet)"
+            :disabled="isArchiveMode || isSaving"
+            :loading="isSaving"
             class="q-mr-sm"
           />
             
@@ -965,6 +966,7 @@ import { isAxiosError } from 'axios'
 import type { AxiosResponse } from 'axios'
 import { api as apiInstance } from '../boot/axios'
 import { api } from '../boot/axios'
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention'
 
 function debugLog(...args: unknown[]) {
   // Production modunda da log'ları göster
@@ -986,6 +988,9 @@ if (!$api) {
 const selectedislemArac = ref('cari')
 const selectedislemTip = ref('gelir')
 const loading = ref(false)
+
+// Çift tıklama önleme
+const { isProcessing: isSaving, executeOnce: executeSave } = useDoubleClickPrevention(2000)
 const detailLoading = ref(false)
 const selectedDate = ref('')
 
@@ -1952,6 +1957,19 @@ const updateDetailTableData = () => {
 // Detay tablo satırına çift tık event handler
 const onDetailRowDblClick = async (evt: Event, row: IslemDetay) => {
   console.log('🔍 Detay satırına çift tıklandı:', row)
+  
+  // Yetki kontrolü: Sadece HARUN, ERDEM ve SAadmin düzenleyebilir
+  const username = localStorage.getItem('username') || '';
+  if (!['HARUN', 'ERDEM', 'SAadmin'].includes(username)) {
+    Notify.create({
+      type: 'warning',
+      message: 'Bu işlem için yetkiniz bulunmamaktadır',
+      caption: 'Sadece HARUN, ERDEM ve SAadmin detay raporu düzenleyebilir',
+      position: 'top',
+      timeout: 3000
+    });
+    return;
+  }
   
   try {
     // Önce tblislemRST tablosunda islemNo kontrolü yap

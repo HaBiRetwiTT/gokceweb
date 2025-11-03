@@ -1574,7 +1574,7 @@ export class DashboardService {
           i.iKytTarihi,
           i.islemKllnc,
           i.islemOzel1,
-          i.islemOzel2,
+          ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
           i.islemOzel3,
           i.islemArac,
           i.islemTip,
@@ -1582,6 +1582,14 @@ export class DashboardService {
           i.islemBilgi,
           i.islemTutar
         FROM ${tables.islem} i
+        LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+          CASE 
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+            THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+            THEN LEFT(i.islemOzel3, 3)
+            ELSE NULL 
+          END
         WHERE i.islemCrKod = @0
         ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;
@@ -1618,7 +1626,7 @@ export class DashboardService {
             i.iKytTarihi,
             i.islemKllnc,
             i.islemOzel1,
-            i.islemOzel2,
+            ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
             i.islemOzel3,
             i.islemArac,
             i.islemTip,
@@ -1628,6 +1636,14 @@ export class DashboardService {
             ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
           FROM ${tables.islem} i
           INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
+          LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+            CASE 
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+              THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+              THEN LEFT(i.islemOzel3, 3)
+              ELSE NULL 
+            END
         )
         SELECT 
           iKytTarihi,
@@ -2022,7 +2038,7 @@ export class DashboardService {
           i.iKytTarihi,
           i.islemKllnc,
           i.islemOzel1,
-          i.islemOzel2,
+          ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
           i.islemOzel3,
           i.islemArac,
           i.islemTip,
@@ -2033,6 +2049,14 @@ export class DashboardService {
           c.CariAdi
         FROM ${tables.islem} i
         LEFT JOIN ${tables.cari} c ON i.islemCrKod = c.CariKod
+        LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+          CASE 
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+            THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+            THEN LEFT(i.islemOzel3, 3)
+            ELSE NULL 
+          END
         WHERE i.islemCrKod IN (${cariKodParametreleri})
         ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;

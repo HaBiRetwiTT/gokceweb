@@ -325,6 +325,9 @@
                           <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('kirli')">
                             <q-chip color="amber-2" text-color="black" size="sm" dense label="Kirli" />
                           </q-item-section>
+                          <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('ariza')">
+                            <q-chip color="red-3" text-color="black" size="sm" dense label="Arızalı" />
+                          </q-item-section>
                         </q-item>
                       </template>
                       <q-tooltip v-if="form.OdaYatak" class="bg-green-6 text-white text-body2" :delay="300">
@@ -500,11 +503,11 @@
                   </div>
                   <div class="col bedel-islemler-col">
               <q-btn 
-                @click="submitForm"
+                @click="() => executeOnce(submitForm)"
                 :label="rzvrytkModuAktif ? 'TC DEĞİŞTİR' : (guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET')" 
                 color="primary" 
-                :loading="loading" 
-                :disable="loading"
+                :loading="loading || isSubmitting" 
+                :disable="loading || isSubmitting"
                       class="kurumsal-responsive"
                       size="md"
               />
@@ -790,6 +793,7 @@ import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { api } from '../boot/axios'
 import { QForm } from 'quasar'
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention'
 import type { AxiosError } from 'axios';
 import { Notify } from 'quasar';
 
@@ -868,6 +872,9 @@ const form = ref({
 })
 
 const loading = ref(false)
+
+// Çift tıklama önleme mekanizması
+const { isProcessing: isSubmitting, executeOnce } = useDoubleClickPrevention(2000)
 const notify = ref('')
 const tcInput = ref()
 const showExtraFields = ref(false)
@@ -946,10 +953,14 @@ const bugunTarihi = computed(() => {
   return `${day}.${month}.${year}`
 })
 
-// Geç Saat Konaklama saat kontrolü (00:00 - 04:00 aralığı)
+// Geç Saat Konaklama saat limiti (dinamik)
+const gecSaatSonuLimit = ref(6) // Default 6 (06:00)
+let gecSaatLimitTimer: ReturnType<typeof setInterval> | null = null
+
+// Geç Saat Konaklama saat kontrolü (dinamik - 00:00 - gecSaatSonuLimit aralığı)
 const isGeceKonaklamaSaati = computed(() => {
   const currentHour = currentTime.value.getHours()
-  return currentHour >= 0 && currentHour <= 4
+  return currentHour >= 0 && currentHour <= gecSaatSonuLimit.value
 })
 
 // Müşteri durumu
@@ -1481,10 +1492,10 @@ watch(() => form.value.KonaklamaSuresi, (newSure, oldSure) => {
   // 🔥 KRİTİK: Konaklama süresi 0 seçildiğinde saat kontrolü yap ve uyarı ver
   if (newSure === 0) {
     if (!isGeceKonaklamaSaati.value) {
-      // Saat 00:00-04:00 aralığında değilse uyarı ver
+      // Saat 00:00-gecSaatSonuLimit aralığında değilse uyarı ver
       Notify.create({
         type: 'warning',
-        message: 'Geç Saat Konaklama (0 gün) sadece 00:00-04:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.',
+        message: `Geç Saat Konaklama (0 gün) sadece 00:00-${String(gecSaatSonuLimit.value).padStart(2, '0')}:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.`,
         timeout: 5000
       })
       
@@ -1705,6 +1716,14 @@ onMounted(async () => {
   
   await loadOdaTipleri()
   void loadFirmaList()
+  
+  // Geç Saat Konaklama limitini yükle
+  await yukleGecSaatSonuLimit()
+  
+  // Her 5 dakikada bir limit kontrolü (admin değiştirebilir)
+  gecSaatLimitTimer = setInterval(() => {
+    void yukleGecSaatSonuLimit()
+  }, 5 * 60 * 1000) // 5 dakika
   
   // Her 60 saniyede bir zamanı güncelle (saat kontrolü için)
   timeUpdateTimer = setInterval(() => {
@@ -3231,10 +3250,10 @@ async function onKonaklamaSuresiChanged() {
   // 🔥 KRİTİK: Konaklama süresi 0 seçildiğinde saat kontrolü yap
   if (sure === 0) {
     if (!isGeceKonaklamaSaati.value) {
-      // Saat 00:00-04:00 aralığında değilse uyarı ver ve 1'e çevir
+      // Saat 00:00-gecSaatSonuLimit aralığında değilse uyarı ver ve 1'e çevir
       Notify.create({
         type: 'warning',
-        message: 'Geç Saat Konaklama (0 gün) sadece 00:00-04:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.',
+        message: `Geç Saat Konaklama (0 gün) sadece 00:00-${String(gecSaatSonuLimit.value).padStart(2, '0')}:00 saatleri arasında seçilebilir. Konaklama süresi 1 güne ayarlanacak.`,
         timeout: 5000
       })
       form.value.KonaklamaSuresi = 1
@@ -3424,15 +3443,29 @@ function getSelectedOdaYatakTooltip(): string {
   return selected ? `Seçilen: ${selected.label}` : ''
 }
 
-// Combobox inputunda Kirli metnini gizleyerek görüntülenecek değer
+// Combobox inputunda Kirli ve Arızalı metnini gizleyerek görüntülenecek değer
   const selectedOdaYatakDisplay = computed(() => {
     if (!form.value.OdaYatak) return ''
     const selected = bosOdalarOptions.value.find(o => o.value === form.value.OdaYatak)
     const label = selected?.label || String(form.value.OdaYatak)
-    return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]/gi, '')
+    return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]|\s*\(Arızalı?\)|\s*\[Arızalı?\]/gi, '')
   })
 
 
+
+// Geç Saat Konaklama limitini yükle
+async function yukleGecSaatSonuLimit() {
+  try {
+    const response = await api.get('/parametre/gec-saat-sonu')
+    if (response.data.success) {
+      gecSaatSonuLimit.value = response.data.saat
+      console.log(`✅ Geç Saat Konaklama limiti yüklendi: ${gecSaatSonuLimit.value}:00`)
+    }
+  } catch (error) {
+    console.error('⚠️ Geç saat limiti yüklenemedi, default 6 kullanılıyor:', error)
+    gecSaatSonuLimit.value = 6
+  }
+}
 
 // Oda-yatak alanını temizle ve listeyi güncelle
 async function clearOdaYatakAndRefresh() {
@@ -3508,10 +3541,14 @@ onMounted(async () => {
 // Component unmount edildiğinde temizlik
 onUnmounted(() => {
   cleanupResizeObserver()
-  // Timer'ı da temizle
+  // Timer'ları temizle
   if (timeUpdateTimer) {
     clearInterval(timeUpdateTimer)
     timeUpdateTimer = null
+  }
+  if (gecSaatLimitTimer) {
+    clearInterval(gecSaatLimitTimer)
+    gecSaatLimitTimer = null
   }
 })
 

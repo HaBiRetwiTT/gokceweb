@@ -191,6 +191,9 @@
                             <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('kirli')">
                               <q-chip color="amber-2" text-color="black" size="sm" dense label="Kirli" />
                             </q-item-section>
+                            <q-item-section side v-if="((scope.opt.durum || '') + '').toLocaleLowerCase('tr-TR').replace(/ı|İ/g,'i').includes('ariza')">
+                              <q-chip color="red-3" text-color="black" size="sm" dense label="Arızalı" />
+                            </q-item-section>
                           </q-item>
                         </template>
                         <q-tooltip v-if="formData.OdaYatak" class="bg-green-6 text-white text-body2" :delay="300">
@@ -340,10 +343,11 @@
                     </div>
                     <div class="bedel-islemler-item">
                       <q-btn 
-                        @click="saveDonemYenileme"
+                        @click="() => executeRenew(saveDonemYenileme)"
                         :label="donemYenileButtonLabel" 
                         color="blue" 
-                        :loading="saving" 
+                        :loading="saving || isRenewing" 
+                        :disable="saving || isRenewing"
                         class="proportional-btn donem-yenile-btn"
                         size="md"
                         icon="autorenew"
@@ -351,10 +355,11 @@
                     </div>
                     <div class="bedel-islemler-item">
                       <q-btn 
-                        @click="handleCikisYap"
+                        @click="() => executeCheckout(handleCikisYap)"
                         :label="cikisYapButtonLabel" 
                         color="red" 
-                        :loading="saving"
+                        :loading="saving || isCheckingOut"
+                        :disable="saving || isCheckingOut"
                         class="proportional-btn cikis-yap-btn"
                         size="md"
                         icon="logout"
@@ -490,7 +495,7 @@
       </q-card-section>
       <q-card-actions align="right">
         <q-btn flat label="Hayır" color="negative" @click="showOdaDegisikligiDialog = false" />
-        <q-btn flat label="Evet" color="positive" @click="onOdaDegisikligiOnayla" :disable="saving"/>
+        <q-btn flat label="Evet" color="positive" @click="() => executeOdaDegistir(onOdaDegisikligiOnayla)" :disable="saving || isOdaDegistirme" :loading="isOdaDegistirme"/>
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -519,8 +524,8 @@
       </q-card-section>
       <q-card-actions align="right">
         <q-btn flat label="İPTAL" color="grey" @click="showErkenCikisDialog = false" />
-        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="onErkenCikisIadesizCikis" :disable="saving"/>
-        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="onErkenCikisDialogOnayla" :disable="saving"/>
+        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="() => executeErkenCikis(onErkenCikisIadesizCikis)" :disable="saving || isErkenCikis" :loading="isErkenCikis"/>
+        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="() => executeErkenCikis(onErkenCikisDialogOnayla)" :disable="saving || isErkenCikis" :loading="isErkenCikis"/>
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -532,6 +537,7 @@ import { api } from '../boot/axios';
 import { useQuasar, Notify } from 'quasar';
 import { useRouter } from 'vue-router';
 import type { MusteriKonaklama } from './models';
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention';
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -626,6 +632,12 @@ function formatCurrency(value: number | undefined | string | null): string {
 }
 
 const saving = ref(false);
+
+// Çift tıklama önleme
+const { isProcessing: isRenewing, executeOnce: executeRenew } = useDoubleClickPrevention(2000);
+const { isProcessing: isCheckingOut, executeOnce: executeCheckout } = useDoubleClickPrevention(2000);
+const { isProcessing: isOdaDegistirme, executeOnce: executeOdaDegistir } = useDoubleClickPrevention(2000);
+const { isProcessing: isErkenCikis, executeOnce: executeErkenCikis } = useDoubleClickPrevention(2000);
 const veriYukleniyor = ref(false); // Veri yükleme sırasında watchers'ları disable etmek için
 const odaTipleri = ref<{odaTipi: string, bosOdaSayisi: number}[]>([]);
 const odaTipleriFormatted = ref<{value: string, label: string, bosOdaSayisi: number}[]>([]);
@@ -1137,7 +1149,7 @@ const odaTipFiyatlari = ref<{
   OdLfytAyl?: number;
 } | null>(null);
 
-// Combobox inputunda Kirli metnini gizleyerek görüntülenecek değer
+// Combobox inputunda Kirli ve Arızalı metnini gizleyerek görüntülenecek değer
 const selectedOdaYatakDisplay = computed(() => {
   let value = '';
   const current = formData.value.OdaYatak as unknown;
@@ -1154,7 +1166,7 @@ const selectedOdaYatakDisplay = computed(() => {
   if (!value) return '';
   const selected = bosOdalar.value.find(o => o.value === value);
   const label = selected?.label || value;
-  return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]/gi, '');
+  return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]|\s*\(Arızalı?\)|\s*\[Arızalı?\]/gi, '');
 });
 
 // Ek Bilgiler Dialog

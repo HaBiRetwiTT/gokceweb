@@ -58,4 +58,40 @@ export class ParametreService {
       throw error;
     }
   }
+
+  async getGecSaatSonu(): Promise<number> {
+    const tables = this.dbConfig.getTables();
+    const query = `
+      SELECT TOP 1 Prm04
+      FROM ${tables.parametreler}
+      WHERE PrmAdi = 'GecSaatSonu'
+    `;
+
+    try {
+      const resultUnknown = await this.parametreRepository.query(query);
+      const result = resultUnknown as Array<{ Prm04: number | null }>;
+      return result[0]?.Prm04 ?? 6; // Default 6 (saat)
+    } catch (error) {
+      console.error('🔥 GecSaatSonu Query ERROR:', error);
+      return 6; // Hata durumunda default
+    }
+  }
+
+  async updateGecSaatSonu(yeniSaat: number): Promise<boolean> {
+    const tables = this.dbConfig.getTables();
+    const query = `
+      UPDATE ${tables.parametreler}
+      SET Prm04 = @0
+      WHERE PrmAdi = 'GecSaatSonu'
+    `;
+
+    try {
+      await this.parametreRepository.query(query, [yeniSaat]);
+      console.log(`✅ GecSaatSonu güncellendi: ${yeniSaat}:00`);
+      return true;
+    } catch (error) {
+      console.error('🔥 GecSaatSonu UPDATE ERROR:', error);
+      return false;
+    }
+  }
 }

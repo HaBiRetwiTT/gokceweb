@@ -166,7 +166,7 @@
                 </div>
               </div>
               <div class="column items-center justify-center q-ml-lg depozito-btns-col">
-                <q-btn label="KAYDET" color="primary" class="form-btn q-mb-sm depozito-btn" size="lg" :disabled="isKaydetDisabled || kaydetLoading" :loading="kaydetLoading" @click="onKaydet" />
+                <q-btn label="KAYDET" color="primary" class="form-btn q-mb-sm depozito-btn" size="lg" :disabled="isKaydetDisabled || kaydetLoading || isSaving" :loading="kaydetLoading || isSaving" @click="() => executeSave(onKaydet)" />
                 <q-btn label="VAZGEÇ" color="secondary" class="form-btn depozito-btn" size="md" flat @click="onClose" />
               </div>
             </div>
@@ -180,6 +180,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, defineProps, defineEmits } from 'vue';
 import { api } from '../boot/axios';
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention';
 import { Notify } from 'quasar';
 
 function debugLog(...args: unknown[]) {
@@ -209,6 +210,9 @@ type GlobalMusteri = {
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
 const emit = defineEmits(['update:show', 'bakiyeGuncelle']);
 const kaydetLoading = ref(false);
+
+// Çift tıklama önleme
+const { isProcessing: isSaving, executeOnce: executeSave } = useDoubleClickPrevention(2000);
 const show = ref(props.show);
 watch(() => props.show, v => show.value = v);
 watch(show, v => emit('update:show', v));

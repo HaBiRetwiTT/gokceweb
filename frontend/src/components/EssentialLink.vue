@@ -70,6 +70,8 @@ function handleClick() {
     emit('action', props.action);
   } else if (!isExternalLink.value) {
     handleInternalLink();
+    // Menü item'a tıklandığında mini moda geç sinyali gönder
+    emit('action', 'collapseMenu');
   }
 }
 </script>

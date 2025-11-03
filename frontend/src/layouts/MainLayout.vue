@@ -117,13 +117,13 @@
 
     <q-drawer
       v-model="leftDrawerOpen"
-      :show-if-above="showIfAbove"
+      show-if-above
       bordered
       :width="222"
-      :mini="miniMenu"
+      :mini="miniMenu && $q.screen.gt.sm"
       :breakpoint="600"
-      :persistent="$q.screen.lt.md"
-      :overlay="$q.screen.lt.md"
+      mini-to-overlay
+      :overlay="!miniMenu"
     >
       <q-list>
         <q-item-label
@@ -388,13 +388,6 @@ const allLinksList: EssentialLinkProps[] = [
     link: '/rezerve-giris'
   },
   {
-    title: 'AI Asistan',
-    caption: 'Akıllı Öneriler',
-    icon: 'smart_toy',
-    link: '/ai-agent',
-    iconColor: '#9C27B0'
-  },
-  {
     title: 'Nakit Akış Tablosu',
     caption: 'Ekle - Sil - İzle',
     icon: 'account_balance_wallet',
@@ -512,8 +505,6 @@ const linksList = computed(() => {
 const leftDrawerOpen = ref(false);
 const miniMenu = ref(true);
 
-// Mobil cihazlarda show-if-above'ı devre dışı bırak
-const showIfAbove = computed(() => !$q.screen.lt.md);
 const username = ref('');
 const fullName = ref('');
 const isAdmin = ref(false);
@@ -1043,6 +1034,12 @@ declare global {
 }
 
 function handleMenuAction(action: string) {
+  // Menüden herhangi bir seçim yapıldığında mini moda dön
+  if (action === 'collapseMenu' || (!miniMenu.value && action !== 'showEkHizmetlerModal' && action !== 'showOdemeIslemModal')) {
+    miniMenu.value = true;
+    return;
+  }
+  
   if (action === 'showEkHizmetlerModal') {
     if (router.currentRoute.value.path === '/kartli-islem') {
       // Kartlı işlem sayfasında, sadece seçili müşteri kontrolü
@@ -1088,6 +1085,11 @@ function handleMenuAction(action: string) {
     }
     window.dispatchEvent(new Event('showOdemeIslemModal'));
     return;
+  }
+  
+  // Herhangi bir menü aksiyonundan sonra sidebar'ı mini moda çevir
+  if (!miniMenu.value) {
+    miniMenu.value = true;
   }
 }
 
@@ -1180,16 +1182,29 @@ async function onKaydet() {
   }
 }
 
+// Sidebar dışına tıklandığında mini moda dön
+watch(() => miniMenu.value, (newVal) => {
+  // Mini moddan çıkıldığında ve overlay aktifse, click-outside yakalayıcı ekle
+  if (!newVal) {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const drawer = document.querySelector('.q-drawer');
+      if (drawer && !drawer.contains(e.target as Node)) {
+        miniMenu.value = true;
+        document.removeEventListener('click', handleOutsideClick);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideClick);
+    }, 100);
+  }
+});
+
 onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
   
-  // Desktop'ta drawer'ı açık tut, mobilde kapalı tut
-  if ($q.screen.lt.md) {
-    leftDrawerOpen.value = false;
-  } else {
-    leftDrawerOpen.value = true;
-  }
+  // Desktop'ta drawer'ı açık tut (overlay mode ile kombinasyon)
+  leftDrawerOpen.value = true;
   
   // 🔥 window.kartliIslemCurrentFilter değişikliklerini izle
   const checkKartliIslemFilter = () => {
@@ -1211,13 +1226,9 @@ onMounted(() => {
   });
   isAdmin.value = localStorage.getItem('isAdmin') === 'true';
   
-  // Kaydedilmiş menü tercihini yükle
-  const savedMiniMenu = localStorage.getItem('miniMenuPreference');
-  if (savedMiniMenu === 'false') {
-    miniMenu.value = false;
-  } else {
-    miniMenu.value = true; // Default: mini
-  }
+  // Her zaman mini modda başla (F5 sonrası)
+  miniMenu.value = true;
+  localStorage.setItem('miniMenuPreference', 'true');
   
   // Kaydedilmiş dark mode tercihini yükle
   const savedDarkMode = localStorage.getItem('darkMode');

@@ -791,6 +791,17 @@ export class MusteriService {
         secOdYat                  // @18
       ]);
       
+      // Eğer oda ARIZA durumundaysa, durumu DOLU'ya güncelle
+      const tables = this.dbConfig.getTables();
+      const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+      const durumResult: { OdYatDurum: string }[] = await this.odaYatakRepository.query(checkDurumQuery, [odaNo, yatakNo]);
+      
+      if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
+        const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+        await this.odaYatakRepository.query(updateDurumQuery, [odaNo, yatakNo]);
+        console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi`);
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('Konaklama kaydı hatası:', error);
@@ -1388,6 +1399,17 @@ export class MusteriService {
         notlarZamanli,            // @17
         secOdYat                  // @18
       ]);
+      
+      // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
+      const tables = this.dbConfig.getTables();
+      const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+      const durumResult: { OdYatDurum: string }[] = await this.odaYatakRepository.query(checkDurumQuery, [odaNo, yatakNo]);
+      
+      if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
+        const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+        await this.odaYatakRepository.query(updateDurumQuery, [odaNo, yatakNo]);
+        console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi (Dönem Yenileme)`);
+      }
       
       console.log('Dönem yenileme konaklama kaydı başarıyla oluşturuldu');
       return { success: true };
@@ -2306,6 +2328,17 @@ export class MusteriService {
         parameters
       );
       
+      // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
+      const tables = this.dbConfig.getTables();
+      const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+      const durumResult: { OdYatDurum: string }[] = await queryRunner.query(checkDurumQuery, [odaNo, yatakNo]);
+      
+      if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
+        const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+        await queryRunner.query(updateDurumQuery, [odaNo, yatakNo]);
+        console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi`);
+      }
+      
       console.log('=== kaydetKonaklamaWithTransaction tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('Konaklama kaydı hatası (Transaction):', error);
@@ -2631,6 +2664,17 @@ export class MusteriService {
         storedProcedures.konaklamaEkle,
         parameters
       );
+      
+      // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
+      const tables = this.dbConfig.getTables();
+      const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+      const durumResult: { OdYatDurum: string }[] = await queryRunner.query(checkDurumQuery, [odaNo, yatakNo]);
+      
+      if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
+        const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
+        await queryRunner.query(updateDurumQuery, [odaNo, yatakNo]);
+        console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi (Dönem Yenileme)`);
+      }
       
       console.log('Dönem yenileme konaklama kaydı başarıyla oluşturuldu (Transaction-Safe)');
     } catch (error) {
@@ -3201,7 +3245,7 @@ export class MusteriService {
             i.iKytTarihi,
             i.islemKllnc,
             i.islemOzel1,
-            i.islemOzel2,
+            ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
             i.islemOzel3,
             i.islemArac,
             i.islemTip,
@@ -3211,6 +3255,14 @@ export class MusteriService {
             ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
           FROM ${tables.islem} i
           INNER JOIN MusteriCariKod mck ON i.islemCrKod = mck.CariKod
+          LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+            CASE 
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+              THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+              THEN LEFT(i.islemOzel3, 3)
+              ELSE NULL 
+            END
         )
         SELECT 
           iKytTarihi,
@@ -3230,6 +3282,7 @@ export class MusteriService {
       
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
       console.log(`TC: ${tcNo} için ${result.length} cari hareket bulundu`);
+      
       return result;
     } catch (error) {
       console.error('getCariHareketler hatası:', error);
@@ -3264,16 +3317,36 @@ export class MusteriService {
             i.islemBilgi,
             i.islemTutar,
             i.islemBirim,
+            i.islemOzel1,
+            ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
+            i.islemOzel3,
+            i.islemArac,
+            i.islemGrup,
+            i.islemKllnc,
             ROW_NUMBER() OVER (ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC) as rn
           FROM ${tables.islem} i
           INNER JOIN FirmaMusterileri fm ON i.islemCrKod = fm.CariKod
+          LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+            CASE 
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+              THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+              WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+              THEN LEFT(i.islemOzel3, 3)
+              ELSE NULL 
+            END
         )
         SELECT 
           iKytTarihi,
           islemTip,
           islemBilgi,
           islemTutar,
-          islemBirim
+          islemBirim,
+          islemOzel1,
+          islemOzel2,
+          islemOzel3,
+          islemArac,
+          islemGrup,
+          islemKllnc
         FROM FirmaCariHareketleri
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
         OPTION (MAXDOP 2);
@@ -3357,10 +3430,29 @@ export class MusteriService {
   async getCariHareketlerByCariKod(cariKod: string): Promise<any[]> {
     const tables = this.dbConfig.getTables();
     const query = `
-      SELECT iKytTarihi, islemTip, islemBilgi, islemTutar, islemBirim
-      FROM ${tables.islem}
-      WHERE islemCrKod = @0
-      ORDER BY CONVERT(Date, iKytTarihi, 104) DESC
+      SELECT 
+        i.iKytTarihi, 
+        i.islemTip, 
+        i.islemBilgi, 
+        i.islemTutar, 
+        i.islemBirim,
+        i.islemOzel1,
+        ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
+        i.islemOzel3,
+        i.islemArac,
+        i.islemGrup,
+        i.islemKllnc
+      FROM ${tables.islem} i
+      LEFT JOIN ${tables.odaYatak} oy ON oy.OdYatOdaNo = 
+        CASE 
+          WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+          THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+          WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+          THEN LEFT(i.islemOzel3, 3)
+          ELSE NULL 
+        END
+      WHERE i.islemCrKod = @0
+      ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC
     `;
     return await this.musteriRepository.query(query, [cariKod]);
   }

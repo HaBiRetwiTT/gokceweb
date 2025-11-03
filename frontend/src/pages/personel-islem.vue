@@ -149,7 +149,7 @@
                      label="TC Kimlik No *"
                      outlined
                      dense
-                     readonly
+                     :readonly="!isFormTemizlendi"
                      required
                    />
                  </div>
@@ -425,16 +425,18 @@
                 v-if="!isFormTemizlendi"
                 label="DÜZENLE"
                 color="primary"
-                @click="onDuzenleClick"
-                :loading="duzenleLoading"
+                @click="() => executeUpdate(onDuzenleClick)"
+                :loading="duzenleLoading || isUpdating"
+                :disable="duzenleLoading || isUpdating"
                 class="q-mr-sm"
                />
                <q-btn
                 v-if="isFormTemizlendi"
                 label="PERSONEL EKLE"
                 color="positive"
-                @click="onPersonelEkleClick"
-                :loading="ekleLoading"
+                @click="() => executeAdd(onPersonelEkleClick)"
+                :loading="ekleLoading || isAdding"
+                :disable="ekleLoading || isAdding"
                 class="q-mr-sm"
                />
                <q-btn
@@ -519,6 +521,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { Notify } from 'quasar';
 import { api } from '../boot/axios';
+import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention';
 
 function onOpenCalculator() {
   window.dispatchEvent(new Event('openCalculator'))
@@ -561,6 +564,10 @@ const modalCard = ref();
 const showPassword = ref(false);
 const isFormTemizlendi = ref(false);
 const ekleLoading = ref(false);
+
+// Çift tıklama önleme
+const { isProcessing: isUpdating, executeOnce: executeUpdate } = useDoubleClickPrevention(2000);
+const { isProcessing: isAdding, executeOnce: executeAdd } = useDoubleClickPrevention(2000);
 
 // Bulk salary accrual modal states
 const showBulkSalaryModal = ref(false);

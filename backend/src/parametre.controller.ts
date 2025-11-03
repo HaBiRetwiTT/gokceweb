@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Put, Body } from '@nestjs/common';
 import { ParametreService } from './parametre.service';
 import { ParametreAlternativeService } from './parametre-alternative.service';
 
@@ -70,6 +70,33 @@ export class ParametreController {
         });
         throw entityError;
       }
+    }
+  }
+
+  @Get('gec-saat-sonu')
+  async getGecSaatSonu() {
+    try {
+      const saat = await this.parametreService.getGecSaatSonu();
+      return { success: true, saat };
+    } catch (error: unknown) {
+      console.error('🔥 getGecSaatSonu failed:', error);
+      return { success: false, saat: 6 }; // Fallback
+    }
+  }
+
+  @Put('gec-saat-sonu')
+  async updateGecSaatSonu(@Body() body: { saat: number }) {
+    try {
+      const basarili = await this.parametreService.updateGecSaatSonu(body.saat);
+      return {
+        success: basarili,
+        message: basarili
+          ? 'Geç Saat Konaklama sonu başarıyla güncellendi'
+          : 'Güncelleme başarısız',
+      };
+    } catch (error: unknown) {
+      console.error('🔥 updateGecSaatSonu failed:', error);
+      return { success: false, message: 'Güncelleme hatası' };
     }
   }
 }

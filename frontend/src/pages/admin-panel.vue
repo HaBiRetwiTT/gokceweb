@@ -1,7 +1,78 @@
 <template>
   <q-page class="q-pa-md">
-         <!-- Butonlar -->
-     <div class="row q-mb-md">
+    <!-- Geç Saat Konaklama Ayarı -->
+    <div class="row q-mb-md q-px-sm q-py-xs bg-blue-grey-9 rounded-borders">
+      <div class="col-12">
+        <div class="row items-center no-wrap" style="min-height: 32px; margin-bottom: 0px;">
+          <div class="col-auto q-mr-sm">
+            <q-icon name="schedule" size="sm" color="blue-3" />
+          </div>
+          <div class="col-auto q-mr-sm">
+            <span class="text-h6 text-blue-3">Geç Saat Konaklama Sonu:</span>
+          </div>
+          <div class="col-auto q-mr-sm row no-wrap items-center" style="gap: 4px;">
+            <q-btn
+              round
+              dense
+              unelevated
+              size="xs"
+              icon="remove"
+              color="blue-3"
+              text-color="blue-grey-9"
+              @click="azaltSaat"
+            />
+            <q-input
+              v-model="gecSaatFormatted"
+              type="text"
+              outlined
+              dense
+              dark
+              readonly
+              style="width: 85px;"
+              color="blue-3"
+              input-style="color: white; font-size: 1.1rem; text-align: center; font-weight: bold;"
+            >
+              <template v-slot:prepend>
+                <q-icon name="access_time" size="sm" color="blue-3" />
+              </template>
+            </q-input>
+            <q-btn
+              round
+              dense
+              unelevated
+              size="xs"
+              icon="add"
+              color="blue-3"
+              text-color="blue-grey-9"
+              @click="artirSaat"
+            />
+          </div>
+          <div class="col-auto">
+            <q-btn
+              color="blue-3"
+              text-color="blue-grey-9"
+              icon="save"
+              label="KAYDET"
+              size="xs"
+              @click="kaydetGecSaatSonu"
+              :loading="gecSaatSonuLoading"
+              :disable="gecSaatSonuLoading"
+            />
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <span class="text-caption text-blue-grey-3" style="font-size: 0.7rem;">
+              <q-icon name="info" size="20px" class="q-mr-xs" />
+              00:00 - {{ gecSaatSonu }} arası 0 gün konaklama geçerlidir
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Butonlar -->
+    <div class="row q-mb-md">
        <div class="col-6">
          <q-btn
            color="secondary"
@@ -145,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '../boot/axios';
 
@@ -174,6 +245,34 @@ const guncellemeLoading = ref(false);
 const odaTipLifyatRows = ref<OdaTipLifyatRow[]>([]);
 const gizliKayitlarGosteriliyor = ref(false);
 const tumKayitlar = ref<OdaTipLifyatRow[]>([]);
+
+// Geç Saat Konaklama değişkenleri
+const gecSaatNumara = ref(6);
+const gecSaatSonuLoading = ref(false);
+
+// Formatted gösterim (05)
+const gecSaatFormatted = ref('06');
+
+// Saat azaltma
+function azaltSaat() {
+  if (gecSaatNumara.value > 0) {
+    gecSaatNumara.value--;
+    gecSaatFormatted.value = String(gecSaatNumara.value).padStart(2, '0');
+  }
+}
+
+// Saat artırma
+function artirSaat() {
+  if (gecSaatNumara.value < 23) {
+    gecSaatNumara.value++;
+    gecSaatFormatted.value = String(gecSaatNumara.value).padStart(2, '0');
+  }
+}
+
+// Computed: gecSaatSonu formatı (bilgi metni için)
+const gecSaatSonu = computed(() => {
+  return `${String(gecSaatNumara.value).padStart(2, '0')}:00`;
+});
 
 // Tablo sütunları
 const odaTipLifyatColumns = [
@@ -232,6 +331,7 @@ const odaTipLifyatColumns = [
 // Sayfa yüklendiğinde verileri getir
 onMounted(async () => {
   await getOdaTipLifyatData();
+  await yukleGecSaatSonu();
 });
 
 // Gizli kayıtları göster/gizle
@@ -411,6 +511,56 @@ async function guncelleKayitlar() {
     });
   } finally {
     guncellemeLoading.value = false;
+  }
+}
+
+// Geç Saat Konaklama fonksiyonları
+async function yukleGecSaatSonu() {
+  try {
+    const response = await api.get('/parametre/gec-saat-sonu')
+    if (response.data.success) {
+      // Backend'den gelen sayıyı direkt kullan
+      gecSaatNumara.value = response.data.saat
+      gecSaatFormatted.value = String(response.data.saat).padStart(2, '0')
+    }
+  } catch (error) {
+    console.error('Geç saat sonu yüklenemedi:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Geç Saat Konaklama ayarı yüklenemedi',
+      position: 'top'
+    })
+  }
+}
+
+async function kaydetGecSaatSonu() {
+  gecSaatSonuLoading.value = true
+  try {
+    const response = await api.put('/parametre/gec-saat-sonu', {
+      saat: gecSaatNumara.value
+    })
+    
+    if (response.data.success) {
+      $q.notify({
+        type: 'positive',
+        message: '✅ Geç Saat Konaklama sonu güncellendi!',
+        caption: `Yeni değer: ${gecSaatSonu.value}`,
+        position: 'top',
+        timeout: 3000
+      })
+    } else {
+      throw new Error(response.data.message)
+    }
+  } catch (error) {
+    $q.notify({
+      type: 'negative',
+      message: '❌ Güncelleme başarısız!',
+      caption: String(error),
+      position: 'top',
+      timeout: 3000
+    })
+  } finally {
+    gecSaatSonuLoading.value = false
   }
 }
 </script>
