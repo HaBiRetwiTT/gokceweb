@@ -420,24 +420,30 @@
                  :loading="temizleLoading"
                />
              </div>
-             <div class="col-auto">
-                              <q-btn
-                v-if="!isFormTemizlendi"
-                label="DÜZENLE"
-                color="primary"
-                @click="() => executeUpdate(onDuzenleClick)"
-                :loading="duzenleLoading || isUpdating"
-                :disable="duzenleLoading || isUpdating"
-                class="q-mr-sm"
+             <div class="col-auto row q-gutter-sm">
+               <q-btn
+                 v-if="!isFormTemizlendi"
+                 label="MAAŞ TAHAKKUK"
+                 color="orange"
+                 icon="account_balance_wallet"
+                 @click="onSingleMaasTahakkukClick"
+                 class="text-weight-bold"
                />
                <q-btn
-                v-if="isFormTemizlendi"
-                label="PERSONEL EKLE"
-                color="positive"
-                @click="() => executeAdd(onPersonelEkleClick)"
-                :loading="ekleLoading || isAdding"
-                :disable="ekleLoading || isAdding"
-                class="q-mr-sm"
+                 v-if="!isFormTemizlendi"
+                 label="DÜZENLE"
+                 color="primary"
+                 @click="() => executeUpdate(onDuzenleClick)"
+                 :loading="duzenleLoading || isUpdating"
+                 :disable="duzenleLoading || isUpdating"
+               />
+               <q-btn
+                 v-if="isFormTemizlendi"
+                 label="PERSONEL EKLE"
+                 color="positive"
+                 @click="() => executeAdd(onPersonelEkleClick)"
+                 :loading="ekleLoading || isAdding"
+                 :disable="ekleLoading || isAdding"
                />
                <q-btn
                  label="KAPAT"
@@ -452,8 +458,8 @@
 
     <!-- Toplu Maaş Tahakkuk Modal -->
     <q-dialog v-model="showBulkSalaryModal" persistent>
-      <q-card style="min-width: 400px; max-width: 500px;">
-        <q-card-section class="bg-orange text-white">
+      <q-card style="min-width: 700px; max-width: 900px;">
+        <q-card-section class="bg-orange text-white q-pa-sm">
           <div class="text-h6">
             <q-icon name="account_balance_wallet" class="q-mr-sm" />
             Toplu Maaş Tahakkuk
@@ -461,7 +467,7 @@
         </q-card-section>
 
         <q-card-section class="q-pt-md">
-          <div class="row q-col-gutter-md">
+          <div class="row q-col-gutter-md q-mb-md">
             <div class="col-12 col-sm-6">
               <q-select
                 v-model="selectedMonth"
@@ -474,6 +480,7 @@
                 outlined
                 dense
                 clearable
+                @update:model-value="updateBulkSalaryPreview"
               />
             </div>
             <div class="col-12 col-sm-6">
@@ -487,16 +494,62 @@
                 label="Yıl Seçiniz *"
                 outlined
                 dense
+                @update:model-value="updateBulkSalaryPreview"
               />
             </div>
           </div>
-          <div class="q-mt-md text-grey-6">
-            <q-icon name="info" class="q-mr-xs" />
-            Durumu "ÇALIŞIYOR" ve maaşı 0'dan büyük olan tüm personeller için maaş tahakkuku yapılacaktır.
+
+          <!-- Personel Listesi ve Hesaplamalar -->
+          <div v-if="eligiblePersonnelList.length > 0">
+            <div class="text-subtitle2 q-mb-xs">
+              <q-icon name="people" size="sm" class="q-mr-xs" />
+              Tahakkuk Yapılacak Personeller ({{ eligiblePersonnelList.length }})
+            </div>
+            
+            <q-list bordered separator dense style="max-height: 350px; overflow-y: auto;">
+              <q-item v-for="(item, index) in eligiblePersonnelList" :key="index" dense>
+                <q-item-section avatar style="min-width: 30px;">
+                  <q-icon name="person" color="primary" size="xs" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-body2">{{ item.personel.PrsnAdi }}</q-item-label>
+                  <q-item-label caption v-if="item.calculatedSalary < (item.personel.PrsnMaas || 0)">
+                    Giriş: {{ item.personel.PrsnGrsTrh || '-' }} | Çıkış: {{ item.personel.PrsnCksTrh || '-' }}
+                  </q-item-label>
+                </q-item-section>
+                <q-item-section side style="min-width: 150px;">
+                  <div class="text-right">
+                    <div class="text-caption text-grey-6">Aylık: {{ formatCurrency(item.personel.PrsnMaas) }}</div>
+                    <div class="text-body2 text-weight-bold" :class="item.calculatedSalary < (item.personel.PrsnMaas || 0) ? 'text-orange-9' : 'text-primary'">
+                      {{ selectedMonth && selectedYear ? formatCurrency(item.calculatedSalary) : '-' }}
+                    </div>
+                  </div>
+                </q-item-section>
+              </q-item>
+            </q-list>
+
+            <!-- Toplam Özet -->
+            <div class="q-mt-md q-pa-sm bg-blue-grey-1 rounded-borders" v-if="selectedMonth && selectedYear">
+              <div class="row items-center">
+                <div class="col">
+                  <span class="text-body2 text-weight-bold">TOPLAM TAHAKKUK:</span>
+                </div>
+                <div class="col-auto">
+                  <span class="text-h6 text-weight-bold text-orange-9">
+                    {{ formatCurrency(totalBulkSalary) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center q-pa-md text-grey-6">
+            <q-icon name="info" size="md" />
+            <div>Tahakkuk yapılacak personel bulunmamaktadır</div>
+            <div class="text-caption">(Durum: ÇALIŞIYOR ve Maaş > 0 olmalı)</div>
           </div>
         </q-card-section>
 
-        <q-card-actions align="right">
+        <q-card-actions align="right" class="q-pa-sm">
           <q-btn
             label="İPTAL"
             color="secondary"
@@ -506,9 +559,99 @@
           <q-btn
             label="TOPLU TAHAKKUK YAP"
             color="orange"
+            icon="account_balance_wallet"
             @click="processBulkSalaryAccrual"
             :loading="bulkSalaryLoading"
-            :disable="!selectedMonth || !selectedYear"
+            :disable="!selectedMonth || !selectedYear || eligiblePersonnelList.length === 0"
+            class="text-weight-bold"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Tek Personel Maaş Tahakkuk Modal -->
+    <q-dialog v-model="showSingleSalaryModal" persistent>
+      <q-card style="min-width: 400px; max-width: 500px;">
+        <q-card-section class="bg-orange text-white">
+          <div class="text-h6">
+            <q-icon name="account_balance_wallet" class="q-mr-sm" />
+            Maaş Tahakkuk - {{ selectedPersonel.PrsnAdi }}
+          </div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-md">
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-sm-6">
+              <q-select
+                v-model="singleSelectedMonth"
+                :options="monthOptions"
+                option-label="label"
+                option-value="value"
+                emit-value
+                map-options
+                label="Ay Seçiniz *"
+                outlined
+                dense
+                clearable
+                @update:model-value="updateSingleSalaryPreview"
+              />
+            </div>
+            <div class="col-12 col-sm-6">
+              <q-select
+                v-model="singleSelectedYear"
+                :options="yearOptions"
+                option-label="label"
+                option-value="value"
+                emit-value
+                map-options
+                label="Yıl Seçiniz *"
+                outlined
+                dense
+                @update:model-value="updateSingleSalaryPreview"
+              />
+            </div>
+          </div>
+          <div class="q-mt-md">
+            <q-banner class="bg-blue-1 text-grey-8" dense rounded>
+              <template v-slot:avatar>
+                <q-icon name="person" color="primary" />
+              </template>
+              <div>
+                <strong>Personel:</strong> {{ selectedPersonel.PrsnAdi }}<br />
+                <strong>Aylık Maaş:</strong> {{ formatCurrency(selectedPersonel.PrsnMaas) }}<br />
+                <strong v-if="singleSelectedMonth && singleSelectedYear && previewSingleSalary > 0" class="text-orange-9">
+                  Hesaplanan Tahakkuk: {{ formatCurrency(previewSingleSalary) }}
+                </strong>
+                <strong v-else-if="singleSelectedMonth && singleSelectedYear && previewSingleSalary === 0" class="text-grey-6">
+                  Hesaplanan Tahakkuk: ₺0,00 (Bu dönemde çalışmamış)
+                </strong>
+              </div>
+            </q-banner>
+          </div>
+          <div class="q-mt-md text-grey-6">
+            <q-icon name="info" class="q-mr-xs" />
+            <span v-if="previewSingleSalary < (selectedPersonel.PrsnMaas || 0) && singleSelectedMonth">
+              Giriş/çıkış tarihine göre günlük orantılı hesaplama yapılacaktır.
+            </span>
+            <span v-else>
+              Seçili personel için maaş tahakkuku yapılacaktır.
+            </span>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn
+            label="İPTAL"
+            color="secondary"
+            @click="onSingleSalaryCancel"
+            :disable="singleSalaryLoading"
+          />
+          <q-btn
+            label="TAHAKKUK YAP"
+            color="orange"
+            @click="processSingleSalaryAccrual"
+            :loading="singleSalaryLoading"
+            :disable="!singleSelectedMonth || !singleSelectedYear"
             class="text-weight-bold"
           />
         </q-card-actions>
@@ -574,6 +717,21 @@ const showBulkSalaryModal = ref(false);
 const bulkSalaryLoading = ref(false);
 const selectedMonth = ref<string>('');
 const selectedYear = ref<number>(new Date().getFullYear());
+
+// Toplu tahakkuk için personel listesi ve hesaplamalar
+interface BulkSalaryItem {
+  personel: Personel;
+  calculatedSalary: number;
+}
+const eligiblePersonnelList = ref<BulkSalaryItem[]>([]);
+const totalBulkSalary = ref<number>(0);
+
+// Single personel salary accrual modal states
+const showSingleSalaryModal = ref(false);
+const singleSalaryLoading = ref(false);
+const singleSelectedMonth = ref<string>('');
+const singleSelectedYear = ref<number>(new Date().getFullYear());
+const previewSingleSalary = ref<number>(0);
 
 // Date picker popup referansları
 const girisTarihiPopup = ref();
@@ -849,18 +1007,18 @@ const getBalanceClass = (balance: number | null | undefined): string => {
 
 // Ay seçenekleri
 const monthOptions = [
-  { label: 'Ocak', value: 'Ocak' },
-  { label: 'Şubat', value: 'Şubat' },
-  { label: 'Mart', value: 'Mart' },
-  { label: 'Nisan', value: 'Nisan' },
-  { label: 'Mayıs', value: 'Mayıs' },
-  { label: 'Haziran', value: 'Haziran' },
-  { label: 'Temmuz', value: 'Temmuz' },
-  { label: 'Ağustos', value: 'Ağustos' },
-  { label: 'Eylül', value: 'Eylül' },
-  { label: 'Ekim', value: 'Ekim' },
-  { label: 'Kasım', value: 'Kasım' },
-  { label: 'Aralık', value: 'Aralık' }
+  { label: 'Ocak', value: 'Ocak', month: 1 },
+  { label: 'Şubat', value: 'Şubat', month: 2 },
+  { label: 'Mart', value: 'Mart', month: 3 },
+  { label: 'Nisan', value: 'Nisan', month: 4 },
+  { label: 'Mayıs', value: 'Mayıs', month: 5 },
+  { label: 'Haziran', value: 'Haziran', month: 6 },
+  { label: 'Temmuz', value: 'Temmuz', month: 7 },
+  { label: 'Ağustos', value: 'Ağustos', month: 8 },
+  { label: 'Eylül', value: 'Eylül', month: 9 },
+  { label: 'Ekim', value: 'Ekim', month: 10 },
+  { label: 'Kasım', value: 'Kasım', month: 11 },
+  { label: 'Aralık', value: 'Aralık', month: 12 }
 ];
 
 // Yıl seçenekleri (son 2 yıl + gelecek 1 yıl)
@@ -897,15 +1055,11 @@ const processBulkSalaryAccrual = async () => {
   try {
     bulkSalaryLoading.value = true;
     
-    // Çalışan ve maaşı > 0 olan personelleri filtrele
-    const eligiblePersonnel = personelList.value.filter(p => 
-      p.PrsnDurum === 'ÇALIŞIYOR' && p.PrsnMaas && p.PrsnMaas > 0
-    );
-    
-    if (eligiblePersonnel.length === 0) {
+    // Hesaplanmış listeden personelleri al (zaten filtrelenmiş ve hesaplanmış)
+    if (eligiblePersonnelList.value.length === 0) {
       Notify.create({
         type: 'warning',
-        message: 'Maaş tahakkuku yapılacak çalışan personel bulunamadı',
+        message: 'Maaş tahakkuku yapılacak personel bulunamadı',
         position: 'top'
       });
       return;
@@ -916,14 +1070,14 @@ const processBulkSalaryAccrual = async () => {
     const islemBilgi = `${selectedMonth.value} ${selectedYear.value} ÜCRET TAHAKKUKU`;
     
     // Her personel için tahakkuk işlemi yap
-    for (const personel of eligiblePersonnel) {
+    for (const item of eligiblePersonnelList.value) {
       try {
         const requestData = {
-          personel: personel.PrsnAdi,
+          personel: item.personel.PrsnAdi,
           islemTipi: 'maas_tahakkuk',
           islemGrup: 'Maaş Tahakkuku',
           odemeYontemi: 'tahakkuk',
-          tutar: personel.PrsnMaas,
+          tutar: item.calculatedSalary,
           islemBilgi: islemBilgi
         };
         
@@ -933,20 +1087,22 @@ const processBulkSalaryAccrual = async () => {
           successCount++;
         } else {
           errorCount++;
-          console.error(`Personel ${personel.PrsnAdi} tahakkuk hatası:`, response.data.message);
+          console.error(`Personel ${item.personel.PrsnAdi} tahakkuk hatası:`, response.data.message);
         }
       } catch (error) {
         errorCount++;
-        console.error(`Personel ${personel.PrsnAdi} tahakkuk hatası:`, error);
+        console.error(`Personel ${item.personel.PrsnAdi} tahakkuk hatası:`, error);
       }
     }
     
     // Sonuç mesajı
     const message = `Toplam ${successCount} Adet Personel için MAAŞ TAHAKKUK işlemi yapılmıştır.`;
+    const captionText = `Toplam Tutar: ${formatCurrency(totalBulkSalary.value)}${errorCount > 0 ? ` (${errorCount} hata)` : ''}`;
     
     Notify.create({
       type: successCount > 0 ? 'positive' : 'warning',
-      message: errorCount > 0 ? `${message} (${errorCount} hata)` : message,
+      message: message,
+      caption: captionText,
       position: 'top',
       timeout: 5000
     });
@@ -972,11 +1128,294 @@ const onBulkSalaryCancel = () => {
   showBulkSalaryModal.value = false;
   selectedMonth.value = '';
   selectedYear.value = new Date().getFullYear();
+  eligiblePersonnelList.value = [];
+  totalBulkSalary.value = 0;
+};
+
+/**
+ * Günlük orantılı maaş hesaplama fonksiyonu
+ * BASİT MANTIK:
+ * - Giriş/çıkış tarihi tahakkuk ayında DEĞİLSE → TAM MAAŞ
+ * - Giriş/çıkış tarihi tahakkuk ayında İSE → Çalışılan gün / 30 × Maaş
+ * 
+ * @param aylikMaas - Personelin aylık maaşı
+ * @param girisTarihi - Personelin giriş tarihi (DD.MM.YYYY)
+ * @param cikisTarihi - Personelin çıkış tarihi (DD.MM.YYYY veya boş)
+ * @param tahakkukAy - Tahakkuk yapılacak ay (1-12)
+ * @param tahakkukYil - Tahakkuk yapılacak yıl
+ * @returns Hesaplanan maaş (tam sayı, ondalık yok)
+ */
+const calculateProRatedSalary = (
+  aylikMaas: number | null | undefined,
+  girisTarihi: string | null | undefined,
+  cikisTarihi: string | null | undefined,
+  tahakkukAy: number,
+  tahakkukYil: number
+): number => {
+  // Maaş bilgisi yoksa veya 0 ise
+  if (!aylikMaas || aylikMaas <= 0) {
+    return 0;
+  }
+  
+  // Giriş ve çıkış tarihlerini parse et
+  let girisAy = 0, girisYil = 0, girisGun = 1;
+  if (girisTarihi && girisTarihi.trim()) {
+    const parts = girisTarihi.split('.');
+    if (parts.length === 3) {
+      girisGun = parseInt(parts[0]);
+      girisAy = parseInt(parts[1]);
+      girisYil = parseInt(parts[2]);
+    }
+  }
+  
+  let cikisAy = 0, cikisYil = 0, cikisGun = 30;
+  if (cikisTarihi && cikisTarihi.trim()) {
+    const parts = cikisTarihi.split('.');
+    if (parts.length === 3) {
+      cikisGun = parseInt(parts[0]);
+      cikisAy = parseInt(parts[1]);
+      cikisYil = parseInt(parts[2]);
+    }
+  }
+  
+  // Basit kontrol: Giriş veya çıkış tahakkuk ayında mı?
+  const girisTahakkukAyinda = (girisAy === tahakkukAy && girisYil === tahakkukYil);
+  const cikisTahakkukAyinda = (cikisAy === tahakkukAy && cikisYil === tahakkukYil);
+  
+  // Tam maaş durumları
+  if (!girisTahakkukAyinda && !cikisTahakkukAyinda) {
+    // Ne giriş ne de çıkış tahakkuk ayında → TAM MAAŞ
+    console.log(`✅ Tam Maaş - Ay: ${tahakkukAy}/${tahakkukYil}, Tutar: ${aylikMaas}`);
+    return aylikMaas;
+  }
+  
+  // Orantılı hesaplama gerekli
+  let calisilangGun = 30;
+  
+  if (girisTahakkukAyinda && cikisTahakkukAyinda) {
+    // Hem giriş hem çıkış aynı ayda
+    calisilangGun = cikisGun - girisGun + 1;
+  } else if (girisTahakkukAyinda) {
+    // Sadece giriş tahakkuk ayında (ay sonuna kadar çalıştı)
+    calisilangGun = 30 - girisGun + 1;
+  } else if (cikisTahakkukAyinda) {
+    // Sadece çıkış tahakkuk ayında (ay başından çıkış gününe kadar)
+    calisilangGun = cikisGun;
+  }
+  
+  // Günlük orantılı maaş hesapla (ondalık küsurat yok)
+  const hesaplananMaas = Math.floor((aylikMaas / 30) * calisilangGun);
+  
+  console.log(`✅ Orantılı Maaş - Ay: ${tahakkukAy}/${tahakkukYil}, Çalışılan: ${calisilangGun} gün, Tutar: ${hesaplananMaas}`);
+  
+  return hesaplananMaas;
+};
+
+// Toplu tahakkuk personel listesini günceller ve hesaplar
+const updateBulkSalaryPreview = () => {
+  // Uygun personelleri filtrele
+  const eligible = personelList.value.filter(p => 
+    p.PrsnDurum === 'ÇALIŞIYOR' && p.PrsnMaas && p.PrsnMaas > 0
+  );
+  
+  if (!selectedMonth.value || !selectedYear.value) {
+    // Ay/yıl seçilmemişse sadece listeyi göster, hesaplama yapma
+    eligiblePersonnelList.value = eligible.map(p => ({
+      personel: p,
+      calculatedSalary: 0
+    }));
+    totalBulkSalary.value = 0;
+    return;
+  }
+  
+  // Ay ve yıl seçiliyse hesapla
+  const tahakkukAy = monthOptions.find(m => m.label === selectedMonth.value)?.month;
+  
+  if (!tahakkukAy) {
+    console.warn('Ay numarası bulunamadı:', selectedMonth.value);
+    return;
+  }
+  
+  const tahakkukYil = selectedYear.value;
+  
+  // Her personel için hesaplama yap
+  eligiblePersonnelList.value = eligible.map(p => {
+    const calculatedSalary = calculateProRatedSalary(
+      p.PrsnMaas,
+      p.PrsnGrsTrh,
+      p.PrsnCksTrh,
+      tahakkukAy,
+      tahakkukYil
+    );
+    
+    return {
+      personel: p,
+      calculatedSalary: calculatedSalary
+    };
+  }).filter(item => item.calculatedSalary > 0); // 0 olanları filtrele
+  
+  // Toplam hesapla
+  totalBulkSalary.value = eligiblePersonnelList.value.reduce((sum, item) => sum + item.calculatedSalary, 0);
+  
+  console.log(`📊 Toplu tahakkuk önizleme:`, {
+    personelSayisi: eligiblePersonnelList.value.length,
+    toplam: totalBulkSalary.value
+  });
 };
 
 // Toplu Maaş Tahakkuk butonu click handler
 const onTopluMaasTahakkukClick = () => {
   showBulkSalaryModal.value = true;
+  // Modal açıldığında listeyi hazırla
+  updateBulkSalaryPreview();
+};
+
+// Tek personel maaş önizlemesini günceller
+const updateSingleSalaryPreview = () => {
+  if (singleSelectedMonth.value && singleSelectedYear.value) {
+    const tahakkukAy = monthOptions.find(m => m.label === singleSelectedMonth.value)?.month;
+    
+    if (!tahakkukAy) {
+      console.warn('Ay numarası bulunamadı:', singleSelectedMonth.value);
+      previewSingleSalary.value = 0;
+      return;
+    }
+    
+    const tahakkukYil = singleSelectedYear.value;
+    
+    const hesaplanan = calculateProRatedSalary(
+      selectedPersonel.value.PrsnMaas,
+      selectedPersonel.value.PrsnGrsTrh,
+      selectedPersonel.value.PrsnCksTrh,
+      tahakkukAy,
+      tahakkukYil
+    );
+    
+    previewSingleSalary.value = hesaplanan;
+    console.log('Önizleme hesaplandı:', { ay: tahakkukAy, yil: tahakkukYil, tutar: hesaplanan });
+  } else {
+    previewSingleSalary.value = 0;
+  }
+};
+
+// Tek Personel Maaş Tahakkuk butonu click handler
+const onSingleMaasTahakkukClick = () => {
+  // Personel maaşı kontrolü
+  if (!selectedPersonel.value.PrsnMaas || selectedPersonel.value.PrsnMaas <= 0) {
+    Notify.create({
+      type: 'warning',
+      message: 'Bu personelin maaş bilgisi tanımlı değil',
+      position: 'top'
+    });
+    return;
+  }
+  
+  // Personel durumu kontrolü
+  if (selectedPersonel.value.PrsnDurum !== 'ÇALIŞIYOR') {
+    Notify.create({
+      type: 'warning',
+      message: 'Sadece çalışan personel için maaş tahakkuku yapılabilir',
+      position: 'top'
+    });
+    return;
+  }
+  
+  // Modal açıldığında önizleme hesapla
+  showSingleSalaryModal.value = true;
+  updateSingleSalaryPreview();
+};
+
+// Tek Personel Maaş Tahakkuk işlemi
+const processSingleSalaryAccrual = async () => {
+  if (!singleSelectedMonth.value || !singleSelectedYear.value) {
+    Notify.create({
+      type: 'warning',
+      message: 'Lütfen ay ve yıl seçiniz',
+      position: 'top'
+    });
+    return;
+  }
+
+  try {
+    singleSalaryLoading.value = true;
+    
+    const islemBilgi = `${singleSelectedMonth.value} ${singleSelectedYear.value} ÜCRET TAHAKKUKU`;
+    
+    // Tahakkuk dönemi ay ve yıl bilgisi
+    const tahakkukAy = monthOptions.find(m => m.label === singleSelectedMonth.value)?.month || 1;
+    const tahakkukYil = singleSelectedYear.value;
+    
+    // Günlük orantılama ile maaş hesapla
+    const hesaplananMaas = calculateProRatedSalary(
+      selectedPersonel.value.PrsnMaas,
+      selectedPersonel.value.PrsnGrsTrh,
+      selectedPersonel.value.PrsnCksTrh,
+      tahakkukAy,
+      tahakkukYil
+    );
+    
+    // Eğer hesaplanan maaş 0 ise uyar
+    if (hesaplananMaas === 0) {
+      Notify.create({
+        type: 'warning',
+        message: 'Personel bu dönemde çalışmamış',
+        position: 'top'
+      });
+      singleSalaryLoading.value = false;
+      return;
+    }
+    
+    const requestData = {
+      personel: selectedPersonel.value.PrsnAdi,
+      islemTipi: 'maas_tahakkuk',
+      islemGrup: 'Maaş Tahakkuku',
+      odemeYontemi: 'tahakkuk',
+      tutar: hesaplananMaas,
+      islemBilgi: islemBilgi
+    };
+    
+    const response = await api.post('/personel/tahakkuk-odeme', requestData);
+    
+    if (response.data.success) {
+      const tamMaasMi = hesaplananMaas === selectedPersonel.value.PrsnMaas;
+      Notify.create({
+        type: 'positive',
+        message: `${selectedPersonel.value.PrsnAdi} için maaş tahakkuku başarıyla yapıldı`,
+        caption: tamMaasMi 
+          ? `Tutar: ${formatCurrency(hesaplananMaas)} (Tam ay)` 
+          : `Tutar: ${formatCurrency(hesaplananMaas)} (Günlük orantılı)`,
+        position: 'top',
+        timeout: 5000
+      });
+      
+      // Modalı kapat ve tabloyu güncelle
+      showSingleSalaryModal.value = false;
+      await loadPersonel();
+      
+      // Personel modal'ını da kapat
+      showPersonelModal.value = false;
+    } else {
+      throw new Error(response.data.message || 'Tahakkuk işlemi başarısız');
+    }
+    
+  } catch (error) {
+    console.error('Maaş tahakkuk hatası:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Maaş tahakkuk işlemi sırasında hata oluştu',
+      position: 'top'
+    });
+  } finally {
+    singleSalaryLoading.value = false;
+  }
+};
+
+// Tek Personel Maaş Tahakkuk modal kapat handler
+const onSingleSalaryCancel = () => {
+  showSingleSalaryModal.value = false;
+  singleSelectedMonth.value = '';
+  singleSelectedYear.value = new Date().getFullYear();
+  previewSingleSalary.value = 0;
 };
 
 // Çift tık event handler
@@ -1764,6 +2203,34 @@ body.body--dark .modal-body {
 body.body--dark .modal-actions {
   background: #34495e;
   border-top: 1px solid #495057;
+}
+
+/* Dark mode için maaş tahakkuk banner */
+body.body--dark .bg-blue-1 {
+  background-color: #1e3a5f !important;
+}
+
+body.body--dark .text-grey-8 {
+  color: #e0e0e0 !important;
+}
+
+body.body--dark .text-orange-9 {
+  color: #ffb74d !important;
+}
+
+/* Toplu tahakkuk listesi dark mode */
+body.body--dark .bg-blue-grey-1 {
+  background-color: #2d3748 !important;
+  color: #e0e0e0 !important;
+}
+
+body.body--dark .q-list {
+  background-color: #2d2d2d;
+  border-color: #424242;
+}
+
+body.body--dark .q-item {
+  color: #ffffff;
 }
 
 /* Responsive padding */

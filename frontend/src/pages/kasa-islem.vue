@@ -1689,6 +1689,13 @@ const transferForm = ref({
   tutar: ''
 })
 
+// Kasalar arası aktarım yetkisi kontrolü
+// Püf Nokta: Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir
+const canTransferBetweenKasalar = computed(() => {
+  const username = localStorage.getItem('username') || '';
+  return ['HARUN', 'SAadmin'].includes(username);
+})
+
 // Kasa seçenekleri
 const kasaOptions = [
   { label: 'Nakit', value: 'nakit' },
@@ -3018,6 +3025,21 @@ const recomputeCurrentBakiyeForSelection = async () => {
 // Kasalar arası aktarım fonksiyonu
 const performTransfer = async () => {
   debugLog('🔄 Kasalar arası aktarım başlatılıyor...')
+  
+  // Yetki kontrolü - Sadece HARUN ve SAadmin aktarım yapabilir
+  if (!canTransferBetweenKasalar.value) {
+    const username = localStorage.getItem('username') || 'Bilinmeyen';
+    Notify.create({
+      type: 'negative',
+      message: 'Kasalar arası aktarım yetkisi yok',
+      caption: `${username} kullanıcısının bu işlemi yapma yetkisi yoktur. Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir.`,
+      icon: 'lock',
+      position: 'top',
+      timeout: 5000
+    });
+    console.warn(`❌ Yetkisiz aktarım denemesi: ${username}`);
+    return;
+  }
   
   // Form validasyonu
   if (!transferForm.value.veren || !transferForm.value.alan || !transferForm.value.tutar) {

@@ -31,7 +31,7 @@
                 <div class="devreden-bakiye-section">
                   <label class="devreden-bakiye-label">Devreden Bakiye</label>
                   <q-input
-                    :model-value="`₺ ${devredenBakiye.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`"
+                    :model-value="`₺ ${(devredenBakiye - kartBakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`"
                     readonly
                     dense
                     outlined
@@ -123,6 +123,51 @@
                     label="Yeni Kayıt Ekle"
                     @click="addNewRecord"
                   />
+                  
+                  <!-- Kasa Bakiyeleri Etiketleri -->
+                  <div class="kasa-bakiyeleri-container">
+                    <q-chip
+                      color="green-7"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip"
+                    >
+                      <strong>Nakit:</strong>&nbsp;{{ formatCurrency(nakitBakiye) }}
+                    </q-chip>
+                    <q-chip
+                      color="blue-7"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip"
+                    >
+                      <strong>Kart:</strong>&nbsp;{{ formatCurrency(kartBakiye) }}
+                    </q-chip>
+                    <q-chip
+                      color="purple-7"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip"
+                    >
+                      <strong>Banka:</strong>&nbsp;{{ formatCurrency(bankaBakiye) }}
+                    </q-chip>
+                    <q-chip
+                      color="orange-7"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip"
+                    >
+                      <strong>Acenta:</strong>&nbsp;{{ formatCurrency(acentaBakiye) }}
+                    </q-chip>
+                    <q-separator vertical class="q-mx-sm" />
+                    <q-chip
+                      color="red-9"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip toplam-chip"
+                    >
+                      <strong>TOPLAM:</strong>&nbsp;{{ formatCurrency(toplamBakiye) }}
+                    </q-chip>
+                  </div>
                 </div>
               </div>
             </template>
@@ -706,12 +751,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch, computed, getCurrentInstance } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '../boot/axios';
 import { getNakitAkisVerileri, getBugunTarih, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
 
 const $q = useQuasar();
+
+// Axios instance'ını al
+const instance = getCurrentInstance()
+const $api = instance?.proxy?.$api
+
+// $api undefined ise normal api kullan
+const apiInstance = $api || api
+
 function onOpenCalculator() {
   window.dispatchEvent(new Event('openCalculator'))
 }
@@ -722,6 +775,17 @@ const loading = ref(false);
 const selectedDate = ref('');
 const datePopup = ref();
 const devredenBakiye = ref(0);
+
+// Kasa bakiyeleri
+const nakitBakiye = ref(0);
+const kartBakiye = ref(0);
+const bankaBakiye = ref(0);
+const acentaBakiye = ref(0);
+
+// Toplam bakiye computed
+const toplamBakiye = computed(() => {
+  return nakitBakiye.value + kartBakiye.value + bankaBakiye.value + acentaBakiye.value;
+});
 
 // Edit modal için gerekli ref'ler
 const showEditModal = ref(false);
@@ -839,16 +903,16 @@ function getPageDevirBakiyesi(): number {
   const currentPage = pagination.value.page;
   
   if (currentPage === 1) {
-    // İlk sayfa - Devreden Bakiye'den başla
-    return devredenBakiye.value || 0;
+    // İlk sayfa - Devreden Bakiye'den başla (Kart bakiyesi düşülmüş)
+    return (devredenBakiye.value || 0) - kartBakiye.value;
   } else {
     // 2. ve sonraki sayfalar - Önceki sayfanın son satırından devir al
     const previousPage = currentPage - 1;
     const previousPageStartIndex = (previousPage - 1) * pagination.value.rowsPerPage;
     const previousPageEndIndex = previousPageStartIndex + pagination.value.rowsPerPage;
     
-    // Önceki sayfadaki tüm işlemleri hesapla
-    let previousPageBakiye = devredenBakiye.value || 0;
+    // Önceki sayfadaki tüm işlemleri hesapla (Kart bakiyesi düşülmüş başlangıç)
+    let previousPageBakiye = (devredenBakiye.value || 0) - kartBakiye.value;
     
     for (let i = 0; i < previousPageEndIndex; i++) {
       if (i < tableData.value.length) {
@@ -1047,6 +1111,9 @@ onMounted(async () => {
   // Veriyi yükle
   await loadData();
   
+  // Kasa bakiyelerini yükle
+  await loadKasaBakiyeleri(selectedDate.value);
+  
   // Tablo başlık satırını stillendir
   await nextTick();
   applyHeaderStyling();
@@ -1081,6 +1148,9 @@ async function refreshPage() {
     
     // Veriyi yeniden yükle
     await loadData();
+    
+    // Kasa bakiyelerini güncelle
+    await loadKasaBakiyeleri(selectedDate.value);
     
     // Tablo başlık satırını stillendir
     await nextTick();
@@ -2302,6 +2372,82 @@ function onIslemTanimiInput(value: string | number | null | undefined) {
   }
 }
 
+/**
+ * Para formatı - Bakiye gösterimi için (ondalık yok)
+ */
+function formatCurrency(amount: number): string {
+  if (!amount) return '₺0';
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+}
+
+/**
+ * Kasa bakiyelerini yükler
+ * Püf Nokta: Tüm kasa türleri için bakiyeler seçilen tarihe göre hesaplanır
+ */
+async function loadKasaBakiyeleri(tarih: string) {
+  console.log('🔄 Kasa bakiyeleri yükleniyor, tarih:', tarih);
+  
+  try {
+    // 4 kasa türü için paralel bakiye hesaplama
+    // Püf Nokta: islemTip 'Giren' olarak gönderilmeli (büyük harfle başlamalı)
+    const [nakitRes, kartRes, bankaRes, acentaRes] = await Promise.all([
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'nakit', islemTip: 'Giren', secilenTarih: tarih }
+      }),
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'kart', islemTip: 'Giren', secilenTarih: tarih }
+      }),
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'eft', islemTip: 'Giren', secilenTarih: tarih }
+      }),
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'acenta', islemTip: 'Giren', secilenTarih: tarih }
+      })
+    ]);
+    
+    console.log('📥 API Response - Nakit:', nakitRes.data);
+    console.log('📥 API Response - Kart:', kartRes.data);
+    console.log('📥 API Response - Banka:', bankaRes.data);
+    console.log('📥 API Response - Acenta:', acentaRes.data);
+    
+    // Response yapısını kontrol edelim
+    console.log('🔍 Nakit response success:', nakitRes.data?.success);
+    console.log('🔍 Nakit response bakiye:', nakitRes.data?.bakiye);
+    
+    nakitBakiye.value = nakitRes.data?.success ? (nakitRes.data.bakiye || 0) : 0;
+    kartBakiye.value = kartRes.data?.success ? (kartRes.data.bakiye || 0) : 0;
+    bankaBakiye.value = bankaRes.data?.success ? (bankaRes.data.bakiye || 0) : 0;
+    acentaBakiye.value = acentaRes.data?.success ? (acentaRes.data.bakiye || 0) : 0;
+    
+    console.log('✅ Atanan değerler:', {
+      nakitBakiye: nakitBakiye.value,
+      kartBakiye: kartBakiye.value,
+      bankaBakiye: bankaBakiye.value,
+      acentaBakiye: acentaBakiye.value
+    });
+    
+    console.log('💰 Kasa bakiyeleri güncellendi:', {
+      nakit: nakitBakiye.value,
+      kart: kartBakiye.value,
+      banka: bankaBakiye.value,
+      acenta: acentaBakiye.value,
+      toplam: toplamBakiye.value
+    });
+  } catch (error) {
+    console.error('❌ Kasa bakiyeleri yükleme hatası:', error);
+    // Hata durumunda sıfırla
+    nakitBakiye.value = 0;
+    kartBakiye.value = 0;
+    bankaBakiye.value = 0;
+    acentaBakiye.value = 0;
+  }
+}
+
 // Tarih değişikliği fonksiyonu
 async function onDateSelected() {
   if (selectedDate.value && selectedDate.value.length === 10) {
@@ -2315,6 +2461,9 @@ async function onDateSelected() {
     
     // Veriyi yükle
     await loadData();
+    
+    // Kasa bakiyelerini güncelle
+    await loadKasaBakiyeleri(selectedDate.value);
   }
 }
 
@@ -2567,6 +2716,29 @@ html body .q-table th {
   gap: 8px;
 }
 
+/* Kasa bakiyeleri container */
+.kasa-bakiyeleri-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.bakiye-chip {
+  font-size: 0.85rem;
+  padding: 4px 10px;
+}
+
+.bakiye-chip strong {
+  margin-right: 4px;
+}
+
+.toplam-chip {
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 5px 12px;
+}
+
 .nakit-tablo-grid {
   background: transparent;
 }
@@ -2806,6 +2978,17 @@ body.body--dark .q-table th {
   
   .action-buttons .q-btn {
     width: 100%;
+  }
+  
+  .kasa-bakiyeleri-container {
+    width: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .bakiye-chip {
+    flex: 1 1 auto;
   }
 }
 

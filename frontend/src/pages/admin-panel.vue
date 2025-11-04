@@ -1,73 +1,85 @@
 <template>
   <q-page class="q-pa-md">
     <!-- Geç Saat Konaklama Ayarı -->
-    <div class="row q-mb-md q-px-sm q-py-xs bg-blue-grey-9 rounded-borders">
-      <div class="col-12">
-        <div class="row items-center no-wrap" style="min-height: 32px; margin-bottom: 0px;">
-          <div class="col-auto q-mr-sm">
-            <q-icon name="schedule" size="sm" color="blue-3" />
-          </div>
-          <div class="col-auto q-mr-sm">
+    <div class="row q-mb-md q-px-sm q-py-sm bg-blue-grey-9 rounded-borders">
+      <div class="col-12 row items-center no-wrap" style="gap: 12px;">
+        <!-- Sol Taraf: Başlık ve Bilgi Metni (Alt Alta) -->
+        <div class="column">
+          <div class="row items-center no-wrap">
+            <q-icon name="schedule" size="sm" color="blue-3" class="q-mr-xs" />
             <span class="text-h6 text-blue-3">Geç Saat Konaklama Sonu:</span>
           </div>
-          <div class="col-auto q-mr-sm row no-wrap items-center" style="gap: 4px;">
-            <q-btn
-              round
-              dense
-              unelevated
-              size="xs"
-              icon="remove"
-              color="blue-3"
-              text-color="blue-grey-9"
-              @click="azaltSaat"
-            />
-            <q-input
-              v-model="gecSaatFormatted"
-              type="text"
-              outlined
-              dense
-              dark
-              readonly
-              style="width: 85px;"
-              color="blue-3"
-              input-style="color: white; font-size: 1.1rem; text-align: center; font-weight: bold;"
-            >
-              <template v-slot:prepend>
-                <q-icon name="access_time" size="sm" color="blue-3" />
-              </template>
-            </q-input>
-            <q-btn
-              round
-              dense
-              unelevated
-              size="xs"
-              icon="add"
-              color="blue-3"
-              text-color="blue-grey-9"
-              @click="artirSaat"
-            />
-          </div>
-          <div class="col-auto">
-            <q-btn
-              color="blue-3"
-              text-color="blue-grey-9"
-              icon="save"
-              label="KAYDET"
-              size="xs"
-              @click="kaydetGecSaatSonu"
-              :loading="gecSaatSonuLoading"
-              :disable="gecSaatSonuLoading"
-            />
+          <div class="text-caption text-blue-grey-3" style="font-size: 0.7rem;">
+            <q-icon name="info" size="16px" class="q-mr-xs" />
+            00:00 - {{ gecSaatSonu }} arası 0 gün konaklama geçerlidir
           </div>
         </div>
-        <div class="row">
-          <div class="col-12">
-            <span class="text-caption text-blue-grey-3" style="font-size: 0.7rem;">
-              <q-icon name="info" size="20px" class="q-mr-xs" />
-              00:00 - {{ gecSaatSonu }} arası 0 gün konaklama geçerlidir
-            </span>
-          </div>
+        
+        <!-- Orta: Saat Kontrolleri -->
+        <div class="row no-wrap items-center" style="gap: 4px;">
+          <q-btn
+            round
+            dense
+            unelevated
+            size="xs"
+            icon="remove"
+            color="blue-3"
+            text-color="blue-grey-9"
+            @click="azaltSaat"
+          />
+          <q-input
+            v-model="gecSaatFormatted"
+            type="text"
+            outlined
+            dense
+            dark
+            readonly
+            style="width: 85px;"
+            color="blue-3"
+            input-style="color: white; font-size: 1.1rem; text-align: center; font-weight: bold;"
+          >
+            <template v-slot:prepend>
+              <q-icon name="access_time" size="sm" color="blue-3" />
+            </template>
+          </q-input>
+          <q-btn
+            round
+            dense
+            unelevated
+            size="xs"
+            icon="add"
+            color="blue-3"
+            text-color="blue-grey-9"
+            @click="artirSaat"
+          />
         </div>
+        
+        <!-- Kaydet Butonu -->
+        <q-btn
+          color="blue-3"
+          text-color="blue-grey-9"
+          icon="save"
+          label="KAYDET"
+          size="xs"
+          @click="kaydetGecSaatSonu"
+          :loading="gecSaatSonuLoading"
+          :disable="gecSaatSonuLoading"
+        />
+        
+        <q-space />
+        
+        <!-- Sağ Taraf: IP Kısıtlama Butonu -->
+        <q-btn
+          color="red-7"
+          text-color="white"
+          icon="security"
+          label="IP Kısıtlama Ayarları"
+          size="md"
+          @click="openIpKisitlamaModal"
+          unelevated
+        >
+          <q-tooltip>IP kısıtlama ayarlarını yönet</q-tooltip>
+        </q-btn>
       </div>
     </div>
 
@@ -212,6 +224,185 @@
         </q-banner>
       </div>
     </div>
+
+    <!-- IP Kısıtlama Modal -->
+    <q-dialog v-model="showIpKisitlamaModal" persistent>
+      <q-card 
+        ref="ipModalCard"
+        style="min-width: 550px; max-width: 650px;" 
+        class="ip-modal-card draggable-modal"
+      >
+        <q-card-section class="row items-center bg-red-8 text-white q-pa-sm modal-header" style="cursor: move;">
+          <q-icon name="security" size="sm" class="q-mr-xs" />
+          <div class="text-subtitle1 text-weight-bold">IP Kısıtlama Ayarları</div>
+          <q-space />
+          <q-btn icon="close" flat round dense size="sm" v-close-popup color="white" />
+        </q-card-section>
+
+        <q-card-section class="q-pa-sm">
+          <!-- IP Kısıtlama Aktif/Pasif Switch -->
+          <div class="row items-center q-mb-sm q-pa-sm ip-toggle-section rounded-borders">
+            <q-icon name="power_settings_new" size="sm" class="q-mr-sm ip-toggle-icon" />
+            <div class="col">
+              <div class="text-body2 text-weight-bold">IP Kısıtlama Sistemi</div>
+              <div class="text-caption ip-toggle-text">
+                {{ ipKisitlamaAktif ? 'Aktif - Sadece listedeki IP\'ler erişebilir' : 'Pasif - Tüm IP\'ler erişebilir' }}
+              </div>
+            </div>
+            <q-toggle
+              v-model="ipKisitlamaAktif"
+              color="red"
+              size="md"
+              @update:model-value="toggleIpKisitlama"
+              :loading="toggleLoading"
+            />
+          </div>
+
+          <!-- Mevcut IP Adresi Gösterimi -->
+          <div class="row items-center q-mb-sm q-pa-xs ip-current-section rounded-borders">
+            <q-icon name="public" size="xs" class="q-mr-xs ip-current-icon" />
+            <div class="text-caption">
+              <strong>Dış IP (Public):</strong> {{ mevcutIpAdres || 'Yükleniyor...' }}
+              <span v-if="localIpAdres && localIpAdres !== mevcutIpAdres" class="q-ml-xs text-grey-6">
+                (Local: {{ localIpAdres }})
+              </span>
+            </div>
+          </div>
+
+          <!-- IP Listesi -->
+          <div class="q-mb-sm">
+            <div class="text-body2 text-weight-medium q-mb-xs">
+              <q-icon name="list" size="xs" class="q-mr-xs" />
+              Kayıtlı IP Adresleri ({{ ipListesi.length }}/5)
+            </div>
+            
+            <q-list bordered separator dense v-if="ipListesi.length > 0">
+              <q-item v-for="ip in ipListesi" :key="ip.IpKstNo" dense>
+                <q-item-section avatar style="min-width: 30px;">
+                  <q-icon name="computer" color="green-7" size="xs" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-body2 text-weight-medium">{{ ip.IpKstAdres }}</q-item-label>
+                  <q-item-label caption v-if="ip.IpKstAciklama" lines="1">
+                    {{ ip.IpKstAciklama }}
+                  </q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-btn
+                    icon="delete"
+                    color="red-7"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    @click="confirmDeleteIp(ip)"
+                    :disable="deleteLoading"
+                  >
+                    <q-tooltip>Sil</q-tooltip>
+                  </q-btn>
+                </q-item-section>
+              </q-item>
+            </q-list>
+
+            <div v-else class="text-center q-pa-sm text-grey-6">
+              <q-icon name="info" size="sm" />
+              <div class="text-caption">Kayıtlı IP adresi yok</div>
+            </div>
+          </div>
+
+          <!-- Yeni IP Ekleme -->
+          <q-separator class="q-my-sm" />
+          <div class="q-mb-sm" v-if="ipListesi.length < 5">
+            <div class="text-body2 text-weight-medium q-mb-xs">
+              <q-icon name="add_circle" size="xs" class="q-mr-xs" />
+              Yeni IP Ekle
+            </div>
+            
+            <div class="row q-col-gutter-xs">
+              <div class="col-12">
+                <q-input
+                  v-model="yeniIpAdres"
+                  outlined
+                  dense
+                  label="Dış IP Adresi (Public)"
+                  :placeholder="mevcutIpAdres || 'Örn: 123.45.67.89'"
+                  :rules="[ipFormatKontrol]"
+                  @keyup.enter="handleIpEnter"
+                  hint="Gerçek dış IP adresinizi girin (yukarıda gösterildi)"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="public" size="xs" />
+                  </template>
+                  <template v-slot:append>
+                    <q-btn
+                      flat
+                      dense
+                      size="xs"
+                      icon="content_copy"
+                      @click="copyCurrentIp"
+                      v-if="mevcutIpAdres && mevcutIpAdres !== 'Alınamadı'"
+                    >
+                      <q-tooltip>Mevcut IP'yi kopyala</q-tooltip>
+                    </q-btn>
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12">
+                <q-input
+                  v-model="yeniIpAciklama"
+                  outlined
+                  dense
+                  label="Açıklama (Opsiyonel)"
+                  placeholder="Örn: Ev internet bağlantısı"
+                  @keyup.enter="handleIpEnter"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="description" size="xs" />
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12">
+                <q-btn
+                  color="primary"
+                  icon="add"
+                  label="Ekle"
+                  size="sm"
+                  @click="addIpAdres"
+                  :loading="addLoading"
+                  :disable="!yeniIpAdres || addLoading"
+                  class="full-width"
+                  unelevated
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Maksimum IP Uyarısı -->
+          <q-banner v-if="ipListesi.length >= 5" class="ip-warning-banner q-pa-xs" dense rounded>
+            <template v-slot:avatar>
+              <q-icon name="warning" color="orange" size="xs" />
+            </template>
+            <span class="text-caption">Maksimum 5 IP. Yeni eklemek için mevcut IP'yi silin.</span>
+          </q-banner>
+
+          <!-- Bilgilendirme -->
+          <q-banner class="ip-info-banner q-mt-xs q-pa-xs" dense rounded>
+            <template v-slot:avatar>
+              <q-icon name="info" color="blue" size="xs" />
+            </template>
+            <div class="text-caption">
+              <strong>Önemli:</strong> IP kısıtlaması aktifken sadece listedeki IP'lerden erişim sağlanır.
+              <br />
+              <strong>Not:</strong> SAadmin ve HARUN kullanıcıları IP kısıtlamasından muaftır ve her zaman erişebilir.
+            </div>
+          </q-banner>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-xs ip-modal-actions">
+          <q-btn label="Kapat" color="grey" flat size="sm" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -563,6 +754,445 @@ async function kaydetGecSaatSonu() {
     gecSaatSonuLoading.value = false
   }
 }
+
+// IP Kısıtlama değişkenleri ve fonksiyonları
+interface IPKisitlamaItem {
+  IpKstNo: number;
+  IpKstAdres: string;
+  IpKstAktif: boolean;
+  IpKstKytTarihi: string;
+  IpKstKllnc: string;
+  IpKstAciklama?: string;
+}
+
+const showIpKisitlamaModal = ref(false);
+const ipKisitlamaAktif = ref(false);
+const ipListesi = ref<IPKisitlamaItem[]>([]);
+const mevcutIpAdres = ref(''); // External/Public IP
+const localIpAdres = ref(''); // Local IP
+const yeniIpAdres = ref('');
+const yeniIpAciklama = ref('');
+const toggleLoading = ref(false);
+const addLoading = ref(false);
+const deleteLoading = ref(false);
+const ipModalCard = ref<{ $el: HTMLElement } | null>(null);
+
+/**
+ * IP format kontrolü
+ * Püf Nokta: IPv4 format validasyonu (xxx.xxx.xxx.xxx)
+ */
+function ipFormatKontrol(val: string) {
+  const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  const match = val.match(ipRegex);
+  
+  if (!match) {
+    return 'Geçersiz IP formatı (örn: 192.168.1.100)';
+  }
+  
+  // Her oktetin 0-255 aralığında olduğunu kontrol et
+  for (let i = 1; i <= 4; i++) {
+    const octet = parseInt(match[i], 10);
+    if (octet < 0 || octet > 255) {
+      return 'IP adresi her bölümü 0-255 arasında olmalıdır';
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * IP kısıtlama bilgilerini yükler
+ */
+async function yukleIpKisitlamaBilgileri() {
+  try {
+    const response = await api.get('/admin/ip-restrictions');
+    console.log('IP Restrictions Response:', response.data);
+    if (response.data.success) {
+      ipKisitlamaAktif.value = response.data.data.aktif;
+      ipListesi.value = response.data.data.ipListesi;
+      console.log('IP kısıtlama bilgileri yüklendi:', { aktif: ipKisitlamaAktif.value, count: ipListesi.value.length });
+    } else {
+      throw new Error(response.data.message || 'Başarısız response');
+    }
+  } catch (error: unknown) {
+    console.error('IP kısıtlama bilgileri yüklenemedi:', error);
+    const axiosError = error as { response?: { status?: number; data?: unknown } };
+    const errorMessage = axiosError?.response?.status === 500
+      ? 'Veritabanı hatası. Backend loglarını kontrol edin.'
+      : axiosError?.response?.status === 404
+      ? 'Endpoint bulunamadı. Backend yeniden başlatılmalı.'
+      : 'IP kısıtlama bilgileri yüklenemedi. Backend çalışıyor mu?';
+    
+    $q.notify({
+      type: 'negative',
+      message: errorMessage,
+      caption: `Status: ${axiosError?.response?.status || 'Network Error'}`,
+      position: 'top',
+      timeout: 6000
+    });
+    
+    // Hata durumunda varsayılan değerler
+    ipKisitlamaAktif.value = false;
+    ipListesi.value = [];
+  }
+}
+
+/**
+ * Mevcut IP adresini alır
+ * Püf Nokta: Hem external (public) hem de local IP adresleri gösterilir
+ */
+async function yukleMevcutIp() {
+  try {
+    const response = await api.get('/admin/current-ip');
+    console.log('Current IP Response:', response.data);
+    if (response.data.success && response.data.data) {
+      // External IP'yi öncelikli göster
+      mevcutIpAdres.value = response.data.data.externalIp || response.data.data.ip || 'Alınamadı';
+      localIpAdres.value = response.data.data.localIp || '';
+      
+      console.log('IP adresleri yüklendi:', { 
+        external: mevcutIpAdres.value, 
+        local: localIpAdres.value 
+      });
+    } else {
+      console.warn('IP adresi response içinde bulunamadı:', response.data);
+      mevcutIpAdres.value = 'Alınamadı';
+    }
+  } catch (error) {
+    console.error('Mevcut IP adresi alınamadı:', error);
+    mevcutIpAdres.value = 'Alınamadı';
+  }
+}
+
+/**
+ * IP kısıtlama sistemini aktif/pasif yapar
+ * Püf Nokta: Kullanıcı kendi IP'sini listede olmadan aktifleştirirse uyarı gösterilir
+ */
+async function toggleIpKisitlama(aktif: boolean) {
+  // Eğer aktif hale getiriliyorsa ve listedeki IP sayısı 0 ise uyar
+  if (aktif && ipListesi.value.length === 0) {
+    $q.dialog({
+      title: 'Uyarı',
+      message: 'IP listesinde hiç kayıt yok! Sistemi aktif hale getirirseniz kimse erişemeyecek. Devam etmek istiyor musunuz?',
+      cancel: true,
+      persistent: true
+    }).onCancel(() => {
+      // Toggle'ı geri al
+      ipKisitlamaAktif.value = !aktif;
+    }).onOk(() => {
+      void toggleIpKisitlamaOnay(aktif);
+    });
+    return;
+  }
+  
+  // Eğer aktif hale getiriliyorsa ve mevcut IP listede yoksa uyar
+  if (aktif && mevcutIpAdres.value) {
+    const mevcutIpListede = ipListesi.value.some(ip => ip.IpKstAdres === mevcutIpAdres.value);
+    if (!mevcutIpListede) {
+      $q.dialog({
+        title: 'Dikkat!',
+        message: `Mevcut IP adresiniz (${mevcutIpAdres.value}) listede bulunmuyor! Sistemi aktif hale getirirseniz erişiminiz kesilecek. Devam etmek istiyor musunuz?`,
+        cancel: true,
+        persistent: true,
+        color: 'negative'
+      }).onCancel(() => {
+        // Toggle'ı geri al
+        ipKisitlamaAktif.value = !aktif;
+      }).onOk(() => {
+        void toggleIpKisitlamaOnay(aktif);
+      });
+      return;
+    }
+  }
+  
+  await toggleIpKisitlamaOnay(aktif);
+}
+
+async function toggleIpKisitlamaOnay(aktif: boolean) {
+  toggleLoading.value = true;
+  try {
+    const kullaniciAdi = localStorage.getItem('username') || 'SYSTEM';
+    const response = await api.patch('/admin/ip-restrictions/toggle', {
+      aktif,
+      kullaniciAdi
+    });
+    
+    if (response.data.success) {
+      $q.notify({
+        type: 'positive',
+        message: `IP kısıtlama ${aktif ? 'aktif' : 'pasif'} edildi`,
+        icon: aktif ? 'lock' : 'lock_open',
+        position: 'top',
+        timeout: 3000
+      });
+    } else {
+      throw new Error(response.data.message);
+    }
+  } catch (error) {
+    console.error('IP kısıtlama toggle hatası:', error);
+    // Toggle'ı geri al
+    ipKisitlamaAktif.value = !aktif;
+    $q.notify({
+      type: 'negative',
+      message: 'IP kısıtlama durumu değiştirilemedi',
+      position: 'top'
+    });
+  } finally {
+    toggleLoading.value = false;
+  }
+}
+
+/**
+ * Enter tuşu ile IP ekleme
+ * Püf Nokta: Sadece IP adresi doluysa ekle, boşsa placeholder eklenmez
+ */
+function handleIpEnter() {
+  if (yeniIpAdres.value && yeniIpAdres.value.trim()) {
+    void addIpAdres();
+  }
+}
+
+/**
+ * Mevcut IP'yi input alanına kopyalar
+ */
+function copyCurrentIp() {
+  if (mevcutIpAdres.value && mevcutIpAdres.value !== 'Alınamadı') {
+    yeniIpAdres.value = mevcutIpAdres.value;
+    $q.notify({
+      type: 'positive',
+      message: 'IP adresi kopyalandı',
+      position: 'top',
+      timeout: 2000
+    });
+  }
+}
+
+/**
+ * Yeni IP adresi ekler
+ */
+async function addIpAdres() {
+  // Boş kontrol
+  if (!yeniIpAdres.value || !yeniIpAdres.value.trim()) {
+    $q.notify({
+      type: 'warning',
+      message: 'Lütfen bir IP adresi girin',
+      position: 'top'
+    });
+    return;
+  }
+  
+  // Validasyon
+  const validationResult = ipFormatKontrol(yeniIpAdres.value);
+  if (validationResult !== true) {
+    $q.notify({
+      type: 'warning',
+      message: validationResult,
+      position: 'top'
+    });
+    return;
+  }
+  
+  // Local IP uyarısı (opsiyonel - sadece uyarı ver, engelleme)
+  const ipParts = yeniIpAdres.value.split('.');
+  if (ipParts.length === 4) {
+    const firstOctet = parseInt(ipParts[0], 10);
+    const secondOctet = parseInt(ipParts[1], 10);
+    
+    // Private IP range kontrolü (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isPrivateIp = 
+      firstOctet === 192 && secondOctet === 168 ||
+      firstOctet === 10 ||
+      firstOctet === 172 && secondOctet >= 16 && secondOctet <= 31 ||
+      firstOctet === 127; // localhost
+    
+    if (isPrivateIp) {
+      // Uyarı ver ama yine de eklemeye izin ver
+      const confirm = await new Promise<boolean>((resolve) => {
+        $q.dialog({
+          title: 'Dikkat',
+          message: `${yeniIpAdres.value} bir local/private IP adresi gibi görünüyor. IP kısıtlaması için genellikle dış IP (public IP) kullanılır. Yine de eklemek istiyor musunuz?`,
+          cancel: { label: 'İptal', flat: true, color: 'grey' },
+          persistent: true,
+          ok: { label: 'Evet, Ekle', color: 'primary', unelevated: true }
+        }).onOk(() => resolve(true))
+          .onCancel(() => resolve(false));
+      });
+      
+      if (!confirm) return;
+    }
+  }
+  
+  addLoading.value = true;
+  try {
+    const kullaniciAdi = localStorage.getItem('username') || 'SYSTEM';
+    const response = await api.post('/admin/ip-restrictions', {
+      ipAdres: yeniIpAdres.value,
+      aciklama: yeniIpAciklama.value,
+      kullaniciAdi
+    });
+    
+    if (response.data.success) {
+      $q.notify({
+        type: 'positive',
+        message: 'IP adresi başarıyla eklendi',
+        icon: 'check_circle',
+        position: 'top',
+        timeout: 3000
+      });
+      
+      // Formu temizle
+      yeniIpAdres.value = '';
+      yeniIpAciklama.value = '';
+      
+      // Listeyi yenile
+      await yukleIpKisitlamaBilgileri();
+    } else {
+      throw new Error(response.data.message);
+    }
+  } catch (error: unknown) {
+    console.error('IP ekleme hatası:', error);
+    const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'IP adresi eklenemedi';
+    $q.notify({
+      type: 'negative',
+      message: errorMessage,
+      position: 'top'
+    });
+  } finally {
+    addLoading.value = false;
+  }
+}
+
+/**
+ * IP silme onayı ister
+ * Püf Nokta: Kullanıcı kendi IP'sini silmeye çalışırsa ekstra uyarı gösterilir
+ */
+function confirmDeleteIp(ip: IPKisitlamaItem) {
+  const kendi = ip.IpKstAdres === mevcutIpAdres.value;
+  
+  $q.dialog({
+    title: kendi ? '⚠️ Dikkat!' : 'IP Silme Onayı',
+    message: kendi 
+      ? `Bu IP adresi (${ip.IpKstAdres}) mevcut IP adresiniz! Silmek istediğinize emin misiniz? IP kısıtlaması aktifse erişiminiz kesilecek.`
+      : `${ip.IpKstAdres} IP adresini silmek istediğinize emin misiniz?`,
+    cancel: true,
+    persistent: true,
+    color: kendi ? 'negative' : 'primary'
+  }).onOk(() => {
+    void deleteIpAdres(ip.IpKstNo);
+  });
+}
+
+/**
+ * IP adresini siler
+ */
+async function deleteIpAdres(id: number) {
+  deleteLoading.value = true;
+  try {
+    const response = await api.delete(`/admin/ip-restrictions/${id}`);
+    
+    if (response.data.success) {
+      $q.notify({
+        type: 'positive',
+        message: 'IP adresi başarıyla silindi',
+        icon: 'check_circle',
+        position: 'top',
+        timeout: 3000
+      });
+      
+      // Listeyi yenile
+      await yukleIpKisitlamaBilgileri();
+    } else {
+      throw new Error(response.data.message);
+    }
+  } catch (error) {
+    console.error('IP silme hatası:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'IP adresi silinemedi',
+      position: 'top'
+    });
+  } finally {
+    deleteLoading.value = false;
+  }
+}
+
+/**
+ * Modal'ı açar ve verileri yükler
+ * Püf Nokta: Verileri modal açılırken yükleyerek gereksiz API çağrılarını önleriz
+ */
+function openIpKisitlamaModal() {
+  showIpKisitlamaModal.value = true;
+  // Modal açılınca verileri yükle
+  void yukleIpKisitlamaBilgileri();
+  void yukleMevcutIp();
+  
+  // Modal açıldıktan sonra draggable özelliğini ekle
+  setTimeout(() => {
+    setupIpModalDraggable();
+  }, 100);
+}
+
+/**
+ * Modal'ı sürüklenebilir yapar
+ * Püf Nokta: Modal header'ından tutup ekranda gezdirebilirsiniz
+ */
+function setupIpModalDraggable() {
+  let isDragging = false;
+  let currentX: number;
+  let currentY: number;
+  let initialX: number;
+  let initialY: number;
+  let xOffset = 0;
+  let yOffset = 0;
+
+  function dragStart(e: MouseEvent | TouchEvent) {
+    if (e.target && (e.target as HTMLElement).closest('.modal-header')) {
+      isDragging = true;
+      
+      if (e instanceof MouseEvent) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+      } else if (e instanceof TouchEvent) {
+        initialX = e.touches[0].clientX - xOffset;
+        initialY = e.touches[0].clientY - yOffset;
+      }
+    }
+  }
+
+  function drag(e: MouseEvent | TouchEvent) {
+    if (isDragging) {
+      e.preventDefault();
+      
+      if (e instanceof MouseEvent) {
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+      } else if (e instanceof TouchEvent) {
+        currentX = e.touches[0].clientX - initialX;
+        currentY = e.touches[0].clientY - initialY;
+      }
+
+      xOffset = currentX;
+      yOffset = currentY;
+
+      if (ipModalCard.value && ipModalCard.value.$el) {
+        const modalElement = ipModalCard.value.$el;
+        modalElement.style.transform = `translate(${currentX}px, ${currentY}px)`;
+      }
+    }
+  }
+
+  function dragEnd() {
+    isDragging = false;
+  }
+
+  // Event listener'ları ekle
+  document.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+  document.addEventListener('touchstart', dragStart);
+  document.addEventListener('touchmove', drag);
+  document.addEventListener('touchend', dragEnd);
+}
 </script>
 
 <style scoped>
@@ -790,5 +1420,154 @@ async function kaydetGecSaatSonu() {
 .currency-input:focus-within .q-field__control {
   background-color: #fff8e1 !important;
   border-color: #ffd54f !important;
+}
+
+/* IP Kısıtlama Modal Stilleri - Compact Tasarım */
+/* Light Mode */
+.ip-modal-card {
+  background-color: #ffffff;
+}
+
+.ip-modal-card .q-card__section {
+  padding: 8px !important;
+}
+
+.ip-toggle-section {
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+}
+
+.ip-toggle-icon {
+  color: #c62828;
+}
+
+.ip-toggle-text {
+  color: #616161;
+  line-height: 1.2;
+}
+
+.ip-current-section {
+  background-color: #e3f2fd;
+  border: 1px solid #90caf9;
+}
+
+.ip-current-icon {
+  color: #1976d2;
+}
+
+.ip-warning-banner {
+  background-color: #fff3e0;
+  color: #e65100;
+  padding: 4px 8px !important;
+}
+
+.ip-info-banner {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  padding: 4px 8px !important;
+}
+
+.ip-modal-actions {
+  border-top: 1px solid #e0e0e0;
+  padding: 4px 8px !important;
+}
+
+/* Dark Mode */
+.body--dark .ip-modal-card {
+  background-color: #1e1e1e;
+}
+
+.body--dark .ip-toggle-section {
+  background-color: #2d2d2d;
+  border: 1px solid #424242;
+}
+
+.body--dark .ip-toggle-icon {
+  color: #ef5350;
+}
+
+.body--dark .ip-toggle-text {
+  color: #b0b0b0;
+}
+
+.body--dark .ip-current-section {
+  background-color: #0d47a1;
+  border: 1px solid #1976d2;
+}
+
+.body--dark .ip-current-icon {
+  color: #64b5f6;
+}
+
+.body--dark .ip-warning-banner {
+  background-color: #4a2c0c;
+  color: #ffb74d;
+}
+
+.body--dark .ip-info-banner {
+  background-color: #0d47a1;
+  color: #90caf9;
+}
+
+.body--dark .ip-modal-actions {
+  border-top: 1px solid #424242;
+}
+
+.body--dark .q-card {
+  background-color: #1e1e1e;
+  color: #ffffff;
+}
+
+.body--dark .q-list {
+  background-color: #2d2d2d;
+  border-color: #424242;
+}
+
+.body--dark .q-item {
+  color: #ffffff;
+}
+
+.body--dark .q-separator {
+  background-color: #424242;
+}
+
+/* Compact list item spacing */
+.ip-modal-card .q-item {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+.ip-modal-card .q-item__section--avatar {
+  min-width: 30px;
+  padding-right: 8px;
+}
+
+/* Draggable modal stilleri */
+.draggable-modal {
+  position: relative;
+  user-select: none;
+}
+
+.draggable-modal .modal-header {
+  cursor: move !important;
+  user-select: none;
+}
+
+.draggable-modal .modal-header * {
+  cursor: move !important;
+}
+
+.draggable-modal .modal-header .q-btn {
+  cursor: pointer !important;
+}
+
+/* Dark mode draggable header */
+.body--dark .draggable-modal .modal-header {
+  background-color: #b71c1c !important;
+}
+
+/* Modal sürükleme efekti */
+.draggable-modal:active {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
 }
 </style>

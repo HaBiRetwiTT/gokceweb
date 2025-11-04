@@ -3460,17 +3460,42 @@ export class IslemService {
 
   /**
    * Tüm RST kayıtlarını getirir (debug amaçlı)
+   * Püf Nokta: islemOzel2'de Oda Tipi gösterilir (tblOdaYatak'tan join edilir)
    * @returns Tüm RST kayıtları
    */
   async getAllRstRecords(): Promise<any[]> {
     try {
       const query = `
-        SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
-               islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
-               islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
-               islemAltG, islemMiktar, islemTutar, Onay
-        FROM tblislemRST 
-        ORDER BY islemNo DESC
+        SELECT 
+          i.islemNo, 
+          i.iKytTarihi, 
+          i.islemKllnc, 
+          i.islemOzel1, 
+          ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
+          i.islemOzel3, 
+          i.islemOzel4, 
+          i.islemBirim, 
+          i.islemDoviz, 
+          i.islemKur, 
+          i.islemBilgi, 
+          i.islemCrKod, 
+          i.islemArac, 
+          i.islemTip, 
+          i.islemGrup, 
+          i.islemAltG, 
+          i.islemMiktar, 
+          i.islemTutar, 
+          i.Onay
+        FROM tblislemRST i
+        LEFT JOIN tblOdaYatak oy ON oy.OdYatOdaNo = 
+          CASE 
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+            THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+            THEN LEFT(i.islemOzel3, 3)
+            ELSE NULL 
+          END
+        ORDER BY i.islemNo DESC
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -3491,16 +3516,41 @@ export class IslemService {
 
   /**
    * Tüm ARV kayıtlarını getirir (debug/listeleme amaçlı)
+   * Püf Nokta: islemOzel2'de Oda Tipi gösterilir (tblOdaYatak'tan join edilir)
    */
   async getAllArvRecords(): Promise<any[]> {
     try {
       const query = `
-        SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
-               islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
-               islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
-               islemAltG, islemMiktar, islemTutar, Onay
-        FROM tblislemARV 
-        ORDER BY islemNo DESC
+        SELECT 
+          i.islemNo, 
+          i.iKytTarihi, 
+          i.islemKllnc, 
+          i.islemOzel1, 
+          ISNULL(oy.OdYatOdaTip, i.islemOzel2) as islemOzel2,
+          i.islemOzel3, 
+          i.islemOzel4, 
+          i.islemBirim, 
+          i.islemDoviz, 
+          i.islemKur, 
+          i.islemBilgi, 
+          i.islemCrKod, 
+          i.islemArac, 
+          i.islemTip, 
+          i.islemGrup, 
+          i.islemAltG, 
+          i.islemMiktar, 
+          i.islemTutar, 
+          i.Onay
+        FROM tblislemARV i
+        LEFT JOIN tblOdaYatak oy ON oy.OdYatOdaNo = 
+          CASE 
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
+            THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
+            WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) = 0
+            THEN LEFT(i.islemOzel3, 3)
+            ELSE NULL 
+          END
+        ORDER BY i.islemNo DESC
       `;
 
       const queryRunner = this.dataSource.createQueryRunner();

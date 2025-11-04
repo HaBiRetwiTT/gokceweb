@@ -1,7 +1,9 @@
 /* eslint-disable prettier/prettier */
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
+import { Reflector } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MusteriModule } from './musteri/musteri.module';
@@ -20,6 +22,7 @@ import { DatabaseTransactionService } from './database/database-transaction.serv
 import { HotelRunnerModule } from './hotelrunner/hotelrunner.module';
 import { PersonelModule } from './personel/personel.module';
 import { AdminModule } from './admin/admin.module';
+import { IpRestrictionGuard } from './guards/ip-restriction.guard';
 import * as dotenv from 'dotenv';
 
 // Production environment variables yükle
@@ -47,7 +50,17 @@ dotenv.config({ path: '.env.production' });
     AdminModule,
   ],
   controllers: [AppController, OdemeIslemController],
-  providers: [AppService, DatabaseConfigService, OdemeIslemService, DatabaseTransactionService],
+  providers: [
+    AppService, 
+    DatabaseConfigService, 
+    OdemeIslemService, 
+    DatabaseTransactionService,
+    Reflector,
+    {
+      provide: APP_GUARD,
+      useClass: IpRestrictionGuard,
+    },
+  ],
   //controllers: [OdemeIslemController, ...],
   //providers: [OdemeIslemService, ...],
 })
