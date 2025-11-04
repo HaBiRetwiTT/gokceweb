@@ -393,7 +393,7 @@
             <div class="text-caption">
               <strong>Önemli:</strong> IP kısıtlaması aktifken sadece listedeki IP'lerden erişim sağlanır.
               <br />
-              <strong>Not:</strong> SAadmin ve HARUN kullanıcıları IP kısıtlamasından muaftır ve her zaman erişebilir.
+              <strong>Not:</strong> SAadmin, HARUN ve KADİR kullanıcıları IP kısıtlamasından muaftır ve her zaman erişebilir.
             </div>
           </q-banner>
         </q-card-section>

@@ -16,7 +16,7 @@ import { IpRestrictionService } from '../admin/ip-restriction.service';
 @Injectable()
 export class IpRestrictionGuard implements CanActivate {
   // IP kontrolünden muaf kullanıcılar
-  private readonly exemptUsers = ['SAadmin', 'HARUN'];
+  private readonly exemptUsers = ['SAadmin', 'HARUN', 'KADİR'];
 
   constructor(
     private ipRestrictionService: IpRestrictionService,
