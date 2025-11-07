@@ -15,10 +15,20 @@
       </div>
       <div class="legend-spacer"></div>
       <div
+        class="legend-item legend-kirli"
+        @mouseenter="onKirliHoverEnter()"
+        @mouseleave="onKirliHoverLeave()"
+      >Kirli</div>
+      <div
+        class="legend-item legend-ariza"
+        @mouseenter="onArizaHoverEnter()"
+        @mouseleave="onArizaHoverLeave()"
+      >Arıza</div>
+      <div
         class="legend-item legend-extra"
         @mouseenter="onSuresiDolanHoverEnter()"
         @mouseleave="onSuresiDolanHoverLeave()"
-      >Konaklama Süresi Dolan Odalar</div>
+      >Süresi Dolan</div>
     </div>
     <div ref="tableScrollRef" class="table-scroll">
     <q-table
@@ -26,6 +36,7 @@
       :columns="columns"
       row-key="kat"
       hide-bottom
+      hide-header
       flat
       bordered
       dense
@@ -40,8 +51,8 @@
               {{ countSuresiDolanInRow(props.row) }}
             </div>
           </div>
-          <div v-else class="oda-cell">
-            <div v-for="room in props.row.odas[props.col.index] || []"
+          <div v-else class="oda-cell-wrapper">
+            <div v-for="room in getAllRoomsInRow(props.row)"
                  :key="room && typeof room === 'object' ? room.odaNo : room"
                  class="oda-chip"
                  :class="{
@@ -102,6 +113,8 @@ type TableRow = { kat: number; odas: KatPlanRoom[][] }
 const tableRows = ref<TableRow[]>([])
 const uniqueOdaTipleri = ref<string[]>([])
 const hoveredTip = ref<string | null>(null)
+const hoveredKirli = ref<boolean>(false)
+const hoveredAriza = ref<boolean>(false)
 const hoveredSuresiDolan = ref<boolean>(false)
 const tableScrollRef = ref<HTMLElement | null>(null)
 const sweepDelayTimerId = ref<number | null>(null)
@@ -122,18 +135,15 @@ onMounted(async () => {
     }
   }
   uniqueOdaTipleri.value = Array.from(tipSet).sort((a, b) => a.localeCompare(b, 'tr'))
-  // Sütunları 1..maxCols olarak ekle
-  for (let i = 0; i < (payload.maxCols || 0); i++) {
-    columns.value.push({
-      name: `c${i}`,
-      label: String(i + 1),
-      field: `c${i}`,
-      align: 'center',
-      index: i,
-      headerStyle: 'width: 50px; min-width:50px; max-width:50px; padding: 6px 4px;',
-      style: 'width:70px; padding: 6px 4px;'
-    })
-  }
+  // Tek bir oda kolonu ekle (tüm odalar burada gösterilecek)
+  columns.value.push({
+    name: 'odalar',
+    label: 'Odalar',
+    field: 'odalar',
+    align: 'left',
+    headerStyle: 'padding: 6px 8px;',
+    style: 'padding: 6px 8px;'
+  })
   // Satırları oluştur (geriye dönük uyum: sayı listesi dönerse objeye çevir)
   tableRows.value = payload.floors.map((k) => {
   const raw = (payload.floorToRooms[String(k)] || []) as Array<unknown>
@@ -163,6 +173,19 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   cancelScheduledSweep()
 })
+
+// Bir satırdaki tüm odaları düz liste olarak döndür
+function getAllRoomsInRow(row: TableRow): KatPlanRoom[] {
+  const allRooms: KatPlanRoom[] = []
+  if (row && Array.isArray(row.odas)) {
+    for (const cell of row.odas) {
+      if (Array.isArray(cell)) {
+        allRooms.push(...cell)
+      }
+    }
+  }
+  return allRooms
+}
 
 // remove unused legacy tooltip helper
 
@@ -260,6 +283,9 @@ function getRoomTipNormalized(room: unknown): string | null {
 
 function onLegendMouseEnter(tip: string) {
   hoveredTip.value = normalizeTip(tip)
+  hoveredKirli.value = false
+  hoveredAriza.value = false
+  hoveredSuresiDolan.value = false
   scheduleHorizontalSweep()
 }
 
@@ -269,8 +295,39 @@ function onLegendMouseLeave() {
   resetScrollToStart()
 }
 
+function onKirliHoverEnter() {
+  hoveredKirli.value = true
+  hoveredTip.value = null
+  hoveredAriza.value = false
+  hoveredSuresiDolan.value = false
+  scheduleHorizontalSweep()
+}
+
+function onKirliHoverLeave() {
+  hoveredKirli.value = false
+  cancelScheduledSweep()
+  resetScrollToStart()
+}
+
+function onArizaHoverEnter() {
+  hoveredAriza.value = true
+  hoveredTip.value = null
+  hoveredKirli.value = false
+  hoveredSuresiDolan.value = false
+  scheduleHorizontalSweep()
+}
+
+function onArizaHoverLeave() {
+  hoveredAriza.value = false
+  cancelScheduledSweep()
+  resetScrollToStart()
+}
+
 function onSuresiDolanHoverEnter() {
   hoveredSuresiDolan.value = true
+  hoveredTip.value = null
+  hoveredKirli.value = false
+  hoveredAriza.value = false
   scheduleHorizontalSweep()
 }
 
@@ -459,13 +516,19 @@ function isInSuresiDolan(room: unknown): boolean {
 }
 
 function shouldDimRoom(room: unknown): boolean {
-  // Arızalı odalar asla soluklaştırılmaz
-  if (isAriza(room) || isKirli(room)) return false
-  // Tip hover: oda tipi eşleşmiyorsa dimle
+  // Tip hover: SADECE o oda tipi gösterilsin (kirli ve arıza da dahil)
   if (hoveredTip.value !== null) {
     return getRoomTipNormalized(room) !== hoveredTip.value
   }
-  // Süresi dolan hover: sarı şerit yoksa dimle
+  // Kirli hover: SADECE kirli odalar gösterilsin
+  if (hoveredKirli.value) {
+    return !isKirli(room)
+  }
+  // Arıza hover: SADECE arıza odaları gösterilsin
+  if (hoveredAriza.value) {
+    return !isAriza(room)
+  }
+  // Süresi dolan hover: SADECE süresi dolan odalar gösterilsin
   if (hoveredSuresiDolan.value) {
     return !isInSuresiDolan(room)
   }
@@ -663,11 +726,11 @@ function reloadPage(): void {
   font-weight: 700; /* koyu */
   color: #000000; /* koyu renk */
 }
-.oda-cell {
+.oda-cell-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 30px;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
 }
 .oda-chip {
   background: #263238;
@@ -675,10 +738,13 @@ function reloadPage(): void {
   padding: 9px 6px;
   border-radius: 4px;
   font-size: 11px;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-shadow: 0 0 2px rgba(0,0,0,0.6);
   cursor: pointer;
   position: relative;
+  flex-shrink: 0;
 }
 .oda-num-pill {
   display: inline-block;
@@ -794,6 +860,14 @@ function reloadPage(): void {
 .no-scrollbar {
   overflow: hidden !important;
 }
+.legend-kirli {
+  background: #5d4037; /* kahverengi */
+  color: #fff;
+}
+.legend-ariza {
+  background: #6d1b1b; /* bordo */
+  color: #fff;
+}
 .legend-extra {
   background: #fdd835; /* belirgin sarı */
   color: #000; /* kontrast için siyah metin */
@@ -827,8 +901,7 @@ function reloadPage(): void {
 }
 
 .is-dimmed {
-  opacity: 0.25;
-  filter: grayscale(25%);
+  display: none !important;
 }
 </style>
 

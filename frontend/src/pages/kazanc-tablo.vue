@@ -49,7 +49,27 @@
                 class="time-period-btn"
               />
             </div>
+            
+            <!-- 🆕 İşlem Tipi Switch Butonu -->
+            <q-btn-toggle
+              v-model="islemTipMode"
+              :options="[
+                { label: 'Giren/Çıkan', value: 'kasa' },
+                { label: 'GELİR/GİDER', value: 'cari' }
+              ]"
+              spread
+              push
+              glossy
+              no-caps
+              toggle-color="green-7"
+              color="grey-3"
+              text-color="grey-6"
+              class="filter-switch-btn q-ml-xl"
+              @update:model-value="onIslemTipModeChange"
+            />
+            
             <q-space />
+            
             <div class="period-net-info">{{ periodNetText }}</div>
             <q-btn
               label="YENİLE"
@@ -64,19 +84,57 @@
       </div>
     </div>
 
-    <div class="row items-start q-gutter-md q-mt-md">
-      <q-card class="half-width">
-                  <q-table
-            :rows="rows"
-            :columns="columns"
-            row-key="grup"
-            dense
-            flat
-            bordered
-            separator="cell"
-            :pagination="pagination"
-            @row-dblclick="onRowDoubleClick"
-          >
+    <div class="row items-start q-gutter-md q-mt-md" style="position: relative;">
+      <!-- Loading overlay -->
+      <div v-if="isLoading" class="loading-overlay">
+        <q-spinner-dots color="primary" size="60px" />
+      </div>
+
+      <q-card class="half-width" :class="{ 'loading-blur': isLoading }">
+        <!-- Bar Navigasyon Butonları -->
+        <q-card-section class="q-pa-sm">
+          <div class="bar-navigation">
+            <q-btn 
+              icon="chevron_left" 
+              flat 
+              dense 
+              round
+              color="primary"
+              size="sm"
+              :disable="activeBarIndex <= 0 || isLoading"
+              @click="navigateToPreviousBar"
+            >
+              <q-tooltip>Önceki Dönem</q-tooltip>
+            </q-btn>
+            <div class="bar-label-text">{{ currentBarLabel }}</div>
+            <q-btn 
+              icon="chevron_right" 
+              flat 
+              dense 
+              round
+              color="primary"
+              size="sm"
+              :disable="activeBarIndex >= seriData.length - 1 || isLoading"
+              @click="navigateToNextBar"
+            >
+              <q-tooltip>Sonraki Dönem</q-tooltip>
+            </q-btn>
+          </div>
+        </q-card-section>
+        
+        <q-separator />
+        
+        <q-table
+          :rows="rows"
+          :columns="columns"
+          row-key="grup"
+          dense
+          flat
+          bordered
+          separator="cell"
+          :pagination="pagination"
+          @row-dblclick="onRowDoubleClick"
+        >
           <template v-slot:header-cell-gelirToplam="props">
             <q-th :props="props"><span class="total-header">{{ props.col.label }}</span></q-th>
           </template>
@@ -86,7 +144,7 @@
         </q-table>
       </q-card>
 
-      <q-card class="chart-card grow-card">
+      <q-card class="chart-card grow-card" :class="{ 'loading-blur': isLoading }">
         <q-card-section class="chart-section">
           <div class="chart-container">
             <canvas ref="barChart"></canvas>
@@ -139,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../boot/axios'
 import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
@@ -177,21 +235,37 @@ const timePeriods = ref([
   { value: 'yillar', label: 'YILLAR', selected: false },
 ])
 
+// 🆕 İşlem Tipi Modu (default: kasa - Giren/Çıkan)
+const islemTipMode = ref<'kasa' | 'cari'>('kasa')
+
 const rows = ref<Row[]>([])
 const pagination = ref({ 
   page: 1, 
-  rowsPerPage: 22,
-  rowsPerPageOptions: [22] // Sadece 22 seçeneği
+  rowsPerPage: 20,
+  rowsPerPageOptions: [20] // Sadece 20 seçeneği
 })
 const netToplam = ref(0)
 const periodNetText = ref('')
 const customStartDate = ref('')
-const columns = ref<QTableColumn<Row>[]>([
-  { name: 'gelirGrup', label: 'GELİRLER (islemGrup)', field: 'gelirGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-  { name: 'gelirToplam', label: 'Toplam', field: 'gelirToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
-  { name: 'giderGrup', label: 'GİDERLER (islemGrup)', field: 'giderGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-  { name: 'giderToplam', label: 'Toplam', field: 'giderToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
-])
+const isLoading = ref(false)
+
+// 🆕 Bar navigasyon için state
+const activeBarIndex = ref(11) // Default: Son bar (12. bar)
+const seriData = ref<Array<{ label: string; gelir: number; gider: number; dateISO?: string }>>([])
+const currentBarLabel = ref('')
+
+// 🔄 Dinamik sütun tanımları
+const columns = computed<QTableColumn<Row>[]>(() => {
+  const gelirLabel = islemTipMode.value === 'kasa' ? 'GİRENLER' : 'GELİRLER'
+  const giderLabel = islemTipMode.value === 'kasa' ? 'ÇIKANLAR' : 'GİDERLER'
+  
+  return [
+    { name: 'gelirGrup', label: `${gelirLabel} (islemGrup)`, field: 'gelirGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
+    { name: 'gelirToplam', label: 'Toplam', field: 'gelirToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+    { name: 'giderGrup', label: `${giderLabel} (islemGrup)`, field: 'giderGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
+    { name: 'giderToplam', label: 'Toplam', field: 'giderToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+  ]
+})
 
 // Modal için değişkenler
 const showDetailModal = ref(false)
@@ -414,112 +488,133 @@ let pieGelirInstance: Chart | null = null
 let pieGiderInstance: Chart | null = null
 const datePopup = ref<{ hide: () => void } | null>(null)
 
-async function loadData() {
-  const { start, end } = getPeriodDates()
-  
-  // 12 dilimlik seri verisi (seçilen period veya custom tarih için günler)
+// 🆕 Bar'ın tarih aralığını hesapla
+function getBarDateRange(bar: { label: string; dateISO?: string }): { start: string; end: string } {
   const currentPeriod = customStartDate.value ? 'gunler' : (timePeriods.value.find(p => p.selected)?.value || 'gunler')
-  const seriResp = await api.get('/islem/kar-zarar-seri', { params: { period: currentPeriod, end }})
-  const seri = (seriResp?.data?.data || []) as Array<{ label: string; gelir: number; gider: number }>
+  const label = bar.label
   
-  // Bar chart'ın gerçek tarih aralığını kullan
-  let chartStartDate = start
-  let chartEndDate = end
+  let barStartDate = ''
+  let barEndDate = ''
   
-  if (seri.length > 0) {
-    // İlk ve son bar'ın tarih bilgisini kullan
-    const firstLabel = seri[0].label
-    const lastLabel = seri[seri.length - 1].label
+  if (label.includes('-')) {
+    // Haftalık format: "DD.MM-DD.MM"
+    const [startPart, endPart] = label.split('-')
+    const currentYear = new Date().getFullYear()
+    barStartDate = `${startPart}.${currentYear}`
+    barEndDate = `${endPart}.${currentYear}`
+  } else if (label.includes('.')) {
+    // AYLAR, ÇEYREKLER, YARI YILLAR için
+    if (currentPeriod === 'aylar' || currentPeriod === 'ceyrekler' || currentPeriod === 'yari' || currentPeriod === 'yillar') {
+      barStartDate = getPeriodStartDate(label, currentPeriod)
+      barEndDate = getPeriodEndDate(label, currentPeriod)
+    } else if (label.split('.').length === 2) {
+      // Günlük format: "DD.MM"
+      const currentYear = new Date().getFullYear()
+      barStartDate = `${label}.${currentYear}`
+      barEndDate = `${label}.${currentYear}`
+    } else {
+      // "DD.MM.YYYY" formatı
+      barStartDate = label
+      barEndDate = label
+    }
+  } else {
+    // YILLAR için
+    barStartDate = getPeriodStartDate(label, currentPeriod)
+    barEndDate = getPeriodEndDate(label, currentPeriod)
+  }
+  
+  return { start: barStartDate, end: barEndDate }
+}
+
+// 🆕 Belirli bir tarihi içeren bar'ın index'ini bul
+function findBarIndexContainingDate(seri: Array<{ label: string; gelir: number; gider: number; dateISO?: string }>, targetDate: string): number {
+  // targetDate: "DD.MM.YYYY" formatında
+  const [day, month, year] = targetDate.split('.').map(Number)
+  const target = new Date(year, month - 1, day)
+  
+  for (let i = 0; i < seri.length; i++) {
+    const bar = seri[i]
+    const { start, end } = getBarDateRange(bar)
     
-    if (firstLabel && lastLabel) {
-      // Başlangıç tarihi tespiti
-      if (firstLabel.includes('-')) {
-        // Haftalık format: "DD.MM-DD.MM"
-        const [startPart] = firstLabel.split('-')
-        const currentYear = new Date().getFullYear()
-        chartStartDate = `${startPart}.${currentYear}`
-      } else if (firstLabel.includes('.')) {
-        // AYLAR, ÇEYREKLER, YARI YILLAR, YILLAR için özel kontrol
-        if (currentPeriod === 'aylar' || currentPeriod === 'ceyrekler' || currentPeriod === 'yari' || currentPeriod === 'yillar') {
-          chartStartDate = getPeriodStartDate(firstLabel, currentPeriod)
-        } else if (firstLabel.split('.').length === 2) {
-          // Günlük format: "DD.MM" (sadece GÜNLER ve HAFTALAR için)
-          const currentYear = new Date().getFullYear()
-          chartStartDate = `${firstLabel}.${currentYear}`
-        } else {
-          // "DD.MM.YYYY" formatı
-          chartStartDate = firstLabel
-        }
-      } else {
-        // AYLAR, ÇEYREKLER, YARI YILLAR, YILLAR için
-        chartStartDate = getPeriodStartDate(firstLabel, currentPeriod)
-      }
-      
-      // Bitiş tarihi tespiti
-      if (lastLabel.includes('.')) {
-        // AYLAR, ÇEYREKLER, YARI YILLAR, YILLAR için özel kontrol
-        if (currentPeriod === 'aylar' || currentPeriod === 'ceyrekler' || currentPeriod === 'yari' || currentPeriod === 'yillar') {
-          chartEndDate = getPeriodEndDate(lastLabel, currentPeriod)
-        } else if (lastLabel.includes('-')) {
-          // Haftalık format: "DD.MM-DD.MM"
-          const [, endPart] = lastLabel.split('-')
-          const currentYear = new Date().getFullYear()
-          chartEndDate = `${endPart}.${currentYear}`
-        } else if (lastLabel.split('.').length === 2) {
-          // Günlük format: "DD.MM" (sadece GÜNLER ve HAFTALAR için)
-          const currentYear = new Date().getFullYear()
-          chartEndDate = `${lastLabel}.${currentYear}`
-        } else {
-          // "DD.MM.YYYY" formatı
-          chartEndDate = lastLabel
-        }
-      } else {
-        // AYLAR, ÇEYREKLER, YARI YILLAR, YILLAR için
-        chartEndDate = getPeriodEndDate(lastLabel, currentPeriod)
-      }
-      
-      // Debug için tarih atama kontrolü
-      console.log('🔍 Debug - Tarih atama kontrolü:', {
-        firstLabel,
-        lastLabel,
-        currentPeriod,
-        chartStartDate,
-        chartEndDate,
-        getPeriodStartDateResult: getPeriodStartDate(firstLabel, currentPeriod),
-        getPeriodEndDateResult: getPeriodEndDate(lastLabel, currentPeriod)
-      })
+    // Start ve end tarihlerini Date objesine çevir
+    const [startDay, startMonth, startYear] = start.split('.').map(Number)
+    const [endDay, endMonth, endYear] = end.split('.').map(Number)
+    const startDate = new Date(startYear, startMonth - 1, startDay)
+    const endDate = new Date(endYear, endMonth - 1, endDay)
+    
+    // Target tarih bu aralıkta mı?
+    if (target >= startDate && target <= endDate) {
+      return i
     }
   }
   
-  // Debug için tarih formatlarını kontrol et
-  console.log('🔍 Debug - Tarih formatları:', {
-    originalStart: start,
-    originalEnd: end,
-    chartStartDate,
-    chartEndDate,
-    firstLabel: seri[0]?.label,
-    lastLabel: seri[seri.length - 1]?.label,
-    currentPeriod
-  })
+  return -1 // Bulunamadı
+}
+
+async function loadData() {
+  isLoading.value = true
   
-  // Debug için fonksiyon çağrılarını kontrol et
-  if (seri.length > 0) {
-    const firstLabel = seri[0].label
-    const lastLabel = seri[seri.length - 1].label
+  try {
+    const { end } = getPeriodDates()
     
-    console.log('🔍 Debug - Fonksiyon çağrıları:', {
-      firstLabel,
-      lastLabel,
-      currentPeriod,
-      getPeriodStartDateResult: getPeriodStartDate(firstLabel, currentPeriod),
-      getPeriodEndDateResult: getPeriodEndDate(lastLabel, currentPeriod)
-    })
+    console.log('🔍 [Frontend loadData] islemTipMode:', islemTipMode.value)
+    
+    // 12 dilimlik seri verisi (seçilen period veya custom tarih için günler)
+    const currentPeriod = customStartDate.value ? 'gunler' : (timePeriods.value.find(p => p.selected)?.value || 'gunler')
+    const seriResp = await api.get('/islem/kar-zarar-seri', { params: { period: currentPeriod, end, islemTipMode: islemTipMode.value }})
+    const seri = (seriResp?.data?.data || []) as Array<{ label: string; gelir: number; gider: number; dateISO?: string }>
+    
+    // Seri verisini sakla
+    seriData.value = seri
+    
+    // Aktif bar index'i ayarla
+    if (seri.length > 0) {
+      if (customStartDate.value) {
+        // Başlangıç tarihi seçilmişse, o tarihi içeren bar'ı bul
+        const targetIndex = findBarIndexContainingDate(seri, customStartDate.value)
+        activeBarIndex.value = targetIndex >= 0 ? targetIndex : seri.length - 1
+      } else {
+        // Başlangıç tarihi yoksa, son bar default
+        activeBarIndex.value = seri.length - 1
+      }
+    }
+    
+    // Bar chart'ı güncelle
+    updateBarChartSeri(seri)
+    
+    // Aktif bar için tablo verisini yükle
+    await loadTableDataForBar(activeBarIndex.value)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 🆕 Belirli bir bar için tablo verilerini yükle
+async function loadTableDataForBar(barIndex: number) {
+  if (!seriData.value || seriData.value.length === 0 || barIndex < 0 || barIndex >= seriData.value.length) {
+    return
   }
   
-  // Backend'e bar chart'ın gerçek tarih aralığını gönder
-  const { data } = await api.get('/islem/kar-zarar-ozet', { params: { start: chartStartDate, end: chartEndDate } })
+  const bar = seriData.value[barIndex]
+  currentBarLabel.value = bar.label
+  
+  // Bar'ın tarih aralığını hesapla
+  const { start: barStartDate, end: barEndDate } = getBarDateRange(bar)
+  
+  console.log('🔍 [loadTableDataForBar] barIndex:', barIndex, '| label:', bar.label, '| dateRange:', barStartDate, '-', barEndDate)
+  
+  // O bar için özet verisini çek
+  const { data } = await api.get('/islem/kar-zarar-ozet', { 
+    params: { 
+      start: barStartDate, 
+      end: barEndDate, 
+      islemTipMode: islemTipMode.value 
+    } 
+  })
+  
   const gelir = (data?.data?.gelir || []) as Array<{ islemGrup: string; toplam: number }>
   const gider = (data?.data?.gider || []) as Array<{ islemGrup: string; toplam: number }>
+  
   const maxLen = Math.max(gelir.length, gider.length)
   const result: Row[] = []
   for (let i = 0; i < maxLen; i++) {
@@ -531,22 +626,21 @@ async function loadData() {
       giderToplam: gider[i]?.toplam || 0,
     })
   }
+  
   // Sıfır toplamlı satırları gizle
   rows.value = result.filter(r => (Number(r.gelirToplam) || 0) > 0 || (Number(r.giderToplam) || 0) > 0)
-
+  
   // Başlıklarda toplamları göster
   const gelirSum = result.reduce((acc, r) => acc + (Number(r.gelirToplam) || 0), 0)
   const giderSum = result.reduce((acc, r) => acc + (Number(r.giderToplam) || 0), 0)
   netToplam.value = gelirSum - giderSum
   
-  periodNetText.value = `${chartStartDate} - ${chartEndDate} DÖNEMİ ${netToplam.value >= 0 ? 'KAZANÇ TOPLAMI' : 'ZARAR TOPLAMI'}: ${formatTL(Math.abs(netToplam.value))}`
+  periodNetText.value = `${barStartDate} - ${barEndDate} ${netToplam.value >= 0 ? 'KAZANÇ' : 'ZARAR'}: ${formatTL(Math.abs(netToplam.value))}`
   const gelirCol = columns.value.find(c => c.name === 'gelirToplam')
   const giderCol = columns.value.find(c => c.name === 'giderToplam')
   if (gelirCol) gelirCol.label = formatTL(gelirSum)
   if (giderCol) giderCol.label = formatTL(giderSum)
   
-  updateBarChartSeri(seri)
-
   // Pie chart'ları güncelle
   updatePieCharts(gelir, gider)
 }
@@ -557,8 +651,31 @@ function selectPeriod(v: string) {
   void loadData()
 }
 
-function refreshData() {
+const refreshData = () => {
   void loadData()
+}
+
+// 🆕 İşlem tipi modu değiştiğinde veriyi yenile
+const onIslemTipModeChange = () => {
+  void loadData()
+}
+
+// 🆕 Önceki bar'a git
+const navigateToPreviousBar = async () => {
+  if (activeBarIndex.value > 0) {
+    activeBarIndex.value--
+    updateBarChartSeri(seriData.value) // Önce chart'ı güncelle (aktif bar rengi için)
+    await loadTableDataForBar(activeBarIndex.value)
+  }
+}
+
+// 🆕 Sonraki bar'a git
+const navigateToNextBar = async () => {
+  if (activeBarIndex.value < seriData.value.length - 1) {
+    activeBarIndex.value++
+    updateBarChartSeri(seriData.value) // Önce chart'ı güncelle (aktif bar rengi için)
+    await loadTableDataForBar(activeBarIndex.value)
+  }
 }
 
 // Tarih seçimi için date options
@@ -602,15 +719,15 @@ function onRowDoubleClick(evt: Event, row: Row) {
   let grupName = ''
   let islemTip = ''
   
-  // 1. sütun (GELİRLER) tıklandıysa
+  // 1. sütun (GELİRLER/GİRENLER) tıklandıysa
   if (cellIndex === 0 && row.gelirGrup) {
     grupName = row.gelirGrup
-    islemTip = 'GELİR'
+    islemTip = islemTipMode.value === 'kasa' ? 'Giren' : 'GELİR'
   }
-  // 3. sütun (GİDERLER) tıklandıysa  
+  // 3. sütun (GİDERLER/ÇIKANLAR) tıklandıysa  
   else if (cellIndex === 2 && row.giderGrup) {
     grupName = row.giderGrup
-    islemTip = 'GİDER'
+    islemTip = islemTipMode.value === 'kasa' ? 'Çıkan' : 'GİDER'
   }
   
   if (!grupName) return
@@ -620,11 +737,26 @@ function onRowDoubleClick(evt: Event, row: Row) {
   showDetailModal.value = true
 }
 
-// Detay verilerini yükle
+// Detay verilerini yükle - Aktif bar'ın tarih aralığını kullan
 async function loadDetailData(grupName: string, islemTip: string) {
   try {
     detailLoading.value = true
-    const { start, end } = getPeriodDates()
+    
+    // Aktif bar'ın tarih aralığını kullan
+    let start = ''
+    let end = ''
+    
+    if (seriData.value && seriData.value.length > 0 && activeBarIndex.value >= 0 && activeBarIndex.value < seriData.value.length) {
+      const bar = seriData.value[activeBarIndex.value]
+      const dateRange = getBarDateRange(bar)
+      start = dateRange.start
+      end = dateRange.end
+    } else {
+      // Fallback: Tüm period'un tarih aralığı
+      const dates = getPeriodDates()
+      start = dates.start
+      end = dates.end
+    }
     
     // Backend'den belirli grup ve işlem tipi için işlem kayıtlarını getir
     const response = await api.get('/islem/grup-detay', {
@@ -640,61 +772,6 @@ async function loadDetailData(grupName: string, islemTip: string) {
     selectedGrupName.value = `${grupName} (${islemTip}) - ${start} / ${end} Dönemi`
   } catch (error) {
     console.error('Detay verileri yüklenirken hata:', error)
-    detailRows.value = []
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-// Bar chart detay verilerini yükle
-async function loadBarChartDetail(label: string, islemTip: string) {
-  try {
-    detailLoading.value = true
-    
-    // Tıklanan bar'ın tarihini belirle
-    let barStartDate = ''
-    let barEndDate = ''
-    
-    if (label.includes('-')) {
-      // Haftalık format: "DD.MM-DD.MM"
-      const [startPart, endPart] = label.split('-')
-      const currentYear = new Date().getFullYear()
-      barStartDate = `${startPart}.${currentYear}`
-      barEndDate = `${endPart}.${currentYear}`
-    } else if (label.includes('.')) {
-      // Günlük format: "DD.MM" veya "DD.MM.YYYY"
-      if (label.split('.').length === 2) {
-        // "DD.MM" formatı
-        const currentYear = new Date().getFullYear()
-        barStartDate = `${label}.${currentYear}`
-        barEndDate = `${label}.${currentYear}`
-      } else {
-        // "DD.MM.YYYY" formatı
-        barStartDate = label
-        barEndDate = label
-      }
-    } else {
-      // Diğer formatlar için genel tarih aralığı kullan
-      const { start, end } = getPeriodDates()
-      barStartDate = start
-      barEndDate = end
-    }
-    
-    // Backend'den belirli tarih aralığı ve işlem tipi için işlem kayıtlarını getir
-    const response = await api.get('/islem/bar-chart-detay', {
-      params: {
-        label,
-        islemTip,
-        start: barStartDate,
-        end: barEndDate
-      }
-    })
-    
-    detailRows.value = response.data?.data || []
-    selectedGrupName.value = `${label} - ${islemTip} Detayları`
-    showDetailModal.value = true
-  } catch (error) {
-    console.error('Bar chart detay verileri yüklenirken hata:', error)
     detailRows.value = []
   } finally {
     detailLoading.value = false
@@ -762,14 +839,18 @@ function updateBarChartSeri(
       ctx.restore()
     }
   }
-
+  
+  // 🔄 Dinamik label'lar
+  const gelirLabel = islemTipMode.value === 'kasa' ? 'GİREN' : 'GELİR'
+  const giderLabel = islemTipMode.value === 'kasa' ? 'ÇIKAN' : 'GİDER'
+  
   barInstance = new Chart(barChart.value, {
     type: 'bar',
     data: {
       labels,
       datasets: [
-        { label: 'GELİR', data: gelirData, backgroundColor: '#2e7d32', barPercentage: 0.9, categoryPercentage: 0.85 },
-        { label: 'GİDER', data: giderData, backgroundColor: '#c62828', barPercentage: 0.9, categoryPercentage: 0.85 }
+        { label: gelirLabel, data: gelirData, backgroundColor: '#2e7d32', barPercentage: 0.9, categoryPercentage: 0.85 },
+        { label: giderLabel, data: giderData, backgroundColor: '#c62828', barPercentage: 0.9, categoryPercentage: 0.85 }
       ]
     },
     options: {
@@ -779,25 +860,44 @@ function updateBarChartSeri(
         legend: { position: 'top' as const, labels: { color: legendColor } },       
         tooltip: { enabled: false }
       },
-      layout: { padding: { left: 8, right: 8, top: 0 } },
-      scales: { x: { offset: true }, y: { beginAtZero: true, ticks: { display: false } } },
+      layout: { padding: { left: 8, right: 8, top: 0, bottom: 8 } },
+      scales: { 
+        x: { 
+          offset: true,
+          ticks: {
+            display: true,
+            color: (context) => {
+              // Aktif bar'ın label'ı mavi
+              return context.index === activeBarIndex.value ? '#2196f3' : (legendColor as string)
+            },
+            font: (context) => {
+              // Aktif bar'ın label'ı 1 derece daha büyük ve bold
+              return {
+                weight: context.index === activeBarIndex.value ? 'bold' : 'normal',
+                size: context.index === activeBarIndex.value ? 12 : 11
+              }
+            }
+          }
+        }, 
+        y: { beginAtZero: true, ticks: { display: false } } 
+      },
       // Chart genişliğini sınırla
       aspectRatio: 2.5
     },
     plugins: [valueLabelsPlugin]
   })
 
-  // Bar chart click event'ini ekle
+  // Bar chart click event'ini ekle - Tıklanan bar'ı soldaki tabloda göster
   barInstance.options.onClick = (event: ChartEvent, elements: ActiveElement[]) => {
     if (elements.length > 0) {
       const element = elements[0]
-      const datasetIndex = element.datasetIndex
       const dataIndex = element.index
-      const label = labels[dataIndex]
-      const islemTip = datasetIndex === 0 ? 'GELİR' : 'GİDER'
-      
-      // Bar chart detay modal'ını aç
-      void loadBarChartDetail(label, islemTip)
+      // Tıklanan bar'ın index'ini aktif yap
+      activeBarIndex.value = dataIndex
+      // Chart'ı güncelle (aktif bar label rengi için)
+      updateBarChartSeri(seriData.value)
+      // Tablo verisini yükle
+      void loadTableDataForBar(dataIndex)
     }
   }
 }
@@ -928,6 +1028,64 @@ function updatePieCharts(
   color: white !important; 
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+
+/* Switch Butonu - Kompakt boyut */
+.filter-switch-btn {
+  min-width: 230px;
+}
+
+.filter-switch-btn :deep(.q-btn) {
+  font-size: 11px !important;
+  padding: 3px 12px !important;
+  min-height: 26px !important;
+}
+
+/* SEÇİLİ buton - YEŞİL ve BOLD olsun */
+.filter-switch-btn :deep(.q-btn--active) {
+  font-weight: bold !important;
+  color: #4caf50 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: 4px;
+}
+
+.loading-blur {
+  filter: blur(2px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Bar navigasyon */
+.bar-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+}
+
+.bar-label-text {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--q-primary);
+  flex: 1;
+  text-align: center;
+  min-width: 120px;
+}
+
 .period-net-info { font-weight: 700; font-size: 16px; }
 .total-header { font-weight: 700; font-size: 14px; }
 .grid-header { 

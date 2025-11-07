@@ -1216,21 +1216,29 @@ export class IslemController {
 
   /** Kar/Zarar özeti */
   @Get('kar-zarar-ozet')
-  async getKarZararOzet(@Query('start') start: string, @Query('end') end: string) {
+  async getKarZararOzet(
+    @Query('start') start: string, 
+    @Query('end') end: string,
+    @Query('islemTipMode') islemTipMode?: string
+  ) {
     if (!start || !end) {
       throw new HttpException('start ve end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
     }
-    const data = await this.islemService.getKarZararOzet(start, end)
+    const data = await this.islemService.getKarZararOzet(start, end, islemTipMode)
     return { success: true, data }
   }
 
   /** Kar/Zarar seri (12 dilim) */
   @Get('kar-zarar-seri')
-  async getKarZararSeri(@Query('period') period = 'gunler', @Query('end') end: string) {
+  async getKarZararSeri(
+    @Query('period') period = 'gunler', 
+    @Query('end') end: string,
+    @Query('islemTipMode') islemTipMode?: string
+  ) {
     if (!end) {
       throw new HttpException('end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
     }
-    const data = await this.islemService.getKarZararSeri(period, end)
+    const data = await this.islemService.getKarZararSeri(period, end, islemTipMode)
     return { success: true, data }
   }
 

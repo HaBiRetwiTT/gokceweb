@@ -31,12 +31,12 @@
                 <div class="devreden-bakiye-section">
                   <label class="devreden-bakiye-label">Devreden Bakiye</label>
                   <q-input
-                    :model-value="`₺ ${(devredenBakiye - kartBakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`"
+                    :model-value="`₺ ${(devredenBakiye - kartBakiye - acentaBakiye).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`"
                     readonly
                     dense
                     outlined
                     class="devreden-bakiye-input"
-                    style="width: 150px;"
+                    style="width: 120px;"
                   />
                 </div>
               </div>
@@ -80,12 +80,13 @@
                 <div class="date-selector">
                   <q-input
                     v-model="selectedDate"
-                    label="Bir Başlangıç Tarihi Seçiniz"
+                    label="Başlangıç Tarihi"
                     style="width: 200px;"
                     readonly
+                    class="date-input-compact"
                   >
                     <template v-slot:append>
-                      <q-icon name="event" class="cursor-pointer">
+                      <q-icon name="event" class="cursor-pointer calendar-icon-compact">
                         <q-popup-proxy 
                           ref="datePopup"
                           cover 
@@ -120,7 +121,7 @@
                   <q-btn
                     color="primary"
                     icon="add"
-                    label="Yeni Kayıt Ekle"
+                    label="YENİ KAYIT"
                     @click="addNewRecord"
                   />
                   
@@ -135,20 +136,30 @@
                       <strong>Nakit:</strong>&nbsp;{{ formatCurrency(nakitBakiye) }}
                     </q-chip>
                     <q-chip
-                      color="blue-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Kart:</strong>&nbsp;{{ formatCurrency(kartBakiye) }}
-                    </q-chip>
-                    <q-chip
                       color="purple-7"
                       text-color="white"
                       dense
                       class="bakiye-chip"
                     >
                       <strong>Banka:</strong>&nbsp;{{ formatCurrency(bankaBakiye) }}
+                    </q-chip>
+                    <q-separator vertical class="q-mx-sm" />
+                    <q-chip
+                      color="deep-purple-9"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip toplam-chip"
+                    >
+                      <strong>Nakit+Banka:</strong>&nbsp;{{ formatCurrency(nakitBakiye + bankaBakiye) }}
+                    </q-chip>
+                    <q-separator vertical class="q-mx-sm" />
+                    <q-chip
+                      color="blue-7"
+                      text-color="white"
+                      dense
+                      class="bakiye-chip"
+                    >
+                      <strong>Kart:</strong>&nbsp;{{ formatCurrency(kartBakiye) }}
                     </q-chip>
                     <q-chip
                       color="orange-7"
@@ -158,14 +169,13 @@
                     >
                       <strong>Acenta:</strong>&nbsp;{{ formatCurrency(acentaBakiye) }}
                     </q-chip>
-                    <q-separator vertical class="q-mx-sm" />
                     <q-chip
-                      color="red-9"
+                      color="teal-7"
                       text-color="white"
                       dense
-                      class="bakiye-chip toplam-chip"
+                      class="bakiye-chip"
                     >
-                      <strong>TOPLAM:</strong>&nbsp;{{ formatCurrency(toplamBakiye) }}
+                      <strong>Depozito:</strong>&nbsp;{{ formatCurrency(depozitoBakiye) }}
                     </q-chip>
                   </div>
                 </div>
@@ -781,11 +791,7 @@ const nakitBakiye = ref(0);
 const kartBakiye = ref(0);
 const bankaBakiye = ref(0);
 const acentaBakiye = ref(0);
-
-// Toplam bakiye computed
-const toplamBakiye = computed(() => {
-  return nakitBakiye.value + kartBakiye.value + bankaBakiye.value + acentaBakiye.value;
-});
+const depozitoBakiye = ref(0);
 
 // Edit modal için gerekli ref'ler
 const showEditModal = ref(false);
@@ -903,16 +909,16 @@ function getPageDevirBakiyesi(): number {
   const currentPage = pagination.value.page;
   
   if (currentPage === 1) {
-    // İlk sayfa - Devreden Bakiye'den başla (Kart bakiyesi düşülmüş)
-    return (devredenBakiye.value || 0) - kartBakiye.value;
+    // İlk sayfa - Devreden Bakiye'den başla (Kart ve Acenta bakiyeleri düşülmüş)
+    return (devredenBakiye.value || 0) - kartBakiye.value - acentaBakiye.value;
   } else {
     // 2. ve sonraki sayfalar - Önceki sayfanın son satırından devir al
     const previousPage = currentPage - 1;
     const previousPageStartIndex = (previousPage - 1) * pagination.value.rowsPerPage;
     const previousPageEndIndex = previousPageStartIndex + pagination.value.rowsPerPage;
     
-    // Önceki sayfadaki tüm işlemleri hesapla (Kart bakiyesi düşülmüş başlangıç)
-    let previousPageBakiye = (devredenBakiye.value || 0) - kartBakiye.value;
+    // Önceki sayfadaki tüm işlemleri hesapla (Kart ve Acenta bakiyeleri düşülmüş başlangıç)
+    let previousPageBakiye = (devredenBakiye.value || 0) - kartBakiye.value - acentaBakiye.value;
     
     for (let i = 0; i < previousPageEndIndex; i++) {
       if (i < tableData.value.length) {
@@ -1033,7 +1039,7 @@ const columns = [
     field: 'islmBilgi',
     align: 'left' as const,
     sortable: false,
-    style: 'max-width: 550px'
+    style: 'max-width: 700px'
   }
   // Ödeme Durumu ve Tutar Durumu sütunları kaldırıldı
 ];
@@ -2393,58 +2399,47 @@ async function loadKasaBakiyeleri(tarih: string) {
   console.log('🔄 Kasa bakiyeleri yükleniyor, tarih:', tarih);
   
   try {
-    // 4 kasa türü için paralel bakiye hesaplama
+    // 5 kasa türü için paralel bakiye hesaplama
     // Püf Nokta: islemTip 'Giren' olarak gönderilmeli (büyük harfle başlamalı)
-    const [nakitRes, kartRes, bankaRes, acentaRes] = await Promise.all([
+    const [nakitRes, bankaRes, kartRes, acentaRes, depozitoRes] = await Promise.all([
       apiInstance.get('/islem/secilen-gun-bakiyesi', {
         params: { islemArac: 'nakit', islemTip: 'Giren', secilenTarih: tarih }
-      }),
-      apiInstance.get('/islem/secilen-gun-bakiyesi', {
-        params: { islemArac: 'kart', islemTip: 'Giren', secilenTarih: tarih }
       }),
       apiInstance.get('/islem/secilen-gun-bakiyesi', {
         params: { islemArac: 'eft', islemTip: 'Giren', secilenTarih: tarih }
       }),
       apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'kart', islemTip: 'Giren', secilenTarih: tarih }
+      }),
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
         params: { islemArac: 'acenta', islemTip: 'Giren', secilenTarih: tarih }
+      }),
+      apiInstance.get('/islem/secilen-gun-bakiyesi', {
+        params: { islemArac: 'depozito', islemTip: 'Giren', secilenTarih: tarih }
       })
     ]);
     
-    console.log('📥 API Response - Nakit:', nakitRes.data);
-    console.log('📥 API Response - Kart:', kartRes.data);
-    console.log('📥 API Response - Banka:', bankaRes.data);
-    console.log('📥 API Response - Acenta:', acentaRes.data);
-    
-    // Response yapısını kontrol edelim
-    console.log('🔍 Nakit response success:', nakitRes.data?.success);
-    console.log('🔍 Nakit response bakiye:', nakitRes.data?.bakiye);
-    
     nakitBakiye.value = nakitRes.data?.success ? (nakitRes.data.bakiye || 0) : 0;
-    kartBakiye.value = kartRes.data?.success ? (kartRes.data.bakiye || 0) : 0;
     bankaBakiye.value = bankaRes.data?.success ? (bankaRes.data.bakiye || 0) : 0;
+    kartBakiye.value = kartRes.data?.success ? (kartRes.data.bakiye || 0) : 0;
     acentaBakiye.value = acentaRes.data?.success ? (acentaRes.data.bakiye || 0) : 0;
-    
-    console.log('✅ Atanan değerler:', {
-      nakitBakiye: nakitBakiye.value,
-      kartBakiye: kartBakiye.value,
-      bankaBakiye: bankaBakiye.value,
-      acentaBakiye: acentaBakiye.value
-    });
+    depozitoBakiye.value = depozitoRes.data?.success ? (depozitoRes.data.bakiye || 0) : 0;
     
     console.log('💰 Kasa bakiyeleri güncellendi:', {
       nakit: nakitBakiye.value,
-      kart: kartBakiye.value,
       banka: bankaBakiye.value,
+      kart: kartBakiye.value,
       acenta: acentaBakiye.value,
-      toplam: toplamBakiye.value
+      depozito: depozitoBakiye.value
     });
   } catch (error) {
     console.error('❌ Kasa bakiyeleri yükleme hatası:', error);
     // Hata durumunda sıfırla
     nakitBakiye.value = 0;
-    kartBakiye.value = 0;
     bankaBakiye.value = 0;
+    kartBakiye.value = 0;
     acentaBakiye.value = 0;
+    depozitoBakiye.value = 0;
   }
 }
 
@@ -2583,8 +2578,8 @@ html body .q-table th {
 }
 
 .nakit-tablo-wrapper {
-  padding: 20px;
-  max-width: 1600px;
+  padding: 15px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -2601,7 +2596,7 @@ html body .q-table th {
 }
 
 .left-table {
-  flex: 0 0 80px; /* 100px'den 80px'e azaltıldı */
+  flex: 0 0 60px; /* Daha da kompakt - sağ tabloya daha fazla alan */
   border-right: 1px solid #dee2e6 !important;
 }
 
@@ -2701,6 +2696,15 @@ html body .q-table th {
   gap: 8px; /* Date picker ile refresh ikonu arasında boşluk */
 }
 
+/* Takvim ikonunu sola yaklaştır */
+.date-input-compact .q-field__append {
+  padding-left: 4px !important;
+}
+
+.calendar-icon-compact {
+  margin-left: -8px;
+}
+
 /* Refresh butonu stili */
 .refresh-btn {
   margin-left: 4px; /* Date picker'dan biraz uzak */
@@ -2722,6 +2726,11 @@ html body .q-table th {
   align-items: center;
   gap: 8px;
   margin-left: 12px;
+}
+
+.kasa-bakiyeleri-container .q-separator {
+  height: 24px;
+  align-self: center;
 }
 
 .bakiye-chip {
@@ -2952,7 +2961,7 @@ body.body--dark .q-table th {
 /* Responsive tasarım */
 @media (max-width: 768px) {
   .nakit-tablo-wrapper {
-    padding: 10px;
+    padding: 8px;
   }
   
   .table-actions {

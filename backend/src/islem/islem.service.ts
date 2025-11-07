@@ -101,21 +101,34 @@ export class IslemService {
   }
 
   /**
-   * Kar/Zarar özeti: Belirtilen tarih aralığında islemTip bazında (GELİR/GİDER) islemGrup toplamları
+   * Kar/Zarar özeti: Belirtilen tarih aralığında islemTip bazında (GELİR/GİDER veya Giren/Çıkan) islemGrup toplamları
    */
   async getKarZararOzet(
     startDDMMYYYY: string,
     endDDMMYYYY: string,
+    islemTipMode: string = 'cari'
   ): Promise<{ gelir: Array<{ islemGrup: string; toplam: number }>; gider: Array<{ islemGrup: string; toplam: number }> }> {
     try {
       const tableName = this.dbConfig.getTableName('tblislem');
 
+      // islemTip değerlerini mode'a göre belirle
+      const mode = (islemTipMode || 'cari').toLowerCase();
+      const gelirTip = mode === 'kasa' ? 'Giren' : 'GELİR';
+      const giderTip = mode === 'kasa' ? 'Çıkan' : 'GİDER';
+      
+      console.log('🔍 [getKarZararOzet] islemTipMode:', islemTipMode, '| mode:', mode, '| gelirTip:', gelirTip, '| giderTip:', giderTip);
+
       const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
+      
+      // Kasa modunda kasalar arası transfer kayıtlarını hariç tut
+      const kasaTransferFilter = mode === 'kasa' 
+        ? ` AND islemGrup NOT IN ('Kasaya Verilen', 'Kasadan Alınan')` 
+        : '';
 
       const gelirQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
-        WHERE ${baseWhere} AND islemTip = 'GELİR'
+        WHERE ${baseWhere} AND islemTip = '${gelirTip}'${kasaTransferFilter}
         GROUP BY islemGrup
         ORDER BY toplam DESC
       `;
@@ -123,7 +136,7 @@ export class IslemService {
       const giderQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
-        WHERE ${baseWhere} AND islemTip = 'GİDER'
+        WHERE ${baseWhere} AND islemTip = '${giderTip}'${kasaTransferFilter}
         GROUP BY islemGrup
         ORDER BY toplam DESC
         `;
@@ -141,14 +154,27 @@ export class IslemService {
   }
 
   /**
-   * Kar/Zarar seri: seçilen perioda göre 12 dilimlik GELİR/GİDER toplamları
-   * Şimdilik 'gunler' desteklenir; diğer periodlar ilerletilecektir.
+   * Kar/Zarar seri: seçilen perioda göre 12 dilimlik GELİR/GİDER veya Giren/Çıkan toplamları
    */
   async getKarZararSeri(
     period: string,
     endDDMMYYYY: string,
+    islemTipMode: string = 'cari'
   ): Promise<Array<{ label: string; gelir: number; gider: number; dateISO?: string }>> {
     const tableName = this.dbConfig.getTableName('tblislem');
+    
+    // islemTip değerlerini mode'a göre belirle
+    const mode = (islemTipMode || 'cari').toLowerCase();
+    const gelirTip = mode === 'kasa' ? 'Giren' : 'GELİR';
+    const giderTip = mode === 'kasa' ? 'Çıkan' : 'GİDER';
+    
+    console.log('🔍 [getKarZararSeri] islemTipMode:', islemTipMode, '| mode:', mode, '| gelirTip:', gelirTip, '| giderTip:', giderTip);
+    
+    // Kasa modunda kasalar arası transfer kayıtlarını hariç tut
+    const kasaTransferFilter = mode === 'kasa' 
+      ? ` AND t.islemGrup NOT IN ('Kasaya Verilen', 'Kasadan Alınan')` 
+      : '';
+    
     // Period parametresini güvenli şekilde normalize et (trim + küçük harf + Türkçe karakter dönüşümleri)
     const rawPeriod = (period ?? 'gunler').toString();
     const periodLower = rawPeriod
@@ -177,11 +203,11 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             w.i,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Weeks w
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd${kasaTransferFilter}
           GROUP BY w.i
         )
         SELECT 
@@ -206,11 +232,11 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             m.i,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Months m
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd${kasaTransferFilter}
           GROUP BY m.i
         )
         SELECT 
@@ -235,11 +261,11 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             q.i,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Quarters q
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd${kasaTransferFilter}
           GROUP BY q.i
         )
         SELECT 
@@ -264,11 +290,11 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             h.i,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM HalfYears h
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd${kasaTransferFilter}
           GROUP BY h.i
         )
         SELECT 
@@ -293,11 +319,11 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             y.i,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Years y
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN y.yStart AND y.yEnd
+            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN y.yStart AND y.yEnd${kasaTransferFilter}
           GROUP BY y.i
         )
         SELECT 
@@ -322,11 +348,11 @@ export class IslemService {
               ), Sums AS (
           SELECT 
             d.d,
-            SUM(CASE WHEN t.islemTip = 'GELİR' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = 'GİDER' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Days d
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) = d.d
+            ON CONVERT(DATE, t.iKytTarihi, 104) = d.d${kasaTransferFilter}
           GROUP BY d.d
         )
       SELECT 

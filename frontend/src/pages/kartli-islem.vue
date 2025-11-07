@@ -185,7 +185,7 @@
         />
       </div>
 
-      <div class="col-12 col-sm-3 col-md-2" style="max-width: 250px;">
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 180px;">
         <q-input
           ref="searchInputRef"
           v-model="searchText"
