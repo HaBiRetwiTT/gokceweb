@@ -316,6 +316,13 @@
             </q-icon>
             <div class="text-weight-bold" :class="props.row.KnklmKrLst === 'EVET' ? 'text-red-6' : ''">
               {{ props.value }}
+              <span 
+                v-if="getSatisKanali(props.row)" 
+                class="satis-kanali-text"
+                style="font-weight: 500; font-size: 0.9em; margin-left: 4px;"
+              >
+                ({{ getSatisKanali(props.row) }})
+              </span>
             </div>
           </div>
         </q-td>
@@ -1221,6 +1228,8 @@ const stats = ref<DashboardStats>({})
 const konaklamaTipleri = ref<string[]>(['TÜMÜ'])
 const selectedTip = ref('TÜMÜ')
 const odaTipleri = ref<string[]>(['TÜMÜ'])
+// Satış kanalı mapping: MstrTCN -> Satış Kanalı
+const satisKanaliMap = ref<Record<string, string>>({})
 const selectedOdaTip = ref('TÜMÜ')
 const showDetailDialog = ref(false)
 const selectedRow = ref<MusteriKonaklama | null>(null)
@@ -1568,6 +1577,11 @@ function parseDateString(dateStr: string): Date {
   }
   
   return new Date(0) // Hata durumunda epoch başlangıcı
+}
+
+// Müşteri için satış kanalı bilgisi getir
+function getSatisKanali(musteri: MusteriKonaklama): string {
+  return satisKanaliMap.value[musteri.MstrTCN] || ''
 }
 
 // 🔥 DİNAMİK TABLO KONFİGÜRASYONU - Çıkış tarihi sütunu sadece çıkış yapan kartlarda görünür
@@ -2358,6 +2372,24 @@ const konaklamaGecmisiColumns = computed(() => {
 })
 
 // Fonksiyonlar
+async function loadSatisKanaliMapping() {
+  try {
+    const response = await api.get('/dashboard/musteri-satis-kanali-mapping')
+    if (response.data.success) {
+      // Array'i object'e çevir (O(1) lookup için)
+      const mapping: Record<string, string> = {}
+      response.data.data.forEach((item: { MstrTCN: string; SatisKanali: string }) => {
+        mapping[item.MstrTCN] = item.SatisKanali
+      })
+      satisKanaliMap.value = mapping
+    }
+  } catch (error) {
+    console.error('Satış kanalı mapping yüklenemedi:', error)
+    // Hata durumunda boş map ile devam et
+    satisKanaliMap.value = {}
+  }
+}
+
 async function loadMusteriListesi() {
   // Eğer sadece sıralama yapılıyorsa API çağrısı yapma
   if (sortingInProgress) {
@@ -2390,6 +2422,8 @@ async function loadMusteriListesi() {
       // Array'i tamamen yenile, append etme
       musteriListesi.value = [...response.data.data]
       
+      // Satış kanallarını yükle
+      await loadSatisKanaliMapping()
     }
   } catch (error) {
     console.error('Müşteri listesi yüklenemedi:', error)
@@ -5549,6 +5583,16 @@ function bakiyeGuncelleHandler() {
   padding: 4px 8px;
   border-radius: 6px;
 }
+
+/* Satış kanalı text rengi - light ve dark mod uyumlu */
+.satis-kanali-text {
+  color: #1976d2; /* Light mode: koyu mavi */
+}
+
+body.body--dark .satis-kanali-text {
+  color: #64b5f6; /* Dark mode: açık mavi */
+}
+
 .dashboard-table {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }

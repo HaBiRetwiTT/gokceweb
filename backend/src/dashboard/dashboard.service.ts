@@ -26,6 +26,11 @@ export interface MusteriKonaklamaData {
   odemeVadesi?: string;
 }
 
+export interface SatisKanaliMapping {
+  MstrTCN: string;
+  SatisKanali: string;
+}
+
 // Tip güvenliği: Dashboard birleşik istatistik satırı
 type UnifiedStatsRow = {
   ToplamAktifKonaklama: number | string | null;
@@ -391,6 +396,64 @@ export class DashboardService {
     } catch (error) {
       console.error('getMusteriKonaklamaView hatası:', error);
       throw new Error('View sorgusu başarısız');
+    }
+  }
+
+  // Müşteri satış kanalı mapping'i getir (MstrTCN -> SatisKanali)
+  async getMusteriSatisKanaliMapping(): Promise<SatisKanaliMapping[]> {
+    try {
+      const tables = this.dbConfig.getTables();
+      
+      const query = `
+        WITH AktifMusteriler AS (
+          -- Aktif konaklayan müşterilerin MstrNo bilgisi
+          SELECT DISTINCT
+            m.MstrTCN,
+            m.MstrNo,
+            m.MstrHspTip
+          FROM ${tables.musteri} m
+          WHERE m.MstrTCN IS NOT NULL
+            AND m.MstrTCN <> ''
+        ),
+        CariKodlar AS (
+          -- MstrNo'dan CariKod oluştur
+          SELECT 
+            am.MstrTCN,
+            CASE 
+              WHEN am.MstrHspTip = 'Kurumsal' THEN 'MK' + CAST(am.MstrNo AS NVARCHAR)
+              ELSE 'MB' + CAST(am.MstrNo AS NVARCHAR)
+            END AS CariKod
+          FROM AktifMusteriler am
+        ),
+        SonIslemler AS (
+          -- Her CariKod için en son GELİR işleminden islemOzel4
+          SELECT 
+            ck.MstrTCN,
+            i.islemOzel4,
+            ROW_NUMBER() OVER (
+              PARTITION BY ck.MstrTCN 
+              ORDER BY i.islemNo DESC
+            ) AS rn
+          FROM CariKodlar ck
+          INNER JOIN ${tables.islem} i ON ck.CariKod = i.islemCrKod
+          WHERE i.islemArac = 'Cari İşlem'
+            AND i.islemTip = 'GELİR'
+            AND i.islemOzel4 IS NOT NULL
+            AND i.islemOzel4 <> ''
+            AND i.islemOzel4 <> 'KAPIDAN'
+        )
+        SELECT 
+          MstrTCN,
+          islemOzel4 AS SatisKanali
+        FROM SonIslemler
+        WHERE rn = 1
+      `;
+      
+      const result = await this.musteriRepository.query(query);
+      return result || [];
+    } catch (error) {
+      console.error('getMusteriSatisKanaliMapping hatası:', error);
+      return [];
     }
   }
 

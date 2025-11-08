@@ -132,7 +132,8 @@
           flat
           bordered
           separator="cell"
-          :pagination="pagination"
+          hide-bottom
+          :pagination="{ rowsPerPage: 0 }"
           @row-dblclick="onRowDoubleClick"
         >
           <template v-slot:header-cell-gelirToplam="props">
@@ -179,8 +180,8 @@
             flat
             bordered
             separator="cell"
-            :pagination="{ rowsPerPage: 25 }"
-            :rows-per-page-options="[10, 25, 50, 100]"
+            hide-bottom
+            :pagination="{ rowsPerPage: 0 }"
             :loading="detailLoading"
             loading-label="Veriler yükleniyor..."
           >
@@ -239,11 +240,6 @@ const timePeriods = ref([
 const islemTipMode = ref<'kasa' | 'cari'>('kasa')
 
 const rows = ref<Row[]>([])
-const pagination = ref({ 
-  page: 1, 
-  rowsPerPage: 20,
-  rowsPerPageOptions: [20] // Sadece 20 seçeneği
-})
 const netToplam = ref(0)
 const periodNetText = ref('')
 const customStartDate = ref('')
@@ -260,10 +256,10 @@ const columns = computed<QTableColumn<Row>[]>(() => {
   const giderLabel = islemTipMode.value === 'kasa' ? 'ÇIKANLAR' : 'GİDERLER'
   
   return [
-    { name: 'gelirGrup', label: `${gelirLabel} (islemGrup)`, field: 'gelirGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-    { name: 'gelirToplam', label: 'Toplam', field: 'gelirToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
-    { name: 'giderGrup', label: `${giderLabel} (islemGrup)`, field: 'giderGrup', align: 'left', classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-    { name: 'giderToplam', label: 'Toplam', field: 'giderToplam', align: 'right', classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+    { name: 'gelirGrup', label: gelirLabel, field: 'gelirGrup', align: 'left', headerAlign: 'center' as const, classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
+    { name: 'gelirToplam', label: 'Toplam', field: 'gelirToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+    { name: 'giderGrup', label: giderLabel, field: 'giderGrup', align: 'left', headerAlign: 'center' as const, classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
+    { name: 'giderToplam', label: 'Toplam', field: 'giderToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
   ]
 })
 
@@ -1093,6 +1089,7 @@ function updatePieCharts(
   color: white !important; 
   font-weight: 700 !important; 
   font-size: 13px !important;
+  text-align: center !important;
 }
 .narrow-col { max-width: 120px; width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .narrow-col-85 { max-width: 100px; width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

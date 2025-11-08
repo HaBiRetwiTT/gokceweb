@@ -27,6 +27,25 @@ export class DashboardController {
     }
   }
 
+  // Müşteri satış kanalı mapping'i (MstrTCN -> Satış Kanalı)
+  @Get('musteri-satis-kanali-mapping')
+  async getMusteriSatisKanaliMapping() {
+    try {
+      const data = await this.dashboardService.getMusteriSatisKanaliMapping();
+      return {
+        success: true,
+        data: data,
+        count: data.length
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `Satış kanalı mapping alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get('chart')
   async getChartData(
     @Query('timePeriod') timePeriod: string,

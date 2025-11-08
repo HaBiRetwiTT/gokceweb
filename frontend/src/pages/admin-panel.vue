@@ -17,54 +17,54 @@
         
         <!-- Orta: Saat Kontrolleri -->
         <div class="row no-wrap items-center" style="gap: 4px;">
-          <q-btn
-            round
-            dense
-            unelevated
-            size="xs"
-            icon="remove"
-            color="blue-3"
-            text-color="blue-grey-9"
-            @click="azaltSaat"
-          />
-          <q-input
-            v-model="gecSaatFormatted"
-            type="text"
-            outlined
-            dense
-            dark
-            readonly
-            style="width: 85px;"
-            color="blue-3"
-            input-style="color: white; font-size: 1.1rem; text-align: center; font-weight: bold;"
-          >
-            <template v-slot:prepend>
-              <q-icon name="access_time" size="sm" color="blue-3" />
-            </template>
-          </q-input>
-          <q-btn
-            round
-            dense
-            unelevated
-            size="xs"
-            icon="add"
-            color="blue-3"
-            text-color="blue-grey-9"
-            @click="artirSaat"
-          />
-        </div>
+            <q-btn
+              round
+              dense
+              unelevated
+              size="xs"
+              icon="remove"
+              color="blue-3"
+              text-color="blue-grey-9"
+              @click="azaltSaat"
+            />
+            <q-input
+              v-model="gecSaatFormatted"
+              type="text"
+              outlined
+              dense
+              dark
+              readonly
+              style="width: 85px;"
+              color="blue-3"
+              input-style="color: white; font-size: 1.1rem; text-align: center; font-weight: bold;"
+            >
+              <template v-slot:prepend>
+                <q-icon name="access_time" size="sm" color="blue-3" />
+              </template>
+            </q-input>
+            <q-btn
+              round
+              dense
+              unelevated
+              size="xs"
+              icon="add"
+              color="blue-3"
+              text-color="blue-grey-9"
+              @click="artirSaat"
+            />
+          </div>
         
         <!-- Kaydet Butonu -->
-        <q-btn
-          color="blue-3"
-          text-color="blue-grey-9"
-          icon="save"
-          label="KAYDET"
-          size="xs"
-          @click="kaydetGecSaatSonu"
-          :loading="gecSaatSonuLoading"
-          :disable="gecSaatSonuLoading"
-        />
+            <q-btn
+              color="blue-3"
+              text-color="blue-grey-9"
+              icon="save"
+              label="KAYDET"
+              size="xs"
+              @click="kaydetGecSaatSonu"
+              :loading="gecSaatSonuLoading"
+              :disable="gecSaatSonuLoading"
+            />
         
         <q-space />
         
