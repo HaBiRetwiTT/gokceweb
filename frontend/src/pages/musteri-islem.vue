@@ -23,6 +23,7 @@
                   color="primary"
                   inline
                   dense
+                  :disable="isInputDisabled"
                 />
               </div>
                 </div>
@@ -210,6 +211,7 @@
                     outlined
                     required
                     class="kurumsal-responsive"
+                    :disable="isInputDisabled"
                     @update:model-value="updateEkNotlar"
                   />
                 </div>
@@ -226,6 +228,7 @@
                     color="primary"
                     label-color="primary"
                     class="kurumsal-responsive"
+                    :disable="isInputDisabled"
                     @update:model-value="updateEkNotlar"
                   />
                 </div>
@@ -252,7 +255,7 @@
                       @update:model-value="onOdaTipiChanged"
                       required
                       :readonly="guncellemeModuAktif"
-                      :disable="guncellemeModuAktif"
+                      :disable="guncellemeModuAktif || isInputDisabled"
                       class="kurumsal-responsive oda-select-field"
                       style="font-size: 0.75rem;"
                     >
@@ -300,7 +303,7 @@
                       dense
                       color="green-6"
                       label-color="green-6"
-                      :disable="!form.OdaTipi || guncellemeModuAktif"
+                      :disable="!form.OdaTipi || guncellemeModuAktif || isInputDisabled"
                       :readonly="guncellemeModuAktif"
                       required
                       :display-value="selectedOdaYatakDisplay"
@@ -354,7 +357,7 @@
                       @update:model-value="onKonaklamaSuresiChanged"
                       required
                       :readonly="guncellemeModuAktif || !form.OdaTipi"
-                      :disable="guncellemeModuAktif || !form.OdaTipi"
+                      :disable="guncellemeModuAktif || !form.OdaTipi || isInputDisabled"
                       class="kurumsal-responsive konaklama-field"
                     />
                   </div>
@@ -435,7 +438,7 @@
                       @update:model-value="onToplamBedelChanged"
                       required
                       :readonly="guncellemeModuAktif"
-                      :disable="guncellemeModuAktif"
+                      :disable="guncellemeModuAktif || isInputDisabled"
                       class="kurumsal-responsive bedel-field"
                     />
                   </div>
@@ -446,7 +449,7 @@
                       label="Ö.T.G."
                       color="green-6"
                       dense
-                      :disable="!isOtgCheckboxEnabled || guncellemeModuAktif"
+                      :disable="!isOtgCheckboxEnabled || guncellemeModuAktif || isInputDisabled"
                       class="otg-checkbox"
                       @update:model-value="onOtgCheckboxChanged"
                     />
@@ -507,7 +510,7 @@
                 :label="rzvrytkModuAktif ? 'TC DEĞİŞTİR' : (guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET')" 
                 color="primary" 
                 :loading="loading || isSubmitting" 
-                :disable="loading || isSubmitting"
+                :disable="loading || isSubmitting || isInputDisabled"
                       class="kurumsal-responsive"
                       size="md"
               />
@@ -559,13 +562,15 @@
               label-color="teal-7"
               class="text-caption full-width-input"
               readonly
+              :disable="isInputDisabled"
             >
               <template v-slot:append>
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup">
+                <q-icon name="event" class="cursor-pointer" :class="{ 'disabled-icon': isInputDisabled }">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup" :disable="isInputDisabled">
                     <q-date 
                       v-model="extraForm.MstrDgmTarihi" 
                       mask="DD.MM.YYYY"
+                      :disable="isInputDisabled"
                       :locale="{
                         days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
                         daysShort: ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'],
@@ -587,6 +592,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrEposta" 
@@ -597,6 +603,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrMeslek" 
@@ -606,6 +613,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrYakini" 
@@ -615,6 +623,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrYknTel" 
@@ -624,6 +633,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrAdres" 
@@ -635,6 +645,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
             <q-input 
               v-model="extraForm.MstrNot" 
@@ -646,6 +657,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
+              :disable="isInputDisabled"
             />
           </div>
         </div>
@@ -681,7 +693,7 @@
                 dense
                 outlined
                 color="orange"
-                :disable="!depozito.dahil"
+                :disable="!depozito.dahil || isInputDisabled"
                 style="width: 120px;"
                 class="depozito-input"
                 @update:model-value="updateEkNotlar"
@@ -699,7 +711,7 @@
                 v-model="ekBilgiler.kahvaltiDahil" 
                 label="Kahvaltı Dahil" 
                 color="primary"
-                :disable="form.KonaklamaTipi !== 'GÜNLÜK'"
+                :disable="form.KonaklamaTipi !== 'GÜNLÜK' || isInputDisabled"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
@@ -872,6 +884,10 @@ const form = ref({
 })
 
 const loading = ref(false)
+const tcKimlikProcessing = ref(false)
+
+// TC kimlik işlemi sırasında diğer inputlar disabled olsun
+const isInputDisabled = computed(() => tcKimlikProcessing.value)
 
 // Çift tıklama önleme mekanizması
 const { isProcessing: isSubmitting, executeOnce } = useDoubleClickPrevention(2000)
@@ -2572,10 +2588,13 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
 
 // TC kimlik no blur kontrolü - 3 aşamalı sistem
 async function onTCNBlur() {
-  const currentTCN = form.value.MstrTCN?.trim() || ''
+  tcKimlikProcessing.value = true
   
-  // 🔥 RZVRYTK OTOMATIK NUMARA KONTROLÜ
-  if (currentTCN === 'RZVRYTK') {
+  try {
+    const currentTCN = form.value.MstrTCN?.trim() || ''
+    
+    // 🔥 RZVRYTK OTOMATIK NUMARA KONTROLÜ
+    if (currentTCN === 'RZVRYTK') {
     try {
       console.log('RZVRYTK kontrolü başlatılıyor...')
       // RZVRYTK_ ile başlayan kayıtları getir
@@ -2974,6 +2993,9 @@ async function onTCNBlur() {
   
   // Ek notları güncelle
   updateEkNotlar()
+  } finally {
+    tcKimlikProcessing.value = false
+  }
 }
 
 // 🚨 KARA LİSTE DURUMU KONTROLÜ
