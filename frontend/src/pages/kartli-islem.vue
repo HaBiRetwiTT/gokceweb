@@ -165,7 +165,7 @@
           icon="filter_alt_off"
           size="sm"
           @click="clearFilters"
-          :disable="selectedTip === 'TÜMÜ' && selectedOdaTip === 'TÜMÜ'"
+          :disable="selectedTip === 'TÜMÜ' && selectedOdaTip === 'TÜMÜ' && ozelListeFiltresi === 'TÜMÜ'"
         >
           <q-tooltip class="bg-orange text-white text-body2" :delay="300">
             Filtre Temizle
@@ -181,6 +181,18 @@
           outlined
           dense
           @update:model-value="onOdaTipiChange"
+          :disable="showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable"
+        />
+      </div>
+
+      <div class="col-12 col-sm-3 col-md-2" style="max-width: 160px;">
+        <q-select
+          v-model="ozelListeFiltresi"
+          :options="ozelListeOptions"
+          label="Özel Listeler"
+          outlined
+          dense
+          @update:model-value="onOzelListeFiltresiChange"
           :disable="showBorcluTable || showAlacakliTable || showBakiyesizHesaplarTable"
         />
       </div>
@@ -330,28 +342,23 @@
 
       <template v-slot:body-cell-KnklmOdaNo="props">
         <q-td :props="props">
-          <q-chip 
-            color="blue" 
-            text-color="white" 
-            dense
-          >
+          <div class="text-weight-bold" style="font-size: 13px;">
             {{ props.row.KnklmOdaNo }}-{{ props.row.KnklmYtkNo }}
-          </q-chip>
+          </div>
         </q-td>
       </template>
 
       <template v-slot:body-cell-KnklmTip="props">
         <q-td :props="props">
-          <q-badge 
-            :color="getTipColor(props.value)" 
-            :label="props.value"
-          />
+          <div class="text-weight-bold" style="font-size: 13px;">
+            {{ props.value }}{{ props.row.Knklmisk && props.row.Knklmisk !== 0 ? ` (${props.row.Knklmisk > 0 ? '+' : ''}${props.row.Knklmisk})` : '' }}
+          </div>
         </q-td>
       </template>
 
       <template v-slot:body-cell-KnklmNfyt="props">
         <q-td :props="props">
-          <div class="text-weight-bold text-green">
+          <div class="text-weight-bold text-green" style="font-size: 15px;">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -926,28 +933,23 @@
 
       <template v-slot:body-cell-KnklmOdaNo="props">
         <q-td :props="props">
-          <q-chip 
-            color="blue" 
-            text-color="white" 
-            dense
-          >
+          <div class="text-weight-bold" style="font-size: 13px;">
             {{ props.row.KnklmOdaNo }}-{{ props.row.KnklmYtkNo }}
-          </q-chip>
+          </div>
         </q-td>
       </template>
 
       <template v-slot:body-cell-KnklmTip="props">
         <q-td :props="props">
-          <q-badge 
-            :color="getTipColor(props.value)" 
-            :label="props.value"
-          />
+          <div class="text-weight-bold" style="font-size: 13px;">
+            {{ props.value }}{{ props.row.Knklmisk && props.row.Knklmisk !== 0 ? ` (${props.row.Knklmisk > 0 ? '+' : ''}${props.row.Knklmisk})` : '' }}
+          </div>
         </q-td>
       </template>
 
       <template v-slot:body-cell-KnklmNfyt="props">
         <q-td :props="props">
-          <div class="text-weight-bold text-green">
+          <div class="text-weight-bold text-green" style="font-size: 15px;">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -1231,6 +1233,9 @@ const odaTipleri = ref<string[]>(['TÜMÜ'])
 // Satış kanalı mapping: MstrTCN -> Satış Kanalı
 const satisKanaliMap = ref<Record<string, string>>({})
 const selectedOdaTip = ref('TÜMÜ')
+// Özel Liste Filtresi
+const ozelListeFiltresi = ref('TÜMÜ')
+const ozelListeOptions = ['TÜMÜ', 'Kara Liste', 'İskontolu Satış']
 const showDetailDialog = ref(false)
 const selectedRow = ref<MusteriKonaklama | null>(null)
 const currentFilter = ref<string | null>(null)
@@ -2459,13 +2464,47 @@ async function loadCikisYapanlarListesi() {
   try {
     const response = await api.get(`/dashboard/cikis-yapanlar?tip=${selectedTip.value}&odaTip=${encodeURIComponent(selectedOdaTip.value)}`)
     if (response.data.success) {
-      musteriListesi.value = [...response.data.data]
+      let data = [...response.data.data]
+      
+      // Özel Liste filtresi: Kara Liste seçiliyse filtrele
+      if (ozelListeFiltresi.value === 'Kara Liste') {
+        data = data.filter((musteri: MusteriKonaklama) => 
+          musteri.KnklmKrLst === 'EVET' && musteri.MstrDurum === 'AYRILDI'
+        )
+      }
+      
+      musteriListesi.value = data
       // 🔥 Filtrelenmiş listeyi de güncelle - bu kritik!
-      filteredMusteriListesi.value = [...response.data.data]
+      filteredMusteriListesi.value = data
       
     }
   } catch (error) {
     console.error('Çıkış yapanlar listesi yüklenemedi:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadIskontooluSatislar() {
+  loading.value = true
+  try {
+    // Tüm kartlardan çık
+    currentFilter.value = null
+    sessionStorage.removeItem('kartliIslemLastCard')
+    ;(window as { kartliIslemCurrentFilter?: string }).kartliIslemCurrentFilter = ''
+    
+    // Tabloları gizle
+    showBorcluTable.value = false
+    showAlacakliTable.value = false
+    showBakiyesizHesaplarTable.value = false
+    
+    const response = await api.get(`/dashboard/iskontolu-satislar?tip=${selectedTip.value}&odaTip=${encodeURIComponent(selectedOdaTip.value)}`)
+    if (response.data.success) {
+      musteriListesi.value = [...response.data.data]
+      filteredMusteriListesi.value = [...response.data.data]
+    }
+  } catch (error) {
+    console.error('İskontolu satışlar listesi yüklenemedi:', error)
   } finally {
     loading.value = false
   }
@@ -2869,11 +2908,19 @@ function getMusteriTooltipContent(row: MusteriKonaklama): string {
     `🏢 Firma: ${row.MstrFirma || 'Bireysel'}`,
     `🏠 Oda: ${row.KnklmOdaNo}-${row.KnklmYtkNo}`,
     `📋 Konaklama Tipi: ${row.KnklmTip}`,
-    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`,
+    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`
+  ]
+  
+  // İskonto bilgisi
+  if (row.Knklmisk && row.Knklmisk !== 0) {
+    bilgiler.push(`🏷️ İskonto: %${Number(row.Knklmisk)}`)
+  }
+  
+  bilgiler.push(
     `📅 Giriş: ${formatDate(row.KnklmGrsTrh)}`,
     `📅 Çıkış Planı: ${formatDate(row.KnklmPlnTrh)}`,
     `📝 Not: ${row.KnklmNot || 'Not yok'}`
-  ]
+  )
   
   // Kara liste uyarısı
   if (row.KnklmKrLst === 'EVET') {
@@ -2884,16 +2931,24 @@ function getMusteriTooltipContent(row: MusteriKonaklama): string {
 }
 
 // Konaklama geçmişi tooltip içeriği oluşturma fonksiyonu
-function getKonaklamaTooltipContent(row: KonaklamaGecmisi & { MstrAdi?: string; MstrTCN?: string; MstrTelNo?: string; MstrFirma?: string }): string {
+function getKonaklamaTooltipContent(row: KonaklamaGecmisi & { MstrAdi?: string; MstrTCN?: string; MstrTelNo?: string; MstrFirma?: string; Knklmisk?: number }): string {
   const bilgiler = [
     `🏠 Oda: ${row.KnklmOdaNo}-${row.KnklmYtkNo} (${row.KnklmOdaTip})`,
     `📋 Konaklama Tipi: ${row.KnklmTip}`,
-    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`,
+    `💰 Net Fiyat: ${formatCurrency(row.KnklmNfyt)}`
+  ]
+  
+  // İskonto bilgisi
+  if (row.Knklmisk && row.Knklmisk !== 0) {
+    bilgiler.push(`🏷️ İskonto: %${Number(row.Knklmisk)}`)
+  }
+  
+  bilgiler.push(
     `📅 Giriş: ${formatDate(row.KnklmGrsTrh)}`,
     `📅 Çıkış Planı: ${formatDate(row.KnklmPlnTrh)}`,
     `📅 Çıkış: ${row.KnklmCksTrh ? formatDate(row.KnklmCksTrh) : 'Henüz çıkış yapılmadı'}`,
     `📝 Not: ${row.KnklmNot || 'Not yok'}`
-  ]
+  )
   
   // Kara liste uyarısı
   if (row.KnklmKrLst === 'EVET') {
@@ -3194,15 +3249,6 @@ function convertDateFormat(dateStr: string): string {
   }
   
   return dateStr; // Değiştirilemezse olduğu gibi döndür
-}
-
-function getTipColor(tip: string): string {
-  switch (tip) {
-    case 'GÜNLÜK': return 'blue'
-    case 'HAFTALIK': return 'orange'
-    case 'AYLIK': return 'green'
-    default: return 'grey'
-  }
 }
 
 // Eski getIslemTipColor fonksiyonu kaldırıldı; yukarıdaki yeni sürüm kullanılıyor
@@ -3936,6 +3982,11 @@ async function loadFilteredData(filter: string) {
   filteredBakiyesizHesaplarListesi.value = []
   filteredCariHareketlerListesi.value = []
   
+  // 🔥 Özel Listeler filtresini sıfırla (Eski Müşteri kartı hariç)
+  if (filter !== 'cikis-yapanlar') {
+    ozelListeFiltresi.value = 'TÜMÜ'
+  }
+  
   // 🔥 ALT GRID TABLOLARI GİZLE VE SEÇİMLERİ TEMİZLE
   showKonaklamaGecmisi.value = false
   showCariHareketler.value = false
@@ -4067,6 +4118,7 @@ function clearFilters() {
   // Her iki combobox'ı da TÜMÜ yap
   selectedTip.value = 'TÜMÜ'
   selectedOdaTip.value = 'TÜMÜ'
+  ozelListeFiltresi.value = 'TÜMÜ'
   
   // Dinamik listeleri paralel yükle
   void Promise.all([
@@ -4074,10 +4126,8 @@ function clearFilters() {
     loadDinamikOdaTipleri()
   ])
   
-  // Seçili kartın verilerini yenile
-  if (currentFilter.value) {
-    void loadSelectedCardData(currentFilter.value)
-  }
+  // Süresi Dolan kartına geçiş yap
+  void loadFilteredData('suresi-dolan')
   
   selectedNormalMusteri.value = null
   window.kartliIslemSelectedNormalMusteri = null
@@ -4152,7 +4202,21 @@ async function onOdaTipiChange(newValue: string) {
   }
 }
 
-
+// Özel liste filtresi değişimi
+function onOzelListeFiltresiChange(newValue: string) {
+  if (newValue === 'Kara Liste') {
+    // Eski Müşteri kartına geçiş yap
+    void loadFilteredData('cikis-yapanlar')
+  } else if (newValue === 'İskontolu Satış') {
+    // İskontolu Satış listesini yükle
+    void loadIskontooluSatislar()
+  } else {
+    // TÜMÜ seçildiğinde mevcut filtreyi koru
+    if (currentFilter.value) {
+      void loadSelectedCardData(currentFilter.value)
+    }
+  }
+}
 
 // Normal müşteri satırına gecikmeli tek tıklama - konaklama geçmişi göster
 function onNormalMusteriClick(evt: Event, row: MusteriKonaklama) {

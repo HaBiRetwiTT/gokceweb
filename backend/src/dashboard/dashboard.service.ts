@@ -368,7 +368,8 @@ export class DashboardService {
           v.KnklmNfyt, 
           v.KnklmGrsTrh, 
           v.KnklmPlnTrh, 
-          v.KnklmNot 
+          v.KnklmNot,
+          ISNULL(v.Knklmisk, 0) as Knklmisk
         FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
         WHERE v.MstrDurum = 'KALIYOR' 
@@ -1732,6 +1733,62 @@ export class DashboardService {
     }
   }
 
+  // İskontolu Satışlar Listesi
+  async getIskontooluSatislarListesi(knklmTipi: string = 'TÜMÜ', odaTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
+    try {
+      const tables = this.dbConfig.getTables();
+      const decodedOdaTipi = decodeURIComponent(odaTipi);
+      
+      let query = `
+        SELECT 
+          m.MstrTCN,
+          ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
+          ISNULL(m.MstrFirma, '') as MstrFirma,
+          m.MstrAdi,
+          m.MstrTelNo,
+          m.MstrDurum,
+          k.KnklmOdaTip,
+          k.KnklmOdaNo,
+          k.KnklmYtkNo,
+          k.KnklmTip,
+          k.KnklmNfyt,
+          k.KnklmGrsTrh,
+          k.KnklmPlnTrh,
+          ISNULL(k.KnklmCksTrh, '') as KnklmCksTrh,
+          ISNULL(k.KnklmNot, '') as KnklmNot,
+          ISNULL(k.KnklmKrLst, '') as KnklmKrLst,
+          ISNULL(k.Knklmisk, 0) as Knklmisk
+        FROM ${tables.konaklama} k
+        INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
+        WHERE m.MstrDurum = 'KALIYOR'
+          AND (k.KnklmCksTrh IS NULL OR k.KnklmCksTrh = '')
+          AND k.Knklmisk IS NOT NULL
+          AND k.Knklmisk <> 0
+          AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
+      `;
+
+      const parameters: string[] = [];
+      
+      if (knklmTipi && knklmTipi !== 'TÜMÜ') {
+        query += ` AND k.KnklmTip = @${parameters.length}`;
+        parameters.push(knklmTipi);
+      }
+
+      if (decodedOdaTipi && decodedOdaTipi !== 'TÜMÜ') {
+        query += ` AND k.KnklmOdaTip = @${parameters.length}`;
+        parameters.push(decodedOdaTipi);
+      }
+
+      query += ` ORDER BY k.KnklmGrsTrh DESC`;
+
+      const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
+      return result;
+    } catch (error) {
+      console.error('İskontolu satışlar listesi alınırken hata:', error);
+      throw error;
+    }
+  }
+
   // Çıkış yapanlar - Her müşteri için en son konaklama kaydının çıkış tarihi bugünden küçük olanların sayısı
   async getCikisYapanlarSayisi(): Promise<number> {
     try {
@@ -1845,6 +1902,7 @@ export class DashboardService {
           ISNULL(m.MstrFirma, '') as MstrFirma,
           m.MstrAdi,
           m.MstrTelNo,
+          m.MstrDurum,
           k2.KnklmOdaTip,
           k2.KnklmOdaNo,
           k2.KnklmYtkNo,
@@ -1854,7 +1912,8 @@ export class DashboardService {
           k2.KnklmPlnTrh,
           k2.KnklmCksTrh,
           ISNULL(k2.KnklmNot, '') as KnklmNot,
-          ISNULL(k2.KnklmKrLst, '') as KnklmKrLst
+          ISNULL(k2.KnklmKrLst, '') as KnklmKrLst,
+          ISNULL(k2.Knklmisk, 0) as Knklmisk
         FROM (
           SELECT 
             k.knklmMstrNo,

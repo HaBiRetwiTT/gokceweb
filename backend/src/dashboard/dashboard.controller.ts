@@ -759,6 +759,27 @@ async getPieChartData(
     }
   }
 
+  // İskontolu Satışlar Listesi
+  @Get('iskontolu-satislar')
+  async getIskontooluSatislarListesi(@Query('tip') tip: string = 'TÜMÜ', @Query('odaTip') odaTip: string = 'TÜMÜ') {
+    try {
+      const data = await this.dashboardService.getIskontooluSatislarListesi(tip, odaTip);
+      return {
+        success: true,
+        data: data,
+        count: data.length,
+        tip: tip,
+        odaTip: odaTip
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new HttpException({
+        success: false,
+        message: `İskontolu satışlar listesi alınamadı: ${errorMessage}`
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Müşteri Konaklama Geçmişi
   @Get('musteri-konaklama-gecmisi/:tcKimlik')
   async getMusteriKonaklamaGecmisi(@Param('tcKimlik') tcKimlik: string) {

@@ -47,6 +47,7 @@ export interface MusteriKonaklama {
   MstrFirma?: string;
   MstrAdi: string;
   MstrTelNo: string;
+  MstrDurum?: string; // 🔥 Müşteri Durumu
   KnklmOdaTip: string;
   KnklmOdaNo: string;
   KnklmYtkNo: string;
@@ -57,6 +58,7 @@ export interface MusteriKonaklama {
   KnklmCksTrh?: string;
   KnklmNot?: string;
   KnklmKrLst?: string; // 🚨 Kara Liste Flag
+  Knklmisk?: number; // 🔥 İskonto Oranı
   isKaraListe?: boolean; // Frontend için computed field
   KonaklamaSuresi?: number; // 🔥
   KonaklamaTipi?: string; // 🔥
