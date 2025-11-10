@@ -520,12 +520,40 @@
             </label>
           </div>
         </div>
-        <div class="q-mt-lg text-bold">ERKEN ÇIKIŞ İŞLEMİNİ ONAYLIYOR MUSUNUZ?</div>
+        <div class="q-mt-lg text-bold">İŞLEM TİPİNİ SEÇİNİZ:</div>
+        <!-- Seçim butonları -->
+        <div class="q-mt-md row q-gutter-sm">
+          <q-btn 
+            :flat="erkenCikisSecim !== 'iadesiz'"
+            :unelevated="erkenCikisSecim === 'iadesiz'"
+            label="İADESİZ ÇIKIŞ" 
+            color="negative" 
+            @click="erkenCikisSecim = 'iadesiz'"
+            :class="{ 'text-weight-bold': erkenCikisSecim === 'iadesiz' }"
+            style="flex: 1"
+          />
+          <q-btn 
+            :flat="erkenCikisSecim !== 'iadeli'"
+            :unelevated="erkenCikisSecim === 'iadeli'"
+            label="İADELİ ÇIKIŞ" 
+            color="primary" 
+            @click="erkenCikisSecim = 'iadeli'"
+            :class="{ 'text-weight-bold': erkenCikisSecim === 'iadeli' }"
+            style="flex: 1"
+          />
+        </div>
+        <div class="q-mt-lg text-bold">SEÇİLEN İŞLEMİ ONAYLIYOR MUSUNUZ?</div>
       </q-card-section>
       <q-card-actions align="right">
         <q-btn flat label="İPTAL" color="grey" @click="showErkenCikisDialog = false" />
-        <q-btn flat label="İADESİZ ÇIKIŞ" color="negative" @click="() => executeErkenCikis(onErkenCikisIadesizCikis)" :disable="saving || isErkenCikis" :loading="isErkenCikis"/>
-        <q-btn flat label="İADELİ ÇIKIŞ" color="primary" @click="() => executeErkenCikis(onErkenCikisDialogOnayla)" :disable="saving || isErkenCikis" :loading="isErkenCikis"/>
+        <q-btn 
+          unelevated 
+          label="ONAYLA" 
+          :color="erkenCikisSecim === 'iadesiz' ? 'negative' : 'primary'" 
+          @click="() => executeErkenCikis(erkenCikisSecim === 'iadesiz' ? onErkenCikisIadesizCikis : onErkenCikisDialogOnayla)" 
+          :disable="saving || isErkenCikis" 
+          :loading="isErkenCikis"
+        />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -1080,58 +1108,9 @@ function handleErkenCikisYap() {
     return;
   }
 
-  // İşlem tarihi (bugün)
-  const bugun = new Date();
-  // Konaklama giriş tarihi (DD.MM.YYYY formatında)
-  const girisTarihiStr = props.selectedData.KnklmGrsTrh;
-  if (!girisTarihiStr) return;
-  const [grsGun = 0, grsAy = 0, grsYil = 0] = girisTarihiStr.split('.').map(s => Number(s) || 0);
-  const girisTarihi = new Date(grsYil, grsAy - 1, grsGun);
-
-  // Tarih karşılaştırma püf noktası: Sadece gün, ay, yıl karşılaştırılır
-  const bugunGun = bugun.getDate();
-  const bugunAy = bugun.getMonth() + 1;
-  const bugunYil = bugun.getFullYear();
-  const girisGun = girisTarihi.getDate();
-  const girisAy = girisTarihi.getMonth() + 1;
-  const girisYil = girisTarihi.getFullYear();
-
-  const ayniGun = (bugunGun === girisGun && bugunAy === girisAy && bugunYil === girisYil);
-
-  if (ayniGun) {
-    // 1- İşlem tarihi = giriş tarihi: Sadece onay dialogu aç
-    // Onaylandığında işlemleri başlat
-    erkenCikisOnayDialoguAc();
-  } else {
-    // 2- İşlem tarihi > giriş tarihi: Hesaplama dialogu aç
-    erkenCikisHesaplamaDialoguAc();
-  }
-}
-
-// Erken çıkış onay dialogu (aynı gün çıkış için)
-function erkenCikisOnayDialoguAc() {
-  // Sadece "Çıkışı onaylıyor musunuz?" dialogu açılır
-  $q.dialog({
-    title: 'Onay',
-    message: 'Müşterinin çıkışını yapmak istediğinizden emin misiniz? Bu işlem odayı boşaltacak ve konaklamayı sonlandıracaktır.',
-    cancel: {
-      label: 'İptal',
-      color: 'grey'
-    },
-    ok: {
-      label: 'Evet, Çıkışı Yap',
-      color: 'negative',
-      flat: false
-    },
-    persistent: true
-  }).onOk(() => {
-    // Onaylandığında işlemleri başlat
-    void erkenCikisIslemleriYap({
-      giderTutar: Number(props.selectedData?.KnklmNfyt) || 0, // knklmNfyt
-      hesaplananEkNot: 'ERKEN ÇIKIŞ FARKI',
-      dialogdanMi: false // dialogdan gelmedi, direkt işlem
-    });
-  });
+  // Her durumda iade seçimi kullanıcıya bırakılır
+  // İADESİZ ve İADELİ ÇIKIŞ seçeneklerini içeren hesaplama dialogu açılır
+  erkenCikisHesaplamaDialoguAc();
 }
 
 
@@ -2515,12 +2494,28 @@ watch(() => formData.value.HesaplananBedel, () => {
 // Erken çıkış hesaplama dialogu için reactive değişkenler
 defineExpose();
 const showErkenCikisDialog = ref(false);
+const erkenCikisSecim = ref<'iadesiz' | 'iadeli'>('iadesiz'); // Default: İADESİZ ÇIKIŞ
 const erkenCikisDialogData = ref({
   gunlukBedel: 0,
   kalanGun: 0,
   giderBedel: 0,
   iadeBedel: 0,
   ekNotlar: ''
+});
+
+// Erken çıkış seçimi değiştiğinde ek notları güncelle
+watch(erkenCikisSecim, (yeniSecim) => {
+  if (yeniSecim === 'iadeli') {
+    // İADELİ ÇIKIŞ seçildiğinde ek notları göster
+    const ekNotlarStr = `ERKEN ÇIKIŞ - İADE EDİLECEK BEDEL: ${erkenCikisDialogData.value.iadeBedel} TL`;
+    ekNotlar.value = ekNotlarStr;
+    formData.value.KnklmNot = ekNotlarStr;
+  } else {
+    // İADESİZ ÇIKIŞ seçildiğinde sadece basit not göster
+    const ekNotlarStr = 'ERKEN ÇIKIŞ';
+    ekNotlar.value = ekNotlarStr;
+    formData.value.KnklmNot = ekNotlarStr;
+  }
 });
 
 function erkenCikisHesaplamaDialoguAc() {
@@ -2544,7 +2539,7 @@ function erkenCikisHesaplamaDialoguAc() {
   const giderBedel = kalanGun * gunlukBedel;
   // İade edilecek bedel = gider yazılacak bedel
   const iadeBedel = giderBedel;
-  // Ek notlar
+  // Ek notlar (sadece dialog için)
   const ekNotlarStr = `ERKEN ÇIKIŞ - İADE EDİLECEK BEDEL: ${iadeBedel} TL`;
   // Dialog datasını doldur
   erkenCikisDialogData.value = {
@@ -2554,9 +2549,10 @@ function erkenCikisHesaplamaDialoguAc() {
     iadeBedel,
     ekNotlar: ekNotlarStr
   };
-  // Ek Notlar'ı ana formda da göster
-  ekNotlar.value = ekNotlarStr;
-  formData.value.KnklmNot = ekNotlarStr;
+  // Default seçimi İADESİZ ÇIKIŞ yap ve ana formda basit not göster
+  erkenCikisSecim.value = 'iadesiz';
+  ekNotlar.value = 'ERKEN ÇIKIŞ';
+  formData.value.KnklmNot = 'ERKEN ÇIKIŞ';
   // Dialogu aç
   showErkenCikisDialog.value = true;
 }
@@ -2593,7 +2589,7 @@ function onErkenCikisIadesizCikis() {
   // EVET kodunu çalıştır ama gider kaydı yapılmasın
   void erkenCikisIslemleriYap({
     giderTutar: Number(erkenCikisDialogData.value.giderBedel) || 0,
-    hesaplananEkNot: 'ERKEN ÇIKIŞ FARKI',
+    hesaplananEkNot: 'ERKEN ÇIKIŞ',
     dialogdanMi: true,
     giderKaydiOlmasin: true // backend'e bu parametreyi gönder
   });

@@ -30,12 +30,42 @@
                 <div class="radio-group-container">
                   <div class="radio-group">
                     <div class="radio-options">
-                      <q-radio v-model="selectedislemArac" val="cari" label="Cari" @update:model-value="onislemAracChange" />
-                      <q-radio v-model="selectedislemArac" val="nakit" label="Nakit" @update:model-value="onislemAracChange" />
-                      <q-radio v-model="selectedislemArac" val="kart" label="Kart" @update:model-value="onislemAracChange" />
-                      <q-radio v-model="selectedislemArac" val="eft" label="EFT" @update:model-value="onislemAracChange" />
-                      <q-radio v-model="selectedislemArac" val="acenta" label="Acenta" @update:model-value="onislemAracChange" />
-                      <q-radio v-model="selectedislemArac" val="depozito" label="Depozito" @update:model-value="onislemAracChange" />
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="cari" label="Cari" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="indigo-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.cari) }}
+                        </q-chip>
+                      </div>
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="nakit" label="Nakit" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="green-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.nakit) }}
+                        </q-chip>
+                      </div>
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="kart" label="Kart" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="blue-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.kart) }}
+                        </q-chip>
+                      </div>
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="eft" label="EFT" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="orange-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.eft) }}
+                        </q-chip>
+                      </div>
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="acenta" label="Acenta" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="purple-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.acenta) }}
+                        </q-chip>
+                      </div>
+                      <div class="radio-with-balance">
+                        <q-radio v-model="selectedislemArac" val="depozito" label="Depozito" @update:model-value="onislemAracChange" />
+                        <q-chip dense color="teal-7" text-color="white" class="balance-chip-radio">
+                          {{ formatCurrency(tumKasaBakiyeleri.depozito) }}
+                        </q-chip>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -46,61 +76,6 @@
                     <div class="radio-options">
                       <q-radio v-model="selectedislemTip" val="gelir" :label="firstOptionLabel" />
                       <q-radio v-model="selectedislemTip" val="gider" :label="secondOptionLabel" />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Kasalar Arası Aktarım Bölümü -->
-                <div class="transfer-container">
-                  <div class="transfer-header">
-                    <div class="transfer-title">Kasalar Arası Aktarım</div>
-                  </div>
-                  <div class="transfer-form">
-                    <div class="form-row">
-                      <div class="form-label">Veren Kasa</div>
-                      <q-select 
-                        v-model="transferForm.veren" 
-                        :options="kasaOptions"
-                        outlined 
-                        dense 
-                        placeholder="Veren kasa seçin"
-                        class="transfer-input"
-                        emit-value
-                        map-options
-                      />
-                    </div>
-                    <div class="form-row">
-                      <div class="form-label">Alan Kasa</div>
-                      <q-select 
-                        v-model="transferForm.alan" 
-                        :options="kasaOptions"
-                        outlined 
-                        dense 
-                        placeholder="Alan kasa seçin"
-                        class="transfer-input"
-                        emit-value
-                        map-options
-                      />
-                    </div>
-                    <div class="form-row">
-                      <div class="form-label">Aktarılacak Tutar</div>
-                      <q-input 
-                        v-model="transferForm.tutar" 
-                        outlined 
-                        dense 
-                        placeholder="0.00"
-                        type="number"
-                        class="transfer-input"
-                      />
-                    </div>
-                    <div class="form-row">
-                      <q-btn 
-                        color="primary" 
-                        label="AKTAR" 
-                        @click="performTransfer"
-                        class="transfer-button"
-                        size="md"
-                      />
                     </div>
                   </div>
                 </div>
@@ -116,16 +91,6 @@
              <!-- Sol Tablo - Günlük Toplamlar -->
              <q-card class="main-card">
                <q-card-section>
-                 <!-- Bakiye Label -->
-                  <div class="bakiye-label q-mb-sm">
-                    <q-chip 
-                      :color="isGuncelBakiyeLabel ? 'green' : 'orange'" 
-                      text-color="white"
-                      :label="bakiyeLabelText"
-                      class="text-weight-medium"
-                    />
-                  </div>
-                 
                  <!-- Ana Grid Tablo Container -->
                  <div class="main-table-container">
                    <div class="table-container">
@@ -1682,29 +1647,6 @@ const kasaDevirPagination = ref({
   rowsNumber: 0
 })
 
-// Kasalar arası aktarım formu
-const transferForm = ref({
-  veren: '',
-  alan: '',
-  tutar: ''
-})
-
-// Kasalar arası aktarım yetkisi kontrolü
-// Püf Nokta: Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir
-const canTransferBetweenKasalar = computed(() => {
-  const username = localStorage.getItem('username') || '';
-  return ['HARUN', 'SAadmin'].includes(username);
-})
-
-// Kasa seçenekleri
-const kasaOptions = [
-  { label: 'Nakit', value: 'nakit' },
-  { label: 'Kart', value: 'kart' },
-  { label: 'EFT', value: 'eft' },
-  { label: 'Acenta', value: 'acenta' }
-  // { label: 'Depozito', value: 'depozito' } // Şimdilik gizli
-]
-
 // Başlangıç bakiye değerleri (backend'de kullanılıyor)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const baslangicBakiyeleri: Record<string, number> = {
@@ -2853,6 +2795,9 @@ const onRowClick = async (evt: Event, row: TableRow) => {
     row.tarih === tableData.value[0].tarih
   if (isIlkSayfaVeIlkSatir) void loadGuncelBakiye()
   else void loadSecilenGunBakiyesi(row.tarih)
+  
+  // Tüm kasa bakiyelerini yükle
+  void loadTumKasaBakiyeleri()
 }
 
 // Event handler for radio group change
@@ -2972,37 +2917,15 @@ const loadDetailTableData = async (tarih: string) => {
 
 // Bakiye hesaplama fonksiyonları
 const currentBakiye = ref(0)
-const kasaLabel = computed(() => {
-  switch (selectedislemArac.value) {
-    case 'cari':
-      return 'Cari';
-    case 'nakit':
-      return 'Nakit';
-    case 'kart':
-      return 'Kart';
-    case 'eft':
-      return 'EFT';
-    case 'acenta':
-      return 'Acenta';
-    case 'depozito':
-      return 'Depozito';
-    default:
-      return 'Kasa';
-  }
-})
 
-const isGuncelBakiyeLabel = computed(() => {
-  if (!selectedDate.value) return true
-  return (
-    pagination.value.page === 1 &&
-    tableData.value.length > 0 &&
-    selectedDate.value === tableData.value[0].tarih
-  )
-})
-
-const bakiyeLabelText = computed(() => {
-  const prefix = isGuncelBakiyeLabel.value ? `Güncel ${kasaLabel.value} Bakiye` : `Seçilen Gün ${kasaLabel.value} Bakiye`
-  return `${prefix}: ${formatCurrency(currentBakiye.value)}`
+// Tüm kasa tiplerinin bakiyeleri
+const tumKasaBakiyeleri = ref({
+  cari: 0,
+  nakit: 0,
+  kart: 0,
+  eft: 0,
+  acenta: 0,
+  depozito: 0
 })
 
 // Seçime göre güncel/seçilen gün bakiyesini hesapla
@@ -3019,93 +2942,6 @@ const recomputeCurrentBakiyeForSelection = async () => {
     await loadGuncelBakiye()
   } else {
     await loadSecilenGunBakiyesi(selectedDate.value)
-  }
-}
-
-// Kasalar arası aktarım fonksiyonu
-const performTransfer = async () => {
-  debugLog('🔄 Kasalar arası aktarım başlatılıyor...')
-  
-  // Yetki kontrolü - Sadece HARUN ve SAadmin aktarım yapabilir
-  if (!canTransferBetweenKasalar.value) {
-    const username = localStorage.getItem('username') || 'Bilinmeyen';
-    Notify.create({
-      type: 'negative',
-      message: 'Kasalar arası aktarım yetkisi yok',
-      caption: `${username} kullanıcısının bu işlemi yapma yetkisi yoktur. Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir.`,
-      icon: 'lock',
-      position: 'top',
-      timeout: 5000
-    });
-    console.warn(`❌ Yetkisiz aktarım denemesi: ${username}`);
-    return;
-  }
-  
-  // Form validasyonu
-  if (!transferForm.value.veren || !transferForm.value.alan || !transferForm.value.tutar) {
-    console.error('❌ Form alanları eksik')
-    return
-  }
-  
-  const tutar = parseFloat(transferForm.value.tutar)
-  if (isNaN(tutar) || tutar <= 0) {
-    console.error('❌ Geçersiz tutar')
-    return
-  }
-  
-  if (transferForm.value.veren === transferForm.value.alan) {
-    console.error('❌ Aynı kasa seçilemez')
-    return
-  }
-  
-  try {
-    debugLog('📤 Aktarım verileri:', {
-      veren: transferForm.value.veren,
-      alan: transferForm.value.alan,
-      tutar: tutar
-    })
-    
-    // Backend API çağrısı
-    const response = await $api.post('/islem/kasa-aktarimi', {
-      veren: transferForm.value.veren,
-      alan: transferForm.value.alan,
-      tutar: tutar
-    })
-    
-    if (response.data.success) {
-      debugLog('✅ Aktarım başarılı:', response.data.message)
-      
-      // Form temizle
-      transferForm.value.veren = ''
-      transferForm.value.alan = ''
-      transferForm.value.tutar = ''
-      
-      // Verileri yenile
-      await refreshData()
-      
-      // Başarı mesajı göster
-      $q.notify({
-        type: 'positive',
-        message: response.data.message,
-        position: 'top',
-        timeout: 5000,
-        html: true
-      })
-    } else {
-      console.error('❌ Aktarım başarısız:', response.data.message)
-      
-      // Hata mesajı göster
-      $q.notify({
-        type: 'negative',
-        message: response.data.message || 'Kasa aktarımı başarısız!',
-        position: 'top',
-        timeout: 8000,
-        html: true
-      })
-    }
-    
-  } catch (error) {
-    console.error('❌ Aktarım hatası:', error)
   }
 }
 
@@ -3297,6 +3133,8 @@ const refreshData = async () => {
   
   // Güncel bakiyeyi hesapla
   await loadGuncelBakiye()
+  // Tüm kasa bakiyelerini yükle
+  await loadTumKasaBakiyeleri()
   // Kasa devir verileri zaten Promise.allSettled'da yüklendi, tekrar yüklemeye gerek yok
   
   // 🔥 Tüm veriler yüklendikten sonra loading durumunu kapat
@@ -3343,6 +3181,53 @@ const loadSecilenGunBakiyesi = async (tarih: string) => {
   } catch (error) {
     console.error('❌ Seçilen gün bakiyesi yükleme hatası:', error)
     currentBakiye.value = 0
+  }
+}
+
+// Tüm kasa tiplerinin bakiyelerini yükle
+const loadTumKasaBakiyeleri = async () => {
+  try {
+    const kasaTipleri = ['cari', 'nakit', 'kart', 'eft', 'acenta', 'depozito']
+    
+    // Her kasa tipi için doğru islemTip'i hesapla
+    const getIslemTipForKasa = (kasaTipi: string): string => {
+      if (selectedislemTip.value === 'gelir') {
+        return kasaTipi === 'cari' ? 'GELİR' : 'Giren'
+      } else if (selectedislemTip.value === 'gider') {
+        return kasaTipi === 'cari' ? 'GİDER' : 'Çıkan'
+      }
+      // Default: gelir
+      return kasaTipi === 'cari' ? 'GELİR' : 'Giren'
+    }
+    
+    // Seçili tarih varsa seçili gün bakiyesi, yoksa güncel bakiye
+    const endpoint = selectedDate.value ? '/islem/secilen-gun-bakiyesi' : '/islem/guncel-bakiye'
+    
+    for (const kasaTipi of kasaTipleri) {
+      try {
+        const params: Record<string, string> = {
+          islemArac: kasaTipi,
+          islemTip: getIslemTipForKasa(kasaTipi)
+        }
+        
+        if (selectedDate.value) {
+          params.secilenTarih = selectedDate.value
+        }
+        
+        const response = await $api.get(endpoint, { params })
+        
+        if (response.data.success) {
+          tumKasaBakiyeleri.value[kasaTipi as keyof typeof tumKasaBakiyeleri.value] = response.data.bakiye || 0
+        }
+      } catch (error) {
+        console.error(`❌ ${kasaTipi} bakiyesi yükleme hatası:`, error)
+        tumKasaBakiyeleri.value[kasaTipi as keyof typeof tumKasaBakiyeleri.value] = 0
+      }
+    }
+    
+    debugLog('💰 Tüm kasa bakiyeleri yüklendi:', tumKasaBakiyeleri.value)
+  } catch (error) {
+    console.error('❌ Tüm kasa bakiyeleri yükleme hatası:', error)
   }
 }
 
@@ -3473,6 +3358,9 @@ onMounted(async () => {
     // 🔥 Güncel bakiyeyi hesapla
     await loadGuncelBakiye()
     
+    // Tüm kasa bakiyelerini yükle
+    await loadTumKasaBakiyeleri()
+    
     // 🔥 Eğer ana tablo verisi varsa, ilk tarihi seç
     if (tableData.value.length > 0) {
       const ilkTarih = tableData.value[0].tarih
@@ -3509,6 +3397,9 @@ watch(selectedislemArac, async () => {
   detailLoading.value = false
   
   void recomputeCurrentBakiyeForSelection()
+  
+  // Tüm kasa bakiyelerini yenile
+  void loadTumKasaBakiyeleri()
 })
 
 // İşlem yönü değiştiğinde detay tabloyu güncelle
@@ -3533,6 +3424,9 @@ watch(selectedislemTip, async () => {
   
   // İşlem yönü değiştiğinde bakiye hesaplaması yap
   void recomputeCurrentBakiyeForSelection()
+  
+  // Tüm kasa bakiyelerini yenile
+  void loadTumKasaBakiyeleri()
 })
 
 // Bu watch function kaldırıldı - ana positioning logic kullanılıyor
@@ -4101,80 +3995,6 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
   margin-top: 6px;
 }
 
-/* Kasalar Arası Aktarım Container */
-.transfer-container {
-
-  background: linear-gradient(180deg, rgba(230, 245, 255, 0.95), rgba(220, 236, 255, 0.95));
-  border-radius: 10px;
-  padding: 4px;
-  border: 1px solid rgba(25, 118, 210, 0.25);
-  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.12);
-}
-
-/* Dark mode için transfer container */
-.body--dark .transfer-container {
-  background: linear-gradient(180deg, rgba(10, 20, 35, 0.96), rgba(8, 16, 28, 0.96));
-  border: 1px solid rgba(100, 181, 246, 0.6);
-  box-shadow: 0 4px 14px rgba(33, 150, 243, 0.28);
-}
-
-.transfer-header {
-  margin-bottom: 15px;
-}
-
-.transfer-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  text-align: center;
-  word-wrap: break-word;
-  white-space: normal;
-  line-height: 1.3;
-}
-
-/* Dark mode için transfer başlık rengi */
-.body--dark .transfer-title {
-  color: #90caf9;
-}
-
-.transfer-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #555;
-  margin-bottom: 2px;
-}
-
-/* Dark mode için form label rengi */
-.body--dark .form-label {
-  color: #e0e0e0;
-}
-
-.transfer-input {
-  width: 100%;
-}
-
-.transfer-button {
-  margin-top: 8px;
-  width: 100%;
-}
-
-/* Combobox seçenek font boyutu */
-.transfer-input .q-field__native {
-  font-size: 8px;
-}
-
 /* Ana Grid Tablo Container */
 .main-table-container {
   display: flex;
@@ -4240,11 +4060,6 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
 .kasa-devir-table .q-table__thead th {
   padding: 3px 4px;
   height: 24px;
-}
-
-.transfer-input .q-item {
-  font-size: 8px;
-  min-height: 24px;
 }
 
 .ana-container {
@@ -4349,6 +4164,21 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
 
 .radio-options .q-radio {
   margin-bottom: 2px;
+}
+
+.radio-with-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.balance-chip-radio {
+  font-size: 16px;
+  font-weight: 900;
+  align-self: flex-end;
+  padding: 8px 16px;
+  margin-right: 2px;
 }
 
 

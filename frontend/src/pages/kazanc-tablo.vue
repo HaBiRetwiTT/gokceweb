@@ -84,67 +84,182 @@
       </div>
     </div>
 
+    <!-- Ana Row: Sol sütun (Transfer + Tablo) ve Sağ sütun (Grafikler) -->
     <div class="row items-start q-gutter-md q-mt-md" style="position: relative;">
       <!-- Loading overlay -->
       <div v-if="isLoading" class="loading-overlay">
         <q-spinner-dots color="primary" size="60px" />
       </div>
 
-      <q-card class="half-width" :class="{ 'loading-blur': isLoading }">
-        <!-- Bar Navigasyon Butonları -->
-        <q-card-section class="q-pa-sm">
-          <div class="bar-navigation">
-            <q-btn 
-              icon="chevron_left" 
-              flat 
-              dense 
-              round
-              color="primary"
-              size="sm"
-              :disable="activeBarIndex <= 0 || isLoading"
-              @click="navigateToPreviousBar"
-            >
-              <q-tooltip>Önceki Dönem</q-tooltip>
-            </q-btn>
-            <div class="bar-label-text">{{ currentBarLabel }}</div>
-            <q-btn 
-              icon="chevron_right" 
-              flat 
-              dense 
-              round
-              color="primary"
-              size="sm"
-              :disable="activeBarIndex >= seriData.length - 1 || isLoading"
-              @click="navigateToNextBar"
-            >
-              <q-tooltip>Sonraki Dönem</q-tooltip>
-            </q-btn>
-          </div>
-        </q-card-section>
-        
-        <q-separator />
-        
-        <q-table
-          :rows="rows"
-          :columns="columns"
-          row-key="grup"
-          dense
-          flat
-          bordered
-          separator="cell"
-          hide-bottom
-          :pagination="{ rowsPerPage: 0 }"
-          @row-dblclick="onRowDoubleClick"
-        >
-          <template v-slot:header-cell-gelirToplam="props">
-            <q-th :props="props"><span class="total-header">{{ props.col.label }}</span></q-th>
-          </template>
-          <template v-slot:header-cell-giderToplam="props">
-            <q-th :props="props"><span class="total-header">{{ props.col.label }}</span></q-th>
-          </template>
-        </q-table>
-      </q-card>
+      <!-- Sol Sütun: Kasalar Arası Aktarım + Veri Tablosu -->
+      <div class="left-column-wrapper half-width">
+        <!-- Kasalar Arası Aktarım Bölümü -->
+        <q-card class="transfer-card">
+          <q-card-section class="transfer-header-section">
+            <div class="transfer-header-content">
+              <div class="transfer-title-centered">Kasalar Arası Aktarım</div>
+              <q-btn 
+                icon="refresh" 
+                @click="loadKasaBakiyeleri" 
+                flat 
+                round 
+                dense
+                color="primary"
+                size="sm"
+              >
+                <q-tooltip>Bakiyeleri Yenile</q-tooltip>
+              </q-btn>
+            </div>
+          </q-card-section>
+          <q-separator />
+          <q-card-section class="transfer-card-section">
+            <div class="transfer-container-with-balances">
+              <!-- Bakiye Etiketleri -->
+              <div class="balance-chips">
+                <q-chip 
+                  color="green-7" 
+                  text-color="white" 
+                  dense
+                  class="balance-chip"
+                >
+                  Nakit: {{ formatTL(kasaBakiyeleri.nakit) }}
+                </q-chip>
+                <q-chip 
+                  color="blue-7" 
+                  text-color="white" 
+                  dense
+                  class="balance-chip"
+                >
+                  Kart: {{ formatTL(kasaBakiyeleri.kart) }}
+                </q-chip>
+                <q-chip 
+                  color="orange-7" 
+                  text-color="white" 
+                  dense
+                  class="balance-chip"
+                >
+                  Banka: {{ formatTL(kasaBakiyeleri.eft) }}
+                </q-chip>
+                <q-chip 
+                  color="purple-7" 
+                  text-color="white" 
+                  dense
+                  class="balance-chip"
+                >
+                  Acenta: {{ formatTL(kasaBakiyeleri.acenta) }}
+                </q-chip>
+              </div>
+              <!-- Transfer Formu -->
+              <div class="transfer-grid">
+              <q-select 
+                v-model="transferForm.veren" 
+                :options="kasaOptions"
+                label="Veren Kasa"
+                outlined 
+                dense 
+                emit-value
+                map-options
+                class="transfer-select"
+              />
+              <q-input 
+                v-model="transferForm.tutar" 
+                label="Aktarılacak Tutar"
+                outlined 
+                dense 
+                type="number"
+                class="transfer-input"
+              />
+              <q-select 
+                v-model="transferForm.alan" 
+                :options="kasaOptions"
+                label="Alan Kasa"
+                outlined 
+                dense 
+                emit-value
+                map-options
+                class="transfer-select"
+              />
+              <div class="transfer-button-group">
+                <q-btn 
+                  color="primary" 
+                  label="AKTAR" 
+                  @click="performTransfer"
+                  class="transfer-button-half"
+                  size="md"
+                  :disable="!transferForm.veren || !transferForm.alan || !transferForm.tutar"
+                />
+                <q-btn 
+                  color="secondary" 
+                  label="TEMİZLE" 
+                  @click="clearTransferForm"
+                  class="transfer-button-half"
+                  size="md"
+                  outline
+                />
+              </div>
+            </div>
+            </div>
+          </q-card-section>
+        </q-card>
 
+        <!-- Veri Tablosu -->
+        <q-card class="q-mt-md" :class="{ 'loading-blur': isLoading }">
+          <!-- Bar Navigasyon Butonları -->
+          <q-card-section class="q-pa-sm">
+            <div class="bar-navigation">
+              <q-btn 
+                icon="chevron_left" 
+                flat 
+                dense 
+                round
+                color="primary"
+                size="sm"
+                :disable="activeBarIndex <= 0 || isLoading"
+                @click="navigateToPreviousBar"
+              >
+                <q-tooltip>Önceki Dönem</q-tooltip>
+              </q-btn>
+              <div class="bar-label-text">{{ currentBarLabel }}</div>
+              <q-btn 
+                icon="chevron_right" 
+                flat 
+                dense 
+                round
+                color="primary"
+                size="sm"
+                :disable="activeBarIndex >= seriData.length - 1 || isLoading"
+                @click="navigateToNextBar"
+              >
+                <q-tooltip>Sonraki Dönem</q-tooltip>
+              </q-btn>
+            </div>
+          </q-card-section>
+          
+          <q-separator />
+          
+          <q-table
+            :rows="rows"
+            :columns="columns"
+            row-key="grup"
+            dense
+            flat
+            bordered
+            separator="cell"
+            hide-bottom
+            :pagination="{ rowsPerPage: 0 }"
+            @row-dblclick="onRowDoubleClick"
+          >
+            <template v-slot:header-cell-gelirToplam="props">
+              <q-th :props="props"><span class="total-header">{{ props.col.label }}</span></q-th>
+            </template>
+            <template v-slot:header-cell-giderToplam="props">
+              <q-th :props="props"><span class="total-header">{{ props.col.label }}</span></q-th>
+            </template>
+          </q-table>
+        </q-card>
+      </div>
+
+      <!-- Sağ Sütun: Bar ve Pie Grafikler -->
       <q-card class="chart-card grow-card" :class="{ 'loading-blur': isLoading }">
         <q-card-section class="chart-section">
           <div class="chart-container">
@@ -244,6 +359,36 @@ const netToplam = ref(0)
 const periodNetText = ref('')
 const customStartDate = ref('')
 const isLoading = ref(false)
+
+// Kasalar arası aktarım formu
+const transferForm = ref({
+  veren: '',
+  alan: '',
+  tutar: ''
+})
+
+// Kasalar arası aktarım yetkisi kontrolü
+// Püf Nokta: Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir
+const canTransferBetweenKasalar = computed(() => {
+  const username = localStorage.getItem('username') || '';
+  return ['HARUN', 'SAadmin'].includes(username);
+})
+
+// Kasa seçenekleri
+const kasaOptions = [
+  { label: 'Nakit', value: 'nakit' },
+  { label: 'Kart', value: 'kart' },
+  { label: 'EFT', value: 'eft' },
+  { label: 'Acenta', value: 'acenta' }
+]
+
+// Kasa bakiyeleri
+const kasaBakiyeleri = ref({
+  nakit: 0,
+  kart: 0,
+  eft: 0,
+  acenta: 0
+})
 
 // 🆕 Bar navigasyon için state
 const activeBarIndex = ref(11) // Default: Son bar (12. bar)
@@ -774,7 +919,151 @@ async function loadDetailData(grupName: string, islemTip: string) {
   }
 }
 
-onMounted(() => { void loadData() })
+// Kasalar arası aktarım fonksiyonu
+const performTransfer = async () => {
+  // Yetki kontrolü - Sadece HARUN ve SAadmin aktarım yapabilir
+  if (!canTransferBetweenKasalar.value) {
+    const username = localStorage.getItem('username') || 'Bilinmeyen';
+    $q.notify({
+      type: 'negative',
+      message: 'Kasalar arası aktarım yetkisi yok',
+      caption: `${username} kullanıcısının bu işlemi yapma yetkisi yoktur. Sadece HARUN ve SAadmin kullanıcıları kasalar arası aktarım yapabilir.`,
+      icon: 'lock',
+      position: 'top',
+      timeout: 5000
+    });
+    console.warn(`❌ Yetkisiz aktarım denemesi: ${username}`);
+    return;
+  }
+  
+  // Form validasyonu
+  if (!transferForm.value.veren || !transferForm.value.alan || !transferForm.value.tutar) {
+    $q.notify({
+      type: 'warning',
+      message: 'Lütfen tüm alanları doldurun',
+      position: 'top',
+      timeout: 3000
+    });
+    return;
+  }
+  
+  const tutar = parseFloat(transferForm.value.tutar);
+  if (isNaN(tutar) || tutar <= 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'Geçerli bir tutar girin',
+      position: 'top',
+      timeout: 3000
+    });
+    return;
+  }
+  
+  if (transferForm.value.veren === transferForm.value.alan) {
+    $q.notify({
+      type: 'warning',
+      message: 'Veren ve alan kasa aynı olamaz',
+      position: 'top',
+      timeout: 3000
+    });
+    return;
+  }
+  
+  try {
+    // Backend API çağrısı
+    const response = await api.post('/islem/kasa-aktarimi', {
+      veren: transferForm.value.veren,
+      alan: transferForm.value.alan,
+      tutar: tutar
+    });
+    
+    if (response.data.success) {
+      // Form temizle
+      transferForm.value.veren = '';
+      transferForm.value.alan = '';
+      transferForm.value.tutar = '';
+      
+      // Verileri yenile
+      refreshData();
+      
+      // Kasa bakiyelerini yenile
+      void loadKasaBakiyeleri();
+      
+      // Başarı mesajı göster
+      $q.notify({
+        type: 'positive',
+        message: response.data.message || 'Kasa aktarımı başarıyla tamamlandı',
+        position: 'top',
+        timeout: 5000
+      });
+    } else {
+      $q.notify({
+        type: 'negative',
+        message: response.data.message || 'Kasa aktarımı başarısız!',
+        position: 'top',
+        timeout: 8000
+      });
+    }
+  } catch (error) {
+    console.error('❌ Aktarım hatası:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Kasa aktarımı sırasında hata oluştu',
+      position: 'top',
+      timeout: 5000
+    });
+  }
+}
+
+// Transfer formu temizleme fonksiyonu
+const clearTransferForm = () => {
+  transferForm.value.veren = '';
+  transferForm.value.alan = '';
+  transferForm.value.tutar = '';
+}
+
+// Güncel kasa bakiyelerini yükle
+const loadKasaBakiyeleri = async () => {
+  try {
+    // Nakit bakiye
+    const nakitResponse = await api.get('/islem/guncel-bakiye', {
+      params: { islemArac: 'nakit', islemTip: 'Giren' }
+    });
+    if (nakitResponse.data.success) {
+      kasaBakiyeleri.value.nakit = nakitResponse.data.bakiye || 0;
+    }
+
+    // Kart bakiye
+    const kartResponse = await api.get('/islem/guncel-bakiye', {
+      params: { islemArac: 'kart', islemTip: 'Giren' }
+    });
+    if (kartResponse.data.success) {
+      kasaBakiyeleri.value.kart = kartResponse.data.bakiye || 0;
+    }
+
+    // EFT bakiye
+    const eftResponse = await api.get('/islem/guncel-bakiye', {
+      params: { islemArac: 'eft', islemTip: 'Giren' }
+    });
+    if (eftResponse.data.success) {
+      kasaBakiyeleri.value.eft = eftResponse.data.bakiye || 0;
+    }
+
+    // Acenta bakiye
+    const acentaResponse = await api.get('/islem/guncel-bakiye', {
+      params: { islemArac: 'acenta', islemTip: 'Giren' }
+    });
+    if (acentaResponse.data.success) {
+      kasaBakiyeleri.value.acenta = acentaResponse.data.bakiye || 0;
+    }
+  } catch (error) {
+    console.error('❌ Kasa bakiyeleri yükleme hatası:', error);
+  }
+}
+
+onMounted(() => { 
+  void loadData();
+  void loadKasaBakiyeleri();
+})
 
 function formatTL(value: number): string {
   const n = Number.isFinite(value) ? Math.trunc(value) : 0
@@ -1138,6 +1427,128 @@ function updatePieCharts(
 .body--dark .pie-container :deep(div),
 .body--dark .pie-container :deep(li) {
   color: #bdbdbd !important;
+}
+
+/* Kasalar Arası Aktarım Stilleri */
+.transfer-card {
+  background: linear-gradient(180deg, rgba(230, 245, 255, 0.95), rgba(220, 236, 255, 0.95));
+  border: 1px solid rgba(25, 118, 210, 0.25);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.12);
+  border-radius: 12px;
+}
+
+.body--dark .transfer-card {
+  background: linear-gradient(180deg, rgba(10, 20, 35, 0.96), rgba(8, 16, 28, 0.96));
+  border: 1px solid rgba(100, 181, 246, 0.6);
+  box-shadow: 0 4px 14px rgba(33, 150, 243, 0.28);
+}
+
+.transfer-header-section {
+  padding: 12px 24px;
+  background: rgba(25, 118, 210, 0.08);
+}
+
+.body--dark .transfer-header-section {
+  background: rgba(100, 181, 246, 0.12);
+}
+
+.transfer-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.transfer-header-content .q-btn {
+  position: absolute;
+  right: 0;
+}
+
+.transfer-card-section {
+  padding: 16px 24px;
+}
+
+.transfer-title-centered {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  color: #1976d2;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.body--dark .transfer-title-centered {
+  color: #90caf9;
+}
+
+.transfer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: end;
+}
+
+.transfer-select,
+.transfer-input {
+  width: 100%;
+}
+
+.transfer-button-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.transfer-button-half {
+  flex: 1;
+  height: 30px;
+  font-weight: 600;
+}
+
+/* Transfer container with balances */
+.transfer-container-with-balances {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.balance-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  min-width: 140px;
+  align-items: flex-end;
+}
+
+.balance-chip {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+/* Sol sütun wrapper */
+.left-column-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Responsive design için küçük ekranlarda dikey düzen */
+@media (max-width: 768px) {
+  .transfer-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .transfer-container-with-balances {
+    flex-direction: column;
+  }
+  
+  .balance-chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
 }
 </style>
 
