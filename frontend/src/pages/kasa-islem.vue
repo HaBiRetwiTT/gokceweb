@@ -2872,9 +2872,17 @@ const loadDetailTableData = async (tarih: string) => {
        debugLog('🔍 Detay veri sayısı:', result.data?.length || 0)
        debugLog('🔍 Detay toplam kayıt sayısı:', result.totalRecords)
        debugLog('🔍 Detay ilk kayıt:', result.data?.[0])
-       // Backend'den gelen veriyi kullan ve FON KAYIT: ile başlayanları filtrele
+       // Backend'den gelen veriyi kullan ve istenmeyen kayıtları filtrele
        allDetailTableData.value = (result.data || []).filter((item: IslemDetay) => {
-         return !item.islemAltG || !item.islemAltG.includes('FON KAYIT: ')
+         // FON KAYIT: ile başlayanları filtrele
+         if (item.islemAltG && item.islemAltG.includes('FON KAYIT: ')) {
+           return false
+         }
+         // Kasadan Alınan veya Kasaya Verilen kayıtlarını filtrele
+         if (item.islemGrup === 'Kasadan Alınan' || item.islemGrup === 'Kasaya Verilen') {
+           return false
+         }
+         return true
        })
        
        // Default sıralamaya dön (islemNo desc)
