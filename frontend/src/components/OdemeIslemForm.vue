@@ -412,7 +412,9 @@ async function printMultipleFis(
   islemNoList: number[],
   musteri: { MstrAdi?: string; OdaYatak?: string; KnklmOdaNo?: string; KnklmYtkNo?: string; },
   islemKllnc: string,
-  maxIslemno: number
+  maxIslemno: number,
+  depozitoAlinan?: number,
+  depozitoOdemeAraci?: string
 ) {
   console.log('🖨️ Çoklu fiş yazdırma başlıyor...');
   
@@ -421,9 +423,22 @@ async function printMultipleFis(
   
   // Başlangıç bakiyesi
   const baslangicBakiye = (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye || 0;
-  let guncelBakiye = baslangicBakiye;
   
   console.log(`💰 Başlangıç bakiyesi: ${baslangicBakiye}`);
+  
+  // ÖNCE tüm tahsilatı ve komisyonu hesapla
+  let toplamTahsilat = 0;
+  let toplamKomisyon = 0;
+  for (const od of fisliOdemeler) {
+    toplamTahsilat += Number(od.tutar);
+    if (od.komisyon && od.orijinalTutar) {
+      toplamKomisyon += Number(od.tutar) - Number(od.orijinalTutar);
+    }
+  }
+  
+  // Tüm fişler için aynı kalan borç
+  const kalanBorc = baslangicBakiye - toplamTahsilat + toplamKomisyon;
+  console.log(`💰 Kalan borç hesabı: ${baslangicBakiye} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
   
   for (let i = 0; i < fisliOdemeler.length; i++) {
     const od = fisliOdemeler[i];
@@ -433,27 +448,14 @@ async function printMultipleFis(
     const odemeTipiLabel = odemeTipleri.find(tip => tip.value === od.tip)?.label || 'Nakit Kasa(TL)';
     const odemeTipiGrupLabel = odemeTipiGrupOptions.find(grup => grup.value === od.odemeTipiGrup)?.label || 'Konaklama';
     
-    // Kalan borç hesabı - komisyon checkbox'ına göre
-    const odemeTutari = Number(od.tutar);
-    let komisyonTutari = 0;
-
-    // Eğer komisyon checkbox TRUE ise, komisyon tutarını hesapla
-    if (od.komisyon && od.orijinalTutar) {
-      komisyonTutari = odemeTutari - Number(od.orijinalTutar);
-      console.log(`💰 Komisyon hesaplama: ${odemeTutari} - ${od.orijinalTutar} = ${komisyonTutari}`);
-    }
-
-    // Kalan borç hesaplama - komisyon durumuna göre
-    const kalanBorc = guncelBakiye - odemeTutari + komisyonTutari;
-    
-    console.log(`💳 Fiş ${i + 1} hesaplama: ${guncelBakiye} - ${odemeTutari} + ${komisyonTutari} = ${kalanBorc}`);
-    
-    // Bir sonraki fiş için bakiyeyi güncelle
-    guncelBakiye = kalanBorc;
-    
     // Fiş numarasını hesapla - (max islemno) + 1 + index
     const fisNo = maxIslemno + i;
     console.log(`🔢 Fiş ${i + 1} için fiş no:`, fisNo, `(maxIslemno: ${maxIslemno} + 1 + index: ${i})`);
+    
+    // Depozito bu fişe dahil mi kontrol et
+    const depozitoTutari = (depozitoAlinan && odemeTipiLabel === depozitoOdemeAraci) 
+      ? depozitoAlinan 
+      : 0;
     
     // Fiş için gerekli verileri hazırla
       const fisProps = {
@@ -464,6 +466,7 @@ async function printMultipleFis(
           : odemeTipiGrupLabel,
       tutar: od.tutar,
       kalanBorc: formatCurrency(kalanBorc),
+      alinanDepozito: depozitoTutari > 0 ? formatCurrency(depozitoTutari) : null,
       sonOdemeTarihi: new Date().toLocaleDateString('tr-TR'),
       tarih: new Date().toLocaleDateString('tr-TR'),
       islemYapan: islemKllnc,
@@ -476,7 +479,7 @@ async function printMultipleFis(
       <div class="fis-container">
         
         <!-- Üst Bilgi Satırı -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2mm; font-size: 1.8mm;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2mm; font-size: 2.4mm; font-weight: 900;">
           <span>TARİH: ${fisProps.tarih}</span>
           <span>İŞLEMİ YAPAN: ${fisProps.islemYapan}</span>
           <span>FİŞ NO: ${fisProps.fisNo}</span>
@@ -488,54 +491,66 @@ async function printMultipleFis(
             <img src="/gokce-logo.png" style="width: 10mm; height: 10mm; object-fit: contain;" />
           </div>
           <div style="flex: 1;">
-            <div style="font-weight: bold; font-size: 3.5mm; text-align: center; margin-bottom: 0.5mm;">GÖKÇE PANSİYON®</div>
-            <div style="font-size: 1.8mm; text-align: center; font-style: italic;">İstanbul'daki Eviniz</div>
+            <div style="font-weight: 900; font-size: 4.7mm; text-align: center; margin-bottom: 0.5mm; font-family: 'Arial Black', Arial, sans-serif;">GÖKÇE PANSİYON®</div>
+            <div style="font-size: 2.4mm; text-align: center; font-style: italic; font-weight: 900;">İstanbul'daki Eviniz</div>
           </div>
         </div>
         
         <!-- Tahsilat Makbuzu Başlığı -->
-        <div style="border: 2px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 3mm; text-align: center;">
-          <div style="font-weight: bold; font-size: 3.2mm; text-transform: uppercase;">TAHSİLAT MAKBUZU</div>
+        <div style="border: 3px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 3mm; text-align: center;">
+          <div style="font-weight: 900; font-size: 4.2mm; text-transform: uppercase; font-family: 'Arial Black', Arial, sans-serif;">TAHSİLAT MAKBUZU</div>
         </div>
         
         <!-- Müşteri Bilgileri -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">SAYIN</span>
-          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.musteriAdi}</div>
+          <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">SAYIN</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.musteriAdi}</div>
         </div>
         
         <!-- Oda Bilgileri -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">ODA</span>
-          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.odaBilgisi}</div>
+          <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">ODA</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.odaBilgisi}</div>
         </div>
         
         <!-- Ek Hizmet -->
         <div style="margin-bottom: 2mm;">
-          <div style="border: 2px solid #000; padding: 1.5mm; font-weight: bold; font-size: 2.5mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.aciklama}</div>
+          <div style="border: 3px solid #000; padding: 1.5mm; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.aciklama}</div>
         </div>
         
         <!-- Tutar -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: bold; font-size: 2.2mm; display: inline-block; width: 10mm;">TUTAR</span>
-          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; text-align: right; font-weight: bold; font-size: 3mm; display: flex; align-items: center; justify-content: flex-end; background: white;">₺${fisProps.tutar}</div>
+          <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">TUTAR</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; text-align: right; font-weight: 900; font-size: 4mm; display: flex; align-items: center; justify-content: flex-end; background: white; font-family: 'Arial Black', Arial, sans-serif;">₺${fisProps.tutar}</div>
         </div>
         
         <!-- Ödeme Şekli -->
-        <div style="text-align: center; font-size: 2mm; margin-bottom: 2mm; font-weight: bold;">${fisProps.odemeSekli} TAHSİL EDİLMİŞTİR.</div>
+        <div style="text-align: center; font-size: 2.6mm; margin-bottom: 2mm; font-weight: 900;">${fisProps.odemeSekli} TAHSİL EDİLMİŞTİR.</div>
         
-        <!-- Kalan Borç ve Son Ödeme Tarihi -->
+        <!-- Kalan Borç -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: bold; font-size: 2mm; display: inline-block; width: 8mm;">KALAN BORÇ</span>
-          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.2mm; display: flex; align-items: center; background: white;">${fisProps.kalanBorc}</div>
-          <span style="font-weight: bold; font-size: 2mm; display: inline-block; width: 8mm; margin-left: 1mm;">SON ÖDEME</span>
-          <div style="border: 2px solid #000; padding: 1.5mm; flex: 1; font-weight: bold; font-size: 2.2mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.sonOdemeTarihi}</div>
+          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 14mm;">KALAN BORÇ</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.kalanBorc}</div>
+        </div>
+        
+        ${fisProps.alinanDepozito ? `
+        <!-- Alınan Depozito -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 18mm;">ALINAN DEPOZİTO</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.alinanDepozito}</div>
+        </div>
+        ` : ''}
+        
+        <!-- Son Ödeme Tarihi -->
+        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
+          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 14mm;">SON ÖDEME</span>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.sonOdemeTarihi}</div>
         </div>
         
         <!-- Bilgilendirme Kutusu -->
-        <div style="border: 2px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 2mm;">
-          <div style="font-weight: bold; font-size: 2.2mm; text-align: center; margin-bottom: 1.5mm;">BİLGİLENDİRME</div>
-          <div style="font-size: 1.6mm; line-height: 1.3;">
+        <div style="border: 3px solid #000; background: #f0f0f0; padding: 2mm; margin-bottom: 2mm;">
+          <div style="font-weight: 900; font-size: 3mm; text-align: center; margin-bottom: 1.5mm;">BİLGİLENDİRME</div>
+          <div style="font-size: 2.2mm; line-height: 1.3; font-weight: 900;">
             <div>WIFI ŞİFRESİ: GOKCE2010gokce</div>
             <div>GÜNLÜK KALIMLARDA ODA ÇIKIŞ SAATİ ÖĞLEN 12:00</div>
             <div>LÜTFEN FİŞİ VE PARANIZI KONTROL EDEREK ALINIZ</div>
@@ -543,12 +558,12 @@ async function printMultipleFis(
           </div>
           
           <div style="text-align: center; margin-top: 2mm;">
-            <div style="font-weight: bold; font-size: 1.8mm;">DAHA İYİ HİZMET VEREBİLMEMİZ İÇİN</div>
-            <div style="font-weight: bold; font-size: 1.8mm;">İSTEK, ÖNERİ VE ŞİKAYETLERİNİZİ</div>
-            <div style="font-weight: bold; font-size: 1.8mm;">LÜTFEN BİZE İLETİNİZ...</div>
+            <div style="font-weight: 900; font-size: 2.4mm;">DAHA İYİ HİZMET VEREBİLMEMİZ İÇİN</div>
+            <div style="font-weight: 900; font-size: 2.4mm;">İSTEK, ÖNERİ VE ŞİKAYETLERİNİZİ</div>
+            <div style="font-weight: 900; font-size: 2.4mm;">LÜTFEN BİZE İLETİNİZ...</div>
           </div>
           
-          <div style="display: flex; justify-content: space-between; margin-top: 2mm; font-size: 1.4mm;">
+          <div style="display: flex; justify-content: space-between; margin-top: 2mm; font-size: 2mm; font-weight: 900;">
             <div>
               <div>TEL: 0 (212) 296 66 60</div>
               <div>GSM: 0 (545) 296 66 60</div>
@@ -561,7 +576,7 @@ async function printMultipleFis(
         </div>
         
         <!-- Alt Çizgi -->
-        <div style="background: #000; color: white; text-align: center; padding: 1mm; font-size: 1.6mm; font-weight: bold;">
+        <div style="background: #000; color: white; text-align: center; padding: 1mm; font-size: 2mm; font-weight: 900;">
           ${fisProps.fisNo}
         </div>
       </div>
@@ -581,7 +596,7 @@ async function printMultipleFis(
               <title>Müşteri Tahsilat Fişleri - ${fisliOdemeler.length} Adet</title>
               <style>
                 @page {
-                  size: 78mm 165mm;
+                  size: 78mm 142mm;
                   margin: 0;
                   padding: 0;
                 }
@@ -593,9 +608,9 @@ async function printMultipleFis(
                 }
                 .fis-container {
                   width: 78mm;
-                  height: 165mm;
+                  height: 142mm;
                   margin: 0;
-                  padding: 1.5mm;
+                  padding: 2mm;
                   background: white;
                   box-sizing: border-box;
                   font-family: Arial, sans-serif;
@@ -610,7 +625,7 @@ async function printMultipleFis(
                 @media print {
                   .fis-container {
                     width: 78mm !important;
-                    height: 165mm !important;
+                    height: 142mm !important;
                     transform: none !important;
                     scale: 1 !important;
                     page-break-after: always !important;
@@ -621,6 +636,9 @@ async function printMultipleFis(
                   * {
                     -webkit-print-color-adjust: exact !important;
                     color-adjust: exact !important;
+                  }
+                  body {
+                    font-weight: bolder !important;
                   }
                 }
               </style>
@@ -837,7 +855,15 @@ async function onKaydet() {
       }
       
       // Tüm fişleri tek seferde yazdırmak için toplu yazdırma fonksiyonu
-      await printMultipleFis(fisliOdemeler, islemNoList, musteri, islemKllnc, maxIslemno);
+      await printMultipleFis(
+        fisliOdemeler, 
+        islemNoList, 
+        musteri, 
+        islemKllnc, 
+        maxIslemno,
+        depozito.value.alinan ? Number(depozito.value.alinan) : undefined,
+        depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined
+      );
         
         console.log('🎉 Tüm fiş yazdırma işlemleri tamamlandı');
       } else {
