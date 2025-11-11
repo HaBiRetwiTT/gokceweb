@@ -440,11 +440,13 @@ export class IslemController {
   async getGuncelBakiye(
     @Query('islemArac') islemArac: string,
     @Query('islemTip') islemTip: string,
+    @Query('endDate') endDate?: string,
   ) {
     try {
       const bakiye = await this.islemService.getGuncelBakiye(
         islemArac,
         islemTip,
+        endDate,
       );
       return {
         success: true,

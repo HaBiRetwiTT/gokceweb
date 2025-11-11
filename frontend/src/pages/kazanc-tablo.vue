@@ -776,7 +776,7 @@ async function loadTableDataForBar(barIndex: number) {
   const giderSum = result.reduce((acc, r) => acc + (Number(r.giderToplam) || 0), 0)
   netToplam.value = gelirSum - giderSum
   
-  periodNetText.value = `${barStartDate} - ${barEndDate} ${netToplam.value >= 0 ? 'KAZANÇ' : 'ZARAR'}: ${formatTL(Math.abs(netToplam.value))}`
+  periodNetText.value = `${netToplam.value >= 0 ? 'KAZANÇ' : 'ZARAR'}: ${formatTL(Math.abs(netToplam.value))}`
   const gelirCol = columns.value.find(c => c.name === 'gelirToplam')
   const giderCol = columns.value.find(c => c.name === 'giderToplam')
   if (gelirCol) gelirCol.label = formatTL(gelirSum)
@@ -784,6 +784,9 @@ async function loadTableDataForBar(barIndex: number) {
   
   // Pie chart'ları güncelle
   updatePieCharts(gelir, gider)
+  
+  // Kasa bakiyelerini güncelle
+  await loadKasaBakiyeleri()
 }
 
 function selectPeriod(v: string) {
@@ -806,7 +809,7 @@ const navigateToPreviousBar = async () => {
   if (activeBarIndex.value > 0) {
     activeBarIndex.value--
     updateBarChartSeri(seriData.value) // Önce chart'ı güncelle (aktif bar rengi için)
-    await loadTableDataForBar(activeBarIndex.value)
+    await loadTableDataForBar(activeBarIndex.value) // Bu içinde loadKasaBakiyeleri çağrılıyor
   }
 }
 
@@ -815,7 +818,7 @@ const navigateToNextBar = async () => {
   if (activeBarIndex.value < seriData.value.length - 1) {
     activeBarIndex.value++
     updateBarChartSeri(seriData.value) // Önce chart'ı güncelle (aktif bar rengi için)
-    await loadTableDataForBar(activeBarIndex.value)
+    await loadTableDataForBar(activeBarIndex.value) // Bu içinde loadKasaBakiyeleri çağrılıyor
   }
 }
 
@@ -838,14 +841,14 @@ function onCustomDateSelected() {
   if (datePopup.value) {
     datePopup.value.hide()
   }
-  void loadData()
+  void loadData() // Bu içinde loadTableDataForBar ve dolayısıyla loadKasaBakiyeleri çağrılıyor
 }
 
 function clearCustomDate() {
   customStartDate.value = ''
   // GÜNLER butonunu aktif et
   timePeriods.value.forEach(p => (p.selected = p.value === 'gunler'))
-  void loadData()
+  void loadData() // Bu içinde loadTableDataForBar ve dolayısıyla loadKasaBakiyeleri çağrılıyor
 }
 
 // Grid satırına çift tıklama
@@ -1024,9 +1027,27 @@ const clearTransferForm = () => {
 // Güncel kasa bakiyelerini yükle
 const loadKasaBakiyeleri = async () => {
   try {
+    let endDate: string | undefined = undefined;
+    
+    // GÜNLER seçili VEYA başlangıç tarihi girilmişse, aktif bar'ın tarihini kullan
+    const selectedPeriod = timePeriods.value.find(p => p.selected)?.value || 'gunler';
+    const isGunlerOrCustomDate = selectedPeriod === 'gunler' || customStartDate.value;
+    
+    if (isGunlerOrCustomDate && seriData.value.length > 0 && activeBarIndex.value >= 0 && activeBarIndex.value < seriData.value.length) {
+      const selectedBar = seriData.value[activeBarIndex.value];
+      if (selectedBar.dateISO) {
+        // ISO formatından DD.MM.YYYY formatına çevir
+        const date = new Date(selectedBar.dateISO);
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = date.getFullYear();
+        endDate = `${dd}.${mm}.${yyyy}`;
+      }
+    }
+
     // Nakit bakiye
     const nakitResponse = await api.get('/islem/guncel-bakiye', {
-      params: { islemArac: 'nakit', islemTip: 'Giren' }
+      params: { islemArac: 'nakit', islemTip: 'Giren', endDate }
     });
     if (nakitResponse.data.success) {
       kasaBakiyeleri.value.nakit = nakitResponse.data.bakiye || 0;
@@ -1034,7 +1055,7 @@ const loadKasaBakiyeleri = async () => {
 
     // Kart bakiye
     const kartResponse = await api.get('/islem/guncel-bakiye', {
-      params: { islemArac: 'kart', islemTip: 'Giren' }
+      params: { islemArac: 'kart', islemTip: 'Giren', endDate }
     });
     if (kartResponse.data.success) {
       kasaBakiyeleri.value.kart = kartResponse.data.bakiye || 0;
@@ -1042,7 +1063,7 @@ const loadKasaBakiyeleri = async () => {
 
     // EFT bakiye
     const eftResponse = await api.get('/islem/guncel-bakiye', {
-      params: { islemArac: 'eft', islemTip: 'Giren' }
+      params: { islemArac: 'eft', islemTip: 'Giren', endDate }
     });
     if (eftResponse.data.success) {
       kasaBakiyeleri.value.eft = eftResponse.data.bakiye || 0;
@@ -1050,7 +1071,7 @@ const loadKasaBakiyeleri = async () => {
 
     // Acenta bakiye
     const acentaResponse = await api.get('/islem/guncel-bakiye', {
-      params: { islemArac: 'acenta', islemTip: 'Giren' }
+      params: { islemArac: 'acenta', islemTip: 'Giren', endDate }
     });
     if (acentaResponse.data.success) {
       kasaBakiyeleri.value.acenta = acentaResponse.data.bakiye || 0;

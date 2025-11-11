@@ -2872,8 +2872,10 @@ const loadDetailTableData = async (tarih: string) => {
        debugLog('🔍 Detay veri sayısı:', result.data?.length || 0)
        debugLog('🔍 Detay toplam kayıt sayısı:', result.totalRecords)
        debugLog('🔍 Detay ilk kayıt:', result.data?.[0])
-       // Backend'den gelen veriyi kullan
-       allDetailTableData.value = result.data || []
+       // Backend'den gelen veriyi kullan ve FON KAYIT: ile başlayanları filtrele
+       allDetailTableData.value = (result.data || []).filter((item: IslemDetay) => {
+         return !item.islemAltG || !item.islemAltG.includes('FON KAYIT: ')
+       })
        
        // Default sıralamaya dön (islemNo desc)
        detailPagination.value.sortBy = defaultDetailSort.sortBy

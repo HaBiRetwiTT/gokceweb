@@ -1318,9 +1318,10 @@ export class IslemService {
   async getGuncelBakiye(
     islemArac: string,
     islemTip?: string,
+    endDateDDMMYYYY?: string,
   ): Promise<number> {
     try {
-      console.log('🔍 getGuncelBakiye çağrıldı:', { islemArac, islemTip })
+      console.log('🔍 getGuncelBakiye çağrıldı:', { islemArac, islemTip, endDateDDMMYYYY })
       
 
       const tableName = this.dbConfig.getTableName('tblislem');
@@ -1370,6 +1371,11 @@ export class IslemService {
 
       console.log('🔍 Gelir/Gider koşulları:', { gelirCondition, giderCondition })
 
+      // Tarih filtresi ekle (eğer endDate verilmişse)
+      const dateFilter = endDateDDMMYYYY 
+        ? `AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, '${endDateDDMMYYYY}', 104)`
+        : '';
+
       const bakiyeQuery = `
         SELECT 
           SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
@@ -1377,6 +1383,7 @@ export class IslemService {
         FROM ${tableName} i
         ${islemAracim}
         AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
+        ${dateFilter}
       `;
 
       console.log('🔍 Bakiye Query:', bakiyeQuery)
