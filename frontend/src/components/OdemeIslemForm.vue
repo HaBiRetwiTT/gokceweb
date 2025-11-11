@@ -422,7 +422,8 @@ async function printSingleFis(
   islemKllnc: string,
   fisNo: number,
   depozitoAlinan?: number,
-  depozitoOdemeAraci?: string
+  depozitoOdemeAraci?: string,
+  yeniEklenenGelirToplami?: number
 ) {
   console.log('🖨️ Tek fiş yazdırma başlıyor...');
   
@@ -438,11 +439,18 @@ async function printSingleFis(
     }
     
     if (cariKod) {
+      console.log(`🔍 CariKod ile bakiye sorgulanıyor: ${cariKod}`);
       const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
+      console.log(`🔍 Backend bakiye response:`, bakiyeResponse.data);
       if (bakiyeResponse.data.success) {
         guncelBakiye = bakiyeResponse.data.bakiye || 0;
         console.log(`💰 Backend'den güncel bakiye çekildi: ${guncelBakiye}`);
+        console.log(`💰 CariKod: ${cariKod}`);
+      } else {
+        console.error(`❌ Bakiye sorgusu başarısız:`, bakiyeResponse.data);
       }
+    } else {
+      console.error(`❌ CariKod bulunamadı! Müşteri bilgileri:`, musteri);
     }
   } catch {
     console.error('❌ Güncel bakiye çekilemedi, window değeri kullanılacak');
@@ -451,7 +459,11 @@ async function printSingleFis(
   
   console.log(`💰 Kullanılan bakiye: ${guncelBakiye}`);
   
-  // Toplam tahsilatı hesapla
+  // Yeni eklenen GELİR kayıtlarını bakiyeye ekle
+  const guncelBakiyeIleYeniKayitlar = guncelBakiye + (yeniEklenenGelirToplami || 0);
+  console.log(`💰 Bakiye + Yeni GELİR: ${guncelBakiye} + ${yeniEklenenGelirToplami || 0} = ${guncelBakiyeIleYeniKayitlar}`);
+  
+  // Toplam tahsilatı hesapla (sadece ödeme sekmeleri, depozito HARİÇ)
   let toplamTahsilat = 0;
   let toplamKomisyon = 0;
   for (const od of odemeler) {
@@ -461,14 +473,11 @@ async function printSingleFis(
     }
   }
   
-  // Depozito varsa tahsilata ekle
-  if (depozitoAlinan) {
-    toplamTahsilat += depozitoAlinan;
-  }
+  // ❌ DEPOZITO TAHSİLATA DAHİL EDİLMEZ (emanet paradır, borç-alacak hesabına girmez)
   
-  // Kalan borç hesapla
-  const kalanBorc = guncelBakiye - toplamTahsilat + toplamKomisyon;
-  console.log(`💰 Kalan borç hesabı: ${guncelBakiye} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
+  // Kalan borç hesapla: (Backend bakiye + Yeni GELİR) - Tahsilat + Komisyon
+  const kalanBorc = guncelBakiyeIleYeniKayitlar - toplamTahsilat + toplamKomisyon;
+  console.log(`💰 Kalan borç hesabı: ${guncelBakiyeIleYeniKayitlar} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
   
   // Ödeme satırlarını oluştur
   let odemeSatirlari = '';
@@ -812,8 +821,21 @@ async function onKaydet() {
 
   if (islemKayitlari.length === 0) {
     Notify.create({ type: 'warning', message: 'En az bir tahsilat veya depozito işlemi girmelisiniz.' });
+    kaydetLoading.value = false;
     return;
   }
+
+  // Yeni eklenen GELİR kayıtlarının toplamını hesapla (tahsilat ve depozito hariç)
+  // GELİR ve Çıkan kayıtları müşterinin borcudur
+  // Giren kayıtları tahsilattır (buraya dahil olmamalı)
+  const yeniGelirToplami = islemKayitlari
+    .filter(k => (k.islemTip === 'GELİR' || k.islemTip === 'Çıkan') 
+      && !k.islemBilgi.includes('=DEPOZİTO TAHSİLATI=')
+      && !k.islemBilgi.includes('=DEPOZİTO İADESİ='))
+    .reduce((sum, k) => sum + (k.islemTutar || 0), 0);
+  
+  console.log('🔍 Yeni eklenen GELİR toplamı:', yeniGelirToplami);
+  console.log('🔍 İşlem kayıtları detayı:', islemKayitlari.map(k => ({ islemTip: k.islemTip, islemTutar: k.islemTutar, islemBilgi: k.islemBilgi })));
 
   try {
     //const response = await api.post('/islem-ekle', { islemler: islemKayitlari });
@@ -889,7 +911,8 @@ async function onKaydet() {
           islemKllnc,
           fisNo,
           depozito.value.alinan ? Number(depozito.value.alinan) : undefined,
-          depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined
+          depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined,
+          yeniGelirToplami
         );
         
         console.log('🎉 Tek fiş yazdırma tamamlandı');
