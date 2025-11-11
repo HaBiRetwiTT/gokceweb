@@ -205,6 +205,7 @@ type GlobalMusteri = {
   KnklmOdaNo?: string;
   KnklmYtkNo?: string;
   CariKod?: string;
+  KnklmPlnTrh?: string;
 };
 
 const props = defineProps<{ show: boolean; musteriAdi: string }>();
@@ -404,85 +405,120 @@ const isKaydetDisabled = computed(() => {
   return true;
 });
 
-// Eski fiş yazdırma fonksiyonu - artık kullanılmıyor, çoklu fiş yazdırma için printMultipleFis kullanılıyor
-
-// Çoklu fiş yazdırma fonksiyonu - tek pencerede tüm fişleri yazdırır
-async function printMultipleFis(
-  fisliOdemeler: Array<{ tutar: string | number; tip: string; odemeTipiGrup: string; index: number; komisyon?: boolean; orijinalTutar?: string | number; ekHizmetNotu?: string }>,
-  islemNoList: number[],
-  musteri: { MstrAdi?: string; OdaYatak?: string; KnklmOdaNo?: string; KnklmYtkNo?: string; },
+// Tek fiş yazdırma fonksiyonu - tüm ödemeler tek fişte
+async function printSingleFis(
+  odemeler: Array<{ tutar: string | number; tip: string; odemeTipiGrup: string; komisyon?: boolean; orijinalTutar?: string | number; ekHizmetNotu?: string }>,
+  musteri: { 
+    MstrAdi?: string; 
+    OdaYatak?: string; 
+    KnklmOdaNo?: string; 
+    KnklmYtkNo?: string; 
+    MstrNo?: number; 
+    MstrTCN?: string; 
+    CariKod?: string;
+    KnklmPlnTrh?: string;
+    MstrHspTip?: string;
+  },
   islemKllnc: string,
-  maxIslemno: number,
+  fisNo: number,
   depozitoAlinan?: number,
   depozitoOdemeAraci?: string
 ) {
-  console.log('🖨️ Çoklu fiş yazdırma başlıyor...');
+  console.log('🖨️ Tek fiş yazdırma başlıyor...');
   
-  // Tüm fişlerin HTML'ini hazırla
-  let allFisHTML = '';
+  // Müşterinin GÜNCEL bakiyesini backend'den çek
+  let guncelBakiye = 0;
+  try {
+    let cariKod = '';
+    if (musteri.CariKod) {
+      cariKod = musteri.CariKod;
+    } else if (musteri.MstrNo) {
+      const hspTip = musteri.MstrHspTip || 'Bireysel';
+      cariKod = hspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;
+    }
+    
+    if (cariKod) {
+      const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
+      if (bakiyeResponse.data.success) {
+        guncelBakiye = bakiyeResponse.data.bakiye || 0;
+        console.log(`💰 Backend'den güncel bakiye çekildi: ${guncelBakiye}`);
+      }
+    }
+  } catch {
+    console.error('❌ Güncel bakiye çekilemedi, window değeri kullanılacak');
+    guncelBakiye = (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye || 0;
+  }
   
-  // Başlangıç bakiyesi
-  const baslangicBakiye = (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye || 0;
+  console.log(`💰 Kullanılan bakiye: ${guncelBakiye}`);
   
-  console.log(`💰 Başlangıç bakiyesi: ${baslangicBakiye}`);
-  
-  // ÖNCE tüm tahsilatı ve komisyonu hesapla
+  // Toplam tahsilatı hesapla
   let toplamTahsilat = 0;
   let toplamKomisyon = 0;
-  for (const od of fisliOdemeler) {
+  for (const od of odemeler) {
     toplamTahsilat += Number(od.tutar);
     if (od.komisyon && od.orijinalTutar) {
       toplamKomisyon += Number(od.tutar) - Number(od.orijinalTutar);
     }
   }
   
-  // Tüm fişler için aynı kalan borç
-  const kalanBorc = baslangicBakiye - toplamTahsilat + toplamKomisyon;
-  console.log(`💰 Kalan borç hesabı: ${baslangicBakiye} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
+  // Depozito varsa tahsilata ekle
+  if (depozitoAlinan) {
+    toplamTahsilat += depozitoAlinan;
+  }
   
-  for (let i = 0; i < fisliOdemeler.length; i++) {
-    const od = fisliOdemeler[i];
-    console.log(`📄 Fiş ${i + 1}/${fisliOdemeler.length} hazırlanıyor:`, od);
-    
-    // Radio group seçimlerini al
+  // Kalan borç hesapla
+  const kalanBorc = guncelBakiye - toplamTahsilat + toplamKomisyon;
+  console.log(`💰 Kalan borç hesabı: ${guncelBakiye} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
+  
+  // Ödeme satırlarını oluştur
+  let odemeSatirlari = '';
+  for (let i = 0; i < odemeler.length; i++) {
+    const od = odemeler[i];
     const odemeTipiLabel = odemeTipleri.find(tip => tip.value === od.tip)?.label || 'Nakit Kasa(TL)';
-    const odemeTipiGrupLabel = odemeTipiGrupOptions.find(grup => grup.value === od.odemeTipiGrup)?.label || 'Konaklama';
     
-    // Fiş numarasını hesapla - (max islemno) + 1 + index
-    const fisNo = maxIslemno + i;
-    console.log(`🔢 Fiş ${i + 1} için fiş no:`, fisNo, `(maxIslemno: ${maxIslemno} + 1 + index: ${i})`);
+    odemeSatirlari += `
+      <div style="margin-bottom: 2mm;">
+        <div style="border: 3px solid #000; padding: 2mm; display: flex; justify-content: space-between; align-items: center; background: white; font-weight: 900; font-size: 3.5mm;">
+          <span>${odemeTipiLabel}</span>
+          <span>-</span>
+          <span style="font-family: 'Arial Black', Arial, sans-serif;">₺${od.tutar}</span>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Depozito satırı
+  let depozitoSatiri = '';
+  if (depozitoAlinan && depozitoOdemeAraci) {
+    depozitoSatiri = `
+      <div style="margin-bottom: 2mm;">
+        <div style="border: 3px solid #000; padding: 2mm; background: #fffacd;">
+          <div style="font-weight: 900; font-size: 2.8mm; margin-bottom: 1mm; text-align: center;">DEPOZİTO</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 3.5mm;">
+            <span>${depozitoOdemeAraci}</span>
+            <span>-</span>
+            <span style="font-family: 'Arial Black', Arial, sans-serif;">₺${depozitoAlinan}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Fiş HTML - mevcut koddan üst kısımları alıp yeni yapıyla birleştir
+  const tarih = new Date().toLocaleDateString('tr-TR');
+  const musteriAdi = musteri.MstrAdi || 'Bilinmeyen Müşteri';
+  const odaBilgisi = musteri.OdaYatak || (musteri.KnklmOdaNo && musteri.KnklmYtkNo ? `${musteri.KnklmOdaNo} - ${musteri.KnklmYtkNo}` : '');
+  const planlananCikis = musteri.KnklmPlnTrh || tarih;
     
-    // Depozito bu fişe dahil mi kontrol et
-    const depozitoTutari = (depozitoAlinan && odemeTipiLabel === depozitoOdemeAraci) 
-      ? depozitoAlinan 
-      : 0;
-    
-    // Fiş için gerekli verileri hazırla
-      const fisProps = {
-      musteriAdi: musteri.MstrAdi || 'Bilinmeyen Müşteri',
-      odaBilgisi: musteri.OdaYatak || (musteri.KnklmOdaNo && musteri.KnklmYtkNo ? `${musteri.KnklmOdaNo} - ${musteri.KnklmYtkNo}` : ''),
-        aciklama: od.odemeTipiGrup === 'ekhizmet' && od.ekHizmetNotu
-          ? `Ek Hizmet - ${od.ekHizmetNotu}`
-          : odemeTipiGrupLabel,
-      tutar: od.tutar,
-      kalanBorc: formatCurrency(kalanBorc),
-      alinanDepozito: depozitoTutari > 0 ? formatCurrency(depozitoTutari) : null,
-      sonOdemeTarihi: new Date().toLocaleDateString('tr-TR'),
-      tarih: new Date().toLocaleDateString('tr-TR'),
-      islemYapan: islemKllnc,
-      fisNo: fisNo.toString(),
-      odemeSekli: odemeTipiLabel
-    };
-    
-    // Fiş HTML'ini oluştur - Görseldeki şablona uygun
+    // TEK FİŞ HTML'ini oluştur
     const fisHTML = `
       <div class="fis-container">
         
         <!-- Üst Bilgi Satırı -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2mm; font-size: 2.4mm; font-weight: 900;">
-          <span>TARİH: ${fisProps.tarih}</span>
-          <span>İŞLEMİ YAPAN: ${fisProps.islemYapan}</span>
-          <span>FİŞ NO: ${fisProps.fisNo}</span>
+          <span>TARİH: ${tarih}</span>
+          <span>İŞLEMİ YAPAN: ${islemKllnc}</span>
+          <span>FİŞ NO: ${fisNo}</span>
         </div>
         
         <!-- Logo ve Firma Adı -->
@@ -504,47 +540,36 @@ async function printMultipleFis(
         <!-- Müşteri Bilgileri -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
           <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">SAYIN</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.musteriAdi}</div>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${musteriAdi}</div>
         </div>
         
         <!-- Oda Bilgileri -->
         <div style="margin-bottom: 2mm; display: flex; align-items: center;">
           <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">ODA</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.odaBilgisi}</div>
+          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white;">${odaBilgisi}</div>
         </div>
         
-        <!-- Ek Hizmet -->
-        <div style="margin-bottom: 2mm;">
-          <div style="border: 3px solid #000; padding: 1.5mm; font-weight: 900; font-size: 3.3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.aciklama}</div>
-        </div>
+        <!-- Ödeme Satırları -->
+        ${odemeSatirlari}
         
-        <!-- Tutar -->
-        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: 900; font-size: 3mm; display: inline-block; width: 10mm;">TUTAR</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; text-align: right; font-weight: 900; font-size: 4mm; display: flex; align-items: center; justify-content: flex-end; background: white; font-family: 'Arial Black', Arial, sans-serif;">₺${fisProps.tutar}</div>
-        </div>
-        
-        <!-- Ödeme Şekli -->
-        <div style="text-align: center; font-size: 2.6mm; margin-bottom: 2mm; font-weight: 900;">${fisProps.odemeSekli} TAHSİL EDİLMİŞTİR.</div>
+        <!-- Depozito Satırı -->
+        ${depozitoSatiri}
         
         <!-- Kalan Borç -->
-        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 14mm;">KALAN BORÇ</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.kalanBorc}</div>
+        <div style="margin-bottom: 2mm;">
+          <div style="border: 3px solid #000; padding: 2mm; display: flex; justify-content: space-between; align-items: center; background: white; font-weight: 900; font-size: 3.5mm;">
+            <span>KALAN BORÇ</span>
+            <span>-</span>
+            <span style="font-family: 'Arial Black', Arial, sans-serif;">${formatCurrency(kalanBorc)}</span>
+          </div>
         </div>
         
-        ${fisProps.alinanDepozito ? `
-        <!-- Alınan Depozito -->
-        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 18mm;">ALINAN DEPOZİTO</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; background: white; font-family: 'Arial Black', Arial, sans-serif;">${fisProps.alinanDepozito}</div>
-        </div>
-        ` : ''}
-        
-        <!-- Son Ödeme Tarihi -->
-        <div style="margin-bottom: 2mm; display: flex; align-items: center;">
-          <span style="font-weight: 900; font-size: 2.8mm; display: inline-block; width: 14mm;">SON ÖDEME</span>
-          <div style="border: 3px solid #000; padding: 1.5mm; flex: 1; font-weight: 900; font-size: 3mm; display: flex; align-items: center; justify-content: center; background: white;">${fisProps.sonOdemeTarihi}</div>
+        <!-- Planlanan Çıkış -->
+        <div style="margin-bottom: 2mm;">
+          <div style="border: 3px solid #000; padding: 2mm; text-align: center; background: white; font-weight: 900; font-size: 3mm;">
+            <div>PLANLANAN ÇIKIŞ</div>
+            <div style="font-size: 3.3mm; margin-top: 1mm; font-family: 'Arial Black', Arial, sans-serif;">${planlananCikis}</div>
+          </div>
         </div>
         
         <!-- Bilgilendirme Kutusu -->
@@ -577,15 +602,12 @@ async function printMultipleFis(
         
         <!-- Alt Çizgi -->
         <div style="background: #000; color: white; text-align: center; padding: 1mm; font-size: 2mm; font-weight: 900;">
-          ${fisProps.fisNo}
+          ${fisNo}
         </div>
       </div>
     `;
-    
-    allFisHTML += fisHTML;
-  }
   
-  // Tek pencerede tüm fişleri yazdır
+  // Tek fiş yazdır
   return new Promise<void>((resolve, reject) => {
     try {
       const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
@@ -593,7 +615,7 @@ async function printMultipleFis(
         printWindow.document.write(`
           <html>
             <head>
-              <title>Müşteri Tahsilat Fişleri - ${fisliOdemeler.length} Adet</title>
+              <title>Müşteri Tahsilat Fişi - ${fisNo}</title>
               <style>
                 @page {
                   size: 78mm 142mm;
@@ -644,7 +666,7 @@ async function printMultipleFis(
               </style>
             </head>
             <body>
-              ${allFisHTML}
+              ${fisHTML}
             </body>
           </html>
         `);
@@ -653,7 +675,7 @@ async function printMultipleFis(
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
-            console.log(`✅ ${fisliOdemeler.length} adet fiş yazdırma başlatıldı`);
+            console.log(`✅ Tek fiş yazdırma başlatıldı`);
             
             setTimeout(() => {
               printWindow.close();
@@ -666,7 +688,7 @@ async function printMultipleFis(
         reject(new Error('Yeni pencere açılamadı'));
       }
     } catch (error) {
-      console.error('❌ Çoklu fiş yazdırma hatası:', error);
+      console.error('❌ Tek fiş yazdırma hatası:', error);
       Notify.create({ type: 'negative', message: 'Fiş yazdırma hatası: ' + String(error) });
       reject(error instanceof Error ? error : new Error(String(error)));
     }
@@ -835,39 +857,44 @@ async function onKaydet() {
         });
       });
       
-            if (fisliOdemeler.length > 0) {
-        console.log('🎫 Fiş yazdırma başlıyor...');
+      // Fiş yazdırma kontrolü - Ödeme VEYA depozito varsa fiş bas
+      if (fisliOdemeler.length > 0 || (depozito.value.alinan && depozito.value.tip)) {
+        console.log('🎫 Tek fiş yazdırma başlıyor...');
         
-        // Backend'den dönen islemno listesini al
-        const islemNoList = response.data.islemNoList || [];
-        console.log('📊 Backend islemno listesi:', islemNoList);
+        // Maksimum islemno değerini backend'den al
+        let fisNo = 0;
+        try {
+          const maxIslemnoResponse = await api.get('/odeme-islem/max-islemno');
+          fisNo = (maxIslemnoResponse.data.maxIslemno || 0) + 1;
+          console.log('🔢 Fiş numarası:', fisNo);
+        } catch (error) {
+          console.error('❌ Maksimum islemno alınamadı:', error);
+          fisNo = 1;
+        }
         
-              // Maksimum islemno değerini backend'den al
-      let maxIslemno = 0;
-      try {
-        const maxIslemnoResponse = await api.get('/odeme-islem/max-islemno');
-        maxIslemno = maxIslemnoResponse.data.maxIslemno || 0;
-        console.log('🔢 Backend\'den alınan maksimum islemno:', maxIslemno);
-      } catch (error) {
-        console.error('❌ Maksimum islemno alınamadı:', error);
-        // Hata durumunda varsayılan değer kullan
-        maxIslemno = 0;
-      }
-      
-      // Tüm fişleri tek seferde yazdırmak için toplu yazdırma fonksiyonu
-      await printMultipleFis(
-        fisliOdemeler, 
-        islemNoList, 
-        musteri, 
-        islemKllnc, 
-        maxIslemno,
-        depozito.value.alinan ? Number(depozito.value.alinan) : undefined,
-        depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined
-      );
+        // TEK FİŞ YAZDIR
+        await printSingleFis(
+          fisliOdemeler,
+          {
+            MstrAdi: musteri.MstrAdi,
+            OdaYatak: musteri.OdaYatak,
+            KnklmOdaNo: musteri.KnklmOdaNo,
+            KnklmYtkNo: musteri.KnklmYtkNo,
+            MstrNo: musteri.MstrNo,
+            MstrTCN: musteri.MstrTCN,
+            MstrHspTip: musteri.MstrHspTip,
+            CariKod: musteri.CariKod,
+            KnklmPlnTrh: musteri.KnklmPlnTrh
+          },
+          islemKllnc,
+          fisNo,
+          depozito.value.alinan ? Number(depozito.value.alinan) : undefined,
+          depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined
+        );
         
-        console.log('🎉 Tüm fiş yazdırma işlemleri tamamlandı');
+        console.log('🎉 Tek fiş yazdırma tamamlandı');
       } else {
-        console.log('❌ Fiş yazdırılacak ödeme bulunamadı');
+        console.log('❌ Fiş yazdırılacak ödeme veya depozito bulunamadı');
       }
       
       // Form resetleme işlemini en sona al
