@@ -433,10 +433,10 @@ const linksList = computed(() => {
       return false;
     }
     
-    // Kartlı işlem sayfasındaysa, sadece ilk 6 kart seçiliyse Müşteri Tahsilat'ı göster
+    // Kartlı işlem sayfasındaysa, belirtilen kartlar seçiliyse Müşteri Tahsilat'ı göster
     if (isKartliIslemPage && link.title === 'Müşteri Tahsilat') {
-      const ilk6Kart = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'];
-      if (!currentFilter || !ilk6Kart.includes(currentFilter)) {
+      const tahsilatKartlari = ['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar', 'borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar'];
+      if (!currentFilter || !tahsilatKartlari.includes(currentFilter)) {
         // Dev log kaldırıldı
         return false;
       }
@@ -1069,10 +1069,10 @@ function handleMenuAction(action: string) {
     }
     const selectedNormalMusteri = window.kartliIslemSelectedNormalMusteri;
     const currentFilter = window.kartliIslemCurrentFilter;
-    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar'].includes(currentFilter)) {
+    if (!currentFilter || !['yeni-musteri', 'yeni-giris', 'toplam-aktif', 'suresi-dolan', 'bugun-cikan', 'cikis-yapanlar', 'borclu-musteriler', 'alacakli-musteriler', 'bakiyesiz-hesaplar'].includes(currentFilter)) {
       Notify.create({
         type: 'warning',
-        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- -Bugün Çıkan- -Çıkış Yapanlar- kartlarından biri seçili iken kullanılabilir.'
+        message: 'Müşteri Tahsilat formu sadece -Yeni Müşteri- -Yeni Giriş- -Devam Eden- -Süresi Dolan- -Bugün Çıkan- -Çıkış Yapanlar- -Borçlu Müşteriler- -Alacaklı Müşteriler- -Bakiyesiz Hesaplar- kartlarından biri seçili iken kullanılabilir.'
       });
       return;
     }

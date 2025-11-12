@@ -9,9 +9,17 @@
           <q-btn dense flat round icon="calculate" @click="onOpenCalculator" :title="'Hesap Makinesi'" />
         </div>
         <div class="tahsilat-form-wrapper">
-          <div class="row items-center q-mb-lg">
-            <div class="text-subtitle1 q-mr-md">Müşteri Adı:</div>
-            <div class="text-body1 text-weight-medium">{{ props.musteriAdi }}</div>
+          <div class="row items-center justify-between q-mb-lg">
+            <div class="row items-center">
+              <div class="text-subtitle1 q-mr-md">Müşteri Adı:</div>
+              <div class="text-body1 text-weight-medium">{{ props.musteriAdi }}</div>
+            </div>
+            <div class="row items-center">
+              <div class="text-subtitle1 q-mr-sm">Bakiye:</div>
+              <div class="text-h6 text-weight-bold" :class="kalanBakiye >= 0 ? 'text-green' : 'text-orange'">
+                {{ formatCurrency(Math.abs(kalanBakiye)) }}
+              </div>
+            </div>
           </div>
           <div class="q-gutter-md">
             <div v-if="true" :class="['odeme-container q-pa-md q-mb-md', (0 > 0 && !odeme[0]?.tutar) ? 'soluk-renkli' : '']">
@@ -268,6 +276,31 @@ const odemeTipiGrupOptions = [
 
 const depozito = ref(getDefaultDepozito());
 
+// Müşterinin mevcut bakiyesi (depozito hariç)
+const musteriBakiyesi = ref<number>(0);
+
+// Modal açıldığında bakiyeyi al
+watch(() => props.show, (newValue) => {
+  if (newValue) {
+    const win = window as { selectedMusteriBakiye?: number };
+    musteriBakiyesi.value = win.selectedMusteriBakiye || 0;
+  }
+});
+
+// Dinamik kalan bakiye hesaplama (depozito hariç, sadece ödemeler)
+const kalanBakiye = computed(() => {
+  let toplamOdeme = 0;
+  for (let i = 0; i < 5; i++) {
+    const od = odeme.value[i];
+    if (od && od.tutar) {
+      toplamOdeme += Number(od.tutar);
+    }
+  }
+  
+  // Müşteri ödeme yapıyor → bakiye azalır
+  return musteriBakiyesi.value - toplamOdeme;
+});
+
 const komisyonOrani = ref<number>(0);
 
 async function fetchKomisyonOrani() {
@@ -423,61 +456,14 @@ async function printSingleFis(
   fisNo: number,
   depozitoAlinan?: number,
   depozitoOdemeAraci?: string,
-  yeniEklenenGelirToplami?: number
+  yeniEklenenGelirToplami?: number,
+  formBaslikKalanBakiye?: number
 ) {
   console.log('🖨️ Tek fiş yazdırma başlıyor...');
   
-  // Müşterinin GÜNCEL bakiyesini backend'den çek
-  let guncelBakiye = 0;
-  try {
-    let cariKod = '';
-    if (musteri.CariKod) {
-      cariKod = musteri.CariKod;
-    } else if (musteri.MstrNo) {
-      const hspTip = musteri.MstrHspTip || 'Bireysel';
-      cariKod = hspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;
-    }
-    
-    if (cariKod) {
-      console.log(`🔍 CariKod ile bakiye sorgulanıyor: ${cariKod}`);
-      const bakiyeResponse = await api.get(`/dashboard/musteri-bakiye/${cariKod}`);
-      console.log(`🔍 Backend bakiye response:`, bakiyeResponse.data);
-      if (bakiyeResponse.data.success) {
-        guncelBakiye = bakiyeResponse.data.bakiye || 0;
-        console.log(`💰 Backend'den güncel bakiye çekildi: ${guncelBakiye}`);
-        console.log(`💰 CariKod: ${cariKod}`);
-      } else {
-        console.error(`❌ Bakiye sorgusu başarısız:`, bakiyeResponse.data);
-      }
-    } else {
-      console.error(`❌ CariKod bulunamadı! Müşteri bilgileri:`, musteri);
-    }
-  } catch {
-    console.error('❌ Güncel bakiye çekilemedi, window değeri kullanılacak');
-    guncelBakiye = (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye || 0;
-  }
-  
-  console.log(`💰 Kullanılan bakiye: ${guncelBakiye}`);
-  
-  // Yeni eklenen GELİR kayıtlarını bakiyeye ekle
-  const guncelBakiyeIleYeniKayitlar = guncelBakiye + (yeniEklenenGelirToplami || 0);
-  console.log(`💰 Bakiye + Yeni GELİR: ${guncelBakiye} + ${yeniEklenenGelirToplami || 0} = ${guncelBakiyeIleYeniKayitlar}`);
-  
-  // Toplam tahsilatı hesapla (sadece ödeme sekmeleri, depozito HARİÇ)
-  let toplamTahsilat = 0;
-  let toplamKomisyon = 0;
-  for (const od of odemeler) {
-    toplamTahsilat += Number(od.tutar);
-    if (od.komisyon && od.orijinalTutar) {
-      toplamKomisyon += Number(od.tutar) - Number(od.orijinalTutar);
-    }
-  }
-  
-  // ❌ DEPOZITO TAHSİLATA DAHİL EDİLMEZ (emanet paradır, borç-alacak hesabına girmez)
-  
-  // Kalan borç hesapla: (Backend bakiye + Yeni GELİR) - Tahsilat + Komisyon
-  const kalanBorc = guncelBakiyeIleYeniKayitlar - toplamTahsilat + toplamKomisyon;
-  console.log(`💰 Kalan borç hesabı: ${guncelBakiyeIleYeniKayitlar} - ${toplamTahsilat} + ${toplamKomisyon} = ${kalanBorc}`);
+  // Form başlığından gelen kalan bakiyeyi kullan
+  const kalanBorc = formBaslikKalanBakiye !== undefined ? formBaslikKalanBakiye : 0;
+  console.log(`💰 Form başlığından kalan bakiye: ${kalanBorc}`);
   
   // Ödeme satırlarını oluştur
   let odemeSatirlari = '';
@@ -912,7 +898,8 @@ async function onKaydet() {
           fisNo,
           depozito.value.alinan ? Number(depozito.value.alinan) : undefined,
           depozito.value.tip ? odemeTipleri.find(o => o.value === depozito.value.tip)?.label : undefined,
-          yeniGelirToplami
+          yeniGelirToplami,
+          kalanBakiye.value
         );
         
         console.log('🎉 Tek fiş yazdırma tamamlandı');

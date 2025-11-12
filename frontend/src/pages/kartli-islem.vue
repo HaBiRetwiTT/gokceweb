@@ -477,7 +477,7 @@
 
       <template v-slot:body-cell-BorcTutari="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
-          <div class="text-weight-bold text-red">
+          <div class="text-weight-bold text-green">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -586,7 +586,7 @@
 
       <template v-slot:body-cell-AlacakTutari="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
-          <div class="text-weight-bold text-green">
+          <div class="text-weight-bold text-orange">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -3350,9 +3350,9 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
 // 🔥 BAKİYE RENK SINIFI FONKSİYONU
 function getMusteriBakiyeClass(bakiye: number): string {
   if (bakiye > 0) {
-    return 'text-red'; // Borçlu müşteri - kırmızı
+    return 'text-green'; // Borçlu müşteri - yeşil
   } else if (bakiye < 0) {
-    return 'text-green'; // Alacaklı müşteri - yeşil
+    return 'text-orange'; // Alacaklı müşteri - turuncu
   } else {
     return 'text-grey-6'; // Sıfır bakiye - gri
   }
