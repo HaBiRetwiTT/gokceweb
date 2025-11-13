@@ -1165,9 +1165,25 @@ async function onKaydet() {
             customerNote: ((window as Window & { kartliIslemSelectedNormalMusteri?: { customerNote?: string } }).kartliIslemSelectedNormalMusteri?.customerNote) || ''
           };
           
-          // ✅ Ek hizmetler toplam tutarını GELİR olarak cache'le
+          // ✅ Ek hizmetler toplam tutarını GELİR olarak cache'le - müşteri adı ile birlikte
           const ekHizmetToplamTutari = seciliHizmetler.reduce((sum, h) => sum + (h.Prm04 * h.miktar), 0);
-          (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = ekHizmetToplamTutari;
+          const musteriAdi = (musteri as KartliIslemMusteri).MstrAdi || '';
+          const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+          
+          // Cache yapısını kontrol et ve müşteri adı ile birlikte tut
+          if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
+            // Eski yapı veya yoksa yeni obje yapısına çevir
+            const eskiTutar = typeof win.kartliIslemYeniGelirTutari === 'number' ? win.kartliIslemYeniGelirTutari : 0;
+            win.kartliIslemYeniGelirTutari = {};
+            if (eskiTutar > 0 && musteriAdi) {
+              (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = eskiTutar;
+            }
+          }
+          
+          // Yeni tutarı müşteri adı ile birlikte cache'le
+          if (musteriAdi && ekHizmetToplamTutari > 0) {
+            (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = ekHizmetToplamTutari;
+          }
           
           // Kartlı işlem sayfasına geçiş ve modal açma
           setTimeout(() => {

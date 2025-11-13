@@ -2066,8 +2066,25 @@ async function submitForm() {
       window.kartliIslemSelectedNormalMusteri = savedMusteriData
       ;(window as Window & { selectedNormalMusteri?: typeof savedMusteriData }).selectedNormalMusteri = savedMusteriData
       
-      // ✅ GELİR tutarını cache'le (yeni konaklama bedeli)
-      ;(window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = form.value.ToplamBedel || 0
+      // ✅ GELİR tutarını cache'le (yeni konaklama bedeli) - müşteri adı ile birlikte
+      const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+      const musteriAdi = form.value.MstrAdi || '';
+      const gelirTutari = form.value.ToplamBedel || 0;
+      
+      // Cache yapısını kontrol et ve müşteri adı ile birlikte tut
+      if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
+        // Eski yapı veya yoksa yeni obje yapısına çevir
+        const eskiTutar = typeof win.kartliIslemYeniGelirTutari === 'number' ? win.kartliIslemYeniGelirTutari : 0;
+        win.kartliIslemYeniGelirTutari = {};
+        if (eskiTutar > 0 && musteriAdi) {
+          (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = eskiTutar;
+        }
+      }
+      
+      // Yeni tutarı müşteri adı ile birlikte cache'le
+      if (musteriAdi && gelirTutari > 0) {
+        (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = gelirTutari;
+      }
       
       // 2 saniye sonra kartli-islem sayfasına yönlendir
       setTimeout(() => {

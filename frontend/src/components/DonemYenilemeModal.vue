@@ -915,9 +915,23 @@ async function saveDonemYenileme() {
             };
             debugLog('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
             
-            // ✅ Dönem yenileme GELİR tutarını cache'le (ToplamBedel veya HesaplananBedel)
+            // ✅ Dönem yenileme GELİR tutarını cache'le (ToplamBedel veya HesaplananBedel) - müşteri adı ile birlikte
             const donemYenilemeGelirTutari = formData.value.ToplamBedel || formData.value.HesaplananBedel || 0;
-            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = donemYenilemeGelirTutari;
+            const musteriAdi = props.selectedData.MstrAdi || '';
+            const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+            
+            // Cache yapısını kontrol et ve müşteri adı ile birlikte tut
+            if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
+              const eskiTutar = typeof win.kartliIslemYeniGelirTutari === 'number' ? win.kartliIslemYeniGelirTutari : 0;
+              win.kartliIslemYeniGelirTutari = {};
+              if (eskiTutar > 0 && musteriAdi) {
+                (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = eskiTutar;
+              }
+            }
+            
+            if (musteriAdi && donemYenilemeGelirTutari > 0) {
+              (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = donemYenilemeGelirTutari;
+            }
             debugLog('🔥 saveDonemYenileme - GELİR tutarı cache\'lendi:', donemYenilemeGelirTutari)
           } else {
             debugLog('❌ saveDonemYenileme - props.selectedData bulunamadı')
@@ -1076,8 +1090,17 @@ function handleCikisYap() {
                   console.log('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', musteriBilgisi)
                 }
                 
-                // ✅ Çıkış yapma işleminde GELİR tutarı yok, 0 olarak cache'le
-                (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = 0;
+                // ✅ Çıkış yapma işleminde GELİR tutarı yok, müşteri adına göre cache'i temizle
+                const musteriAdi = props.selectedData?.MstrAdi || '';
+                const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+                if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari) && musteriAdi) {
+                  delete (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi];
+                  if (Object.keys(win.kartliIslemYeniGelirTutari).length === 0) {
+                    delete win.kartliIslemYeniGelirTutari;
+                  }
+                } else if (typeof win.kartliIslemYeniGelirTutari === 'number') {
+                  delete win.kartliIslemYeniGelirTutari;
+                }
                 if (import.meta.env.MODE !== 'production') {
                   console.log('🔥 handleCikisYap - GELİR tutarı cache\'lendi: 0 (çıkış yapma işleminde GELİR yok)')
                 }
@@ -2304,9 +2327,22 @@ async function onOdaDegisikligiOnayla() {
               MstrAdi: props.selectedData.MstrAdi || ''
             };
             
-            // ✅ Oda değişikliği GELİR tutarını cache'le
+            // ✅ Oda değişikliği GELİR tutarını cache'le - müşteri adı ile birlikte
             const odaDegisikligiGelirTutari = odaDegisikligiDialogData.value.gelirBedel || 0;
-            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = odaDegisikligiGelirTutari;
+            const musteriAdi = props.selectedData.MstrAdi || '';
+            const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+            
+            if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
+              const eskiTutar = typeof win.kartliIslemYeniGelirTutari === 'number' ? win.kartliIslemYeniGelirTutari : 0;
+              win.kartliIslemYeniGelirTutari = {};
+              if (eskiTutar > 0 && musteriAdi) {
+                (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = eskiTutar;
+              }
+            }
+            
+            if (musteriAdi && odaDegisikligiGelirTutari > 0) {
+              (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = odaDegisikligiGelirTutari;
+            }
             debugLog('🔥 onOdaDegisikligiOnayla - GELİR tutarı cache\'lendi:', odaDegisikligiGelirTutari)
           }
           // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
@@ -2438,9 +2474,22 @@ async function direktOdaDegisikligiYap() {
             MstrAdi: props.selectedData.MstrAdi || ''
           };
           
-          // ✅ Direkt oda değişikliği GELİR tutarını cache'le (ToplamBedel)
+          // ✅ Direkt oda değişikliği GELİR tutarını cache'le (ToplamBedel) - müşteri adı ile birlikte
           const direktOdaDegisikligiGelirTutari = formData.value.ToplamBedel || 0;
-          (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = direktOdaDegisikligiGelirTutari;
+          const musteriAdi = props.selectedData.MstrAdi || '';
+          const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+          
+          if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
+            const eskiTutar = typeof win.kartliIslemYeniGelirTutari === 'number' ? win.kartliIslemYeniGelirTutari : 0;
+            win.kartliIslemYeniGelirTutari = {};
+            if (eskiTutar > 0 && musteriAdi) {
+              (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = eskiTutar;
+            }
+          }
+          
+          if (musteriAdi && direktOdaDegisikligiGelirTutari > 0) {
+            (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = direktOdaDegisikligiGelirTutari;
+          }
           debugLog('🔥 direktOdaDegisikligiYap - GELİR tutarı cache\'lendi:', direktOdaDegisikligiGelirTutari)
         }
         // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
@@ -2668,8 +2717,17 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
               console.log('🔥 erkenCikisYap - window.kartliIslemSelectedNormalMusteri set:', musteriBilgisi2)
             }
             
-            // ✅ Erken çıkış işleminde GELİR tutarı yok, 0 olarak cache'le
-            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = 0;
+            // ✅ Erken çıkış işleminde GELİR tutarı yok, müşteri adına göre cache'i temizle
+            const musteriAdi = props.selectedData?.MstrAdi || '';
+            const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+            if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari) && musteriAdi) {
+              delete (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi];
+              if (Object.keys(win.kartliIslemYeniGelirTutari).length === 0) {
+                delete win.kartliIslemYeniGelirTutari;
+              }
+            } else if (typeof win.kartliIslemYeniGelirTutari === 'number') {
+              delete win.kartliIslemYeniGelirTutari;
+            }
             if (import.meta.env.MODE !== 'production') {
               console.log('🔥 erkenCikisYap - GELİR tutarı cache\'lendi: 0 (erken çıkış işleminde GELİR yok)')
             }

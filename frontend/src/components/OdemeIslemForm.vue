@@ -278,42 +278,64 @@ const depozito = ref(getDefaultDepozito());
 
 // Müşterinin mevcut bakiyesi (depozito hariç)
 const musteriBakiyesi = ref<number>(0);
-// ✅ Yeni eklenen GELİR tutarı (cache'den gelecek)
+// ✅ Yeni eklenen GELİR tutarı (cache'den gelecek - müşteri adı ile birlikte tutuluyor)
 const yeniGelirTutari = ref<number>(0);
+// ✅ Mevcut müşteri adı (cache temizleme için)
+const currentMusteriAdi = ref<string>('');
 
 // Modal açıldığında bakiyeyi ve GELİR tutarını al
 watch(() => props.show, (newValue) => {
   if (newValue) {
     const win = window as { 
       selectedMusteriBakiye?: number;
-      kartliIslemYeniGelirTutari?: number; // ✅ YENİ
+      kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number }; // ✅ Müşteri adı ile cache
     };
     musteriBakiyesi.value = win.selectedMusteriBakiye || 0;
-    yeniGelirTutari.value = win.kartliIslemYeniGelirTutari || 0; // ✅ YENİ
-    debugLog('🔥 OdemeIslemForm - Bakiye:', musteriBakiyesi.value, 'GELİR tutarı:', yeniGelirTutari.value);
-  } else {
-    // ✅ Modal kapandığında cache'i temizle
-    yeniGelirTutari.value = 0;
-    const win = window as Window & { kartliIslemYeniGelirTutari?: number };
-    if (win.kartliIslemYeniGelirTutari !== undefined) {
-      delete win.kartliIslemYeniGelirTutari;
+    
+    // ✅ Müşteri adı ile cache'den tutarı al
+    currentMusteriAdi.value = props.musteriAdi || '';
+    
+    // Cache yapısını kontrol et - obje ise müşteri adına göre al, değilse eski yapıyı kullan
+    if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari)) {
+      // Yeni yapı: { [musteriAdi]: tutar }
+      yeniGelirTutari.value = (win.kartliIslemYeniGelirTutari as { [key: string]: number })[currentMusteriAdi.value] || 0;
+    } else {
+      // Eski yapı: direkt sayı (geriye dönük uyumluluk)
+      yeniGelirTutari.value = (typeof win.kartliIslemYeniGelirTutari === 'number') ? win.kartliIslemYeniGelirTutari : 0;
     }
+    
+    debugLog('🔥 OdemeIslemForm - Bakiye:', musteriBakiyesi.value, 'GELİR tutarı:', yeniGelirTutari.value, 'Müşteri:', currentMusteriAdi.value);
+  } else {
+    // ✅ Modal kapandığında sadece local state'i temizle, cache'i KAYDET/VAZGEÇ butonları temizleyecek
+    yeniGelirTutari.value = 0;
+    currentMusteriAdi.value = '';
   }
 });
 
 // Dinamik kalan bakiye hesaplama (depozito hariç, sadece ödemeler)
 // ✅ GELİR tutarı bakiyeye ekleniyor
+// ✅ Komisyon tutarı da bakiyeye ekleniyor (komisyon GELİR olarak kaydediliyor)
 const kalanBakiye = computed(() => {
   let toplamOdeme = 0;
+  let toplamKomisyon = 0;
+  
   for (let i = 0; i < 5; i++) {
     const od = odeme.value[i];
     if (od && od.tutar) {
       toplamOdeme += Number(od.tutar);
+      
+      // Komisyon tutarını hesapla (varsa)
+      if (od.komisyon && od.orijinalTutar && Number(od.tutar) > Number(od.orijinalTutar)) {
+        const komisyonTutari = Number(od.tutar) - Number(od.orijinalTutar);
+        if (komisyonTutari > 0) {
+          toplamKomisyon += komisyonTutari;
+        }
+      }
     }
   }
   
-  // ✅ GELİR tutarı bakiyeye ekleniyor: (Mevcut bakiye + Yeni GELİR) - Ödemeler
-  return (musteriBakiyesi.value + yeniGelirTutari.value) - toplamOdeme;
+  // ✅ GELİR tutarı ve komisyon tutarı bakiyeye ekleniyor: (Mevcut bakiye + Yeni GELİR + Komisyon) - Ödemeler
+  return (musteriBakiyesi.value + yeniGelirTutari.value + toplamKomisyon) - toplamOdeme;
 });
 
 const komisyonOrani = ref<number>(0);
@@ -927,6 +949,26 @@ async function onKaydet() {
       console.log('BAKİYE GÜNCELLE EMIT', musteri);
       emit('bakiyeGuncelle', musteri);
       
+      // ✅ KAYDET butonu ile kapatıldığında müşteri adına göre cache'i temizle
+      const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+      if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari)) {
+        // Yeni yapı: müşteri adına göre temizle
+        const cacheObj = win.kartliIslemYeniGelirTutari as { [key: string]: number };
+        if (currentMusteriAdi.value && cacheObj[currentMusteriAdi.value] !== undefined) {
+          delete cacheObj[currentMusteriAdi.value];
+          debugLog('🔥 KAYDET - Cache temizlendi:', currentMusteriAdi.value);
+        }
+        // Eğer cache objesi boşaldıysa tamamen sil
+        if (Object.keys(cacheObj).length === 0) {
+          delete win.kartliIslemYeniGelirTutari;
+        }
+      } else {
+        // Eski yapı: direkt sil
+        if (win.kartliIslemYeniGelirTutari !== undefined) {
+          delete win.kartliIslemYeniGelirTutari;
+        }
+      }
+      
       // 🔥 STATS GÜNCELLEME EVENT'İNİ TETİKLE
       window.dispatchEvent(new Event('statsNeedsUpdate'));
       
@@ -947,8 +989,28 @@ async function onKaydet() {
 function onClose() {
   resetForm();
   
-      // 🔥 VAZGEÇ DURUMUNDA DA STATS GÜNCELLEME EVENT'İNİ TETİKLE
-    window.dispatchEvent(new Event('statsNeedsUpdate'));
+  // ✅ VAZGEÇ butonu ile kapatıldığında müşteri adına göre cache'i temizle
+  const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+  if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari)) {
+    // Yeni yapı: müşteri adına göre temizle
+    const cacheObj = win.kartliIslemYeniGelirTutari as { [key: string]: number };
+    if (currentMusteriAdi.value && cacheObj[currentMusteriAdi.value] !== undefined) {
+      delete cacheObj[currentMusteriAdi.value];
+      debugLog('🔥 VAZGEÇ - Cache temizlendi:', currentMusteriAdi.value);
+    }
+    // Eğer cache objesi boşaldıysa tamamen sil
+    if (Object.keys(cacheObj).length === 0) {
+      delete win.kartliIslemYeniGelirTutari;
+    }
+  } else {
+    // Eski yapı: direkt sil
+    if (win.kartliIslemYeniGelirTutari !== undefined) {
+      delete win.kartliIslemYeniGelirTutari;
+    }
+  }
+  
+  // 🔥 VAZGEÇ DURUMUNDA DA STATS GÜNCELLEME EVENT'İNİ TETİKLE
+  window.dispatchEvent(new Event('statsNeedsUpdate'));
   
   show.value = false;
 }
