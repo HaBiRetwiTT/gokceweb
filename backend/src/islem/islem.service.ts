@@ -527,7 +527,14 @@ export class IslemService {
       // Ana tablo günlük özet olduğu için islemTip filtresi eklenmiyor
       // Detay tabloda islemTip filtresi kullanılıyor
 
-      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter })
+      // Detay tabloda filtrelenen kayıtlar - Ana tablo toplamlarında da aynı filtreler uygulanmalı
+      // FON KAYIT: içeren kayıtlar ve Kasaya Verilen/Kasadan Alınan kayıtları hariç tut
+      const detailTableFilter = `
+        AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %')
+        AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))
+      `;
+
+      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter, detailTableFilter })
 
       // Toplam kayıt sayısını al
       const countQuery = `
@@ -536,6 +543,7 @@ export class IslemService {
         WHERE 1=1
         ${islemAracFilter}
         ${depozitoFilter}
+        ${detailTableFilter}
       `;
 
       console.log('🔍 Count Query:', countQuery)
@@ -549,14 +557,15 @@ export class IslemService {
       const offset = (page - 1) * rowsPerPage;
 
       // Ana sorgu - Depozito için gelir/gider islemBilgi'ye göre toplanır
+      // Detay tabloda filtrelenen kayıtlar (FON KAYIT ve Kasaya Verilen/Kasadan Alınan) burada da filtrelenmeli
       const gelirExpr =
         islemArac === 'depozito'
-          ? "SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar ELSE 0 END)"
-          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} THEN islemTutar ELSE 0 END)`;
+          ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
       const giderExpr =
         islemArac === 'depozito'
-          ? "SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar ELSE 0 END)"
-          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} THEN islemTutar ELSE 0 END)`;
+          ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
 
       const query = `
         SELECT 
@@ -567,6 +576,7 @@ export class IslemService {
         WHERE 1=1
         ${islemAracFilter}
         ${depozitoFilter}
+        ${detailTableFilter}
         GROUP BY CONVERT(VARCHAR(10), iKytTarihi, 104), CONVERT(DATE, iKytTarihi, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS

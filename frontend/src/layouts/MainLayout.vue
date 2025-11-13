@@ -450,18 +450,10 @@ const linksList = computed(() => {
       }
     }
     
-    // AI Asistan sadece SAadmin, KADİR ve HARUN kullanıcılarına göster
-    if (link.title === 'AI Asistan') {
-      const currentUsername = username.value || '';
-      if (!['SAadmin', 'KADİR', 'HARUN'].includes(currentUsername)) {
-        return false;
-      }
-    }
-    
-    // Nakit Akış Tablosu sadece SAadmin ve HARUN kullanıcılarına göster
+    // Nakit Akış Tablosu sadece SAadmin, HARUN ve KADİR kullanıcılarına göster
     if (link.title === 'Nakit Akış Tablosu') {
       const currentUsername = username.value || '';
-      if (!['SAadmin', 'HARUN'].includes(currentUsername)) {
+      if (!['SAadmin', 'HARUN', 'KADİR'].includes(currentUsername)) {
         return false;
       }
     }

@@ -45,12 +45,12 @@ export default route(function (/* { store, ssrContext } */) {
         return '/kartli-islem';
       }
       
-      // Nakit Tablo sadece SAadmin ve HARUN
-      if (to.path === '/nakit-tablo' && !['SAadmin', 'HARUN'].includes(username)) {
+      // Nakit Tablo sadece SAadmin, HARUN ve KADİR
+      if (to.path === '/nakit-tablo' && !['SAadmin', 'HARUN', 'KADİR'].includes(username)) {
         return '/kartli-islem';
       }
       
-      // Personel İşlemleri sadece yetkili kullanıcılar
+      // Personel İşlemleri sadece yetkili kullanıcılar (SAadmin, KADİR, HARUN)
       if (to.path === '/personel-islem' && !isAuthorizedUser) {
         return '/kartli-islem';
       }
