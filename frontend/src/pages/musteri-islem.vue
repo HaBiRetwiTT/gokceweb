@@ -2591,6 +2591,11 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
 
 // TC kimlik no blur kontrolü - 3 aşamalı sistem
 async function onTCNBlur() {
+  // 🔥 RZVRYTK modu aktifken (TC DEĞİŞTİR butonu görünürken) blur eventi çalışmasın
+  if (rzvrytkModuAktif.value) {
+    return
+  }
+  
   tcKimlikProcessing.value = true
   
   try {
