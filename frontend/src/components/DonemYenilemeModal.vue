@@ -914,6 +914,11 @@ async function saveDonemYenileme() {
               MstrAdi: props.selectedData.MstrAdi || ''
             };
             debugLog('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+            
+            // ✅ Dönem yenileme GELİR tutarını cache'le (ToplamBedel veya HesaplananBedel)
+            const donemYenilemeGelirTutari = formData.value.ToplamBedel || formData.value.HesaplananBedel || 0;
+            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = donemYenilemeGelirTutari;
+            debugLog('🔥 saveDonemYenileme - GELİR tutarı cache\'lendi:', donemYenilemeGelirTutari)
           } else {
             debugLog('❌ saveDonemYenileme - props.selectedData bulunamadı')
           }
@@ -1062,11 +1067,20 @@ function handleCikisYap() {
               if (props.selectedData) {
                 debugLog('🔥 handleCikisYap - props.selectedData:', props.selectedData)
                 debugLog('🔥 handleCikisYap - MstrAdi:', props.selectedData.MstrAdi)
-                window.kartliIslemSelectedNormalMusteri = {
+                const musteriBilgisi = {
                   ...props.selectedData,
                   MstrAdi: props.selectedData.MstrAdi || ''
                 };
-                debugLog('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+                window.kartliIslemSelectedNormalMusteri = musteriBilgisi;
+                if (import.meta.env.MODE !== 'production') {
+                  console.log('🔥 handleCikisYap - window.kartliIslemSelectedNormalMusteri set:', musteriBilgisi)
+                }
+                
+                // ✅ Çıkış yapma işleminde GELİR tutarı yok, 0 olarak cache'le
+                (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = 0;
+                if (import.meta.env.MODE !== 'production') {
+                  console.log('🔥 handleCikisYap - GELİR tutarı cache\'lendi: 0 (çıkış yapma işleminde GELİR yok)')
+                }
               } else {
                 debugLog('❌ handleCikisYap - props.selectedData bulunamadı')
               }
@@ -2289,6 +2303,11 @@ async function onOdaDegisikligiOnayla() {
               ...props.selectedData,
               MstrAdi: props.selectedData.MstrAdi || ''
             };
+            
+            // ✅ Oda değişikliği GELİR tutarını cache'le
+            const odaDegisikligiGelirTutari = odaDegisikligiDialogData.value.gelirBedel || 0;
+            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = odaDegisikligiGelirTutari;
+            debugLog('🔥 onOdaDegisikligiOnayla - GELİR tutarı cache\'lendi:', odaDegisikligiGelirTutari)
           }
           // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
           (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
@@ -2418,6 +2437,11 @@ async function direktOdaDegisikligiYap() {
             ...props.selectedData,
             MstrAdi: props.selectedData.MstrAdi || ''
           };
+          
+          // ✅ Direkt oda değişikliği GELİR tutarını cache'le (ToplamBedel)
+          const direktOdaDegisikligiGelirTutari = formData.value.ToplamBedel || 0;
+          (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = direktOdaDegisikligiGelirTutari;
+          debugLog('🔥 direktOdaDegisikligiYap - GELİR tutarı cache\'lendi:', direktOdaDegisikligiGelirTutari)
         }
         // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
         (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
@@ -2635,11 +2659,20 @@ async function erkenCikisIslemleriYap({ giderTutar, hesaplananEkNot, dialogdanMi
           if (props.selectedData) {
             debugLog('🔥 direktOdaDegisikligiYap - props.selectedData:', props.selectedData)
             debugLog('🔥 direktOdaDegisikligiYap - MstrAdi:', props.selectedData.MstrAdi)
-            window.kartliIslemSelectedNormalMusteri = {
+            const musteriBilgisi2 = {
               ...props.selectedData,
               MstrAdi: props.selectedData.MstrAdi || ''
             };
-            debugLog('🔥 direktOdaDegisikligiYap - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+            window.kartliIslemSelectedNormalMusteri = musteriBilgisi2;
+            if (import.meta.env.MODE !== 'production') {
+              console.log('🔥 erkenCikisYap - window.kartliIslemSelectedNormalMusteri set:', musteriBilgisi2)
+            }
+            
+            // ✅ Erken çıkış işleminde GELİR tutarı yok, 0 olarak cache'le
+            (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = 0;
+            if (import.meta.env.MODE !== 'production') {
+              console.log('🔥 erkenCikisYap - GELİR tutarı cache\'lendi: 0 (erken çıkış işleminde GELİR yok)')
+            }
           } else {
             debugLog('❌ direktOdaDegisikligiYap - props.selectedData bulunamadı')
           }

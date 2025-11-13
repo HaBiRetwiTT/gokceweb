@@ -2066,6 +2066,9 @@ async function submitForm() {
       window.kartliIslemSelectedNormalMusteri = savedMusteriData
       ;(window as Window & { selectedNormalMusteri?: typeof savedMusteriData }).selectedNormalMusteri = savedMusteriData
       
+      // ✅ GELİR tutarını cache'le (yeni konaklama bedeli)
+      ;(window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = form.value.ToplamBedel || 0
+      
       // 2 saniye sonra kartli-islem sayfasına yönlendir
       setTimeout(() => {
         Notify.create({

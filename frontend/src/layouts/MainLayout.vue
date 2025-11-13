@@ -1164,6 +1164,11 @@ async function onKaydet() {
             ...(musteri as KartliIslemMusteri),
             customerNote: ((window as Window & { kartliIslemSelectedNormalMusteri?: { customerNote?: string } }).kartliIslemSelectedNormalMusteri?.customerNote) || ''
           };
+          
+          // ✅ Ek hizmetler toplam tutarını GELİR olarak cache'le
+          const ekHizmetToplamTutari = seciliHizmetler.reduce((sum, h) => sum + (h.Prm04 * h.miktar), 0);
+          (window as Window & { kartliIslemYeniGelirTutari?: number }).kartliIslemYeniGelirTutari = ekHizmetToplamTutari;
+          
           // Kartlı işlem sayfasına geçiş ve modal açma
           setTimeout(() => {
             // Bayrak set et ve event yayınla

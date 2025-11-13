@@ -416,7 +416,6 @@
         separator="cell"
         class="dashboard-table compact-table"
         @row-click="onBorcluMusteriClick"
-        @row-dblclick="onBorcluMusteriDoubleClick"
         :rows-per-page-options="[5, 10, 15]"
         rows-per-page-label="Sayfa Başına Kayıt"
         table-style="width: 100%"
@@ -477,7 +476,7 @@
 
       <template v-slot:body-cell-BorcTutari="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
-          <div class="text-weight-bold text-green">
+          <div class="text-weight-bold text-orange">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -525,7 +524,6 @@
         separator="cell"
         class="dashboard-table compact-table"
         @row-click="onAlacakliMusteriClick"
-        @row-dblclick="onAlacakliMusteriDoubleClick"
         :rows-per-page-options="[5, 10, 15]"
         rows-per-page-label="Sayfa Başına Kayıt"
         table-style="width: 100%"
@@ -586,7 +584,7 @@
 
       <template v-slot:body-cell-AlacakTutari="props">
         <q-td :props="props" :class="{ 'selected-row': selectedBorcluMusteri?.CariKod === props.row.CariKod }">
-          <div class="text-weight-bold text-orange">
+          <div class="text-weight-bold text-green">
             {{ formatCurrency(props.value) }}
           </div>
         </q-td>
@@ -623,7 +621,6 @@
         separator="cell"
         class="dashboard-table compact-table"
         @row-click="onBakiyesizHesaplarClick"
-        @row-dblclick="onBakiyesizHesaplarDoubleClick"
         @request="onBakiyesizHesaplarRequest"
         :rows-per-page-options="[5, 10, 20]"
         rows-per-page-label="Sayfa Başına Kayıt"
@@ -3130,29 +3127,6 @@ function onBorcluMusteriClick(evt: Event, row: BorcluMusteri) {
   }, 300)
 }
 
-// 🔥 BORÇLU MÜŞTERİ DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
-function onBorcluMusteriDoubleClick(evt: Event, row: BorcluMusteri) {
-  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
-  if (borcluMusteriClickTimeout.value) {
-    clearTimeout(borcluMusteriClickTimeout.value)
-    borcluMusteriClickTimeout.value = null
-  }
-  
-  // 🔥 Müşteri bilgisini global state'e aktar
-  window.kartliIslemSelectedNormalMusteri = {
-    MstrTCN: row.CariVTCN || '',
-    MstrAdi: row.CariAdi || '',
-    MstrTelNo: row.CariTelNo || '',
-    MstrDurum: 'KALIYOR',
-    customerNote: 'Borçlu Müşteri'
-  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
-  
-  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
-  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
-  
-  // 🔥 Müşteri Tahsilat modalını aç
-  window.dispatchEvent(new Event('showOdemeIslemModal'));
-}
 
 function formatCurrency(value: number | undefined | string | null): string {
   if (value === null || value === undefined || value === '') return '0 ₺'
@@ -3350,9 +3324,9 @@ async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | 
 // 🔥 BAKİYE RENK SINIFI FONKSİYONU
 function getMusteriBakiyeClass(bakiye: number): string {
   if (bakiye > 0) {
-    return 'text-green'; // Borçlu müşteri - yeşil
+    return 'text-orange'; // Borçlu müşteri - turuncu (uluslararası standart)
   } else if (bakiye < 0) {
-    return 'text-orange'; // Alacaklı müşteri - turuncu
+    return 'text-green'; // Alacaklı müşteri - yeşil (uluslararası standart)
   } else {
     return 'text-grey-6'; // Sıfır bakiye - gri
   }
@@ -3420,29 +3394,6 @@ function onAlacakliMusteriClick(evt: Event, row: AlacakliMusteri) {
   }, 300)
 }
 
-// 🔥 ALACAKLI MÜŞTERİ DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
-function onAlacakliMusteriDoubleClick(evt: Event, row: AlacakliMusteri) {
-  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
-  if (alacakliMusteriClickTimeout.value) {
-    clearTimeout(alacakliMusteriClickTimeout.value)
-    alacakliMusteriClickTimeout.value = null
-  }
-  
-  // 🔥 Müşteri bilgisini global state'e aktar
-  window.kartliIslemSelectedNormalMusteri = {
-    MstrTCN: row.CariVTCN || '',
-    MstrAdi: row.CariAdi || '',
-    MstrTelNo: row.CariTelNo || '',
-    MstrDurum: 'KALIYOR',
-    customerNote: 'Alacaklı Müşteri'
-  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
-  
-  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
-  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
-  
-  // 🔥 Müşteri Tahsilat modalını aç
-  window.dispatchEvent(new Event('showOdemeIslemModal'));
-}
 
 // 🔥 BAKİYESİZ HESAPLAR GECİKMELİ TEK TIKLAMA FONKSİYONU
 function onBakiyesizHesaplarClick(evt: Event, row: BakiyesizHesaplar) {
@@ -3480,29 +3431,6 @@ function onBakiyesizHesaplarClick(evt: Event, row: BakiyesizHesaplar) {
   }, 300)
 }
 
-// 🔥 BAKİYESİZ HESAPLAR DOUBLE-CLICK FONKSİYONU - MÜŞTERİ TAHSİLAT MODALI AÇAR
-function onBakiyesizHesaplarDoubleClick(evt: Event, row: BakiyesizHesaplar) {
-  // 🔥 Önceki timeout'u temizle (tek tıklama işlemini iptal et)
-  if (bakiyesizHesaplarClickTimeout.value) {
-    clearTimeout(bakiyesizHesaplarClickTimeout.value)
-    bakiyesizHesaplarClickTimeout.value = null
-  }
-  
-  // 🔥 Müşteri bilgisini global state'e aktar
-  window.kartliIslemSelectedNormalMusteri = {
-    MstrTCN: row.CariVTCN || '',
-    MstrAdi: row.CariAdi || '',
-    MstrTelNo: row.CariTelNo || '',
-    MstrDurum: 'KALIYOR',
-    customerNote: 'Bakiyesiz Hesap'
-  } as { MstrTCN: string; MstrAdi: string; MstrTelNo: string; MstrDurum: string; customerNote: string };
-  
-  // 🔥 OTOMATİK MODAL AÇMA FLAG'İNİ SET ET
-  (window as Window & { kartliIslemAutoOpenModal?: boolean }).kartliIslemAutoOpenModal = true;
-  
-  // 🔥 Müşteri Tahsilat modalını aç
-  window.dispatchEvent(new Event('showOdemeIslemModal'));
-}
 
 // 🔥 ALACAKLI MÜŞTERİ İÇİN FİRMA BAKİYE HESAPLAMA FONKSİYONU
 async function hesaplaAlacakliMusteriFirmaBakiye(alacakliMusteri: AlacakliMusteri) {

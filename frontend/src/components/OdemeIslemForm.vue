@@ -16,7 +16,7 @@
             </div>
             <div class="row items-center">
               <div class="text-subtitle1 q-mr-sm">Bakiye:</div>
-              <div class="text-h6 text-weight-bold" :class="kalanBakiye >= 0 ? 'text-green' : 'text-orange'">
+              <div class="text-h6 text-weight-bold" :class="kalanBakiye >= 0 ? 'text-orange' : 'text-green'">
                 {{ formatCurrency(Math.abs(kalanBakiye)) }}
               </div>
             </div>
@@ -278,16 +278,31 @@ const depozito = ref(getDefaultDepozito());
 
 // Müşterinin mevcut bakiyesi (depozito hariç)
 const musteriBakiyesi = ref<number>(0);
+// ✅ Yeni eklenen GELİR tutarı (cache'den gelecek)
+const yeniGelirTutari = ref<number>(0);
 
-// Modal açıldığında bakiyeyi al
+// Modal açıldığında bakiyeyi ve GELİR tutarını al
 watch(() => props.show, (newValue) => {
   if (newValue) {
-    const win = window as { selectedMusteriBakiye?: number };
+    const win = window as { 
+      selectedMusteriBakiye?: number;
+      kartliIslemYeniGelirTutari?: number; // ✅ YENİ
+    };
     musteriBakiyesi.value = win.selectedMusteriBakiye || 0;
+    yeniGelirTutari.value = win.kartliIslemYeniGelirTutari || 0; // ✅ YENİ
+    debugLog('🔥 OdemeIslemForm - Bakiye:', musteriBakiyesi.value, 'GELİR tutarı:', yeniGelirTutari.value);
+  } else {
+    // ✅ Modal kapandığında cache'i temizle
+    yeniGelirTutari.value = 0;
+    const win = window as Window & { kartliIslemYeniGelirTutari?: number };
+    if (win.kartliIslemYeniGelirTutari !== undefined) {
+      delete win.kartliIslemYeniGelirTutari;
+    }
   }
 });
 
 // Dinamik kalan bakiye hesaplama (depozito hariç, sadece ödemeler)
+// ✅ GELİR tutarı bakiyeye ekleniyor
 const kalanBakiye = computed(() => {
   let toplamOdeme = 0;
   for (let i = 0; i < 5; i++) {
@@ -297,8 +312,8 @@ const kalanBakiye = computed(() => {
     }
   }
   
-  // Müşteri ödeme yapıyor → bakiye azalır
-  return musteriBakiyesi.value - toplamOdeme;
+  // ✅ GELİR tutarı bakiyeye ekleniyor: (Mevcut bakiye + Yeni GELİR) - Ödemeler
+  return (musteriBakiyesi.value + yeniGelirTutari.value) - toplamOdeme;
 });
 
 const komisyonOrani = ref<number>(0);

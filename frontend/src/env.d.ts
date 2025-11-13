@@ -10,6 +10,7 @@ declare namespace NodeJS {
 declare global {
   interface Window {
     kartliIslemAutoOpenModal?: boolean;
+    kartliIslemYeniGelirTutari?: number; // ✅ Yeni eklenen GELİR tutarı cache'i
   }
   
   // Ensure console is properly typed
