@@ -120,10 +120,10 @@
       show-if-above
       bordered
       :width="222"
-      :mini="miniMenu && $q.screen.gt.sm"
+      :mini="miniMenu"
       :breakpoint="600"
       mini-to-overlay
-      :overlay="!miniMenu"
+      :overlay="$q.screen.lt.md"
     >
       <q-list>
         <q-item-label
@@ -687,6 +687,11 @@ function toggleMiniMenu() {
   // Ana menü mini/maxi toggle işlevi
   miniMenu.value = !miniMenu.value;
   
+  // Mobilde drawer'ı açık tut (mini mod değiştiğinde)
+  if ($q.screen.lt.md) {
+    leftDrawerOpen.value = true;
+  }
+  
   // Kullanıcı tercihini localStorage'a kaydet
   localStorage.setItem('miniMenuPreference', miniMenu.value.toString());
 }
@@ -1207,15 +1212,41 @@ async function onKaydet() {
 watch(() => miniMenu.value, (newVal) => {
   // Mini moddan çıkıldığında ve overlay aktifse, click-outside yakalayıcı ekle
   if (!newVal) {
-    const handleOutsideClick = (e: MouseEvent) => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       const drawer = document.querySelector('.q-drawer');
-      if (drawer && !drawer.contains(e.target as Node)) {
+      const target = (e.target as Node) || (e as TouchEvent).touches?.[0]?.target as Node;
+      if (drawer && target && !drawer.contains(target)) {
         miniMenu.value = true;
-        document.removeEventListener('click', handleOutsideClick);
+        document.removeEventListener('click', handleOutsideClick as EventListener);
+        document.removeEventListener('touchend', handleOutsideClick as EventListener);
       }
     };
     setTimeout(() => {
-      document.addEventListener('click', handleOutsideClick);
+      document.addEventListener('click', handleOutsideClick as EventListener);
+      document.addEventListener('touchend', handleOutsideClick as EventListener, { passive: true });
+    }, 100);
+  }
+});
+
+// Mobilde drawer açık/kapalı durumunu izle - overlay dışına tıklandığında kapat
+watch(() => leftDrawerOpen.value, (newVal) => {
+  if ($q.screen.lt.md && newVal) {
+    // Mobilde drawer açıldığında overlay dışına tıklama yakalayıcı ekle
+    const handleOverlayClick = (e: MouseEvent | TouchEvent) => {
+      const overlay = document.querySelector('.q-drawer__overlay');
+      const target = (e.target as Node) || (e as TouchEvent).touches?.[0]?.target as Node;
+      
+      // Overlay'e tıklandığında drawer'ı kapat
+      if (overlay && target && overlay.contains(target)) {
+        leftDrawerOpen.value = false;
+        document.removeEventListener('click', handleOverlayClick as EventListener);
+        document.removeEventListener('touchend', handleOverlayClick as EventListener);
+      }
+    };
+    
+    setTimeout(() => {
+      document.addEventListener('click', handleOverlayClick as EventListener);
+      document.addEventListener('touchend', handleOverlayClick as EventListener, { passive: true });
     }, 100);
   }
 });
@@ -1224,8 +1255,22 @@ onMounted(() => {
   username.value = localStorage.getItem('username') || 'Kullanıcı';
   fullName.value = localStorage.getItem('fullName') || '';
   
-  // Desktop'ta drawer'ı açık tut (overlay mode ile kombinasyon)
-  leftDrawerOpen.value = true;
+  // Desktop'ta drawer'ı açık tut, mobilde kapalı başlat
+  if ($q.screen.gt.sm) {
+    leftDrawerOpen.value = true;
+  } else {
+    // Mobilde başlangıçta drawer kapalı, mini mod aktif
+    leftDrawerOpen.value = false;
+  }
+  
+  // Her zaman mini modda başla (F5 sonrası) - localStorage'dan tercih varsa onu kullan
+  const savedMiniMenuPreference = localStorage.getItem('miniMenuPreference');
+  if (savedMiniMenuPreference !== null) {
+    miniMenu.value = savedMiniMenuPreference === 'true';
+  } else {
+    miniMenu.value = true;
+    localStorage.setItem('miniMenuPreference', 'true');
+  }
   
   // 🔥 window.kartliIslemCurrentFilter değişikliklerini izle
   const checkKartliIslemFilter = () => {
@@ -1246,10 +1291,6 @@ onMounted(() => {
     clearInterval(intervalId);
   });
   isAdmin.value = localStorage.getItem('isAdmin') === 'true';
-  
-  // Her zaman mini modda başla (F5 sonrası)
-  miniMenu.value = true;
-  localStorage.setItem('miniMenuPreference', 'true');
   
   // Kaydedilmiş dark mode tercihini yükle
   const savedDarkMode = localStorage.getItem('darkMode');
