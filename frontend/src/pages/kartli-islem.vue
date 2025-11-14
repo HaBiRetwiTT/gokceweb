@@ -733,6 +733,7 @@
         :disable-sort="false"
         flat
         :no-data-label="cariHareketlerLoading ? 'Veriler Yükleniyor...' : 'Cari Hareket Bulunamadı'"
+        @row-contextmenu="onCariHareketContextMenu"
       >
       <template v-slot:top>
         <div class="text-h6 text-primary table-header-row">
@@ -1186,6 +1187,32 @@
     </div>
     <EkHizmetlerForm v-model:show="showEkHizmetlerModal" />
 
+    <!-- 🔥 CONTEXT MENU (Cari Hareketler için) -->
+    <div
+      v-if="ctxMenu.show"
+      class="context-menu"
+      ref="ctxMenuEl"
+      :style="{
+        position: 'fixed',
+        left: ctxMenu.x + 'px',
+        top: ctxMenu.y + 'px',
+        zIndex: 3000,
+        borderRadius: '4px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+      }"
+      @click.stop
+      @mousedown.stop
+      @contextmenu.prevent
+    >
+      <q-list dense padding style="min-width: 180px;">
+        <q-item clickable v-close-popup @click="onFisKes">
+          <q-item-section>
+            FİŞ KES
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </div>
+
     <!-- DEBUG LOGS -->
     <!-- <q-banner v-if="showBorcluTable" dense class="bg-grey-2 text-grey-8 q-mb-xs">
       borcluMusteriListesi.length: {{ borcluMusteriListesi.length }} | borcluPagination.rowsPerPage: {{ borcluPagination.rowsPerPage }} | shouldShowSearchBox: {{ shouldShowSearchBox }}
@@ -1197,9 +1224,11 @@
 import { ref, onMounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../boot/axios'
+import { Notify } from 'quasar'
 import DonemYenilemeModal from '../components/DonemYenilemeModal.vue'
 import { selectedCustomer } from '../stores/selected-customer';
 import OdemeIslemForm from '../components/OdemeIslemForm.vue';
+import { printSingleFis } from '../utils/fisPrint';
 //import EkHizmetlerForm from '../components/EkHizmetlerForm.vue';
 
 // Tip tanımları
@@ -1294,6 +1323,10 @@ const pdfLoading = ref<boolean>(false)
 const excelLoading = ref<boolean>(false)
 const cariPdfLoading = ref(false)
 const cariExcelLoading = ref(false)
+
+// 🔥 CONTEXT MENU SİSTEMİ (Cari Hareketler için)
+const ctxMenu = ref({ show: false, x: 0, y: 0, row: null as CariHareket | null })
+const ctxMenuEl = ref<HTMLElement | null>(null)
 
 // Pagination konfigürasyonu
 const pagination = ref({
@@ -4540,6 +4573,10 @@ onMounted(() => {
         void hesaplaMusteriBakiye(musteri);
       }
     });
+    
+    // 🔥 CONTEXT MENU EVENT LISTENER'LARI
+    document.addEventListener('click', onDocumentClick, true)
+    document.addEventListener('keydown', onKeyDown, true)
   }
   
   const ekHizmetHandler = () => { showEkHizmetlerModal.value = true; };
@@ -4573,6 +4610,10 @@ onMounted(() => {
     
     // 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
     // stopPeriodicStatsRefresh();
+    
+    // 🔥 CONTEXT MENU EVENT LISTENER'LARINI TEMİZLE
+    document.removeEventListener('click', onDocumentClick, true)
+    document.removeEventListener('keydown', onKeyDown, true)
   });
 })
 
@@ -4708,6 +4749,192 @@ function showKaraListeUyarisi(musteri: MusteriKonaklama | KonaklamaGecmisi) {
   console.log('🚨 Kara liste uyarısı gösteriliyor:', musteri)
   selectedKaraListeMusteri.value = musteri
   showKaraListeDialog.value = true
+}
+
+// 🔥 CONTEXT MENU HANDLER FONKSİYONLARI
+function closeCtx() {
+  ctxMenu.value.show = false
+  ctxMenu.value.row = null
+}
+
+function onCariHareketContextMenu(evt: Event, row: CariHareket) {
+  // Sadece "Giren" işlem tipine sahip kayıtlar için menü göster
+  if (row.islemTip !== 'Giren') {
+    return
+  }
+  
+  evt.preventDefault()
+  const me = evt as unknown as MouseEvent
+  ctxMenu.value = { show: true, x: me.clientX, y: me.clientY, row }
+}
+
+function onDocumentClick(e: MouseEvent) {
+  if (!ctxMenu.value.show) return
+  const target = e.target as Node | null
+  const el = ctxMenuEl.value
+  if (el && target && !el.contains(target)) {
+    closeCtx()
+  }
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && ctxMenu.value.show) closeCtx()
+}
+
+// 🔥 ÖDEME TİPLERİ (Fiş kesme için)
+const odemeTipleri = [
+  { label: 'Nakit Kasa(TL)', value: 'nakit' },
+  { label: 'Kredi Kartları', value: 'kredi' },
+  { label: 'Banka EFT', value: 'banka' }
+]
+
+// 🔥 İŞLEM ARACI'DAN ÖDEME TİPİ VALUE'SİNE EŞLEŞTİRME FONKSİYONU
+function mapIslemAracToOdemeTip(islemArac?: string): string {
+  if (!islemArac) return 'nakit' // Varsayılan
+  
+  // Backend'den gelen label'ı value'ye çevir
+  const lowerArac = islemArac.toLowerCase()
+  if (lowerArac.includes('nakit') || lowerArac.includes('kasa')) {
+    return 'nakit'
+  } else if (lowerArac.includes('kredi') || lowerArac.includes('kart')) {
+    return 'kredi'
+  } else if (lowerArac.includes('banka') || lowerArac.includes('eft')) {
+    return 'banka'
+  }
+  
+  // Eğer direkt value geliyorsa
+  if (odemeTipleri.some(t => t.value === lowerArac)) {
+    return lowerArac
+  }
+  
+  return 'nakit' // Varsayılan
+}
+
+// 🔥 FİŞ KESME FONKSİYONU
+async function onFisKes() {
+  if (!ctxMenu.value.row) {
+    Notify.create({ type: 'warning', message: 'Fiş kesilecek kayıt bulunamadı.' })
+    closeCtx()
+    return
+  }
+  
+  const cariHareket = ctxMenu.value.row
+  
+  // İşlem tipi kontrolü - sadece "Giren" tipindeki kayıtlar için fiş kesilebilir
+  if (cariHareket.islemTip !== 'Giren') {
+    Notify.create({ 
+      type: 'warning', 
+      message: 'Sadece "Giren" tipindeki kayıtlar için fiş kesilebilir.' 
+    })
+    closeCtx()
+    return
+  }
+  
+  try {
+    // Müşteri bilgilerini belirle
+    let musteri: {
+      MstrAdi?: string
+      OdaYatak?: string
+      KnklmOdaNo?: string
+      KnklmYtkNo?: string
+      MstrNo?: number
+      MstrTCN?: string
+      CariKod?: string
+      KnklmPlnTrh?: string
+      MstrHspTip?: string
+    } = {}
+    
+    if (selectedNormalMusteri.value) {
+      musteri = {
+        MstrAdi: selectedNormalMusteri.value.MstrAdi,
+        OdaYatak: selectedNormalMusteri.value.KnklmOdaNo && selectedNormalMusteri.value.KnklmYtkNo 
+          ? `${selectedNormalMusteri.value.KnklmOdaNo}-${selectedNormalMusteri.value.KnklmYtkNo}` 
+          : undefined,
+        KnklmOdaNo: selectedNormalMusteri.value.KnklmOdaNo,
+        KnklmYtkNo: selectedNormalMusteri.value.KnklmYtkNo,
+        MstrNo: undefined, // Normal müşterilerde MstrNo yok
+        MstrTCN: selectedNormalMusteri.value.MstrTCN,
+        CariKod: undefined,
+        KnklmPlnTrh: selectedNormalMusteri.value.KnklmPlnTrh,
+        MstrHspTip: selectedNormalMusteri.value.MstrHspTip
+      }
+    } else if (selectedBorcluMusteri.value) {
+      // Type guard: BorcluMusteri tipinde OdemeVadesi var
+      const borcluMusteri = selectedBorcluMusteri.value as BorcluMusteri
+      musteri = {
+        MstrAdi: borcluMusteri.CariAdi,
+        OdaYatak: undefined,
+        KnklmOdaNo: undefined,
+        KnklmYtkNo: undefined,
+        MstrNo: undefined,
+        MstrTCN: borcluMusteri.CariVTCN,
+        CariKod: borcluMusteri.CariKod,
+        KnklmPlnTrh: borcluMusteri.OdemeVadesi || undefined,
+        MstrHspTip: borcluMusteri.MstrHspTip
+      }
+    } else {
+      Notify.create({ type: 'negative', message: 'Müşteri bilgisi bulunamadı.' })
+      closeCtx()
+      return
+    }
+    
+    if (!musteri.MstrAdi) {
+      Notify.create({ type: 'negative', message: 'Müşteri adı bulunamadı.' })
+      closeCtx()
+      return
+    }
+    
+    // Backend'den maksimum islemno al
+    let fisNo = 1
+    try {
+      const maxIslemnoResponse = await api.get('/odeme-islem/max-islemno')
+      fisNo = (maxIslemnoResponse.data.maxIslemno || 0) + 1
+    } catch (error) {
+      console.error('❌ Maksimum islemno alınamadı:', error)
+      Notify.create({ type: 'warning', message: 'Fiş numarası alınamadı, varsayılan numara kullanılıyor.' })
+    }
+    
+    // Kalan bakiye: Sayfanın üst kısmında gösterilen müşteri bakiyesini direkt kullan (hesaplama yapma)
+    const kalanBakiye = selectedMusteriBakiye.value
+    
+    // Ödeme aracını eşleştir
+    const odemeTipValue = mapIslemAracToOdemeTip(cariHareket.islemArac)
+    
+    // Ödeme array'ini oluştur
+    const odemeler = [{
+      tutar: cariHareket.islemTutar,
+      tip: odemeTipValue,
+      odemeTipiGrup: cariHareket.islemGrup || 'konaklama',
+      komisyon: false,
+      orijinalTutar: cariHareket.islemTutar,
+      ekHizmetNotu: cariHareket.islemBilgi || ''
+    }]
+    
+    // Kullanıcı adını al
+    const islemKllnc = localStorage.getItem('username') || cariHareket.islemKllnc || 'Bilinmeyen'
+    
+    // Fiş kes
+    await printSingleFis(
+      odemeler,
+      musteri,
+      islemKllnc,
+      fisNo,
+      undefined, // depozitoAlinan
+      undefined, // depozitoOdemeAraci
+      undefined, // yeniEklenenGelirToplami
+      kalanBakiye // formBaslikKalanBakiye
+    )
+    
+    Notify.create({ type: 'positive', message: 'Fiş başarıyla kesildi.' })
+    closeCtx()
+  } catch (error) {
+    console.error('❌ Fiş kesme hatası:', error)
+    Notify.create({ 
+      type: 'negative', 
+      message: 'Fiş kesme hatası: ' + (error instanceof Error ? error.message : String(error)) 
+    })
+    closeCtx()
+  }
 }
 
 // 📊 RAPOR İNDİRME FONKSİYONLARI

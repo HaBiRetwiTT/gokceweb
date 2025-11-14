@@ -1264,6 +1264,16 @@ export class IslemController {
     return { success: true, data }
   }
 
+  /** Ödeme tipi özeti */
+  @Get('odeme-tipi-ozet')
+  async getOdemeTipiOzet(@Query('tarih') tarih: string, @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa') {
+    if (!tarih) {
+      throw new HttpException('tarih parametresi zorunludur', HttpStatus.BAD_REQUEST)
+    }
+    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode)
+    return { success: true, data }
+  }
+
   /**
    * Birden fazla islemNo için RST kayıtlarını tek sorguda getirir (performans optimizasyonu)
    */

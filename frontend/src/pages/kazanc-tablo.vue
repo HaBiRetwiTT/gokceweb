@@ -85,7 +85,7 @@
     </div>
 
     <!-- Ana Row: Sol sütun (Transfer + Tablo) ve Sağ sütun (Grafikler) -->
-    <div class="row items-start q-gutter-md q-mt-md" style="position: relative;">
+    <div class="row items-start q-gutter-md" style="position: relative; margin-top: 2px;">
       <!-- Loading overlay -->
       <div v-if="isLoading" class="loading-overlay">
         <q-spinner-dots color="primary" size="60px" />
@@ -202,8 +202,60 @@
           </q-card-section>
         </q-card>
 
+        <!-- 🔥 Ödeme Tipi Özet Tablosu -->
+        <q-card v-if="showOdemeTipiOzet" style="margin-top: 0px;">
+          <q-card-section class="odeme-tipi-header">
+            <div class="text-subtitle1 text-primary">Ödeme Tipi Özeti</div>
+          </q-card-section>
+          <q-separator />
+          <q-card-section class="q-pa-sm">
+            <q-table
+              :rows="odemeTipiOzetRows"
+              :columns="odemeTipiOzetColumns"
+              dense
+              bordered
+              separator="cell"
+              hide-bottom
+              :loading="odemeTipiOzetLoading"
+              flat
+              :rows-per-page-options="[0]"
+            >
+              <template v-slot:body-cell-odemeTipi="props">
+                <q-td :props="props" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''">
+                  {{ props.value }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-giren="props">
+                <q-td 
+                  :props="props" 
+                  class="text-right cursor-pointer" 
+                  :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''"
+                  @dblclick="!props.row.isToplam && props.value > 0 ? onOdemeTipiDetayClick(props.row.odemeTipi, 'Giren') : null"
+                >
+                  {{ formatTL(props.value) }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-cikan="props">
+                <q-td 
+                  :props="props" 
+                  class="text-right cursor-pointer" 
+                  :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''"
+                  @dblclick="!props.row.isToplam && props.value > 0 ? onOdemeTipiDetayClick(props.row.odemeTipi, 'Çıkan') : null"
+                >
+                  {{ formatTL(props.value) }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-kalan="props">
+                <q-td :props="props" class="text-right" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : (props.value >= 0 ? 'text-green' : 'text-red')">
+                  {{ formatTL(Math.abs(props.value)) }}
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
         <!-- Veri Tablosu -->
-        <q-card class="q-mt-md" :class="{ 'loading-blur': isLoading }">
+        <q-card style="margin-top: 0px;" :class="{ 'loading-blur': isLoading }">
           <!-- Bar Navigasyon Butonları -->
           <q-card-section class="q-pa-sm">
             <div class="bar-navigation">
@@ -277,6 +329,39 @@
       </q-card>
     </div>
 
+    <!-- Ödeme Tipi Detay Modal -->
+    <q-dialog v-model="showOdemeTipiDetayModal" position="standard" maximized>
+      <q-card class="modal-card">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">{{ odemeTipiDetayTitle }}</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <q-table
+            :rows="odemeTipiDetayRows"
+            :columns="odemeTipiDetayColumns"
+            row-key="islemNo"
+            dense
+            flat
+            bordered
+            separator="cell"
+            hide-bottom
+            :pagination="{ rowsPerPage: 0 }"
+            :loading="odemeTipiDetayLoading"
+            loading-label="Veriler yükleniyor..."
+          >
+            <template v-slot:body-cell-islemTutar="props">
+              <q-td :props="props" class="text-right">
+                {{ formatTL(Number(props.value || 0)) }}
+              </q-td>
+            </template>
+          </q-table>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
     <!-- İşlem Detayları Modal -->
     <q-dialog v-model="showDetailModal" position="standard" maximized>
       <q-card class="modal-card">
@@ -313,7 +398,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../boot/axios'
 import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
@@ -359,6 +444,34 @@ const netToplam = ref(0)
 const periodNetText = ref('')
 const customStartDate = ref('')
 const isLoading = ref(false)
+
+// 🔥 Ödeme Tipi Özet Tablosu için state
+type OdemeTipiOzet = {
+  nakit: { giren: number; cikan: number; kalan: number }
+  eft: { giren: number; cikan: number; kalan: number }
+  kart: { giren: number; cikan: number; kalan: number }
+  acenta: { giren: number; cikan: number; kalan: number }
+  depozito: { giren: number; cikan: number; kalan: number }
+  toplam: { giren: number; cikan: number; kalan: number }
+}
+
+const odemeTipiOzet = ref<OdemeTipiOzet>({
+  nakit: { giren: 0, cikan: 0, kalan: 0 },
+  eft: { giren: 0, cikan: 0, kalan: 0 },
+  kart: { giren: 0, cikan: 0, kalan: 0 },
+  acenta: { giren: 0, cikan: 0, kalan: 0 },
+  depozito: { giren: 0, cikan: 0, kalan: 0 },
+  toplam: { giren: 0, cikan: 0, kalan: 0 }
+})
+const odemeTipiOzetLoading = ref(false)
+
+// 🔥 Ödeme Tipi Özeti görünürlüğü - GÜNLER seçiliyken veya başlangıç tarihi girilmişken ve Giren/Çıkan modunda göster
+const showOdemeTipiOzet = computed(() => {
+  const selectedPeriod = timePeriods.value.find(p => p.selected)?.value || 'gunler'
+  // Başlangıç tarihi girilmişse GÜNLER seçiliymiş gibi davran
+  const isGunlerPeriod = selectedPeriod === 'gunler' || !!customStartDate.value
+  return isGunlerPeriod && islemTipMode.value === 'kasa'
+})
 
 // Kasalar arası aktarım formu
 const transferForm = ref({
@@ -414,6 +527,12 @@ const detailRows = ref<DetailRow[]>([])
 const detailLoading = ref(false)
 const selectedGrupName = ref('')
 
+// 🔥 Ödeme Tipi Detay Modal için değişkenler
+const showOdemeTipiDetayModal = ref(false)
+const odemeTipiDetayRows = ref<DetailRow[]>([])
+const odemeTipiDetayLoading = ref(false)
+const odemeTipiDetayTitle = ref('')
+
 // Detail modal sütun tanımları
 const detailColumns = ref<QTableColumn<DetailRow>[]>([
   { name: 'iKytTarihi', label: 'Kayıt Tarihi', field: 'iKytTarihi', align: 'left', sortable: true },
@@ -425,6 +544,71 @@ const detailColumns = ref<QTableColumn<DetailRow>[]>([
   { name: 'islemBilgi', label: 'Bilgi', field: 'islemBilgi', align: 'left', sortable: true, style: 'max-width: 200px; overflow: hidden; text-overflow: ellipsis;' },
   { name: 'islemMiktar', label: 'Miktar', field: 'islemMiktar', align: 'right', sortable: true },
   { name: 'islemTutar', label: 'Tutar', field: 'islemTutar', align: 'right', sortable: true },
+])
+
+// 🔥 Ödeme Tipi Detay Modal sütun tanımları
+const odemeTipiDetayColumns = ref<QTableColumn<DetailRow>[]>([
+  { name: 'iKytTarihi', label: 'Kayıt Tarihi', field: 'iKytTarihi', align: 'left', sortable: true },
+  { name: 'islemKllnc', label: 'Kullanıcı', field: 'islemKllnc', align: 'left', sortable: true },
+  { name: 'islemGrup', label: 'Grup', field: 'islemGrup', align: 'left', sortable: true },
+  { name: 'islemAltG', label: 'Alt Grup', field: 'islemAltG', align: 'left', sortable: true },
+  { name: 'islemBilgi', label: 'Bilgi', field: 'islemBilgi', align: 'left', sortable: true, style: 'max-width: 300px; overflow: hidden; text-overflow: ellipsis;' },
+  { name: 'islemMiktar', label: 'Miktar', field: 'islemMiktar', align: 'right', sortable: true },
+  { name: 'islemTutar', label: 'Tutar', field: 'islemTutar', align: 'right', sortable: true },
+])
+
+// 🔥 Ödeme Tipi Özet Tablosu için kolonlar
+const odemeTipiOzetColumns = computed(() => [
+  { name: 'odemeTipi', label: 'Ödeme Tipi', field: 'odemeTipi', align: 'left' as const, headerAlign: 'center' as const },
+  { name: 'giren', label: 'Giren', field: 'giren', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'cikan', label: 'Çıkan', field: 'cikan', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'kalan', label: 'Kalan', field: 'kalan', align: 'right' as const, headerAlign: 'center' as const }
+])
+
+// 🔥 Ödeme Tipi Özet Tablosu için satırlar
+const odemeTipiOzetRows = computed(() => [
+  {
+    odemeTipi: 'Nakit Kasa(TL)',
+    giren: odemeTipiOzet.value.nakit.giren,
+    cikan: odemeTipiOzet.value.nakit.cikan,
+    kalan: odemeTipiOzet.value.nakit.kalan,
+    isToplam: false
+  },
+  {
+    odemeTipi: 'Banka (EFT)',
+    giren: odemeTipiOzet.value.eft.giren,
+    cikan: odemeTipiOzet.value.eft.cikan,
+    kalan: odemeTipiOzet.value.eft.kalan,
+    isToplam: false
+  },
+  {
+    odemeTipi: 'Kredi Kartları',
+    giren: odemeTipiOzet.value.kart.giren,
+    cikan: odemeTipiOzet.value.kart.cikan,
+    kalan: odemeTipiOzet.value.kart.kalan,
+    isToplam: false
+  },
+  {
+    odemeTipi: 'Acenta',
+    giren: odemeTipiOzet.value.acenta.giren,
+    cikan: odemeTipiOzet.value.acenta.cikan,
+    kalan: odemeTipiOzet.value.acenta.kalan,
+    isToplam: false
+  },
+  {
+    odemeTipi: 'Depozito',
+    giren: odemeTipiOzet.value.depozito.giren,
+    cikan: odemeTipiOzet.value.depozito.cikan,
+    kalan: odemeTipiOzet.value.depozito.kalan,
+    isToplam: false
+  },
+  {
+    odemeTipi: 'TOPLAM',
+    giren: odemeTipiOzet.value.toplam.giren,
+    cikan: odemeTipiOzet.value.toplam.cikan,
+    kalan: odemeTipiOzet.value.toplam.kalan,
+    isToplam: true
+  }
 ])
 
 function getPeriodDates(): { start: string; end: string } {
@@ -922,6 +1106,84 @@ async function loadDetailData(grupName: string, islemTip: string) {
   }
 }
 
+// 🔥 Ödeme Tipi Detay yükleme fonksiyonu
+async function onOdemeTipiDetayClick(odemeTipi: string, islemTip: 'Giren' | 'Çıkan') {
+  try {
+    odemeTipiDetayLoading.value = true
+    showOdemeTipiDetayModal.value = true
+    
+    // Seçilen tarihi belirle - Her zaman aktif bar'ın tarihini kullan (customStartDate girilmiş olsa bile)
+    let selectedTarih = ''
+    
+    if (seriData.value.length > 0 && activeBarIndex.value >= 0 && activeBarIndex.value < seriData.value.length) {
+      // Aktif bar'ın tarihini kullan (öncelikli - dinamik tarih)
+      const selectedBar = seriData.value[activeBarIndex.value]
+      if (selectedBar.dateISO) {
+        const date = new Date(selectedBar.dateISO)
+        const dd = String(date.getDate()).padStart(2, '0')
+        const mm = String(date.getMonth() + 1).padStart(2, '0')
+        const yyyy = date.getFullYear()
+        selectedTarih = `${dd}.${mm}.${yyyy}`
+      }
+    } else if (customStartDate.value) {
+      // Aktif bar yoksa custom tarihi kullan (fallback)
+      selectedTarih = customStartDate.value
+    } else {
+      // Hiçbiri yoksa bugünün tarihini kullan
+      const today = new Date()
+      const dd = String(today.getDate()).padStart(2, '0')
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const yyyy = today.getFullYear()
+      selectedTarih = `${dd}.${mm}.${yyyy}`
+    }
+    
+    if (!selectedTarih) {
+      console.warn('⚠️ Tarih belirlenemedi')
+      return
+    }
+    
+    // Ödeme tipi mapping
+    const odemeTipiMap: { [key: string]: string } = {
+      'Nakit Kasa(TL)': 'nakit',
+      'Banka (EFT)': 'eft',
+      'Kredi Kartları': 'kart',
+      'Acenta': 'acenta',
+      'Depozito': 'depozito'
+    }
+    
+    const islemArac = odemeTipiMap[odemeTipi]
+    if (!islemArac) {
+      console.error('⚠️ Geçersiz ödeme tipi:', odemeTipi)
+      return
+    }
+    
+    // Backend'den detay verilerini çek
+    const response = await api.get('/islem/detay-islemler', {
+      params: {
+        tarih: selectedTarih,
+        islemArac,
+        islemTip,
+        page: 1,
+        rowsPerPage: 1000 // Tüm kayıtları getir
+      }
+    })
+    
+    if (response.data.success && response.data.data) {
+      odemeTipiDetayRows.value = response.data.data || []
+      odemeTipiDetayTitle.value = `${odemeTipi} - ${islemTip} Detayları (${selectedTarih})`
+    } else {
+      odemeTipiDetayRows.value = []
+      odemeTipiDetayTitle.value = `${odemeTipi} - ${islemTip} Detayları (${selectedTarih})`
+    }
+  } catch (error) {
+    console.error('❌ Ödeme tipi detay yükleme hatası:', error)
+    odemeTipiDetayRows.value = []
+    odemeTipiDetayTitle.value = 'Hata oluştu'
+  } finally {
+    odemeTipiDetayLoading.value = false
+  }
+}
+
 // Kasalar arası aktarım fonksiyonu
 const performTransfer = async () => {
   // Yetki kontrolü - Sadece HARUN ve SAadmin aktarım yapabilir
@@ -1081,9 +1343,119 @@ const loadKasaBakiyeleri = async () => {
   }
 }
 
+// 🔥 Ödeme Tipi Özet Tablosu için veri yükleme fonksiyonu
+async function loadOdemeTipiOzet() {
+  odemeTipiOzetLoading.value = true
+  
+  try {
+    // Seçilen tarihi belirle - Her zaman aktif bar'ın tarihini kullan (customStartDate girilmiş olsa bile)
+    let selectedTarih = ''
+    
+    if (seriData.value.length > 0 && activeBarIndex.value >= 0 && activeBarIndex.value < seriData.value.length) {
+      // Aktif bar'ın tarihini kullan (öncelikli)
+      const selectedBar = seriData.value[activeBarIndex.value]
+      if (selectedBar.dateISO) {
+        // ISO formatından DD.MM.YYYY formatına çevir
+        const date = new Date(selectedBar.dateISO)
+        const dd = String(date.getDate()).padStart(2, '0')
+        const mm = String(date.getMonth() + 1).padStart(2, '0')
+        const yyyy = date.getFullYear()
+        selectedTarih = `${dd}.${mm}.${yyyy}`
+      }
+    } else if (customStartDate.value) {
+      // Aktif bar yoksa custom tarihi kullan (fallback)
+      selectedTarih = customStartDate.value
+    } else {
+      // Hiçbiri yoksa bugünün tarihini kullan
+      const today = new Date()
+      const dd = String(today.getDate()).padStart(2, '0')
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const yyyy = today.getFullYear()
+      selectedTarih = `${dd}.${mm}.${yyyy}`
+    }
+    
+    if (!selectedTarih) {
+      console.warn('⚠️ Tarih belirlenemedi, ödeme tipi özeti yüklenemiyor')
+      return
+    }
+    
+    // Backend API'yi çağır
+    const response = await api.get('/islem/odeme-tipi-ozet', {
+      params: {
+        tarih: selectedTarih,
+        islemTipMode: islemTipMode.value
+      }
+    })
+    
+    if (response.data.success && response.data.data) {
+      const data = response.data.data
+      
+      // Her ödeme tipi için kalan hesapla
+      odemeTipiOzet.value = {
+        nakit: {
+          giren: data.nakit?.giren || 0,
+          cikan: data.nakit?.cikan || 0,
+          kalan: (data.nakit?.giren || 0) - (data.nakit?.cikan || 0)
+        },
+        eft: {
+          giren: data.eft?.giren || 0,
+          cikan: data.eft?.cikan || 0,
+          kalan: (data.eft?.giren || 0) - (data.eft?.cikan || 0)
+        },
+        kart: {
+          giren: data.kart?.giren || 0,
+          cikan: data.kart?.cikan || 0,
+          kalan: (data.kart?.giren || 0) - (data.kart?.cikan || 0)
+        },
+        acenta: {
+          giren: data.acenta?.giren || 0,
+          cikan: data.acenta?.cikan || 0,
+          kalan: (data.acenta?.giren || 0) - (data.acenta?.cikan || 0)
+        },
+        depozito: {
+          giren: data.depozito?.giren || 0,
+          cikan: data.depozito?.cikan || 0,
+          kalan: (data.depozito?.giren || 0) - (data.depozito?.cikan || 0)
+        },
+        toplam: {
+          giren: (data.nakit?.giren || 0) + (data.eft?.giren || 0) + (data.kart?.giren || 0) + (data.acenta?.giren || 0) + (data.depozito?.giren || 0),
+          cikan: (data.nakit?.cikan || 0) + (data.eft?.cikan || 0) + (data.kart?.cikan || 0) + (data.acenta?.cikan || 0) + (data.depozito?.cikan || 0),
+          kalan: 0 // Hesaplanacak
+        }
+      }
+      
+      // Toplam kalan hesapla
+      odemeTipiOzet.value.toplam.kalan = odemeTipiOzet.value.toplam.giren - odemeTipiOzet.value.toplam.cikan
+    }
+  } catch (error) {
+    console.error('❌ Ödeme tipi özeti yükleme hatası:', error)
+    // Hata durumunda sıfırla
+    odemeTipiOzet.value = {
+      nakit: { giren: 0, cikan: 0, kalan: 0 },
+      eft: { giren: 0, cikan: 0, kalan: 0 },
+      kart: { giren: 0, cikan: 0, kalan: 0 },
+      acenta: { giren: 0, cikan: 0, kalan: 0 },
+      depozito: { giren: 0, cikan: 0, kalan: 0 },
+      toplam: { giren: 0, cikan: 0, kalan: 0 }
+    }
+  } finally {
+    odemeTipiOzetLoading.value = false
+  }
+}
+
+// 🔥 Tarih ve mod değişikliklerini izle
+watch(
+  [customStartDate, activeBarIndex, islemTipMode],
+  () => {
+    void loadOdemeTipiOzet()
+  },
+  { immediate: false }
+)
+
 onMounted(() => { 
   void loadData();
   void loadKasaBakiyeleri();
+  void loadOdemeTipiOzet();
 })
 
 function formatTL(value: number): string {
@@ -1465,7 +1837,7 @@ function updatePieCharts(
 }
 
 .transfer-header-section {
-  padding: 12px 24px;
+  padding: 6px 16px;
   background: rgba(25, 118, 210, 0.08);
 }
 
@@ -1483,6 +1855,20 @@ function updatePieCharts(
 .transfer-header-content .q-btn {
   position: absolute;
   right: 0;
+}
+
+/* Ödeme Tipi Özeti başlık stili */
+.odeme-tipi-header {
+  padding: 6px 12px;
+}
+
+/* Ödeme Tipi Özeti toplam satırı stili */
+.odeme-tipi-toplam-row {
+  background-color: rgba(158, 158, 158, 0.2) !important;
+}
+
+.body--dark .odeme-tipi-toplam-row {
+  background-color: rgba(97, 97, 97, 0.3) !important;
 }
 
 .transfer-card-section {

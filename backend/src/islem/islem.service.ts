@@ -12,8 +12,10 @@ type DetayIslem = {
   id: number;
   islemNo?: number;
   iKytTarihi: string;
+  islemKllnc?: string;
   islemAltG: string;
   islemGrup: string;
+  islemMiktar?: number;
   islemTutar: number;
   islemBilgi: string;
 };
@@ -800,7 +802,16 @@ export class IslemService {
         }
       }
 
-      console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter })
+      // FON KAYIT ve Kasadan Alınan/Kasaya Verilen filtreleri
+      const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
+
+      // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
+      let depozitoExcludeFilter = '';
+      if (islemArac && islemArac !== 'depozito') {
+        depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+      }
+
+      console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter, depozitoFilter, depozitoExcludeFilter })
       console.log('🔍 Tarih parametresi:', { 
         tarih: tarih, 
         tarihTipi: typeof tarih,
@@ -815,6 +826,8 @@ export class IslemService {
         ${islemAracFilter}
         ${islemTipFilter}
         ${depozitoFilter}
+        ${detailTableFilter}
+        ${depozitoExcludeFilter}
       `;
 
       console.log('🔍 Detay Count Query:', countQuery)
@@ -834,15 +847,19 @@ export class IslemService {
         SELECT 
           islemNo,
           iKytTarihi,
-          islemAltG as islemAltG,
-          islemGrup as islemGrup,
-          islemTutar as islemTutar,
-          islemBilgi as islemBilgi
+          islemKllnc,
+          islemAltG,
+          islemGrup,
+          islemMiktar,
+          islemTutar,
+          islemBilgi
         FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
         ${islemTipFilter}
         ${depozitoFilter}
+        ${detailTableFilter}
+        ${depozitoExcludeFilter}
         ORDER BY islemNo DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
@@ -865,13 +882,15 @@ export class IslemService {
 
       return {
         data: result.map((row: any) => ({
-          id: row.id,
+          id: row.islemNo || 0,
           islemNo: row.islemNo,
           iKytTarihi: row.iKytTarihi,
-          islemAltG: row.islemAltG,
-          islemGrup: row.islemGrup,
+          islemKllnc: row.islemKllnc || '',
+          islemAltG: row.islemAltG || '',
+          islemGrup: row.islemGrup || '',
+          islemMiktar: row.islemMiktar !== null && row.islemMiktar !== undefined ? parseFloat(row.islemMiktar) : 0,
           islemTutar: parseFloat(row.islemTutar) || 0,
-          islemBilgi: row.islemBilgi,
+          islemBilgi: row.islemBilgi || '',
         })),
         totalRecords,
       };
@@ -3606,6 +3625,110 @@ export class IslemService {
       }
     } catch (error) {
       throw new Error(`Tüm ARV kayıtları alınamadı: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Ödeme tipi özeti için günlük Giren/Çıkan toplamlarını getirir
+   */
+  async getOdemeTipiOzet(tarih: string, islemTipMode: 'kasa' | 'cari' = 'kasa'): Promise<{
+    nakit: { giren: number; cikan: number };
+    eft: { giren: number; cikan: number };
+    kart: { giren: number; cikan: number };
+    acenta: { giren: number; cikan: number };
+    depozito: { giren: number; cikan: number };
+  }> {
+    try {
+      const tableName = this.dbConfig.getTableName('tblislem');
+      
+      // FON KAYIT ve Kasadan Alınan/Kasaya Verilen filtreleri (SQL string olarak)
+      const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
+
+      // Depozito filtreleri - DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini hariç tut
+      const depozitoFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+
+      // İşlem tipi kontrolü (kasa modunda 'Giren'/'Çıkan', cari modunda 'GELİR'/'GİDER')
+      const girenTip = islemTipMode === 'kasa' ? 'Giren' : 'GELİR';
+      const cikanTip = islemTipMode === 'kasa' ? 'Çıkan' : 'GİDER';
+
+      // Nakit Kasa(TL)
+      const nakitQuery = `
+        SELECT 
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+        FROM ${tableName}
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+      `;
+
+      // Banka EFT
+      const eftQuery = `
+        SELECT 
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Banka EFT'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Banka EFT'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+        FROM ${tableName}
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+      `;
+
+      // Kredi Kartları
+      const kartQuery = `
+        SELECT 
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Kredi Kartları'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Kredi Kartları'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+        FROM ${tableName}
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+      `;
+
+      // Acenta Tahsilat
+      const acentaQuery = `
+        SELECT 
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Acenta Tahsilat'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Acenta Tahsilat'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+        FROM ${tableName}
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+      `;
+
+      // Depozito (islemBilgi alanından tespit edilecek)
+      const depozitoQuery = `
+        SELECT 
+          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
+        FROM ${tableName}
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
+      `;
+
+      const params = [girenTip, cikanTip, tarih];
+
+      const [nakitResult] = await this.dataSource.query(nakitQuery, params);
+      const [eftResult] = await this.dataSource.query(eftQuery, params);
+      const [kartResult] = await this.dataSource.query(kartQuery, params);
+      const [acentaResult] = await this.dataSource.query(acentaQuery, params);
+      const [depozitoResult] = await this.dataSource.query(depozitoQuery, [tarih]);
+
+      return {
+        nakit: {
+          giren: parseFloat(nakitResult?.giren) || 0,
+          cikan: parseFloat(nakitResult?.cikan) || 0,
+        },
+        eft: {
+          giren: parseFloat(eftResult?.giren) || 0,
+          cikan: parseFloat(eftResult?.cikan) || 0,
+        },
+        kart: {
+          giren: parseFloat(kartResult?.giren) || 0,
+          cikan: parseFloat(kartResult?.cikan) || 0,
+        },
+        acenta: {
+          giren: parseFloat(acentaResult?.giren) || 0,
+          cikan: parseFloat(acentaResult?.cikan) || 0,
+        },
+        depozito: {
+          giren: parseFloat(depozitoResult?.giren) || 0,
+          cikan: parseFloat(depozitoResult?.cikan) || 0,
+        },
+      };
+    } catch (error) {
+      console.error('❌ getOdemeTipiOzet hatası:', error);
+      throw new Error(`Ödeme tipi özeti alınamadı: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
