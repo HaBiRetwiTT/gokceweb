@@ -241,7 +241,7 @@ export class PersonelService {
       // Eğer oda-yatak bilgisi girilmiş ve envanterde bulunmuşsa, OdYatDurum'u DOLU yap
       if (PrsnOda && PrsnYtk) {
         try {
-          console.log('🔍 Oda-yatak durumu güncelleniyor:', { oda: PrsnOda, yatak: PrsnYtk });
+          console.log('🔍 Yeni oda-yatak durumu DOLU yapılıyor:', { oda: PrsnOda, yatak: PrsnYtk });
           
           const odaYatakUpdateQuery = `
             UPDATE tblOdaYatak 
@@ -254,12 +254,40 @@ export class PersonelService {
             [PrsnOda, PrsnYtk]
           );
           
-          console.log('✅ Oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
+          console.log('✅ Yeni oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
           
         } catch (odaYatakUpdateError) {
-          console.error('⚠️ Oda-yatak durumu güncellenirken hata oluştu:', odaYatakUpdateError);
+          console.error('⚠️ Yeni oda-yatak durumu güncellenirken hata oluştu:', odaYatakUpdateError);
           // Oda-yatak güncelleme hatası olsa bile personel güncelleme başarılı sayılır
           // Bu işlem transaction korumasında değil, ayrı bir işlem
+        }
+        
+        // 🔥 EKLENEN: Eski oda-yatak varsa ve yeni oda-yatak'tan farklıysa BOŞ yap
+        if (mevcutPersonel && mevcutPersonel.length > 0) {
+          const mevcut = mevcutPersonel[0];
+          // Eski oda-yatak var ve yeni oda-yatak'tan farklıysa
+          if (mevcut.PrsnOda && mevcut.PrsnYtk && 
+              (mevcut.PrsnOda !== PrsnOda || mevcut.PrsnYtk !== PrsnYtk)) {
+            try {
+              console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk });
+              
+              const odaYatakBosUpdateQuery = `
+                UPDATE tblOdaYatak 
+                SET OdYatDurum = 'BOŞ' 
+                WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+              `;
+              
+              const odaYatakBosUpdateResult = await this.personelRepository.query(
+                odaYatakBosUpdateQuery, 
+                [mevcut.PrsnOda, mevcut.PrsnYtk]
+              );
+              
+              console.log('✅ Eski oda-yatak durumu BOŞ olarak güncellendi:', odaYatakBosUpdateResult);
+              
+            } catch (odaYatakBosUpdateError) {
+              console.error('⚠️ Eski oda-yatak durumu güncellenirken hata oluştu:', odaYatakBosUpdateError);
+            }
+          }
         }
       } else {
         // Eğer oda-yatak bilgisi kaldırıldıysa (boş yapıldıysa), eski oda-yatak'ı BOŞ yap
