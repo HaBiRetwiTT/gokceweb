@@ -1286,26 +1286,11 @@ const clearTransferForm = () => {
   transferForm.value.tutar = '';
 }
 
-// Güncel kasa bakiyelerini yükle
+// Güncel kasa bakiyelerini yükle - Her zaman güncel durumu göster (tarih filtresi yok)
 const loadKasaBakiyeleri = async () => {
   try {
-    let endDate: string | undefined = undefined;
-    
-    // GÜNLER seçili VEYA başlangıç tarihi girilmişse, aktif bar'ın tarihini kullan
-    const selectedPeriod = timePeriods.value.find(p => p.selected)?.value || 'gunler';
-    const isGunlerOrCustomDate = selectedPeriod === 'gunler' || customStartDate.value;
-    
-    if (isGunlerOrCustomDate && seriData.value.length > 0 && activeBarIndex.value >= 0 && activeBarIndex.value < seriData.value.length) {
-      const selectedBar = seriData.value[activeBarIndex.value];
-      if (selectedBar.dateISO) {
-        // ISO formatından DD.MM.YYYY formatına çevir
-        const date = new Date(selectedBar.dateISO);
-        const dd = String(date.getDate()).padStart(2, '0');
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const yyyy = date.getFullYear();
-        endDate = `${dd}.${mm}.${yyyy}`;
-      }
-    }
+    // Kasa bakiyeleri her zaman güncel durumu gösterir, tarih filtresi kullanılmaz
+    const endDate: string | undefined = undefined;
 
     // Nakit bakiye
     const nakitResponse = await api.get('/islem/guncel-bakiye', {
