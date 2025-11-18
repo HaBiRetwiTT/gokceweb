@@ -140,4 +140,45 @@ export class PersonelController {
       );
     }
   }
+
+  @Get('hesap-hareketleri/:personelNo')
+  async getPersonelHesapHareketleri(@Param('personelNo') personelNo: string) {
+    try {
+      const personelNoNum = parseInt(personelNo, 10);
+      if (isNaN(personelNoNum)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Geçersiz personel numarası',
+            statusCode: HttpStatus.BAD_REQUEST
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      
+      return await this.personelService.getPersonelHesapHareketleri(personelNoNum);
+    } catch (error) {
+      // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
+      if (error instanceof Error) {
+        throw new HttpException(
+          {
+            success: false,
+            message: error.message,
+            statusCode: HttpStatus.BAD_REQUEST
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      // Genel hata durumu
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Personel hesap hareketleri getirme hatası',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 }

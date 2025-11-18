@@ -42,6 +42,7 @@
            dense
            class="personel-table"
            @row-dblclick="onRowDblClick"
+           @row-contextmenu="onPersonelContextMenu"
            @request="onTableRequest"
          >
           <template v-slot:body-cell-cariBakiye="props">
@@ -657,11 +658,81 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Hesap Ekstresi Modal -->
+    <q-dialog v-model="showHesapEkstresiModal" maximized>
+      <q-card>
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Hesap Ekstresi - {{ selectedPersonelForEkstre?.PrsnAdi || '' }}</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+        <q-card-section>
+          <q-table
+            :rows="hesapHareketleri"
+            :columns="hesapEkstresiColumns"
+            :loading="hesapEkstresiLoading"
+            row-key="islemNo"
+            flat
+            bordered
+            dense
+            :pagination="{ rowsPerPage: 50 }"
+            :rows-per-page-options="[25, 50, 100, 200]"
+          >
+            <template v-slot:body-cell-iKytTarihi="props">
+              <q-td :props="props">
+                {{ formatDate(props.value) }}
+              </q-td>
+            </template>
+            <template v-slot:body-cell-islemTutar="props">
+              <q-td :props="props" :class="getIslemTutarClass(props.row.islemTip)">
+                {{ formatCurrency(props.value) }}
+              </q-td>
+            </template>
+            <template v-slot:no-data>
+              <div class="full-width row flex-center q-pa-md text-grey-6">
+                <q-icon name="receipt_long" size="48px" class="q-mb-sm" />
+                <div class="text-center">
+                  <div class="text-h6">Hesap Hareketi Bulunamadı</div>
+                  <div class="text-caption">Bu personel için hesap hareketi kaydı bulunmamaktadır.</div>
+                </div>
+              </div>
+            </template>
+          </q-table>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
+    <!-- Sağ-click Menü -->
+    <div
+      v-if="ctxMenu.show"
+      class="context-menu"
+      ref="ctxMenuEl"
+      :style="{
+        position: 'fixed',
+        left: ctxMenu.x + 'px',
+        top: ctxMenu.y + 'px',
+        zIndex: 3000,
+        borderRadius: '4px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+      }"
+      @click.stop
+      @mousedown.stop
+      @contextmenu.prevent
+    >
+      <q-list dense padding style="min-width: 180px;">
+        <q-item clickable v-close-popup @click="onHesapEkstresiClick">
+          <q-item-section>
+            Hesap Ekstresi
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { Notify } from 'quasar';
 import { api } from '../boot/axios';
 import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention';
@@ -695,6 +766,20 @@ interface Personel {
   PrsnAdres: string;
   PrsnBilgi: string;
   cariBakiye?: number;
+}
+
+interface HesapHareketi {
+  iKytTarihi: string;
+  islemKllnc: string;
+  islemOzel1: string | null;
+  islemOzel2: string | null;
+  islemOzel3: string | null;
+  islemArac: string;
+  islemTip: string;
+  islemGrup: string;
+  islemBilgi: string;
+  islemTutar: number;
+  islemNo: number;
 }
 
 const loading = ref(false);
@@ -737,6 +822,75 @@ const previewSingleSalary = ref<number>(0);
 const girisTarihiPopup = ref();
 const cikisTarihiPopup = ref();
 const dogumTarihiPopup = ref();
+
+// Hesap Ekstresi Modal
+const showHesapEkstresiModal = ref(false);
+const hesapEkstresiLoading = ref(false);
+const hesapHareketleri = ref<HesapHareketi[]>([]);
+const selectedPersonelForEkstre = ref<Personel | null>(null);
+
+// Sağ-click menü
+const ctxMenu = ref({ show: false, x: 0, y: 0, row: null as Personel | null });
+const ctxMenuEl = ref<HTMLElement | null>(null);
+
+// Hesap Ekstresi Tablo Kolonları
+const hesapEkstresiColumns = [
+  {
+    name: 'iKytTarihi',
+    label: 'Tarih',
+    field: 'iKytTarihi',
+    align: 'center' as const,
+    sortable: true,
+    style: 'width: 120px'
+  },
+  {
+    name: 'islemKllnc',
+    label: 'Kullanıcı',
+    field: 'islemKllnc',
+    align: 'left' as const,
+    sortable: true,
+    style: 'width: 120px'
+  },
+  {
+    name: 'islemTip',
+    label: 'İşlem Tipi',
+    field: 'islemTip',
+    align: 'center' as const,
+    sortable: true,
+    style: 'width: 120px'
+  },
+  {
+    name: 'islemGrup',
+    label: 'İşlem Grubu',
+    field: 'islemGrup',
+    align: 'left' as const,
+    sortable: true,
+    style: 'width: 150px'
+  },
+  {
+    name: 'islemArac',
+    label: 'İşlem Aracı',
+    field: 'islemArac',
+    align: 'left' as const,
+    sortable: true,
+    style: 'width: 150px'
+  },
+  {
+    name: 'islemBilgi',
+    label: 'Bilgi',
+    field: 'islemBilgi',
+    align: 'left' as const,
+    sortable: false
+  },
+  {
+    name: 'islemTutar',
+    label: 'Tutar',
+    field: 'islemTutar',
+    align: 'right' as const,
+    sortable: true,
+    style: 'width: 120px'
+  }
+];
 
 const durumOptions = [
   { label: 'ÇALIŞIYOR', value: 'ÇALIŞIYOR' },
@@ -1004,6 +1158,154 @@ const getBalanceClass = (balance: number | null | undefined): string => {
   if (balance < 0) return 'text-negative';
   return 'text-grey-6';
 };
+
+// Tarih formatla
+const formatDate = (date: string | null | undefined): string => {
+  if (!date) return '-';
+  // DD.MM.YYYY formatında geliyorsa direkt döndür
+  if (typeof date === 'string' && date.includes('.')) {
+    return date;
+  }
+  // ISO formatındaysa DD.MM.YYYY'ye çevir
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch {
+    return date;
+  }
+};
+
+// İşlem tutarı renk sınıfını belirle
+const getIslemTutarClass = (islemTip: string | null | undefined): string => {
+  if (!islemTip) return '';
+  // GELİR veya Çıkan ise pozitif (yeşil)
+  if (islemTip === 'GELİR' || islemTip === 'Çıkan') {
+    return 'text-positive text-weight-bold';
+  }
+  // GİDER veya Giren ise negatif (kırmızı)
+  if (islemTip === 'GİDER' || islemTip === 'Giren') {
+    return 'text-negative text-weight-bold';
+  }
+  return '';
+};
+
+// Seçilen personel bilgisini sakla (menü kapanmadan önce)
+let selectedPersonelForContextMenu: Personel | null = null;
+
+// Sağ-click menü fonksiyonları
+function onPersonelContextMenu(evt: Event, row: Personel) {
+  evt.preventDefault();
+  const me = evt as unknown as MouseEvent;
+  selectedPersonelForContextMenu = row; // Row bilgisini sakla
+  ctxMenu.value = { show: true, x: me.clientX, y: me.clientY, row };
+}
+
+function closeCtx() {
+  ctxMenu.value.show = false;
+  ctxMenu.value.row = null;
+  selectedPersonelForContextMenu = null; // Temizle
+}
+
+// Sağ-click menü için event listener'lar
+function onDocumentClick(e: MouseEvent) {
+  if (!ctxMenu.value.show) return;
+  const el = ctxMenuEl.value;
+  if (el && !el.contains(e.target as Node)) {
+    closeCtx();
+  }
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && ctxMenu.value.show) {
+    closeCtx();
+  }
+}
+
+// Hesap Ekstresi yükleme fonksiyonu
+const loadHesapHareketleri = async (personelNo: number) => {
+  try {
+    hesapEkstresiLoading.value = true;
+    console.log('🔍 Hesap hareketleri yükleniyor, Personel No:', personelNo);
+    console.log('🔍 Oluşturulacak cari kod: CP' + personelNo);
+    
+    const response = await api.get(`/personel/hesap-hareketleri/${personelNo}`);
+    console.log('🔍 API Response:', response.data);
+    
+    if (response.data.success) {
+      hesapHareketleri.value = response.data.data || [];
+      console.log('🔍 Yüklenen hesap hareketleri:', hesapHareketleri.value);
+      
+      if (hesapHareketleri.value.length > 0) {
+        Notify.create({
+          type: 'positive',
+          message: `${hesapHareketleri.value.length} hesap hareketi yüklendi`,
+          position: 'top'
+        });
+      } else {
+        Notify.create({
+          type: 'info',
+          message: 'Bu personel için hesap hareketi bulunamadı',
+          position: 'top'
+        });
+      }
+    } else {
+      throw new Error(response.data.message || 'Hesap hareketleri yüklenemedi');
+    }
+  } catch (error: unknown) {
+    console.error('❌ Hesap hareketleri yükleme hatası:', error);
+    let errorMessage = 'Hesap hareketleri yüklenirken hata oluştu';
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const apiError = error as { response?: { data?: { message?: string; statusCode?: number } } };
+      console.error('❌ API Error Details:', apiError.response);
+      if (apiError.response?.data?.message) {
+        errorMessage = apiError.response.data.message;
+      }
+    }
+    
+    Notify.create({
+      type: 'negative',
+      message: errorMessage,
+      position: 'top'
+    });
+    
+    hesapHareketleri.value = [];
+  } finally {
+    hesapEkstresiLoading.value = false;
+  }
+};
+
+// Hesap Ekstresi butonu click handler
+const onHesapEkstresiClick = async () => {
+  // Önce saklanan row bilgisini kontrol et, yoksa ctxMenu'den al
+  const personel = selectedPersonelForContextMenu || ctxMenu.value.row;
+  
+  if (!personel || !personel.PrsnNo) {
+    Notify.create({
+      type: 'warning',
+      message: 'Personel numarası bulunamadı',
+      position: 'top'
+    });
+    closeCtx();
+    return;
+  }
+  
+  selectedPersonelForEkstre.value = personel;
+  showHesapEkstresiModal.value = true;
+  closeCtx();
+  
+  await loadHesapHareketleri(personel.PrsnNo);
+};
+
+// Event listener'ları ekle/kaldır
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('keydown', onKeyDown);
+});
 
 // Ay seçenekleri
 const monthOptions = [
@@ -2003,10 +2305,25 @@ onMounted(() => {
   void loadPersonel('PrsnYetki', 'ASC');
   // Modal draggable özelliğini ayarla
   setupModalDraggable();
+  // Sağ-click menü için event listener'ları ekle
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onKeyDown);
 });
 </script>
 
 <style scoped>
+.context-menu {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  backdrop-filter: blur(2px);
+}
+
+.body--dark .context-menu {
+  background: #424242;
+  border-color: #616161;
+}
+
 .personel-table {
   font-size: 0.875rem;
 }

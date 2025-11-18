@@ -524,10 +524,28 @@ export class IslemService {
         }
       }
 
-      // İşlem yönü filtresi (2'li radio için islemTip alanı) - ANA TABLO İÇİN GEREKSİZ
+      // İşlem yönü filtresi (2'li radio için islemTip alanı)
+      // 🔥 EKLENEN: Ana tablo da detay tablo ile aynı islemTip filtresini kullanmalı
       let islemTipFilter = '';
-      // Ana tablo günlük özet olduğu için islemTip filtresi eklenmiyor
-      // Detay tabloda islemTip filtresi kullanılıyor
+      if (islemTip) {
+        // Depozito için yön filtrelemesini islemBilgi ile yap
+        if (islemArac === 'depozito') {
+          if (islemTip === 'Giren' || islemTip === 'GELİR') {
+            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'`;
+          } else if (islemTip === 'Çıkan' || islemTip === 'GİDER') {
+            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%'`;
+          }
+        } else {
+          // Diğerleri için mevcut eşleme
+          let dbIslemTip = '';
+          if (islemArac === 'cari') {
+            dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
+          } else {
+            dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
+          }
+          islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
+        }
+      }
 
       // Detay tabloda filtrelenen kayıtlar - Ana tablo toplamlarında da aynı filtreler uygulanmalı
       // FON KAYIT: içeren kayıtlar ve Kasaya Verilen/Kasadan Alınan kayıtları hariç tut
@@ -536,7 +554,13 @@ export class IslemService {
         AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))
       `;
 
-      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter, detailTableFilter })
+      // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
+      let depozitoExcludeFilter = '';
+      if (islemArac && islemArac !== 'depozito') {
+        depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+      }
+
+      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter, detailTableFilter, depozitoExcludeFilter })
 
       // Toplam kayıt sayısını al
       const countQuery = `
@@ -544,8 +568,10 @@ export class IslemService {
         FROM ${tableName}
         WHERE 1=1
         ${islemAracFilter}
+        ${islemTipFilter}
         ${depozitoFilter}
         ${detailTableFilter}
+        ${depozitoExcludeFilter}
       `;
 
       console.log('🔍 Count Query:', countQuery)
@@ -560,14 +586,49 @@ export class IslemService {
 
       // Ana sorgu - Depozito için gelir/gider islemBilgi'ye göre toplanır
       // Detay tabloda filtrelenen kayıtlar (FON KAYIT ve Kasaya Verilen/Kasadan Alınan) burada da filtrelenmeli
-      const gelirExpr =
-        islemArac === 'depozito'
-          ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-      const giderExpr =
-        islemArac === 'depozito'
-          ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-          : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+      // 🔥 GÜNCELLENEN: islemTip filtresine göre gelir/gider hesaplamaları güncellendi
+      // Eğer islemTip filtresi varsa, sadece o tip için hesaplama yapılmalı
+      let gelirExpr = '';
+      let giderExpr = '';
+      
+      if (islemTip) {
+        // islemTip filtresi varsa, sadece seçilen tip için hesaplama yap
+        if (islemTip === 'GELİR' || islemTip === 'Giren') {
+          // Sadece gelir/giren hesapla, gider/çıkan sıfır
+          gelirExpr =
+            islemArac === 'depozito'
+              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+          giderExpr = `0`; // Gider sıfır
+        } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
+          // Sadece gider/çıkan hesapla, gelir/giren sıfır
+          gelirExpr = `0`; // Gelir sıfır
+          giderExpr =
+            islemArac === 'depozito'
+              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+        } else {
+          // Varsayılan: her ikisini de hesapla (eski davranış)
+          gelirExpr =
+            islemArac === 'depozito'
+              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+          giderExpr =
+            islemArac === 'depozito'
+              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+        }
+      } else {
+        // islemTip filtresi yoksa, her ikisini de hesapla (eski davranış)
+        gelirExpr =
+          islemArac === 'depozito'
+            ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+            : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+        giderExpr =
+          islemArac === 'depozito'
+            ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
+            : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+      }
 
       const query = `
         SELECT 
@@ -577,8 +638,10 @@ export class IslemService {
         FROM ${tableName}
         WHERE 1=1
         ${islemAracFilter}
+        ${islemTipFilter}
         ${depozitoFilter}
         ${detailTableFilter}
+        ${depozitoExcludeFilter}
         GROUP BY CONVERT(VARCHAR(10), iKytTarihi, 104), CONVERT(DATE, iKytTarihi, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS

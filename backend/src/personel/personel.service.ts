@@ -667,4 +667,60 @@ export class PersonelService {
       throw new Error(`Personel bakiye hesaplanamadı: ${errorMessage}`);
     }
   }
+
+  /**
+   * Personel hesap hareketlerini getirir (personel numarası ile)
+   * CP{PrsnNo} formatında cari kod oluşturulur ve tblislem tablosunda sorgu yapılır
+   * Yeniden eskiye doğru sıralanmış şekilde
+   */
+  async getPersonelHesapHareketleri(personelNo: number): Promise<{ success: boolean; data: any[]; message: string }> {
+    try {
+      console.log('🔍 Personel hesap hareketleri getiriliyor, Personel No:', personelNo);
+
+      // Personel cari kodunu oluştur: CP + personel numarası
+      const cariKod = `CP${personelNo}`;
+      console.log('📝 Personel cari kodu:', cariKod);
+      
+      // Personel hesap hareketlerini getir (yeniden eskiye doğru)
+      const islemTableName = this.dbConfig.getTableName('tblislem');
+      
+      const hareketlerQuery = `
+        SELECT 
+          i.iKytTarihi,
+          i.islemKllnc,
+          i.islemOzel1,
+          i.islemOzel2,
+          i.islemOzel3,
+          i.islemArac,
+          i.islemTip,
+          i.islemGrup,
+          i.islemBilgi,
+          i.islemTutar,
+          i.islemNo,
+          i.islemCrKod
+        FROM ${islemTableName} i
+        WHERE i.islemCrKod = @0
+        ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC
+      `;
+      
+      console.log('🔍 Sorgu çalıştırılıyor, cari kod:', cariKod);
+      const hareketlerResult = await this.personelRepository.query(hareketlerQuery, [cariKod]);
+      
+      console.log('✨ Personel hesap hareketleri getirildi:', hareketlerResult.length, 'kayıt');
+      if (hareketlerResult.length > 0) {
+        console.log('🔍 İlk kayıt örneği:', hareketlerResult[0]);
+      }
+      
+      return {
+        success: true,
+        data: hareketlerResult || [],
+        message: `${cariKod} için hesap hareketleri başarıyla getirildi`
+      };
+      
+    } catch (error) {
+      console.error('❌ Personel hesap hareketleri getirme hatası:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new Error(`Personel hesap hareketleri alınamadı: ${errorMessage}`);
+    }
+  }
 }
