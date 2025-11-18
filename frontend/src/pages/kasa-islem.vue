@@ -3277,22 +3277,24 @@ const loadTableData = async () => {
     debugLog('🔍 Ana tablo verisi yükleniyor...')
     debugLog('🔍 Seçilen işlem türü:', selectedislemArac.value)
     debugLog('🔍 Seçilen işlem yönü:', islemTipForApi.value)
-    debugLog('🔍 API URL:', '/islem/kasa-islemleri')
-    debugLog('🔍 API Params:', {
+    
+    // 🔥 Depozito kasası seçildiğinde islemTip parametresini gönderme
+    // Böylece backend hem Giren hem Çıkan toplamlarını hesaplayacak
+    const params: Record<string, string | number> = {
       islemArac: selectedislemArac.value,
-      islemTip: islemTipForApi.value,
       page: 1,
       rowsPerPage: 1000
-    })
+    }
     
-    const response = await $api.get('/islem/kasa-islemleri', {
-      params: {
-        islemArac: selectedislemArac.value,
-        islemTip: islemTipForApi.value,
-        page: 1,
-        rowsPerPage: 1000
-      }
-    })
+    // Depozito haricindeki kasalar için islemTip parametresini ekle
+    if (selectedislemArac.value !== 'depozito') {
+      params.islemTip = islemTipForApi.value
+    }
+    
+    debugLog('🔍 API URL:', '/islem/kasa-islemleri')
+    debugLog('🔍 API Params:', params)
+    
+    const response = await $api.get('/islem/kasa-islemleri', { params })
     debugLog('🔍 Ana tablo Response status:', response.status)
     debugLog('🔍 Ana tablo Response headers:', response.headers)
     

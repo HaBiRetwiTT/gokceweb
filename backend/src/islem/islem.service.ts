@@ -915,7 +915,8 @@ export class IslemService {
           islemGrup,
           islemMiktar,
           islemTutar,
-          islemBilgi
+          islemBilgi,
+          islemArac
         FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
         ${islemAracFilter}
@@ -944,17 +945,27 @@ export class IslemService {
       console.log('🔍 Detay Query sonucu:', result)
 
       return {
-        data: result.map((row: any) => ({
-          id: row.islemNo || 0,
-          islemNo: row.islemNo,
-          iKytTarihi: row.iKytTarihi,
-          islemKllnc: row.islemKllnc || '',
-          islemAltG: row.islemAltG || '',
-          islemGrup: row.islemGrup || '',
-          islemMiktar: row.islemMiktar !== null && row.islemMiktar !== undefined ? parseFloat(row.islemMiktar) : 0,
-          islemTutar: parseFloat(row.islemTutar) || 0,
-          islemBilgi: row.islemBilgi || '',
-        })),
+        data: result.map((row: any) => {
+          // 🔥 Depozito kasası için Bilgi sütununu formatla: islemArac - islemBilgi
+          let formattedIslemBilgi = row.islemBilgi || '';
+          if (islemArac === 'depozito' && row.islemArac) {
+            const islemAracValue = row.islemArac || '';
+            const islemBilgiValue = row.islemBilgi || '';
+            formattedIslemBilgi = islemAracValue ? `${islemAracValue} - ${islemBilgiValue}` : islemBilgiValue;
+          }
+          
+          return {
+            id: row.islemNo || 0,
+            islemNo: row.islemNo,
+            iKytTarihi: row.iKytTarihi,
+            islemKllnc: row.islemKllnc || '',
+            islemAltG: row.islemAltG || '',
+            islemGrup: row.islemGrup || '',
+            islemMiktar: row.islemMiktar !== null && row.islemMiktar !== undefined ? parseFloat(row.islemMiktar) : 0,
+            islemTutar: parseFloat(row.islemTutar) || 0,
+            islemBilgi: formattedIslemBilgi,
+          };
+        }),
         totalRecords,
       };
     } catch (error) {

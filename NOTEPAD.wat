@@ -16,7 +16,7 @@ taskkill /f /im node.exe
 ==============================================
   cd C:\Users\habir\GOKCE\gokceweb; git switch master;
   cd backend; npm run build; cd ..;
-  cd frontend; npm version minor; npm run build; cd ..;
+  cd frontend; npm version patch; npm run build; cd ..;
   git add .; git commit -m "Sistem Sürüm Düzenlemeleri (auto)"; git push origin master
 ========================================================================
 netstat -ano | findstr :3000
