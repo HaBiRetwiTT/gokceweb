@@ -555,10 +555,10 @@ export class IslemService {
       `;
 
       // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
-      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
-      // Sadece Cari, EFT ve Acenta için depozito kayıtları filtrelenir
+      // Püf Nokta: Kart, Nakit ve EFT seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
+      // Sadece Cari ve Acenta için depozito kayıtları filtrelenir
       let depozitoExcludeFilter = '';
-      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit') {
+      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit' && islemArac !== 'eft') {
         depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
       }
 
@@ -871,10 +871,10 @@ export class IslemService {
       const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
 
       // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
-      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
-      // Sadece Cari, EFT ve Acenta için depozito kayıtları filtrelenir
+      // Püf Nokta: Kart, Nakit ve EFT seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
+      // Sadece Cari ve Acenta için depozito kayıtları filtrelenir
       let depozitoExcludeFilter = '';
-      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit') {
+      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit' && islemArac !== 'eft') {
         depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
       }
 
@@ -3742,11 +3742,11 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
       `;
 
-      // Banka EFT - Depozito filtreleme var
+      // Banka EFT - Depozito filtreleme yok (depozito kayıtları dahil)
       const eftQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Banka EFT'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Banka EFT'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Banka EFT'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Banka EFT'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
       `;
