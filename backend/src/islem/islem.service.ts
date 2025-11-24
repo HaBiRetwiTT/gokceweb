@@ -555,8 +555,10 @@ export class IslemService {
       `;
 
       // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
+      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
+      // Sadece Cari, EFT ve Acenta için depozito kayıtları filtrelenir
       let depozitoExcludeFilter = '';
-      if (islemArac && islemArac !== 'depozito') {
+      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit') {
         depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
       }
 
@@ -869,8 +871,10 @@ export class IslemService {
       const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
 
       // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
+      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
+      // Sadece Cari, EFT ve Acenta için depozito kayıtları filtrelenir
       let depozitoExcludeFilter = '';
-      if (islemArac && islemArac !== 'depozito') {
+      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit') {
         depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
       }
 
@@ -3715,26 +3719,30 @@ export class IslemService {
     try {
       const tableName = this.dbConfig.getTableName('tblislem');
       
-      // FON KAYIT ve Kasadan Alınan/Kasaya Verilen filtreleri (SQL string olarak)
-      const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
+      // Kasadan Alınan/Kasaya Verilen filtreleri (SQL string olarak)
+      // Püf Nokta: Ödeme Tipi Özeti tablosunda FON KAYIT içeren kayıtlar filtrelenmez
+      // Ancak kasa-islem sayfasındaki tablolarda FON KAYIT filtresi devam eder
+      const detailTableFilter = ` AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
 
       // Depozito filtreleri - DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini hariç tut
+      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
+      // Sadece EFT ve Acenta için depozito kayıtları filtrelenir
       const depozitoFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
 
       // İşlem tipi kontrolü (kasa modunda 'Giren'/'Çıkan', cari modunda 'GELİR'/'GİDER')
       const girenTip = islemTipMode === 'kasa' ? 'Giren' : 'GELİR';
       const cikanTip = islemTipMode === 'kasa' ? 'Çıkan' : 'GİDER';
 
-      // Nakit Kasa(TL)
+      // Nakit Kasa(TL) - Depozito filtreleme yok (depozito kayıtları dahil)
       const nakitQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
       `;
 
-      // Banka EFT
+      // Banka EFT - Depozito filtreleme var
       const eftQuery = `
         SELECT 
           SUM(CASE WHEN islemTip = @0 AND islemArac = 'Banka EFT'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
@@ -3743,16 +3751,16 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
       `;
 
-      // Kredi Kartları
+      // Kredi Kartları - Depozito filtreleme yok (depozito kayıtları dahil)
       const kartQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Kredi Kartları'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Kredi Kartları'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Kredi Kartları'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Kredi Kartları'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
       `;
 
-      // Acenta Tahsilat
+      // Acenta Tahsilat - Depozito filtreleme var
       const acentaQuery = `
         SELECT 
           SUM(CASE WHEN islemTip = @0 AND islemArac = 'Acenta Tahsilat'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,

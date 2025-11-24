@@ -1403,8 +1403,9 @@ async function loadOdemeTipiOzet() {
           kalan: (data.depozito?.giren || 0) - (data.depozito?.cikan || 0)
         },
         toplam: {
-          giren: (data.nakit?.giren || 0) + (data.eft?.giren || 0) + (data.kart?.giren || 0) + (data.acenta?.giren || 0) + (data.depozito?.giren || 0),
-          cikan: (data.nakit?.cikan || 0) + (data.eft?.cikan || 0) + (data.kart?.cikan || 0) + (data.acenta?.cikan || 0) + (data.depozito?.cikan || 0),
+          // Püf Nokta: Toplam hesaplamasında Depozito ödeme tipi toplamları dahil edilmez
+          giren: (data.nakit?.giren || 0) + (data.eft?.giren || 0) + (data.kart?.giren || 0) + (data.acenta?.giren || 0),
+          cikan: (data.nakit?.cikan || 0) + (data.eft?.cikan || 0) + (data.kart?.cikan || 0) + (data.acenta?.cikan || 0),
           kalan: 0 // Hesaplanacak
         }
       }
