@@ -485,6 +485,7 @@ async function onKaydet() {
   const win = window as Window & {
     kartliIslemSelectedNormalMusteri?: GlobalMusteri | null;
     selectedNormalMusteri?: GlobalMusteri | null;
+    kartliIslemPlanlananCikis?: { [musteriAdi: string]: string };
   };
   const musteri: GlobalMusteri | null | undefined = win.kartliIslemSelectedNormalMusteri ?? win.selectedNormalMusteri ?? null;
   if (!musteri) {
@@ -493,9 +494,16 @@ async function onKaydet() {
     return;
   }
   
+  // Püf Nokta: Planlanan Çıkış Tarihi cache'den alınmalı (dönem yenileme formundan gelen güncel değer)
+  const musteriAdi = musteri.MstrAdi || '';
+  const planlananCikisTarihi = (win.kartliIslemPlanlananCikis && musteriAdi) 
+    ? (win.kartliIslemPlanlananCikis as { [key: string]: string })[musteriAdi] 
+    : (musteri.KnklmPlnTrh || '');
+  
   console.log('🔍 Seçili müşteri bilgileri:', musteri);
   console.log('🔍 Musteri objesi tüm özellikleri:', Object.keys(musteri));
   console.log('🔍 Musteri objesi JSON:', JSON.stringify(musteri, null, 2));
+  console.log('🔍 Planlanan Çıkış Tarihi (cache\'den):', planlananCikisTarihi);
   
   // Borçlu/Alacaklı müşteriler için Cari Kod kontrolü
   const MstrTCN = musteri.MstrTCN || '';
@@ -670,6 +678,7 @@ async function onKaydet() {
         }
         
         // TEK FİŞ YAZDIR
+        // Püf Nokta: Planlanan Çıkış Tarihi cache'den alınan değer kullanılmalı
         await printSingleFis(
           fisliOdemeler,
           {
@@ -681,7 +690,7 @@ async function onKaydet() {
             MstrTCN: musteri.MstrTCN,
             MstrHspTip: musteri.MstrHspTip,
             CariKod: musteri.CariKod,
-            KnklmPlnTrh: musteri.KnklmPlnTrh
+            KnklmPlnTrh: planlananCikisTarihi
           },
           islemKllnc,
           fisNo,
@@ -702,22 +711,38 @@ async function onKaydet() {
       emit('bakiyeGuncelle', musteri);
       
       // ✅ KAYDET butonu ile kapatıldığında müşteri adına göre cache'i temizle
-      const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
-      if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari)) {
+      const winCache = window as Window & { 
+        kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number };
+        kartliIslemPlanlananCikis?: { [musteriAdi: string]: string };
+      };
+      if (winCache.kartliIslemYeniGelirTutari && typeof winCache.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(winCache.kartliIslemYeniGelirTutari)) {
         // Yeni yapı: müşteri adına göre temizle
-        const cacheObj = win.kartliIslemYeniGelirTutari as { [key: string]: number };
+        const cacheObj = winCache.kartliIslemYeniGelirTutari as { [key: string]: number };
         if (currentMusteriAdi.value && cacheObj[currentMusteriAdi.value] !== undefined) {
           delete cacheObj[currentMusteriAdi.value];
-          debugLog('🔥 KAYDET - Cache temizlendi:', currentMusteriAdi.value);
+          debugLog('🔥 KAYDET - GELİR tutarı cache temizlendi:', currentMusteriAdi.value);
         }
         // Eğer cache objesi boşaldıysa tamamen sil
         if (Object.keys(cacheObj).length === 0) {
-          delete win.kartliIslemYeniGelirTutari;
+          delete winCache.kartliIslemYeniGelirTutari;
         }
       } else {
         // Eski yapı: direkt sil
-        if (win.kartliIslemYeniGelirTutari !== undefined) {
-          delete win.kartliIslemYeniGelirTutari;
+        if (winCache.kartliIslemYeniGelirTutari !== undefined) {
+          delete winCache.kartliIslemYeniGelirTutari;
+        }
+      }
+      
+      // ✅ Planlanan Çıkış Tarihi cache'ini de temizle
+      if (winCache.kartliIslemPlanlananCikis && currentMusteriAdi.value) {
+        const planlananCikisCache = winCache.kartliIslemPlanlananCikis as { [key: string]: string };
+        if (planlananCikisCache[currentMusteriAdi.value] !== undefined) {
+          delete planlananCikisCache[currentMusteriAdi.value];
+          debugLog('🔥 KAYDET - Planlanan Çıkış Tarihi cache temizlendi:', currentMusteriAdi.value);
+        }
+        // Eğer cache objesi boşaldıysa tamamen sil
+        if (Object.keys(planlananCikisCache).length === 0) {
+          delete winCache.kartliIslemPlanlananCikis;
         }
       }
       
@@ -742,22 +767,38 @@ function onClose() {
   resetForm();
   
   // ✅ VAZGEÇ butonu ile kapatıldığında müşteri adına göre cache'i temizle
-  const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
-  if (win.kartliIslemYeniGelirTutari && typeof win.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(win.kartliIslemYeniGelirTutari)) {
+  const winCache = window as Window & { 
+    kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number };
+    kartliIslemPlanlananCikis?: { [musteriAdi: string]: string };
+  };
+  if (winCache.kartliIslemYeniGelirTutari && typeof winCache.kartliIslemYeniGelirTutari === 'object' && !Array.isArray(winCache.kartliIslemYeniGelirTutari)) {
     // Yeni yapı: müşteri adına göre temizle
-    const cacheObj = win.kartliIslemYeniGelirTutari as { [key: string]: number };
+    const cacheObj = winCache.kartliIslemYeniGelirTutari as { [key: string]: number };
     if (currentMusteriAdi.value && cacheObj[currentMusteriAdi.value] !== undefined) {
       delete cacheObj[currentMusteriAdi.value];
-      debugLog('🔥 VAZGEÇ - Cache temizlendi:', currentMusteriAdi.value);
+      debugLog('🔥 VAZGEÇ - GELİR tutarı cache temizlendi:', currentMusteriAdi.value);
     }
     // Eğer cache objesi boşaldıysa tamamen sil
     if (Object.keys(cacheObj).length === 0) {
-      delete win.kartliIslemYeniGelirTutari;
+      delete winCache.kartliIslemYeniGelirTutari;
     }
   } else {
     // Eski yapı: direkt sil
-    if (win.kartliIslemYeniGelirTutari !== undefined) {
-      delete win.kartliIslemYeniGelirTutari;
+    if (winCache.kartliIslemYeniGelirTutari !== undefined) {
+      delete winCache.kartliIslemYeniGelirTutari;
+    }
+  }
+  
+  // ✅ Planlanan Çıkış Tarihi cache'ini de temizle
+  if (winCache.kartliIslemPlanlananCikis && currentMusteriAdi.value) {
+    const planlananCikisCache = winCache.kartliIslemPlanlananCikis as { [key: string]: string };
+    if (planlananCikisCache[currentMusteriAdi.value] !== undefined) {
+      delete planlananCikisCache[currentMusteriAdi.value];
+      debugLog('🔥 VAZGEÇ - Planlanan Çıkış Tarihi cache temizlendi:', currentMusteriAdi.value);
+    }
+    // Eğer cache objesi boşaldıysa tamamen sil
+    if (Object.keys(planlananCikisCache).length === 0) {
+      delete winCache.kartliIslemPlanlananCikis;
     }
   }
   

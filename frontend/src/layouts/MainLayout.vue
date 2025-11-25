@@ -524,6 +524,7 @@ interface KartliIslemMusteri {
   KnklmYtkNo?: string;
   MstrHspTip?: string;
   MstrTCN?: string;
+  KnklmPlnTrh?: string; // Planlanan Çıkış Tarihi
 }
 
 // Ek Hizmetler Modalı için

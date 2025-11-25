@@ -909,16 +909,23 @@ async function saveDonemYenileme() {
           if (props.selectedData) {
             debugLog('🔥 saveDonemYenileme - props.selectedData:', props.selectedData)
             debugLog('🔥 saveDonemYenileme - MstrAdi:', props.selectedData.MstrAdi)
+            // Püf Nokta: Planlanan Çıkış Tarihi formData'dan alınmalı (güncel değer)
+            const planlananCikisTarihi = formData.value.KnklmPlnTrh || props.selectedData.KnklmPlnTrh || '';
             window.kartliIslemSelectedNormalMusteri = {
               ...props.selectedData,
-              MstrAdi: props.selectedData.MstrAdi || ''
+              MstrAdi: props.selectedData.MstrAdi || '',
+              KnklmPlnTrh: planlananCikisTarihi
             };
             debugLog('🔥 saveDonemYenileme - window.kartliIslemSelectedNormalMusteri set:', window.kartliIslemSelectedNormalMusteri)
+            debugLog('🔥 saveDonemYenileme - Planlanan Çıkış Tarihi:', planlananCikisTarihi)
             
             // ✅ Dönem yenileme GELİR tutarını cache'le (ToplamBedel veya HesaplananBedel) - müşteri adı ile birlikte
             const donemYenilemeGelirTutari = formData.value.ToplamBedel || formData.value.HesaplananBedel || 0;
             const musteriAdi = props.selectedData.MstrAdi || '';
-            const win = window as Window & { kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number } };
+            const win = window as Window & { 
+              kartliIslemYeniGelirTutari?: number | { [musteriAdi: string]: number };
+              kartliIslemPlanlananCikis?: { [musteriAdi: string]: string };
+            };
             
             // Cache yapısını kontrol et ve müşteri adı ile birlikte tut
             if (!win.kartliIslemYeniGelirTutari || typeof win.kartliIslemYeniGelirTutari === 'number') {
@@ -933,6 +940,15 @@ async function saveDonemYenileme() {
               (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = donemYenilemeGelirTutari;
             }
             debugLog('🔥 saveDonemYenileme - GELİR tutarı cache\'lendi:', donemYenilemeGelirTutari)
+            
+            // ✅ Planlanan Çıkış Tarihi'ni cache'le - müşteri adı ile birlikte
+            if (!win.kartliIslemPlanlananCikis) {
+              win.kartliIslemPlanlananCikis = {};
+            }
+            if (musteriAdi && planlananCikisTarihi) {
+              (win.kartliIslemPlanlananCikis as { [key: string]: string })[musteriAdi] = planlananCikisTarihi;
+              debugLog('🔥 saveDonemYenileme - Planlanan Çıkış Tarihi cache\'lendi:', planlananCikisTarihi, 'Müşteri:', musteriAdi)
+            }
           } else {
             debugLog('❌ saveDonemYenileme - props.selectedData bulunamadı')
           }
