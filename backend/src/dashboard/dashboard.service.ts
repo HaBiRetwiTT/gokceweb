@@ -105,8 +105,7 @@ export class DashboardService {
   }
 
   // Global arama: v_MusteriKonaklama üzerinde karttan bağımsız arama
-  async searchMusteriKonaklama(queryText: string, page = 1, limit = 50): Promise<{ data: MusteriKonaklamaData[] & { targetKart: string }[]; total: number; page: number; limit: number; }>
-  {
+  async searchMusteriKonaklama(queryText: string, page = 1, limit = 50): Promise<{ data: MusteriKonaklamaData[] & { targetKart: string }[]; total: number; page: number; limit: number; }> {
     const views = this.dbConfig.getViews();
     const tables = this.dbConfig.getTables();
     const offset = (Math.max(1, page) - 1) * Math.max(1, limit);
@@ -380,7 +379,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND v.KnklmTip = @0`;
         parameters.push(knklmTipi);
@@ -392,7 +391,7 @@ export class DashboardService {
       this.debugLog('View sorgusu sonucu:', result.length, 'kayıt bulundu');
       this.debugLog('Executed query:', query);
       this.debugLog('Parameters:', parameters);
-      
+
       return result;
     } catch (error) {
       console.error('getMusteriKonaklamaView hatası:', error);
@@ -404,7 +403,7 @@ export class DashboardService {
   async getMusteriSatisKanaliMapping(): Promise<SatisKanaliMapping[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       const query = `
         WITH AktifMusteriler AS (
           -- Aktif konaklayan müşterilerin MstrNo bilgisi
@@ -449,7 +448,7 @@ export class DashboardService {
         FROM SonIslemler
         WHERE rn = 1
       `;
-      
+
       const result = await this.musteriRepository.query(query);
       return result || [];
     } catch (error) {
@@ -494,7 +493,7 @@ export class DashboardService {
       const result: any[] = await this.musteriRepository.query(query);
       const tipler = result.map((item: any) => (item as { KnklmOdaTip: string }).KnklmOdaTip);
       return ['TÜMÜ', ...tipler];
-      } catch (error) {
+    } catch (error) {
       console.error('getOdaTipleri hatası:', error);
       return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
     }
@@ -503,10 +502,10 @@ export class DashboardService {
   // 🔥 KOORDİNELİ ÇALIŞMA: Seçili konaklama tipine göre uygun oda tiplerini getir
   async getOdaTipleriByKonaklama(konaklamaTip: string, kartTip: string = 'toplam-aktif'): Promise<string[]> {
     try {
-      
+
       // Seçili karta göre müşteri listesini al
       let musteriListesi: MusteriKonaklamaData[] = [];
-      
+
       switch (kartTip) {
         case 'toplam-aktif':
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
@@ -529,20 +528,20 @@ export class DashboardService {
         default:
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
-      
+
       // Müşteri listesinden konaklama tipine göre filtreleme yap
       let filteredList = musteriListesi;
       if (konaklamaTip && konaklamaTip !== 'TÜMÜ') {
         filteredList = musteriListesi.filter(m => m.KnklmTip === konaklamaTip);
       }
-      
+
       // Filtrelenmiş listeden distinct oda tiplerini çıkar
       const odaTipleri = [...new Set(filteredList.map(m => m.KnklmOdaTip))].filter(tip => tip && tip.trim() !== '');
-      
+
       const finalResult = ['TÜMÜ', ...odaTipleri.sort()];
-      
+
       return finalResult;
-      } catch (error) {
+    } catch (error) {
       console.error('getOdaTipleriByKonaklama hatası:', error);
       return ['TÜMÜ', 'STANDART', 'DELUXE', 'SUIT'];
     }
@@ -554,10 +553,10 @@ export class DashboardService {
       // 🔥 URL DECODING: Sadece gerçekten URL encoding'den gelen + karakterlerini boşluk yap
       // Eğer odaTip'te + karakteri varsa ve bu gerçek bir oda tipi ise, URL encoding yapma
       const decodedOdaTip = odaTip;
-      
+
       // Seçili karta göre müşteri listesini al
       let musteriListesi: MusteriKonaklamaData[] = [];
-      
+
       switch (kartTip) {
         case 'toplam-aktif':
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
@@ -580,18 +579,18 @@ export class DashboardService {
         default:
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
-      
+
       // Müşteri listesinden oda tipine göre filtreleme yap (decoded oda tipini kullan)
       let filteredList = musteriListesi;
       if (decodedOdaTip && decodedOdaTip !== 'TÜMÜ') {
         filteredList = musteriListesi.filter(m => m.KnklmOdaTip === decodedOdaTip);
       }
-      
+
       // Filtrelenmiş listeden distinct konaklama tiplerini çıkar
       const konaklamaTipleri = [...new Set(filteredList.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
-      
+
       const finalResult = ['TÜMÜ', ...konaklamaTipleri.sort()];
-      
+
       return finalResult;
     } catch (error) {
       console.error('getKonaklamaTipleriByOda hatası:', error);
@@ -603,7 +602,7 @@ export class DashboardService {
   async getDinamikKonaklamaTipleri(kartTip: string): Promise<string[]> {
     try {
       let musteriListesi: MusteriKonaklamaData[] = [];
-      
+
       // Seçili karta göre müşteri listesini al
       switch (kartTip) {
         case 'toplam-aktif':
@@ -627,12 +626,12 @@ export class DashboardService {
         default:
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
-      
+
       // Müşteri listesinden distinct konaklama tiplerini çıkar
       const konaklamaTipleri = [...new Set(musteriListesi.map(m => m.KnklmTip))].filter(tip => tip && tip.trim() !== '');
-      
+
       return ['TÜMÜ', ...konaklamaTipleri.sort()];
-      } catch (error) {
+    } catch (error) {
       console.error('getDinamikKonaklamaTipleri hatası:', error);
       return ['TÜMÜ', 'GÜNLÜK', 'HAFTALIK', 'AYLIK'];
     }
@@ -642,7 +641,7 @@ export class DashboardService {
   async getDinamikOdaTipleri(kartTip: string): Promise<string[]> {
     try {
       let musteriListesi: MusteriKonaklamaData[] = [];
-      
+
       // Seçili karta göre müşteri listesini al
       switch (kartTip) {
         case 'toplam-aktif':
@@ -666,10 +665,10 @@ export class DashboardService {
         default:
           musteriListesi = await this.getToplamAktifMusteri('TÜMÜ', 'TÜMÜ');
       }
-      
+
       // Müşteri listesinden distinct oda tiplerini çıkar
       const odaTipleri = [...new Set(musteriListesi.map(m => m.KnklmOdaTip))].filter(tip => tip && tip.trim() !== '');
-      
+
       return ['TÜMÜ', ...odaTipleri.sort()];
     } catch (error) {
       console.error('getDinamikOdaTipleri hatası:', error);
@@ -686,12 +685,12 @@ export class DashboardService {
       //   console.log('Stats cache hit - returning cached data');
       //   return this.statsCache.data;
       // }
-      
+
       // console.log('Stats cache miss - fetching fresh data');
-      
+
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 TEK SORGU OPTİMİZASYONU: Tüm istatistikleri tek CTE ile hesapla
       const unifiedStatsQuery = `
         WITH AktifKonaklamalar AS (
@@ -827,15 +826,15 @@ export class DashboardService {
         CROSS JOIN SuresiDolanStats sds
         OPTION (MAXDOP 2);
       `;
-      
+
       const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
       const result = resultUnknown as UnifiedStatsRow[];
-      
 
-      
+
+
       // Cache'e kaydet - devre dışı
       // this.statsCache = { data: result[0], timestamp: Date.now() };
-      
+
       const row = result[0];
       return row;
     } catch (error) {
@@ -859,7 +858,7 @@ export class DashboardService {
         GROUP BY KnklmOdaTip
         ORDER BY KnklmOdaTip
       `;
-      
+
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
       const result = resultUnknown as Array<{
         KnklmOdaTip: string;
@@ -867,7 +866,7 @@ export class DashboardService {
         SuresiGecentOda: number | string | null;
       }>;
       return result;
-      } catch (error) {
+    } catch (error) {
       console.error('getOdaDolulukDurumu hatası:', error);
       return [];
     }
@@ -879,7 +878,7 @@ export class DashboardService {
     try {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 DEBUG: Stats sorgusu ile aynı mantığı kullan
       let query = `
         WITH AktifKonaklamalar AS (
@@ -947,7 +946,7 @@ export class DashboardService {
 
       const parameters: string[] = [];
       let paramIndex = 0;
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND ak.KnklmTip = @${paramIndex} OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
@@ -963,7 +962,7 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
+
       return result;
     } catch (error) {
       console.error('getToplamAktifMusteri hatası:', error);
@@ -1038,7 +1037,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
@@ -1049,7 +1048,7 @@ export class DashboardService {
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 
       return result;
-      } catch (error) {
+    } catch (error) {
       console.error('getSuresiDolanMusteri hatası:', error);
       throw new Error('Süresi dolan müşteri listesi alınamadı');
     }
@@ -1089,7 +1088,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND k.knklmTip = @0`;
         parameters.push(knklmTipi);
@@ -1176,7 +1175,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
@@ -1185,9 +1184,9 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
+
       return result;
-      } catch (error) {
+    } catch (error) {
       console.error('getYeniMusteri hatası:', error);
       throw new Error('Yeni müşteri listesi alınamadı');
     }
@@ -1262,7 +1261,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
@@ -1271,7 +1270,7 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
+
       return result;
     } catch (error) {
       console.error('getYeniGiris hatası:', error);
@@ -1313,7 +1312,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND v.KnklmTip = @0`;
         parameters.push(knklmTipi);
@@ -1322,7 +1321,7 @@ export class DashboardService {
       query += ` ORDER BY CONVERT(Date, v.KnklmPlnTrh, 104), v.KnklmTip DESC, CONVERT(Date, v.KnklmGrsTrh, 104) DESC`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
+
       return result;
     } catch (error) {
       console.error('getBugunGirenMusteri hatası:', error);
@@ -1337,7 +1336,7 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
-      
+
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
       const query = `
         WITH MusteriBakiyeleri AS (
@@ -1399,16 +1398,16 @@ export class DashboardService {
         ORDER BY mb.MusteriBakiye DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
-      
+
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
       const result = resultUnknown as BorcluMusteriRow[];
-      
+
       // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
       for (const musteri of result) {
         const vade = await this.hesaplaOdemeVadesi(musteri.CariKod);
         musteri.odemeVadesi = vade;
       }
-      
+
       // Ödeme vadesine göre küçükten büyüğe sırala, null/boş olanlar en sonda
       result.sort((a, b) => {
         const vA = a.odemeVadesi;
@@ -1422,7 +1421,7 @@ export class DashboardService {
         const tB = new Date(yB, aB - 1, gB).getTime();
         return tA - tB;
       });
-      
+
       // Toplam sayıyı ayrı hesapla (daha hızlı)
       const countQuery = `
         WITH MusteriBakiyeleri AS (
@@ -1440,10 +1439,10 @@ export class DashboardService {
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye > 0
         OPTION (MAXDOP 2);
       `;
-      
+
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
       const total = countResult[0]?.TotalCount || 0;
-      
+
       return {
         data: result,
         total,
@@ -1463,10 +1462,10 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
-      
+
       // 🔥 Basit sıralama - eskiden yeniye tarih sıralaması
       const orderByClause = 'ORDER BY CONVERT(Date, c.cKytTarihi, 104) ASC, c.CariAdi ASC';
-      
+
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
@@ -1488,9 +1487,9 @@ export class DashboardService {
         ${orderByClause}
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
-      
+
       // Toplam sayıyı ayrı hesapla (daha hızlı) - YENİ SORGU KODU
       const countQuery = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
@@ -1506,17 +1505,17 @@ export class DashboardService {
         FROM MusteriBakiyeleri mb 
         INNER JOIN ${tables.cari} c ON mb.islemCrKod = c.CariKod
       `;
-      
+
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
       const total = countResult[0]?.TotalCount || 0;
-      
+
       const response = {
         data: result,
         total: total,
         page: page,
         limit: limit
       };
-      
+
       return response;
     } catch (error) {
       console.error('getBakiyesizHesaplar hatası:', error);
@@ -1531,7 +1530,7 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
-      
+
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
       const query = `
         WITH MusteriBakiyeleri AS (
@@ -1593,9 +1592,9 @@ export class DashboardService {
         ORDER BY ABS(mb.MusteriBakiye) DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
-      
+
       // Toplam sayıyı ayrı hesapla (daha hızlı)
       const countQuery = `
         WITH MusteriBakiyeleri AS (
@@ -1613,10 +1612,10 @@ export class DashboardService {
         WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye < 0
         OPTION (MAXDOP 2);
       `;
-      
+
       const countResult: { TotalCount: number }[] = await this.musteriRepository.query(countQuery);
       const total = countResult[0]?.TotalCount || 0;
-      
+
       return {
         data: result,
         total: total,
@@ -1657,7 +1656,7 @@ export class DashboardService {
         WHERE i.islemCrKod = @0
         ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [cariKod]);
       return result;
     } catch (error) {
@@ -1670,7 +1669,7 @@ export class DashboardService {
   async getCariHareketlerByTC(tcKimlik: string): Promise<any[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
       const query = `
         WITH MusteriCariKod AS (
@@ -1723,7 +1722,7 @@ export class DashboardService {
         FROM CariHareketler
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
       this.debugLog(`TC: ${tcKimlik} için ${result.length} cari hareket bulundu`);
       return result;
@@ -1738,7 +1737,7 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
       const decodedOdaTipi = decodeURIComponent(odaTipi);
-      
+
       let query = `
         SELECT 
           m.MstrTCN,
@@ -1768,7 +1767,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND k.KnklmTip = @${parameters.length}`;
         parameters.push(knklmTipi);
@@ -1793,7 +1792,7 @@ export class DashboardService {
   async getCikisYapanlarSayisi(): Promise<number> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 UYUM SAĞLAMA: Liste fonksiyonu ile aynı filtreleme mantığını kullan
       const query = `
         SELECT COUNT(*) as CikisYapanSayisi
@@ -1813,10 +1812,10 @@ export class DashboardService {
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         OPTION (MAXDOP 2);
       `;
-      
+
       const result: { CikisYapanSayisi: number }[] = await this.musteriRepository.query(query);
       const sayisi = Number(result[0]?.CikisYapanSayisi || 0);
-      
+
       this.debugLog('🔍 getCikisYapanlarSayisi sonucu:', sayisi, 'kayıt bulundu');
       return sayisi;
     } catch (error) {
@@ -1843,13 +1842,13 @@ export class DashboardService {
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY k.knklmNo DESC
       `;
-      
+
       const resultUnknown = (await this.musteriRepository.query(query, [tcKimlik])) as unknown;
       const result = resultUnknown as Array<{ KnklmKrLst: string | null; KnklmNot: string | null; knklmNo: number; MstrAdi: string | null; MstrTelNo: string | null; MstrFirma: string | null }>;
-      
+
       if (result.length > 0) {
         const kayit = result[0];
-      return {
+        return {
           isKaraListe: kayit.KnklmKrLst === 'EVET',
           karaListeNot: kayit.KnklmNot || '',
           knklmNo: kayit.knklmNo,
@@ -1858,7 +1857,7 @@ export class DashboardService {
           musteriFirma: kayit.MstrFirma || ''
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error('checkKaraListeDurum hatası:', error);
@@ -1870,11 +1869,11 @@ export class DashboardService {
   async getCikisYapanlarListesi(knklmTipi: string = 'TÜMÜ', odaTipi: string = 'TÜMÜ'): Promise<MusteriKonaklamaData[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 URL DECODING: URL encoding'den gelen + karakterlerini boşluk yap
       const decodedOdaTipi = decodeURIComponent(odaTipi);
 
-      
+
       // 🔥 DEBUG: Canlı veritabanındaki oda tipi değerlerini kontrol et
       if (odaTipi !== 'TÜMÜ') {
         const odaTipiKontrolQuery = `
@@ -1888,7 +1887,7 @@ export class DashboardService {
           GROUP BY KnklmOdaTip
           ORDER BY KnklmOdaTip
         `;
-        
+
         try {
           await this.musteriRepository.query(odaTipiKontrolQuery);
         } catch (_error) {
@@ -1931,7 +1930,7 @@ export class DashboardService {
       `;
 
       const parameters: string[] = [];
-      
+
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
         query += ` AND k2.KnklmTip = @${parameters.length} OPTION (MAXDOP 2);`;
         parameters.push(knklmTipi);
@@ -1948,7 +1947,7 @@ export class DashboardService {
       this.debugLog('🔍 PARAMETRELER:', parameters);
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-      
+
       // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
       if (result.length > 0) {
         this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
@@ -1961,10 +1960,10 @@ export class DashboardService {
           });
         });
       }
-      
+
       this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
       this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
-      
+
       // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
       if (result.length > 0) {
         this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
@@ -1977,7 +1976,7 @@ export class DashboardService {
           });
         });
       }
-      
+
       return result;
     } catch (error) {
       console.error('getCikisYapanlarListesi hatası:', error);
@@ -2014,7 +2013,7 @@ export class DashboardService {
         ORDER BY k.knklmNo DESC
         OPTION (MAXDOP 2);
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [tcKimlik]);
       this.debugLog('Müşteri konaklama geçmişi:', result.length, 'kayıt bulundu');
       return result;
@@ -2028,7 +2027,7 @@ export class DashboardService {
   async getMusteriBakiye(cariKod: string): Promise<number> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       const query = `
         SELECT 
           SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
@@ -2037,10 +2036,10 @@ export class DashboardService {
         WHERE islemCrKod = @0
           AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
-      
+
       const result: { MusteriBakiye: number }[] = await this.musteriRepository.query(query, [cariKod]);
       const bakiye = Number(result[0]?.MusteriBakiye || 0);
-      
+
       return bakiye;
     } catch (error) {
       console.error('getMusteriBakiye hatası:', error);
@@ -2052,7 +2051,7 @@ export class DashboardService {
   async getFirmaBakiye(firmaAdi: string): Promise<number> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // Önce firmadaki tüm müşterilerin MstrNo'larını bul
       const musteriQuery = `
         SELECT MstrNo, MstrHspTip, MstrAdi, MstrFirma
@@ -2061,17 +2060,17 @@ export class DashboardService {
           AND MstrHspTip = 'Kurumsal'
           AND LEFT(MstrAdi, 9) <> 'PERSONEL '
       `;
-      
+
       const musteriler: { MstrNo: number; MstrHspTip: string; MstrAdi: string; MstrFirma: string }[] = await this.musteriRepository.query(musteriQuery, [firmaAdi]);
-      
+
       if (musteriler.length === 0) {
         return 0;
       }
-      
+
       // Her müşteri için MK{MstrNo} formatında cari kod oluştur ve toplam bakiyeyi hesapla
       const cariKodlar = musteriler.map(m => `MK${m.MstrNo}`);
       const cariKodParametreleri = cariKodlar.map((_, index) => `@${index}`).join(',');
-      
+
       const bakiyeQuery = `
         SELECT 
           SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
@@ -2080,10 +2079,10 @@ export class DashboardService {
         WHERE islemCrKod IN (${cariKodParametreleri})
           AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
-      
+
       const result: { ToplamFirmaBakiye: number }[] = await this.musteriRepository.query(bakiyeQuery, cariKodlar);
       const firmaBakiye = Number(result[0]?.ToplamFirmaBakiye || 0);
-      
+
       return firmaBakiye;
     } catch (error) {
       console.error('getFirmaBakiye hatası:', error);
@@ -2122,7 +2121,7 @@ export class DashboardService {
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC, k.knklmNo DESC
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [firmaAdi]);
       return result;
     } catch (error) {
@@ -2135,7 +2134,7 @@ export class DashboardService {
   async getFirmaGenelCariHareketler(firmaAdi: string): Promise<any[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // Önce firmadaki tüm müşterilerin cari kodlarını bul
       const musteriQuery = `
         SELECT MstrNo, MstrAdi, MstrTCN
@@ -2144,17 +2143,17 @@ export class DashboardService {
           AND MstrHspTip = 'Kurumsal'
           AND LEFT(MstrAdi, 9) <> 'PERSONEL '
       `;
-      
+
       const musteriler: { MstrNo: number; MstrAdi: string; MstrTCN: string }[] = await this.musteriRepository.query(musteriQuery, [firmaAdi]);
-      
+
       if (musteriler.length === 0) {
         return [];
       }
-      
+
       // Her müşteri için MK{MstrNo} formatında cari kod oluştur
       const cariKodlar = musteriler.map(m => `MK${m.MstrNo}`);
       const cariKodParametreleri = cariKodlar.map((_, index) => `@${index}`).join(',');
-      
+
       const cariHareketlerQuery = `
         SELECT 
           i.iKytTarihi,
@@ -2182,7 +2181,7 @@ export class DashboardService {
         WHERE i.islemCrKod IN (${cariKodParametreleri})
         ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC, i.islemTutar DESC, i.islemCrKod
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(cariHareketlerQuery, cariKodlar);
       this.debugLog(`Firma ${firmaAdi} için ${result.length} cari hareket bulundu`);
       return result;
@@ -2197,9 +2196,9 @@ export class DashboardService {
     try {
       this.debugLog('=== karaListedenCikar çağrıldı ===');
       this.debugLog('TC Kimlik:', tcKimlik);
-      
+
       const tables = this.dbConfig.getTables();
-      
+
       // Önce müşteriyi bul
       const musteriQuery = `
         SELECT MstrNo
@@ -2207,15 +2206,15 @@ export class DashboardService {
         WHERE MstrTCN = @0
           AND LEFT(MstrAdi, 9) <> 'PERSONEL '
       `;
-      
+
       const musteriResult: { MstrNo: number }[] = await this.musteriRepository.query(musteriQuery, [tcKimlik]);
-      
+
       if (musteriResult.length === 0) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const mstrNo = musteriResult[0].MstrNo;
-      
+
       // Son konaklama kaydını bul ve KnklmKrLst alanını NULL yap
       const updateQuery = `
         UPDATE ${tables.konaklama} 
@@ -2227,12 +2226,12 @@ export class DashboardService {
             WHERE knklmMstrNo = @0
           )
       `;
-      
+
       const updateResult: unknown = await this.musteriRepository.query(updateQuery, [mstrNo]);
-      
+
       this.debugLog('Kara listeden çıkarma işlemi tamamlandı');
       this.debugLog('Update result:', updateResult);
-      
+
       return {
         success: true,
         message: `TC: ${tcKimlik} müşteri kara listeden başarıyla çıkarıldı`
@@ -2272,7 +2271,7 @@ export class DashboardService {
         FROM AylikGelir
         ORDER BY Yil DESC, Ay DESC
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
       this.debugLog('Aylık gelir trendi sonucu:', result.length, 'ay bulundu');
       return result.reverse(); // En eski aydan başlasın
@@ -2320,7 +2319,7 @@ export class DashboardService {
         GROUP BY ob.OdaTip, do.DoluSayi
         ORDER BY ob.OdaTip
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
       this.debugLog('Oda tipi analizi sonucu:', result.length, 'oda tipi bulundu');
       return result;
@@ -2334,7 +2333,7 @@ export class DashboardService {
   async getKonaklamaTipiDagilimi(): Promise<any[]> {
     try {
       const views = this.dbConfig.getViews();
-      
+
       // 🔥 CTE OPTİMİZASYONU: Konaklama tipi dağılımını daha verimli hesapla
       const query = `
         WITH AktifKonaklamalar AS (
@@ -2368,7 +2367,7 @@ export class DashboardService {
         FROM KonaklamaTipiDagilimi
         ORDER BY MusteriSayisi DESC
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
       this.debugLog('Konaklama tipi dağılımı sonucu:', result.length, 'tip bulundu');
       return result;
@@ -2426,7 +2425,7 @@ export class DashboardService {
         LEFT JOIN CikisAktivite ca ON sg.Tarih = ca.Tarih
         ORDER BY sg.Tarih
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query);
       this.debugLog('Son 7 gün aktivite sonucu:', result.length, 'gün bulundu');
       return result;
@@ -2462,7 +2461,7 @@ export class DashboardService {
           END
         ORDER BY ToplamGelir DESC
       `;
-      
+
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
       const result = resultUnknown as Array<{
         FirmaAdi: string;
@@ -2484,11 +2483,11 @@ export class DashboardService {
     if (parts.length !== 3) {
       throw new Error(`Geçersiz tarih formatı: ${dateString}`);
     }
-    
+
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
     const year = parseInt(parts[2], 10);
-    
+
     return new Date(year, month, day);
   }
 
@@ -2518,7 +2517,7 @@ export class DashboardService {
         this.debugLog('🔍 DEPOZİTO kaydı atlandı:', islem.islemBilgi);
         continue;
       }
-      
+
       let vadeTarihi: Date;
       const { islemTip, islemTutar, iKytTarihi } = islem;
 
@@ -2558,10 +2557,10 @@ export class DashboardService {
       // Ağırlıklı ortalama hesaplama
       const fark = vadeTarihi.getTime() - now.getTime();
       const gun = fark / (24 * 60 * 60 * 1000);
-      
+
       toplamTutar += Math.abs(islemTutar);
       toplamGun += gun * Math.abs(islemTutar);
-      
+
       this.debugLog('🔍 İşlem eklendi - Tip:', islemTip, 'Gün:', gun.toFixed(1), 'Tutar:', islemTutar);
     }
 
@@ -2577,14 +2576,14 @@ export class DashboardService {
     // DD.MM.YYYY formatı
     const pad = (n: number) => n < 10 ? '0' + n : n;
     const tarihStr = pad(ortTarih.getDate()) + '.' + pad(ortTarih.getMonth() + 1) + '.' + ortTarih.getFullYear();
-    
+
     this.debugLog('🔍 Hesaplanan ödeme vadesi:', tarihStr, 'Ortalama gün:', ortalamaGun.toFixed(1));
     return tarihStr;
   }
 
   // Public metod: TC kimlik numarasından ödeme vadesi hesapla
   async hesaplaMusteriOdemeVadesiByTC(tcKimlik: string): Promise<{ odemeVadesi: string | null; musteriAdi: string; cariKod: string } | null> {
-    try {      
+    try {
       // TC'den müşteri bilgilerini al
       const musteriData: any = await this.musteriRepository.query(`
         SELECT MstrNo, MstrHspTip, MstrAdi 
@@ -2596,9 +2595,9 @@ export class DashboardService {
         return null;
       }
       const musteri = musteriData[0];
-      const cariKod = musteri.MstrHspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;      
+      const cariKod = musteri.MstrHspTip === 'Kurumsal' ? `MK${musteri.MstrNo}` : `MB${musteri.MstrNo}`;
       // Ödeme vadesi hesapla
-      const odemeVadesi = await this.hesaplaOdemeVadesi(cariKod);      
+      const odemeVadesi = await this.hesaplaOdemeVadesi(cariKod);
       return {
         odemeVadesi,
         musteriAdi: musteri.MstrAdi,
@@ -2645,7 +2644,7 @@ export class DashboardService {
   async getBakiyesizHesaplarStats(): Promise<number> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU (hem bakiye hem depozito 0 olan müşteriler)
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
@@ -2661,10 +2660,10 @@ export class DashboardService {
         FROM MusteriBakiyeleri mb 
         INNER JOIN ${tables.cari} c ON mb.islemCrKod = c.CariKod
       `;
-      
+
       const result = await this.musteriRepository.query(query);
       const count = result[0]?.BakiyesizHesaplarSayisi || 0;
-      
+
       return count;
     } catch (error) {
       console.error('Bakiyesiz hesaplar stats hesaplama hatası:', error);
@@ -2676,7 +2675,7 @@ export class DashboardService {
   async generateCariHareketlerByTCPDF(tcKimlik: string): Promise<any> {
     try {
       const data = (await this.getCariHareketlerByTC(tcKimlik)) as CariHareketRow[];
-      
+
       // Müşteri adını al
       let musteriAdi = '';
       if (data.length > 0) {
@@ -2686,11 +2685,11 @@ export class DashboardService {
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;
           }
-    } catch (error) {
+        } catch (error) {
           this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
-      
+
       return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         const chunks: Buffer[] = [];
@@ -2706,7 +2705,7 @@ export class DashboardService {
         // Türkçe karakter desteği için font yükle
         try {
           doc.font('./fonts/DejaVuSans.ttf');
-    } catch (error) {
+        } catch (error) {
           this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
@@ -2746,7 +2745,7 @@ export class DashboardService {
           values.forEach((value, index) => {
             const x = 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0);
             const width = columnWidths[index];
-            
+
             // Tutar sütunu için sağa dayalı hizalama
             const align = index === 3 ? 'right' : 'left';
             doc.fontSize(8).text(value, x, y, { width: width, align: align });
@@ -2767,10 +2766,10 @@ export class DashboardService {
   async generateCariHareketlerByTCExcel(tcKimlik: string): Promise<any> {
     try {
       this.debugLog('🔥 Excel oluşturma başladı, TC:', tcKimlik);
-      
+
       const data = await this.getCariHareketlerByTC(tcKimlik);
       this.debugLog('🔥 Veri alındı, satır sayısı:', data.length);
-      
+
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Cari Hareketler');
 
@@ -2799,7 +2798,7 @@ export class DashboardService {
       this.debugLog('🔥 Excel buffer oluşturuluyor...');
       const buffer = await workbook.xlsx.writeBuffer();
       this.debugLog('🔥 Excel buffer oluşturuldu, boyut:', buffer.byteLength);
-      
+
       return buffer;
     } catch (error) {
       console.error('🔥 TC ile Cari Hareketler Excel oluşturma hatası:', error);
@@ -2811,7 +2810,7 @@ export class DashboardService {
   async generateKonaklamaGecmisiByTCPDF(tcKimlik: string): Promise<any> {
     try {
       const data = (await this.getMusteriKonaklamaGecmisi(tcKimlik)) as KonaklamaGecmisRow[];
-      
+
       // Müşteri adını al
       let musteriAdi = '';
       if (data.length > 0) {
@@ -2821,11 +2820,11 @@ export class DashboardService {
           if (musteriResult.length > 0) {
             musteriAdi = musteriResult[0].MstrAdi;
           }
-    } catch (error) {
+        } catch (error) {
           this.debugLog('Müşteri adı alınamadı:', error);
         }
       }
-      
+
       return new Promise((resolve, reject) => {
         const doc = new PDFDocument();
         const chunks: Buffer[] = [];
@@ -2841,7 +2840,7 @@ export class DashboardService {
         // Türkçe karakter desteği için font yükle
         try {
           doc.font('./fonts/DejaVuSans.ttf');
-    } catch (error) {
+        } catch (error) {
           this.debugLog('Türkçe font yüklenemedi, varsayılan font kullanılacak:', error);
         }
 
@@ -2881,7 +2880,7 @@ export class DashboardService {
           values.forEach((value, index) => {
             const x = 50 + columnWidths.slice(0, index).reduce((a, b) => a + b, 0);
             const width = columnWidths[index];
-            
+
             // Tutar sütunu için sağa dayalı hizalama
             const align = index === 3 ? 'right' : 'left';
             doc.fontSize(8).text(value, x, y, { width: width, align: align });
@@ -2911,11 +2910,11 @@ export class DashboardService {
       // Veri satırları
       data.forEach((row: any) => {
         worksheet.addRow([
-            this.formatDate(row.kKytTarihi),
-            row.KnklmOdaTip || '',
-            `${row.KnklmOdaNo ?? ''}-${row.KnklmYtkNo ?? ''}`,
-            row.KnklmTip || '',
-            row.KnklmNfyt ?? 0
+          this.formatDate(row.kKytTarihi),
+          row.KnklmOdaTip || '',
+          `${row.KnklmOdaNo ?? ''}-${row.KnklmYtkNo ?? ''}`,
+          row.KnklmTip || '',
+          row.KnklmNfyt ?? 0
         ]);
       });
 
@@ -2931,41 +2930,41 @@ export class DashboardService {
     }
   }
 
-// ... existing code ...
+  // ... existing code ...
 
-async getChartDataByTimePeriod(
-  selectedAccommodationTypes: string[],
-  selectedRoomTypes: string[],
-  startDate: string,
-  timePeriod: string
-) {
-  switch (timePeriod) {
-    case 'gunler':
-      return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    case 'haftalar':
-      return this.getChartDataByWeeks(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    case 'aylar':
-      return this.getChartDataByMonths(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    case 'ceyrekler':
-      return this.getChartDataByQuarters(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    case 'yarı-yillar':
-      return this.getChartDataByHalfYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    case 'yillar':
-      return this.getChartDataByYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
-    default:
-      return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
+  async getChartDataByTimePeriod(
+    selectedAccommodationTypes: string[],
+    selectedRoomTypes: string[],
+    startDate: string,
+    timePeriod: string
+  ) {
+    switch (timePeriod) {
+      case 'gunler':
+        return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      case 'haftalar':
+        return this.getChartDataByWeeks(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      case 'aylar':
+        return this.getChartDataByMonths(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      case 'ceyrekler':
+        return this.getChartDataByQuarters(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      case 'yarı-yillar':
+        return this.getChartDataByHalfYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      case 'yillar':
+        return this.getChartDataByYears(selectedAccommodationTypes, selectedRoomTypes, startDate)
+      default:
+        return this.getChartDataByDays(selectedAccommodationTypes, selectedRoomTypes, startDate)
+    }
   }
-}
-  
+
   // Chart data methods for different time periods
   async getChartDataByDays(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByDays çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: startDate varsa o tarihten SONRAKİ 12 gün, yoksa bugünden ÖNCEKİ 12 gün
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       // Verilen tarih formatını SQL Server'a uygun hale getir
       const convertDateForSQL = (dateString: string) => {
@@ -2976,10 +2975,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Seçilen tarihten SONRA 11 gün (seçilen tarih dahil toplam 12 gün)
       const endDate = new Date(baseDate.getTime() + 11 * 24 * 60 * 60 * 1000)
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -2989,9 +2988,9 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     console.log('🔍 Tarih aralığı:', { sqlStartDate, sqlEndDate })
-    
+
     const query = `
       SELECT 
         CONVERT(DATE, KnklmGrsTrh, 104) as Date,
@@ -3014,32 +3013,32 @@ async getChartDataByTimePeriod(
       GROUP BY CONVERT(DATE, KnklmGrsTrh, 104)
       ORDER BY Date
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 SQL Query:', query)
     console.log('🔍 SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('🔍 GÜNLER sonuç:', result.length, 'gün bulundu')
     console.log('🔍 SQL Result:', result.map(r => ({ Date: r.Date, Count: r.Count, TotalDays: r.TotalDays })))
-    
+
     return result
   }
-  
+
   async getChartDataByWeeks(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByWeeks çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: son 12 hafta mantığı
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3049,10 +3048,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Seçilen tarihten SONRA 11 hafta (seçilen tarih dahil toplam 12 hafta)
       const endDate = new Date(baseDate.getTime() + 11 * 7 * 24 * 60 * 60 * 1000)
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -3062,9 +3061,9 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     console.log('🔍 Hafta tarih aralığı:', { sqlStartDate, sqlEndDate })
-    
+
     const query = `
         WITH WeekRanges AS (
         -- 12 haftalık periyot için hafta listesi oluştur (başlangıç tarihinden ileriye doğru)
@@ -3109,31 +3108,31 @@ async getChartDataByTimePeriod(
       LEFT JOIN KonaklamaData kd ON wr.Year = kd.Year AND wr.WeekNumber = kd.WeekNumber
       ORDER BY wr.Year, wr.WeekNumber
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 HAFTALAR SQL Query:', query)
     console.log('🔍 HAFTALAR SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 HAFTALAR sonuç:', result.length, 'hafta bulundu')
     console.log('📊 Hafta detayları:', result.map(r => ({ Year: r.Year, Week: r.WeekNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
     return result
   }
-  
+
   async getChartDataByMonths(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByMonths çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: son 12 ay mantığı
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3143,10 +3142,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Seçilen tarihten 11 ay sonra (seçilen tarih dahil toplam 12 ay)
       const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 11, baseDate.getDate())
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -3156,7 +3155,7 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     const query = `
       SELECT 
         YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
@@ -3180,32 +3179,32 @@ async getChartDataByTimePeriod(
       GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), MONTH(CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year, MonthNumber
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 AYLAR SQL Query:', query)
     console.log('🔍 AYLAR SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 AYLAR sonuç:', result.length, 'ay bulundu')
     console.log('📊 Ay detayları:', result.map(r => ({ Year: r.Year, Month: r.MonthNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
-    
+
     return result
   }
-  
+
   async getChartDataByQuarters(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByQuarters çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: son 12 çeyrek mantığı
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3215,10 +3214,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Başlangıç tarihinden 11 çeyrek sonra (başlangıç dahil toplam 12 çeyrek)
       const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 33, baseDate.getDate()) // 11*3=33 ay
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -3228,7 +3227,7 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     const query = `
       SELECT 
         YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
@@ -3252,32 +3251,32 @@ async getChartDataByTimePeriod(
       GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(QUARTER, CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year, QuarterNumber
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 ÇEYREKLER SQL Query:', query)
     console.log('🔍 ÇEYREKLER SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 ÇEYREKLER sonuç:', result.length, 'çeyrek bulundu')
     console.log('📊 Çeyrek detayları:', result.map(r => ({ Year: r.Year, Quarter: r.QuarterNumber, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
-    
+
     return result
   }
-  
+
   async getChartDataByHalfYears(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByHalfYears çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: son 12 yarı yıl mantığı
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3287,10 +3286,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Başlangıç tarihinden 11 yarı yıl sonra (başlangıç dahil toplam 12 yarı yıl)
       const endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 66, baseDate.getDate()) // 11*6=66 ay
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -3300,7 +3299,7 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     const query = `
       SELECT 
         YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
@@ -3331,32 +3330,32 @@ async getChartDataByTimePeriod(
         END
       ORDER BY Year, HalfYear
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 YARI YILLAR SQL Query:', query)
     console.log('🔍 YARI YILLAR SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 YARI YILLAR sonuç:', result.length, 'yarı yıl bulundu')
     console.log('📊 Yarı yıl detayları:', result.map(r => ({ Year: r.Year, HalfYear: r.HalfYear, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
-    
+
     return result
   }
-  
+
   async getChartDataByYears(selectedAccommodationTypes: string[], selectedRoomTypes: string[], startDate: string) {
     console.log('📊 getChartDataByYears çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate })
-    
+
     // Tarih mantığı: son 12 yıl mantığı
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3366,10 +3365,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Başlangıç tarihinden 11 yıl sonra (başlangıç dahil toplam 12 yıl)
       const endDate = new Date(baseDate.getFullYear() + 11, baseDate.getMonth(), baseDate.getDate())
       sqlEndDate = endDate.toISOString().split('T')[0]
@@ -3379,7 +3378,7 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     const query = `
       SELECT 
         YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
@@ -3402,28 +3401,28 @@ async getChartDataByTimePeriod(
       GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year
     `
-    
+
     const params = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       sqlStartDate,
       sqlEndDate
     ]
-    
+
     console.log('📊 YILLAR SQL Query:', query)
     console.log('🔍 YILLAR SQL Params:', params)
-    
+
     const result = await this.musteriRepository.query(query, params)
     console.log('📊 YILLAR sonuç:', result.length, 'yıl bulundu')
     console.log('📊 Yıl detayları:', result.map(r => ({ Year: r.Year, Count: r.Count, TotalDays: r.TotalDays, TotalAmount: r.TotalAmount })))
-    
+
     return result
   }
 
   // Yardımcı fonksiyonlar
   private formatDate(dateString: string): string {
     if (!dateString) return '';
-    
+
     try {
       // SQL Server'dan gelen tarih formatını kontrol et
       // nchar(10) formatında DD.MM.YYYY geliyor olabilir
@@ -3434,7 +3433,7 @@ async getChartDataByTimePeriod(
           return dateString; // Zaten doğru formatta
         }
       }
-      
+
       // ISO format veya diğer formatlar için
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
@@ -3463,10 +3462,10 @@ async getChartDataByTimePeriod(
     timePeriod: string
   ) {
     console.log('🥧 getPieChartData çağrıldı:', { selectedAccommodationTypes, selectedRoomTypes, startDate, timePeriod })
-    
+
     // Tarih aralığını hesapla
     const dateRange = this.calculateDateRange(startDate, timePeriod)
-    
+
     // Konaklama tipi dağılımı
     const accommodationQuery = `
       SELECT 
@@ -3482,19 +3481,19 @@ async getChartDataByTimePeriod(
       GROUP BY KnklmTip
       ORDER BY Count DESC
     `
-    
+
     const accommodationParams = [
       ...selectedAccommodationTypes,
       ...selectedRoomTypes.map(roomType => `%${roomType}%`),
       dateRange.sqlStartDate,
       dateRange.sqlEndDate
     ]
-    
+
     console.log('🥧 Accommodation SQL:', accommodationQuery)
     console.log('🥧 Accommodation Params:', accommodationParams)
-    
+
     const accommodationResult = await this.musteriRepository.query(accommodationQuery, accommodationParams)
-    
+
     // Oda tipi dağılımı - sadece oda tipini al (diğer karakterleri filtrele)
     const roomTypeQuery = `
       SELECT 
@@ -3531,12 +3530,12 @@ async getChartDataByTimePeriod(
         END
       ORDER BY Count DESC
     `
-    
+
     const roomTypeResult = await this.musteriRepository.query(roomTypeQuery, accommodationParams)
-    
+
     console.log('🥧 Accommodation Result:', accommodationResult)
     console.log('🥧 Room Type Result:', roomTypeResult)
-    
+
     return {
       accommodation: accommodationResult,
       roomType: roomTypeResult
@@ -3547,7 +3546,7 @@ async getChartDataByTimePeriod(
     const today = new Date()
     let sqlStartDate: string
     let sqlEndDate: string
-    
+
     if (startDate && startDate.trim() !== '') {
       const convertDateForSQL = (dateString: string) => {
         if (dateString.includes('-')) return dateString
@@ -3557,10 +3556,10 @@ async getChartDataByTimePeriod(
         }
         return dateString
       }
-      
+
       const baseDate = new Date(convertDateForSQL(startDate))
       sqlStartDate = convertDateForSQL(startDate)
-      
+
       // Seçilen tarihten sonraki periyotları hesapla
       let endDate: Date
       switch (timePeriod) {
@@ -3596,7 +3595,7 @@ async getChartDataByTimePeriod(
       sqlStartDate = startDateObj.toISOString().split('T')[0]
       sqlEndDate = today.toISOString().split('T')[0]
     }
-    
+
     return { sqlStartDate, sqlEndDate }
   }
 

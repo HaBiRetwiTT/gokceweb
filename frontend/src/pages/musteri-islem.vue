@@ -795,6 +795,38 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- MERGE ONAY DIALOG - MEVCUT MÜŞTERİ TESPİT EDİLDİ -->
+    <q-dialog v-model="showMergeOnayDialog" persistent>
+      <q-card style="min-width: 450px">
+        <q-card-section>
+          <div class="text-h6 text-weight-bold text-negative">DİKKAT - MEVCUT MÜŞTERİ TESPİT EDİLDİ</div>
+        </q-card-section>
+        <q-card-section>
+          <div class="q-mb-md">
+            <div class="text-subtitle2 text-weight-bold">Geçici Müşteri:</div>
+            <div>TC: <span class="text-weight-bold">{{ mergeOnayData.eskiTCN }}</span></div>
+            <div>Ad: <span class="text-weight-bold">{{ mergeOnayData.eskiMusteriAdi }}</span></div>
+          </div>
+          <div class="q-mb-md">
+            <div class="text-subtitle2 text-weight-bold">Mevcut Müşteri:</div>
+            <div>TC: <span class="text-weight-bold">{{ mergeOnayData.yeniTCN }}</span></div>
+            <div>Ad: <span class="text-weight-bold">{{ mergeOnayData.yeniMusteriAdi }}</span></div>
+          </div>
+          <div class="text-body1 q-mt-md">
+            Geçici müşterinin tüm konaklama ve işlem kayıtları mevcut müşteri kaydı ile birleştirilecektir. 
+            Geçici kayıt silinecektir.
+          </div>
+          <div class="text-body1 text-weight-bold q-mt-md text-negative">
+            Bu işlemi onaylıyor musunuz?
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="HAYIR" color="negative" @click="showMergeOnayDialog = false" />
+          <q-btn unelevated label="EVET, ONAYLIYORUM" color="primary" @click="onMergeOnayla" :loading="loading" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -989,6 +1021,15 @@ const originalTCN = ref('')
 // RZVRYTK özel durumu için değişkenler
 const rzvrytkModuAktif = ref(false) // RZVRYTK formatı için özel mod
 const cachedTCN = ref('') // Eski TC Kimlik No'yu cache'lemek için
+
+// Merge onay dialog'u için değişkenler
+const showMergeOnayDialog = ref(false)
+const mergeOnayData = ref({
+  eskiTCN: '',
+  yeniTCN: '',
+  eskiMusteriAdi: '',
+  yeniMusteriAdi: ''
+})
 
 // RZVRYTK format kontrolü
 function isRzvrytkFormat(tcNo: string): boolean {
@@ -1801,54 +1842,32 @@ async function submitForm() {
       return
     }
     
+    // Yeni TC kontrolü - Mevcut müşteri var mı? (sadece varlık ve isim bilgisi)
     try {
-      const updateData = {
-        ...extraForm.value,
-        MstrAdi: form.value.MstrAdi,
-        MstrTelNo: form.value.MstrTelNo,
-        MstrHspTip: form.value.MstrHspTip,
-        eskiTCN: cachedTCN.value,
-        yeniTCN: form.value.MstrTCN
-      }
-      
-      const response = await api.post(`/musteri/rzvrytk-tc-degistir`, updateData)
-      if (response.data.success) {
-        notify.value = response.data.message || 'TC Kimlik No başarıyla değiştirildi!'
-        
-        // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
-        window.dispatchEvent(new Event('statsNeedsUpdate'));
-        
-        // 3 saniye sonra mesajı temizle ve formu sıfırla
-        setTimeout(() => {
-          notify.value = ''
-          // RZVRYTK modunu kapat ve formu temizle
-          rzvrytkModuAktif.value = false
-          cachedTCN.value = ''
-          clearForm()
-        }, 3000)
-      } else {
-        notify.value = 'TC değiştirme sırasında hata oluştu!'
+      // Direkt müşteri bilgisini çek; data varsa bu TC ile kayıtlı gerçek müşteri vardır
+      const mevcutMusteriResponse = await api.get(`/musteri/musteri-bilgi/${form.value.MstrTCN}`)
+
+      if (mevcutMusteriResponse.data.success && mevcutMusteriResponse.data.data) {
+        const mevcutMusteri = mevcutMusteriResponse.data.data
+
+        // Eski müşteri tespit edildi: eski ve yeni isimleri içeren onay sorusu göster
+        mergeOnayData.value = {
+          eskiTCN: cachedTCN.value,
+          yeniTCN: form.value.MstrTCN,
+          eskiMusteriAdi: form.value.MstrAdi, // Geçici müşteri adı
+          yeniMusteriAdi: mevcutMusteri.MstrAdi // Kayıtlardaki gerçek müşteri adı
+        }
+        showMergeOnayDialog.value = true
+        loading.value = false
+        return // Dialog'dan onay gelene kadar bekle
       }
     } catch (error) {
-      console.error('TC değiştirme hatası:', error)
-      
-      if (
-        isAxiosError(error) &&
-        error.response &&
-        error.response.data &&
-        typeof error.response.data === 'object' &&
-        'message' in error.response.data &&
-        typeof (error.response.data as { message: unknown }).message === 'string'
-      ) {
-        notify.value = (error.response.data as { message: string }).message;
-      } else if (error instanceof Error && typeof error.message === 'string') {
-        notify.value = error.message;
-      } else {
-        notify.value = 'TC değiştirme sırasında hata oluştu!';
-      }
-    } finally {
-      loading.value = false
+      console.error('Yeni TC kontrolü hatası:', error)
+      // Hata durumunda normal akışa devam et
     }
+    
+    // Normal akış: Direkt API çağrısı yap
+    await executeRzvrytkTcDegistir()
     return
   }
 
@@ -2214,6 +2233,73 @@ async function submitForm() {
   } finally {
     loading.value = false
   }
+}
+
+// RZVRYTK TC değiştirme işlemini yapan yardımcı fonksiyon
+async function executeRzvrytkTcDegistir() {
+  try {
+    const updateData = {
+      ...extraForm.value,
+      MstrAdi: form.value.MstrAdi,
+      MstrTelNo: form.value.MstrTelNo,
+      MstrHspTip: form.value.MstrHspTip,
+      eskiTCN: cachedTCN.value,
+      yeniTCN: form.value.MstrTCN
+    }
+    
+    const response = await api.post(`/musteri/rzvrytk-tc-degistir`, updateData)
+    
+    if (response.data.success) {
+      // Merge durumunu kontrol et
+      if (response.data.merge) {
+        notify.value = 'Geçici kayıt gerçek müşteri kaydı ile birleştirildi!'
+      } else {
+        notify.value = response.data.message || 'TC Kimlik No başarıyla değiştirildi!'
+      }
+      
+      // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
+      
+      // 3 saniye sonra mesajı temizle ve formu sıfırla
+      setTimeout(() => {
+        notify.value = ''
+        // RZVRYTK modunu kapat ve formu temizle
+        rzvrytkModuAktif.value = false
+        cachedTCN.value = ''
+        clearForm()
+      }, 3000)
+    } else {
+      notify.value = 'TC değiştirme sırasında hata oluştu!'
+    }
+  } catch (error) {
+    console.error('TC değiştirme hatası:', error)
+    
+    if (
+      isAxiosError(error) &&
+      error.response &&
+      error.response.data &&
+      typeof error.response.data === 'object' &&
+      'message' in error.response.data &&
+      typeof (error.response.data as { message: unknown }).message === 'string'
+    ) {
+      notify.value = (error.response.data as { message: string }).message;
+    } else if (error instanceof Error && typeof error.message === 'string') {
+      notify.value = error.message;
+    } else {
+      notify.value = 'TC değiştirme sırasında hata oluştu!';
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// Merge onay dialog'u handler fonksiyonu
+const onMergeOnayla = async () => {
+  showMergeOnayDialog.value = false
+  loading.value = true
+  
+  // API çağrısı yap
+  await executeRzvrytkTcDegistir()
 }
 
 function clearForm() {

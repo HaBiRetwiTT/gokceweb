@@ -31,7 +31,7 @@ export class MusteriService {
   async create(createMusteriDto: CreateMusteriDto) {
     console.log('=== Musteri Create Operation Started ===');
     console.log('Input data:', createMusteriDto);
-    
+
     // TC Kimlik No kontrolü
     if (createMusteriDto.MstrTCN) {
       const existingMusteri = await this.checkTCExists(createMusteriDto.MstrTCN);
@@ -39,7 +39,7 @@ export class MusteriService {
         throw new Error('Bu TC Kimlik numarası zaten kayıtlı!');
       }
     }
-    
+
     // Use stored procedure for insertion
     // Note: mKytTarihi is auto-generated in SP with CONVERT(nchar, GetDate(), 104)
     const storedProcedures = this.dbConfig.getStoredProcedures();
@@ -99,13 +99,13 @@ export class MusteriService {
       console.log('Executing database query...');
       const result: unknown = await this.musteriRepository.query(query, parameters);
       console.log('Database query result:', result);
-      
+
       // Müşteri kaydı başarılı olduktan sonra Cari kaydı oluştur
       const insertedMstrNo = await this.getLastInsertedMstrNo();
       if (insertedMstrNo) {
         await this.createCariRecord(createMusteriDto, insertedMstrNo);
       }
-      
+
       console.log('=== Musteri Create Operation Successful ===');
       return { success: true, message: 'Müşteri başarıyla eklendi' };
     } catch (error: unknown) {
@@ -121,7 +121,7 @@ export class MusteriService {
         console.error('Full error stack:', err.stack);
       }
       console.error('=== End Database Error Details ===');
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error('Müşteri eklenirken bir hata oluştu: ' + errorMessage);
     }
@@ -130,10 +130,10 @@ export class MusteriService {
   async createMusteriIslem(createMusteriDto: CreateMusteriDto): Promise<any> {
     console.log('=== MusteriService.createMusteriIslem called ===');
     console.log('Input data:', createMusteriDto);
-    
+
     // TC Kimlik No kontrolü artık controller'da yapılıyor
     // Bu fonksiyon sadece yeni müşteriler için çağrılıyor
-    
+
     // Use stored procedure for insertion
     const storedProcedures = this.dbConfig.getStoredProcedures();
     const query = `
@@ -189,16 +189,16 @@ export class MusteriService {
       console.log('Executing database query...');
       const result: unknown = await this.musteriRepository.query(query, parameters);
       console.log('Database query result:', result);
-      
+
       // Müşteri kaydı başarılı olduktan sonra Cari kaydı oluştur
       const insertedMstrNo = await this.getLastInsertedMstrNo();
       if (insertedMstrNo) {
         await this.createCariRecord(createMusteriDto, insertedMstrNo);
       }
-      
+
       console.log('=== Musteri CreateIslem Operation Successful ===');
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: 'Müşteri başarıyla eklendi',
         musteriNo: insertedMstrNo
       };
@@ -210,7 +210,7 @@ export class MusteriService {
         console.error('Error message:', err.message);
       }
       console.error('=== End Database Error Details ===');
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error('Müşteri eklenirken bir hata oluştu: ' + errorMessage);
     }
@@ -233,7 +233,7 @@ export class MusteriService {
       const tables = this.dbConfig.getTables();
       const query = `SELECT MstrDurum FROM ${tables.musteri} WHERE MstrTCN = @0`;
       const result: { MstrDurum: string }[] = await this.musteriRepository.query(query, [tcNo]);
-      
+
       if (result.length === 0) {
         return {
           exists: false,
@@ -242,7 +242,7 @@ export class MusteriService {
       }
 
       const durum = result[0].MstrDurum;
-      
+
       if (durum === 'AYRILDI') {
         return {
           exists: true,
@@ -271,7 +271,7 @@ export class MusteriService {
       const tables = this.dbConfig.getTables();
       const query = `UPDATE ${tables.musteri} SET MstrDurum = @1 WHERE MstrTCN = @0`;
       await this.musteriRepository.query(query, [tcNo, yeniDurum]);
-      
+
       console.log(`TC ${tcNo} - Müşteri durumu ${yeniDurum} olarak güncellendi`);
       return {
         success: true,
@@ -313,7 +313,7 @@ export class MusteriService {
   async getMusteriOdemeVadesi(tcNo: string): Promise<string | null> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // Önce müşteri bilgilerini al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrHspTip?: string; MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo || !musteriData.MstrHspTip) {
@@ -322,7 +322,7 @@ export class MusteriService {
 
       // Cari kod oluştur
       const cariKod = musteriData.MstrHspTip === 'Bireysel' ? `MB${musteriData.MstrNo}` : `MK${musteriData.MstrNo}`;
-      
+
       // En son konaklama işlem kaydını bul - iKytTarihi alanını da dahil et
       const query = `
         SELECT TOP 1 islemBilgi, iKytTarihi
@@ -332,21 +332,21 @@ export class MusteriService {
           AND islemTip = 'GELİR'
         ORDER BY islemNo DESC
       `;
-      
+
       const result: { islemBilgi?: string; iKytTarihi?: string }[] = await this.musteriRepository.query(query, [cariKod]);
-      
+
       if (result.length > 0) {
         const islemBilgi = result[0].islemBilgi;
         const iKytTarihi = result[0].iKytTarihi;
-        
+
         // Önce islemBilgi'den "BAKİYE ÖDEME VADESİ: " kısmını çıkar
         if (islemBilgi && typeof islemBilgi === 'string') {
-        const vadeMatch = islemBilgi.match(/BAKİYE ÖDEME VADESİ:\s*([^-]+)/);
-        if (vadeMatch && vadeMatch[1]) {
-          return vadeMatch[1].trim();
+          const vadeMatch = islemBilgi.match(/BAKİYE ÖDEME VADESİ:\s*([^-]+)/);
+          if (vadeMatch && vadeMatch[1]) {
+            return vadeMatch[1].trim();
           }
         }
-        
+
         // Eğer islemBilgi'de vade yoksa, iKytTarihi'ni DD.MM.YYYY formatına çevirerek döndür
         if (iKytTarihi && typeof iKytTarihi === 'string') {
           console.log(`Vade bilgisi islemBilgi'de bulunamadı, iKytTarihi kullanılıyor: ${iKytTarihi}`);
@@ -362,7 +362,7 @@ export class MusteriService {
           return iKytTarihi; // Hata durumunda orijinal değeri döndür
         }
       }
-      
+
       return null;
     } catch (error) {
       console.error('Müşteri ödeme vadesi alınırken hata:', error);
@@ -411,7 +411,7 @@ export class MusteriService {
           AND v.MstrDurum = 'KALIYOR'
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
       return result[0] || null;
     } catch (error) {
@@ -424,10 +424,10 @@ export class MusteriService {
     return this.transactionService.executeInTransaction(async (queryRunner) => {
       const tables = this.dbConfig.getTables();
       const musteriRepo = queryRunner.manager.getRepository(Musteri);
-      
+
       // Kullanıcı adını belirle
       const kullaniciAdi = username || 'admin';
-      
+
       // 1. Mevcut müşteri bilgilerini al
       const mevcutMusteri = await musteriRepo.findOne({ where: { MstrTCN: tcNo } });
       if (!mevcutMusteri) {
@@ -443,7 +443,7 @@ export class MusteriService {
           MstrNot = @11, MstrFirma = @12, MstrVD = @13, MstrVno = @14, MstrFrmTel = @15,
           MstrFrmMdr = @16, MstrMdrTel = @17
         WHERE MstrTCN = @0`;
-      
+
       const musteriParams = [
         tcNo,
         updateData.MstrAdi || mevcutMusteri.MstrAdi,
@@ -574,12 +574,12 @@ export class MusteriService {
     if (!odemeVadesi || odemeVadesi.trim() === '') {
       return islemBilgi;
     }
-    
+
     // Eğer islemBilgi zaten ödeme vadesi içeriyorsa, değiştirme
     if (islemBilgi.includes('BAKİYE ÖDEME VADESİ:')) {
       return islemBilgi;
     }
-    
+
     // Ödeme vadesi bilgisini başa ekle
     return `BAKİYE ÖDEME VADESİ: ${odemeVadesi} -/- ${islemBilgi}`;
   }
@@ -629,7 +629,7 @@ export class MusteriService {
 
   private parseOdaYatak(odaYatakData: string | { label?: string; value?: string }): { odaNo: string, yatakNo: string } {
     console.log('parseOdaYatak input:', odaYatakData, 'type:', typeof odaYatakData);
-    
+
     // Eğer obje ise, ÖNCE value, sonra label'ı kullan (value genelde '508-1' formatında gelir)
     let odaYatakStr: string;
     if (typeof odaYatakData === 'object' && odaYatakData !== null) {
@@ -643,9 +643,9 @@ export class MusteriService {
     } else {
       odaYatakStr = String(odaYatakData);
     }
-    
+
     console.log('parseOdaYatak string:', odaYatakStr);
-    
+
     // Önce basit format kontrolü: "123-1" veya arada boşluklu "123 - 1"
     const simpleMatch = odaYatakStr.match(/^(\d+)\s*-\s*(\d+)$/);
     if (simpleMatch) {
@@ -656,26 +656,26 @@ export class MusteriService {
       console.log('parseOdaYatak simple result:', result);
       return result;
     }
-    
+
     // Eğer basit format değilse, label formatını dene: "Oda: 123 - Yatak: 1"
     const odaMatch = odaYatakStr.match(/Oda:\s*(\d+)/);
     const yatakMatch = odaYatakStr.match(/Yatak:\s*(\d+)/);
-    
+
     if (!odaMatch || !yatakMatch) {
       console.error('Oda-Yatak parse hatası:', odaYatakStr);
       throw new Error(`Oda-Yatak formatı hatalı: ${odaYatakStr}`);
     }
-    
+
     const result = {
       odaNo: odaMatch[1],
       yatakNo: yatakMatch[1]
     };
-    
+
     console.log('parseOdaYatak label result:', result);
     return result;
   }
 
-  async kaydetKonaklama(konaklamaData: { 
+  async kaydetKonaklama(konaklamaData: {
     OdaYatak: string | { label?: string; value?: string };
     KonaklamaSuresi: number;
     KonaklamaTipi: string;
@@ -698,16 +698,16 @@ export class MusteriService {
       console.log('konaklamaData:', konaklamaData);
       console.log('konaklamaData.OdaYatak:', konaklamaData.OdaYatak);
       console.log('konaklamaData.ekBilgiler:', konaklamaData.ekBilgiler);
-      
+
       const now = new Date();
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
-      
+
       // Tarihleri hesapla - Geç Saat Konaklama kontrolü ile
       const girisTarihi = this.formatDate(now);
       let planlananCikis: string;
-      
 
-      
+
+
       // Daima frontend'den gelen planlanan çıkış tarihini kullan
       if (konaklamaData.planlananCikisTarihi) {
         console.log('📅 Frontend\'den gelen planlanan çıkış tarihi kullanılıyor (Transaction):', konaklamaData.planlananCikisTarihi);
@@ -719,29 +719,29 @@ export class MusteriService {
         // Frontend'den tarih gelmemişse hata fırlat
         throw new Error('Planlanan çıkış tarihi frontend\'den gelmedi!');
       }
-      
+
       console.log('📅 Tarih hesaplamaları:', {
         girisTarihi,
         konaklamaSuresi: konaklamaData.KonaklamaSuresi,
         geceKonaklama: konaklamaData.ekBilgiler?.geceKonaklama || false,
         planlananCikis
       });
-      
+
       // Konaklama tipini parse et (örn: "2 HAFTALIK" -> "HAFTALIK")
       const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
-      
+
       // İskonto hesapla (yüzde olarak)
       let iskonto = 0;
       if (konaklamaData.HesaplananBedel > 0) {
         iskonto = ((konaklamaData.HesaplananBedel - konaklamaData.ToplamBedel) / konaklamaData.HesaplananBedel) * 100;
         iskonto = Math.round(iskonto * 100) / 100; // 2 ondalık basamak
       }
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // Ödeme takip günü
       // - Öncelik: frontend'den gelen değer
       // - Eğer boş ve konaklama süresi 30 ise: planlanan çıkış tarihinin gün değeri
@@ -755,20 +755,20 @@ export class MusteriService {
           odmTkvGun = String(gunSayisi);
         }
       }
-      
+
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
-      
+
       // Not ile zaman damgası (stored procedure zaten ekliyor, biz eklemeyelim)
       const notlarZamanli = konaklamaData.ekNotlar || '';
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const query = `EXEC ${storedProcedures.konaklamaEkle} 
         @KnklmKllnc = @0, @KnklmMstrNo = @1, @KnklmSube = @2, @KnklmBlok = @3, @KnklmKat = @4,
         @KnklmOdaTip = @5, @KnklmOdaNo = @6, @KnklmYtkNo = @7, @KnklmTip = @8, @KnklmLfyt = @9,
         @Knklmisk = @10, @KnklmNfyt = @11, @KnklmOdmTkvGun = @12, @KnklmGrsTrh = @13, @KnklmPlnTrh = @14,
         @KnklmCksTrh = @15, @KnklmKrLst = @16, @KnklmNot = @17, @SecOdYat = @18`;
-      
+
       await this.musteriRepository.query(query, [
         konaklamaData.MstrKllnc,  // @0
         musteriNo,                // @1
@@ -790,18 +790,18 @@ export class MusteriService {
         notlarZamanli,            // @17
         secOdYat                  // @18
       ]);
-      
+
       // Eğer oda ARIZA durumundaysa, durumu DOLU'ya güncelle
       const tables = this.dbConfig.getTables();
       const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
       const durumResult: { OdYatDurum: string }[] = await this.odaYatakRepository.query(checkDurumQuery, [odaNo, yatakNo]);
-      
+
       if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
         const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
         await this.odaYatakRepository.query(updateDurumQuery, [odaNo, yatakNo]);
         console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi`);
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Konaklama kaydı hatası:', error);
@@ -829,13 +829,13 @@ export class MusteriService {
     try {
       const now = new Date();
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.OdaYatak);
-      
+
       // Tarihleri hesapla
       const girisTarihi = this.formatDate(now);
       let planlananCikis: string;
-      
 
-      
+
+
       // Daima frontend'den gelen planlanan çıkış tarihini kullan
       if (islemData.planlananCikisTarihi) {
         console.log('📅 İşlem kaydında frontend\'den gelen planlanan çıkış tarihi kullanılıyor (Transaction):', islemData.planlananCikisTarihi);
@@ -844,28 +844,28 @@ export class MusteriService {
         // Frontend'den tarih gelmemişse hata fırlat
         throw new Error('Planlanan çıkış tarihi frontend\'den gelmedi!');
       }
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
-      
+
       // Konaklama tipini parse et
       const konaklamaTipi = this.parseKonaklamaTipi(islemData.KonaklamaTipi);
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // İşlem bilgisi oluştur - ödeme vadesi ile birlikte (stored procedure zaten zaman damgası ekliyor)
       const islemBilgi = `BAKİYE ÖDEME VADESİ: ${islemData.OdemeVadesi || 'Belirtilmemiş'} -/- ${girisTarihi} - ${planlananCikis} DÖNEMİ KONAKLAMA`;
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const query = `EXEC ${storedProcedures.islemEkle} 
         @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
         @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
         @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
         @islemDoviz = @15, @islemKur = @16`;
-      
+
       await this.musteriRepository.query(query, [
         this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
@@ -885,7 +885,7 @@ export class MusteriService {
         'TL',                          // @15
         1.00                           // @16
       ]);
-      
+
       // 🔥 DEPOZİTO KAYDI - Eğer depozito dahil ve bedel > 0 ise
       if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
         console.log('Depozito kaydı ekleniyor:', {
@@ -893,7 +893,7 @@ export class MusteriService {
           depozitoBedel: islemData.depozito.bedel,
           depozitoDahil: islemData.depozito.dahil
         });
-        
+
         // İşlem bilgisi - müşteri durumuna göre
         let depozitoBilgi: string;
         if (islemData.musteriDurumu === 'YENI') {
@@ -901,13 +901,13 @@ export class MusteriService {
         } else {
           depozitoBilgi = 'KONAKLAMA =DEPOZİTO ALACAĞI=';
         }
-        
+
         const depozitQuery = `EXEC ${storedProcedures.islemEkle} 
           @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
           @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
           @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
           @islemDoviz = @15, @islemKur = @16`;
-        
+
         await this.musteriRepository.query(depozitQuery, [
           this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
           islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
@@ -927,10 +927,10 @@ export class MusteriService {
           'TL',                          // @15
           1.00                           // @16
         ]);
-        
+
         console.log('Depozito kaydı başarıyla eklendi');
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('İşlem kaydı hatası:', error);
@@ -1010,7 +1010,7 @@ export class MusteriService {
     try {
       // CariKod oluştur: Bireysel için BM, Kurumsal için KM + MstrNo
       const cariKod = musteriData.MstrHspTip === 'Bireysel' ? `MB${mstrNo}` : `MK${mstrNo}`;
-      
+
       // CariVD belirle
       let cariVD: string;
       if (musteriData.MstrHspTip === 'Bireysel') {
@@ -1018,7 +1018,7 @@ export class MusteriService {
       } else {
         cariVD = musteriData.MstrVD || 'Kurumsal';
       }
-      
+
       // CariVTCN belirle
       let cariVTCN: string;
       if (musteriData.MstrHspTip === 'Bireysel') {
@@ -1079,10 +1079,10 @@ export class MusteriService {
   }
 
   // Sadece boş odaların bulunduğu oda tiplerini getir (basitleştirilmiş ve hızlı)
-  async getBosOdaTipleri(): Promise<{odaTipi: string, bosOdaSayisi: number}[]> {
+  async getBosOdaTipleri(): Promise<{ odaTipi: string, bosOdaSayisi: number }[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // Basit ve hızlı sorgu: Sadece tblOdaYatak'tan oda tiplerini getir
       const query = `
         SELECT 
@@ -1095,7 +1095,7 @@ export class MusteriService {
         GROUP BY OdYatOdaTip
         ORDER BY OdYatOdaTip
       `;
-      
+
       const result: { OdaTipi: string; BosOdaSayisi: number }[] = await this.odaYatakRepository.query(query);
       return result.map(item => ({
         odaTipi: item.OdaTipi,
@@ -1135,29 +1135,29 @@ export class MusteriService {
     try {
       console.log('=== checkOdaYatakMusaitlik called ===');
       console.log('odaYatakStr:', odaYatakStr);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
       console.log('Parse edilen oda-yatak:', { odaNo, yatakNo });
-      
+
       const tables = this.dbConfig.getTables();
       const query = `
         SELECT OdYatDurum, OdYatKllnc, oKytTarihi
         FROM ${tables.odaYatak} 
         WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
       `;
-      
+
       const result: { OdYatDurum: string; OdYatKllnc?: string; oKytTarihi?: string }[] = await this.odaYatakRepository.query(query, [odaNo, yatakNo]);
       console.log('Oda-yatak durum sorgusu sonucu:', result);
-      
+
       if (result.length === 0) {
         return {
           musait: false,
           message: `Oda ${odaNo} - Yatak ${yatakNo} bulunamadı!`
         };
       }
-      
+
       const odaYatakDurum = result[0];
-      
+
       const durumNorm = (odaYatakDurum.OdYatDurum || '').toString().trim().toUpperCase();
       if (durumNorm === 'BOŞ') {
         return {
@@ -1170,9 +1170,9 @@ export class MusteriService {
           message: 'KİRLİ' // Frontend bu mesajı özel uyarı için kullanacak
         };
       } else {
-        const dolulukBilgisi = odaYatakDurum.OdYatKllnc ? 
+        const dolulukBilgisi = odaYatakDurum.OdYatKllnc ?
           ` (${odaYatakDurum.OdYatKllnc} tarafından ${odaYatakDurum.oKytTarihi} tarihinde doldurulmuş)` : '';
-        
+
         return {
           musait: false,
           message: `Oda ${odaNo} - Yatak ${yatakNo} artık dolu!${dolulukBilgisi} Lütfen başka bir oda-yatak seçin.`
@@ -1192,13 +1192,13 @@ export class MusteriService {
     try {
       console.log('=== getOdaTipFiyatlari çağrıldı ===')
       console.log('Aranan oda tipi:', odaTipi)
-      
+
       // Raw SQL ile direkt sorgula
       const tables = this.dbConfig.getTables();
       const query = `SELECT * FROM ${tables.odaTipLfyt} WHERE OdTipAdi = @0`
       const result: any[] = await this.musteriRepository.query(query, [odaTipi])
       console.log('Raw SQL sonucu:', result)
-      
+
       return result[0] || null
     } catch (error) {
       console.error('Oda tip fiyatları getirilemedi:', error)
@@ -1212,18 +1212,18 @@ export class MusteriService {
       console.log('=== sonlandirKonaklama çağrıldı ===');
       console.log('TC Kimlik:', tcNo);
       console.log('Eski planlanan tarih:', eskiPlnTrh);
-      
+
       // Önce TC kimlik numarasından müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       const tables = this.dbConfig.getTables();
-      
+
       // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
       const query = `
         UPDATE ${tables.konaklama} 
@@ -1232,10 +1232,10 @@ export class MusteriService {
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1
       `;
-      
+
       await this.musteriRepository.query(query, [musteriNo, eskiPlnTrh]);
       console.log('Konaklama sonlandırma sorgusu tamamlandı - KnklmCksTrh = KnklmPlnTrh');
-      
+
     } catch (error) {
       console.error('Konaklama sonlandırma hatası:', error);
       throw new Error('Konaklama kaydı sonlandırılamadı');
@@ -1247,19 +1247,19 @@ export class MusteriService {
     try {
       console.log('=== bosaltOdaYatak çağrıldı ===');
       console.log('Boşaltılacak oda-yatak:', odaYatakStr);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
       console.log('Parse edilen oda-yatak:', { odaNo, yatakNo });
-      
+
       // İşlem tarihi ve kullanıcı bilgisi
       const bugunTarihi = this.formatDate(new Date()); // DD.MM.YYYY formatında
       const kullaniciAdi = username || 'admin'; // Fallback kullanıcı adı - gerçek kullanımda sisteme giriş yapan kullanıcının adı olacak
-      
+
       console.log('Boşaltma işlemi bilgileri:', {
         tarih: bugunTarihi,
         kullanici: kullaniciAdi
       });
-      
+
       const tables = this.dbConfig.getTables();
       const query = `
         UPDATE ${tables.odaYatak} 
@@ -1268,21 +1268,21 @@ export class MusteriService {
             oKytTarihi = @3
         WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
       `;
-      
+
       await this.odaYatakRepository.query(query, [odaNo, yatakNo, kullaniciAdi, bugunTarihi]);
       console.log(`Oda ${odaNo}-${yatakNo} başarıyla boşaltıldı (${bugunTarihi} - ${kullaniciAdi})`);
-      
+
     } catch (error) {
       console.error('Oda-yatak boşaltma hatası:', error);
-      const odaYatakStrFormatted = typeof odaYatakStr === 'object' ? 
-        (odaYatakStr.label || odaYatakStr.value || JSON.stringify(odaYatakStr)) : 
+      const odaYatakStrFormatted = typeof odaYatakStr === 'object' ?
+        (odaYatakStr.label || odaYatakStr.value || JSON.stringify(odaYatakStr)) :
         String(odaYatakStr);
       throw new Error(`Oda-yatak boşaltılamadı: ${odaYatakStrFormatted}`);
     }
   }
 
   // Dönem yenileme için özel konaklama kaydı (giriş tarihi = önceki kaydın çıkış tarihi)
-  async kaydetDonemYenilemeKonaklama(konaklamaData: { 
+  async kaydetDonemYenilemeKonaklama(konaklamaData: {
     OdaYatak: string | { label?: string; value?: string };
     KonaklamaSuresi: number;
     KonaklamaTipi: string;
@@ -1307,15 +1307,15 @@ export class MusteriService {
       console.log('konaklamaData:', konaklamaData);
       console.log('konaklamaData.ekBilgiler:', konaklamaData.ekBilgiler);
       console.log('musteriNo:', musteriNo);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
-      
+
       // Giriş tarihi = önceki kaydın planlanan tarihi (eskiKnklmPlnTrh)
       const girisTarihi = konaklamaData.eskiKnklmPlnTrh;
-      
+
       // Çıkış tarihi hesaplaması - Geç Saat Konaklama kontrolü ile
       let planlananCikis: string;
-      
+
       // Geç Saat Konaklama seçilmişse, planlanan çıkış tarihi giriş tarihi olur
       if (konaklamaData.ekBilgiler?.geceKonaklama) {
         console.log('🌙 Dönem yenilemede Geç Saat Konaklama seçili - Planlanan çıkış tarihi giriş tarihi olarak ayarlanıyor');
@@ -1327,7 +1327,7 @@ export class MusteriService {
         cikisTarihi.setDate(cikisTarihi.getDate() + konaklamaData.KonaklamaSuresi);
         planlananCikis = this.formatDate(cikisTarihi);
       }
-      
+
       console.log('📅 Dönem yenileme tarih hesaplamaları:', {
         eskiPlnTrh: konaklamaData.eskiKnklmPlnTrh,
         yeniGirisTarihi: girisTarihi,
@@ -1335,22 +1335,22 @@ export class MusteriService {
         geceKonaklama: konaklamaData.ekBilgiler?.geceKonaklama || false,
         yeniPlanlananCikis: planlananCikis
       });
-      
+
       // Konaklama tipini parse et (örn: "2 HAFTALIK" -> "HAFTALIK")
       const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
-      
+
       // İskonto hesapla (yüzde olarak)
       let iskonto = 0;
       if (konaklamaData.HesaplananBedel > 0) {
         iskonto = ((konaklamaData.HesaplananBedel - konaklamaData.ToplamBedel) / konaklamaData.HesaplananBedel) * 100;
         iskonto = Math.round(iskonto * 100) / 100; // 2 ondalık basamak
       }
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // Ödeme takip günü
       // - Öncelik: frontend'den gelen değer
       // - Eğer boş ve konaklama süresi 30 ise: planlanan çıkış tarihinin gün değeri
@@ -1364,20 +1364,20 @@ export class MusteriService {
           odmTkvGun = String(gunSayisi);
         }
       }
-      
+
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
-      
+
       // Not bilgisi - frontend'den gelen KnklmNot kullan (stored procedure zaten zaman damgası ekliyor)
       const notlarZamanli = konaklamaData.KnklmNot || konaklamaData.ekNotlar || '';
-     
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const query = `EXEC ${storedProcedures.konaklamaEkle} 
         @KnklmKllnc = @0, @KnklmMstrNo = @1, @KnklmSube = @2, @KnklmBlok = @3, @KnklmKat = @4,
         @KnklmOdaTip = @5, @KnklmOdaNo = @6, @KnklmYtkNo = @7, @KnklmTip = @8, @KnklmLfyt = @9,
         @Knklmisk = @10, @KnklmNfyt = @11, @KnklmOdmTkvGun = @12, @KnklmGrsTrh = @13, @KnklmPlnTrh = @14,
         @KnklmCksTrh = @15, @KnklmKrLst = @16, @KnklmNot = @17, @SecOdYat = @18`;
-      
+
       await this.musteriRepository.query(query, [
         konaklamaData.MstrKllnc,  // @0 - KnklmKllnc (kullanıcı adı)
         musteriNo,                // @1
@@ -1399,18 +1399,18 @@ export class MusteriService {
         notlarZamanli,            // @17
         secOdYat                  // @18
       ]);
-      
+
       // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
       const tables = this.dbConfig.getTables();
       const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
       const durumResult: { OdYatDurum: string }[] = await this.odaYatakRepository.query(checkDurumQuery, [odaNo, yatakNo]);
-      
+
       if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
         const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
         await this.odaYatakRepository.query(updateDurumQuery, [odaNo, yatakNo]);
         console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi (Dönem Yenileme)`);
       }
-      
+
       console.log('Dönem yenileme konaklama kaydı başarıyla oluşturuldu');
       return { success: true };
     } catch (error) {
@@ -1425,11 +1425,11 @@ export class MusteriService {
     if (parts.length !== 3) {
       throw new Error(`Geçersiz tarih formatı: ${dateString}`);
     }
-    
+
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
     const year = parseInt(parts[2], 10);
-    
+
     return new Date(year, month, day);
   }
 
@@ -1440,7 +1440,7 @@ export class MusteriService {
       const gun = baslangicTarihi.getDate();
       let ay = baslangicTarihi.getMonth() + 1;
       let yil = baslangicTarihi.getFullYear();
-      
+
       ay += 1;
       if (ay > 12) {
         ay = 1;
@@ -1458,24 +1458,24 @@ export class MusteriService {
   // Konaklama tipini parse eden fonksiyon
   private parseKonaklamaTipi(konaklamaTipi: string): string {
     if (!konaklamaTipi) return 'GÜNLÜK';
-    
+
     const tip = konaklamaTipi.toUpperCase().trim();
-    
+
     // "1 HAFTALIK", "2 HAFTALIK", "3 HAFTALIK" gibi ifadeleri "HAFTALIK" olarak parse et
     if (tip.includes('HAFTALIK')) {
       return 'HAFTALIK';
     }
-    
+
     // "AYLIK" kontrolü
     if (tip.includes('AYLIK')) {
       return 'AYLIK';
     }
-    
+
     // "GÜNLÜK" kontrolü
     if (tip.includes('GÜNLÜK')) {
       return 'GÜNLÜK';
     }
-    
+
     // Varsayılan olarak GÜNLÜK döndür
     return 'GÜNLÜK';
   }
@@ -1495,38 +1495,38 @@ export class MusteriService {
     try {
       console.log('=== kaydetDonemYenilemeIslem called ===');
       console.log('islemData:', islemData);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.OdaYatak);
-      
+
       // Giriş tarihi = önceki kaydın planlanan tarihi
       const girisTarihi = islemData.eskiKnklmPlnTrh;
-      
+
       // Çıkış tarihi = giriş tarihi + konaklama süresi (yeni hesaplama fonksiyonu ile)
       const girisTarihiDate = this.parseDate(girisTarihi);
       const cikisTarihi = this.hesaplaPlanlananCikisTarihi(girisTarihiDate, islemData.KonaklamaSuresi);
       const planlananCikis = this.formatDate(cikisTarihi);
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
-      
+
       // Konaklama tipini parse et
       const konaklamaTipi = this.parseKonaklamaTipi(islemData.KonaklamaTipi);
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // İşlem bilgisi oluştur - dönem yenileme özel mesajı
       const islemBilgi = `${girisTarihi} - ${planlananCikis} DÖNEM YENİLEME KONAKLAMA`;
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const query = `EXEC ${storedProcedures.islemEkle} 
         @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
         @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
         @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
         @islemDoviz = @15, @islemKur = @16`;
-      
+
       const parameters = [
         this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
@@ -1546,9 +1546,9 @@ export class MusteriService {
         'TL',                          // @15
         1.00                           // @16
       ];
-     
+
       await this.musteriRepository.query(query, parameters);
-      
+
       console.log('Dönem yenileme işlem kaydı başarıyla oluşturuldu');
       return { success: true };
     } catch (error) {
@@ -1558,11 +1558,11 @@ export class MusteriService {
       console.error('Error message:', errorObj.message || 'Bilinmeyen hata');
       console.error('Error code:', errorObj.code);
       console.error('Error details:', error);
-      
+
       if (errorObj.message?.includes('spr_islemEkleYn') || errorObj.message?.includes('islemEkle')) {
         throw new Error(`Stored procedure hatası: ${errorObj.message}`);
       }
-      
+
       throw new Error(`Dönem yenileme işlem kaydı yapılamadı: ${errorObj.message || 'Bilinmeyen hata'}`);
     }
   }
@@ -1572,16 +1572,16 @@ export class MusteriService {
     try {
       console.log('=== musteriCikisYap çağrıldı ===');
       console.log('Çıkış verisi:', cikisData);
-      
+
       // 🔥 1. KARA LİSTE BİLGİLERİNİ GÜNCELLE (konaklama sonlandırmadan ÖNCE!)
       if (cikisData.knklmKrLst && cikisData.knklmNot) {
         await this.updateKaraListeBilgileri(cikisData.tcNo, cikisData.plnTrh, cikisData.knklmKrLst, cikisData.knklmNot);
       }
-      
+
       // 2. Mevcut konaklama kaydını sonlandır (Çıkış tarihini ayarla)
       // Bu fonksiyon zaten MstrNo'yu TC'den buluyor.
       await this.sonlandirKonaklama(cikisData.tcNo, cikisData.plnTrh);
-      
+
       // 3. Oda-yatak kaydını 'BOŞ' olarak güncelle
       await this.bosaltOdaYatak(cikisData.odaYatak as string | { label?: string; value?: string });
 
@@ -1589,7 +1589,7 @@ export class MusteriService {
       const tables = this.dbConfig.getTables();
       const query = `UPDATE ${tables.musteri} SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
       await this.musteriRepository.query(query, [cikisData.tcNo]);
-      
+
       console.log(`Müşteri ${cikisData.tcNo} çıkış işlemi tamamlandı. Durum 'AYRILDI' olarak güncellendi.`);
     } catch (error) {
       console.error('Müşteri çıkış işlemi sırasında hata:', error);
@@ -1603,25 +1603,25 @@ export class MusteriService {
     try {
       console.log('=== Kara liste bilgileri güncelleniyor ===');
       console.log('TC:', tcNo, 'PlnTrh:', plnTrh, 'KrLst:', knklmKrLst, 'Not uzunluğu:', knklmNot.length);
-      
+
       // Önce TC kimlik numarasından müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       const tables = this.dbConfig.getTables();
       const query = `
         UPDATE ${tables.konaklama} 
         SET KnklmKrLst = @0, KnklmNot = @1 
         WHERE KnklmMstrNo = @2 AND KnklmPlnTrh = @3 AND KnklmCksTrh IS NULL
       `;
-      
+
       const result: unknown = await this.musteriRepository.query(query, [knklmKrLst, knklmNot, musteriNo, plnTrh]);
-      
+
       console.log('Kara liste güncelleme sonucu:', result);
       console.log('✅ Kara liste bilgileri başarıyla güncellendi');
     } catch (error) {
@@ -1631,16 +1631,16 @@ export class MusteriService {
   }
 
   // 🔥 DİREKT ODA DEĞİŞİKLİĞİ İÇİN YENİ FONKSİYONLAR
-  
+
   /**
    * tblKonaklama tablosunda direkt oda değişikliği update işlemi (Transaction-Safe)
    */
   async updateKonaklamaOdaDegisikligiWithTransaction(
     queryRunner: QueryRunner,
-    tcNo: string, 
-    yeniOdaTip: string, 
-    yeniOdaNo: string, 
-    yeniYatakNo: string, 
+    tcNo: string,
+    yeniOdaTip: string,
+    yeniOdaNo: string,
+    yeniYatakNo: string,
     konaklamaNot: string,
     toplamKonaklamaBedeli: number, // Modal formundaki "Toplam Konaklama Bedeli" değeri
     KnklmKllnc: string // kullanıcı adı parametresi eklendi
@@ -1650,7 +1650,7 @@ export class MusteriService {
       console.log('Parametreler:', { tcNo, yeniOdaTip, yeniOdaNo, yeniYatakNo, konaklamaNot, toplamKonaklamaBedeli });
       console.log('Konaklama Not (string):', typeof konaklamaNot, konaklamaNot);
       console.log('Toplam Konaklama Bedeli (number):', typeof toplamKonaklamaBedeli, toplamKonaklamaBedeli);
-      
+
       // Önce TC'den müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
@@ -1658,7 +1658,7 @@ export class MusteriService {
       }
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       // Oda tip fiyatlarını al
       const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
       const fiyatQuery = `
@@ -1669,12 +1669,12 @@ export class MusteriService {
       const fiyatResult: { OdLfytGun: number }[] = await this.transactionService.executeQuery(
         queryRunner, fiyatQuery, [yeniOdaTip]
       ) as { OdLfytGun: number }[];
-      
+
       let odaLfyt = 0;
       if (fiyatResult && fiyatResult.length > 0) {
         odaLfyt = Number(fiyatResult[0].OdLfytGun) || 0;
       }
-      
+
       // Mevcut konaklama kaydından iskonto bilgisini al
       const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const eskiKonaklamaQuery = `
@@ -1685,13 +1685,13 @@ export class MusteriService {
       const eskiKonaklamaResult: { Knklmisk: number; KnklmLfyt: number }[] = await this.transactionService.executeQuery(
         queryRunner, eskiKonaklamaQuery, [musteriNo]
       ) as { Knklmisk: number; KnklmLfyt: number }[];
-      
+
       // İskonto hesaplama - mevcut iskonto oranını koruyarak yeni fiyat üzerinden hesapla
       let iskonto = 0;
       if (eskiKonaklamaResult && eskiKonaklamaResult.length > 0) {
         const mevcutIskonto = Number(eskiKonaklamaResult[0].Knklmisk) || 0;
         const eskiListeFiyat = Number(eskiKonaklamaResult[0].KnklmLfyt) || 0;
-        
+
         // Eğer mevcut iskonto varsa, aynı oranı yeni fiyata uygula
         if (mevcutIskonto > 0 && eskiListeFiyat > 0) {
           iskonto = mevcutIskonto; // Aynı iskonto oranını koru
@@ -1703,14 +1703,14 @@ export class MusteriService {
           }
         }
       }
-      
+
       console.log('İskonto hesaplama detayları:', {
         eskiIskonto: eskiKonaklamaResult?.[0]?.Knklmisk || 0,
         yeniListeFiyat: odaLfyt,
         yeniNfyt: toplamKonaklamaBedeli,
         hesaplananIskonto: iskonto
       });
-      
+
       // tblKonaklama güncelleme - knklmisk alanı da dahil
       const updateQuery = `
         UPDATE ${konaklamaTableName} 
@@ -1726,7 +1726,7 @@ export class MusteriService {
         WHERE KnklmMstrNo = @8
           AND KnklmCksTrh IS NULL
       `;
-      
+
       const updateParams = [
         KnklmKllnc, // KnklmKllnc (artık dinamik, zorunlu)
         yeniOdaTip, // KnklmOdaTip
@@ -1738,9 +1738,9 @@ export class MusteriService {
         konaklamaNot, // KnklmNot
         musteriNo // KnklmMstrNo
       ];
-      
+
       await this.transactionService.executeQuery(queryRunner, updateQuery, updateParams);
-      
+
       console.log('=== tblKonaklama güncelleme tamamlandı (Transaction-Safe) ===');
       console.log('Güncellenen alanlar:', {
         KnklmKllnc: KnklmKllnc,
@@ -1757,7 +1757,7 @@ export class MusteriService {
       throw new Error(`Konaklama kaydı güncellenirken hata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * tblOdaYatak tablosunda eski oda BOŞ, yeni oda DOLU yapma (Transaction-Safe)
    */
@@ -1771,7 +1771,7 @@ export class MusteriService {
     try {
       console.log('=== updateOdaYatakDurumlariWithTransaction başlatıldı ===');
       console.log({ eskiOdaNo, eskiYatakNo, yeniOdaNo, yeniYatakNo });
-      
+
       // 1. Eski odayı BOŞ yap
       const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const eskiOdaQuery = `
@@ -1779,27 +1779,27 @@ export class MusteriService {
         SET odYatDurum = 'BOŞ'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
-      
+
       await this.transactionService.executeQuery(queryRunner, eskiOdaQuery, [eskiOdaNo, eskiYatakNo]);
       console.log(`Eski oda ${eskiOdaNo}-${eskiYatakNo} BOŞ yapıldı (Transaction-Safe)`);
-      
+
       // 2. Yeni odayı DOLU yap
       const yeniOdaQuery = `
         UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
-      
+
       await this.transactionService.executeQuery(queryRunner, yeniOdaQuery, [yeniOdaNo, yeniYatakNo]);
       console.log(`Yeni oda ${yeniOdaNo}-${yeniYatakNo} DOLU yapıldı (Transaction-Safe)`);
-      
+
       console.log('=== OdaYatak durumları güncelleme tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('updateOdaYatakDurumlariWithTransaction hatası:', error);
       throw new Error(`Oda-yatak durumları güncellenirken hata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * tblIslem tablosuna oda değişikliği işlem kaydı ekleme (Transaction-Safe)
    */
@@ -1821,15 +1821,15 @@ export class MusteriService {
     try {
       console.log('=== kaydetOdaDegisikligiIslemWithTransaction başlatıldı ===');
       console.log('islemData:', islemData);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.yeniOdaYatak);
-      
+
       const currentDate = new Date();
       const formattedDate = this.formatDate(currentDate);
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${islemData.musteriNo}` : `MB${islemData.musteriNo}`;
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
@@ -1856,13 +1856,13 @@ export class MusteriService {
         'TL',                          // @15 - İşlem dövizi
         1.00                           // @16 - İşlem kuru
       ];
-      
+
       await this.transactionService.executeStoredProcedure(
-        queryRunner, 
-        storedProcedures.islemEkle, 
+        queryRunner,
+        storedProcedures.islemEkle,
         parameters
       );
-      
+
       console.log('=== Oda değişikliği işlem kaydı ekleme tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('kaydetOdaDegisikligiIslemWithTransaction hatası:', error);
@@ -1874,10 +1874,10 @@ export class MusteriService {
    * tblKonaklama tablosunda direkt oda değişikliği update işlemi (Eski Versiyon - Backward Compatibility)
    */
   async updateKonaklamaOdaDegisikligi(
-    tcNo: string, 
-    yeniOdaTip: string, 
-    yeniOdaNo: string, 
-    yeniYatakNo: string, 
+    tcNo: string,
+    yeniOdaTip: string,
+    yeniOdaNo: string,
+    yeniYatakNo: string,
     konaklamaNot: string,
     hesaplananBedel: number,
     username?: string
@@ -1885,10 +1885,10 @@ export class MusteriService {
     try {
       console.log('=== updateKonaklamaOdaDegisikligi başlatıldı ===');
       console.log({ tcNo, yeniOdaTip, yeniOdaNo, yeniYatakNo, konaklamaNot, hesaplananBedel });
-      
+
       // Kullanıcı adını belirle
       const kullaniciAdi = username || 'admin';
-      
+
       // Önce TC'den müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
@@ -1896,7 +1896,7 @@ export class MusteriService {
       }
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       // Oda tip fiyatlarını al
       const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
       const fiyatQuery = `
@@ -1905,12 +1905,12 @@ export class MusteriService {
         WHERE OdTipAdi = @0
       `;
       const fiyatResult: { OdLfytGun: number }[] = await this.musteriRepository.query(fiyatQuery, [yeniOdaTip]);
-      
+
       let odaLfyt = 0;
       if (fiyatResult && fiyatResult.length > 0) {
         odaLfyt = Number(fiyatResult[0].OdLfytGun) || 0;
       }
-      
+
       // Mevcut konaklama kaydından iskonto bilgisini al
       const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const eskiKonaklamaQuery = `
@@ -1919,13 +1919,13 @@ export class MusteriService {
         WHERE KnklmMstrNo = @0 AND KnklmCksTrh IS NULL
       `;
       const eskiKonaklamaResult: { Knklmisk: number; KnklmLfyt: number }[] = await this.musteriRepository.query(eskiKonaklamaQuery, [musteriNo]);
-      
+
       // İskonto hesaplama - mevcut iskonto oranını koruyarak yeni fiyat üzerinden hesapla
       let iskonto = 0;
       if (eskiKonaklamaResult && eskiKonaklamaResult.length > 0) {
         const mevcutIskonto = Number(eskiKonaklamaResult[0].Knklmisk) || 0;
         const eskiListeFiyat = Number(eskiKonaklamaResult[0].KnklmLfyt) || 0;
-        
+
         // Eğer mevcut iskonto varsa, aynı oranı yeni fiyata uygula
         if (mevcutIskonto > 0 && eskiListeFiyat > 0) {
           iskonto = mevcutIskonto; // Aynı iskonto oranını koru
@@ -1937,7 +1937,7 @@ export class MusteriService {
           }
         }
       }
-      
+
       // tblKonaklama güncelleme - knklmisk alanı da dahil
       const updateQuery = `
         UPDATE ${konaklamaTableName} 
@@ -1953,7 +1953,7 @@ export class MusteriService {
         WHERE KnklmMstrNo = @8
           AND KnklmCksTrh IS NULL
       `;
-      
+
       const updateParams = [
         kullaniciAdi, // KnklmKllnc
         yeniOdaTip, // KnklmOdaTip
@@ -1965,9 +1965,9 @@ export class MusteriService {
         konaklamaNot, // KnklmNot
         musteriNo // KnklmMstrNo
       ];
-      
+
       await this.musteriRepository.query(updateQuery, updateParams);
-      
+
       console.log('=== tblKonaklama güncelleme tamamlandı ===');
       console.log('Güncellenen alanlar:', {
         KnklmKllnc: kullaniciAdi,
@@ -1984,7 +1984,7 @@ export class MusteriService {
       throw new Error(`Konaklama kaydı güncellenirken hata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * tblOdaYatak tablosunda eski oda BOŞ, yeni oda DOLU yapma (Eski Versiyon - Backward Compatibility)
    */
@@ -1997,7 +1997,7 @@ export class MusteriService {
     try {
       console.log('=== updateOdaYatakDurumlari başlatıldı ===');
       console.log({ eskiOdaNo, eskiYatakNo, yeniOdaNo, yeniYatakNo });
-      
+
       // 1. Eski odayı BOŞ yap
       const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const eskiOdaQuery = `
@@ -2005,27 +2005,27 @@ export class MusteriService {
         SET odYatDurum = 'BOŞ'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
-      
+
       await this.musteriRepository.query(eskiOdaQuery, [eskiOdaNo, eskiYatakNo]);
       console.log(`Eski oda ${eskiOdaNo}-${eskiYatakNo} BOŞ yapıldı`);
-      
+
       // 2. Yeni odayı DOLU yap
       const yeniOdaQuery = `
         UPDATE ${odaYatakTableName} 
         SET odYatDurum = 'DOLU'
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
-      
+
       await this.musteriRepository.query(yeniOdaQuery, [yeniOdaNo, yeniYatakNo]);
       console.log(`Yeni oda ${yeniOdaNo}-${yeniYatakNo} DOLU yapıldı`);
-      
+
       console.log('=== OdaYatak durumları güncelleme tamamlandı ===');
     } catch (error) {
       console.error('updateOdaYatakDurumlari hatası:', error);
       throw new Error(`Oda-yatak durumları güncellenirken hata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * tblIslem tablosuna oda değişikliği işlem kaydı ekleme (Eski Versiyon - Backward Compatibility)
    */
@@ -2044,31 +2044,31 @@ export class MusteriService {
     try {
       console.log('=== kaydetOdaDegisikligiIslem başlatıldı ===');
       console.log('islemData:', islemData);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.yeniOdaYatak);
-      
+
       const currentDate = new Date();
       const formattedDate = this.formatDate(currentDate);
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${islemData.musteriNo}` : `MB${islemData.musteriNo}`;
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // Konaklama tipini parse et (varsa)
-      const konaklamaTipi = islemData.konaklamaTipi ? 
+      const konaklamaTipi = islemData.konaklamaTipi ?
         this.parseKonaklamaTipi(islemData.konaklamaTipi) : 'GÜNLÜK';
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const query = `EXEC ${storedProcedures.islemEkle} 
         @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
         @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
         @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
         @islemDoviz = @15, @islemKur = @16`;
-      
+
       const parameters = [
         this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
         islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı
@@ -2088,9 +2088,9 @@ export class MusteriService {
         'TL',                          // @15 - İşlem dövizi
         1.00                           // @16 - İşlem kuru
       ];
-      
+
       await this.musteriRepository.query(query, parameters);
-      
+
       console.log('=== Oda değişikliği işlem kaydı ekleme tamamlandı ===');
     } catch (error) {
       console.error('kaydetOdaDegisikligiIslem hatası:', error);
@@ -2107,7 +2107,7 @@ export class MusteriService {
   ): Promise<{ success: boolean; message: string; musteriNo: number }> {
     try {
       console.log('=== createMusteriIslemWithTransaction başlatıldı ===');
-      
+
       // Müşteri ekleme stored procedure'ü
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
@@ -2140,28 +2140,28 @@ export class MusteriService {
         storedProcedures.musteriEkle,
         parameters
       );
-      
+
       // Müşteri numarasını al
       const musteriTableName = this.dbConfig.getTableName('tblMusteri');
       const musteriNoQuery = `SELECT TOP 1 MstrNo FROM ${musteriTableName} ORDER BY MstrNo DESC`;
       const musteriNoResult: { MstrNo: number }[] = await this.transactionService.executeQuery(
-        queryRunner, 
-        musteriNoQuery, 
+        queryRunner,
+        musteriNoQuery,
         []
       ) as { MstrNo: number }[];
-      
+
       if (!musteriNoResult || musteriNoResult.length === 0) {
         throw new Error('Eklenen müşteri numarası alınamadı');
       }
-      
+
       const insertedMstrNo = musteriNoResult[0].MstrNo;
-      
+
       // Cari kaydı oluştur
       await this.createCariRecordWithTransaction(queryRunner, createMusteriDto, insertedMstrNo);
-      
+
       console.log('=== createMusteriIslemWithTransaction tamamlandı (Transaction-Safe) ===');
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: 'Müşteri başarıyla eklendi',
         musteriNo: insertedMstrNo
       };
@@ -2176,13 +2176,13 @@ export class MusteriService {
    */
   async createCariRecordWithTransaction(
     queryRunner: QueryRunner,
-    musteriData: CreateMusteriDto, 
+    musteriData: CreateMusteriDto,
     mstrNo: number
   ): Promise<void> {
     try {
       // CariKod oluştur: Bireysel için BM, Kurumsal için KM + MstrNo
       const cariKod = musteriData.MstrHspTip === 'Bireysel' ? `MB${mstrNo}` : `MK${mstrNo}`;
-      
+
       // CariVD belirle
       let cariVD: string;
       if (musteriData.MstrHspTip === 'Bireysel') {
@@ -2190,7 +2190,7 @@ export class MusteriService {
       } else {
         cariVD = musteriData.MstrVD || 'Kurumsal';
       }
-      
+
       // CariVTCN belirle
       let cariVTCN: string;
       if (musteriData.MstrHspTip === 'Bireysel') {
@@ -2218,7 +2218,7 @@ export class MusteriService {
         storedProcedures.cariEkle,
         parameters
       );
-      
+
       console.log('Cari kaydı başarıyla oluşturuldu (Transaction-Safe)');
     } catch (error) {
       console.error('Cari kaydı oluşturulurken hata (Transaction):', error);
@@ -2231,7 +2231,7 @@ export class MusteriService {
    */
   async kaydetKonaklamaWithTransaction(
     queryRunner: QueryRunner,
-    konaklamaData: { 
+    konaklamaData: {
       OdaYatak: string | { label?: string; value?: string };
       KonaklamaSuresi: number;
       KonaklamaTipi: string;
@@ -2248,21 +2248,21 @@ export class MusteriService {
         prizVerildi?: boolean;
         geceKonaklama?: boolean;
       };
-    }, 
+    },
     musteriNo: number
   ): Promise<void> {
     try {
       console.log('=== kaydetKonaklamaWithTransaction başlatıldı ===');
-      
+
       const now = new Date();
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
-      
 
-      
+
+
       // Tarihleri hesapla
       const girisTarihi = this.formatDate(now);
       let planlananCikis: string;
-      
+
       // Daima frontend'den gelen planlanan çıkış tarihini kullan
       if (konaklamaData.planlananCikisTarihi) {
         console.log('📅 kaydetKonaklamaWithTransaction\'da frontend\'den gelen planlanan çıkış tarihi kullanılıyor:', konaklamaData.planlananCikisTarihi);
@@ -2274,31 +2274,31 @@ export class MusteriService {
         // Frontend'den tarih gelmemişse hata fırlat
         throw new Error('Planlanan çıkış tarihi frontend\'den gelmedi!');
       }
-      
+
       // Konaklama tipini parse et (örn: "2 HAFTALIK" -> "HAFTALIK")
-      const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);                     
-      
+      const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
+
       // İskonto hesapla (yüzde olarak)
       let iskonto = 0;
       if (konaklamaData.HesaplananBedel > 0) {
         iskonto = ((konaklamaData.HesaplananBedel - konaklamaData.ToplamBedel) / konaklamaData.HesaplananBedel) * 100;
         iskonto = Math.round(iskonto * 100) / 100; // 2 ondalık basamak
       }
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // Ödeme takip günü - frontend'den gelen değer varsa onu kullan, yoksa boş bırak
       const odmTkvGun = konaklamaData.OdemeTakvimGunu ? konaklamaData.OdemeTakvimGunu.toString() : '';
-      
+
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
-      
+
       // Not ile zaman damgası (stored procedure zaten ekliyor, biz eklemeyelim)
       const notlarZamanli = konaklamaData.ekNotlar || '';
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
         konaklamaData.MstrKllnc,  // @0
@@ -2321,24 +2321,24 @@ export class MusteriService {
         notlarZamanli,            // @17
         secOdYat                  // @18
       ];
-      
+
       await this.transactionService.executeStoredProcedure(
         queryRunner,
         storedProcedures.konaklamaEkle,
         parameters
       );
-      
+
       // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
       const tables = this.dbConfig.getTables();
       const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
       const durumResult: { OdYatDurum: string }[] = await queryRunner.query(checkDurumQuery, [odaNo, yatakNo]);
-      
+
       if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
         const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
         await queryRunner.query(updateDurumQuery, [odaNo, yatakNo]);
         console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi`);
       }
-      
+
       console.log('=== kaydetKonaklamaWithTransaction tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('Konaklama kaydı hatası (Transaction):', error);
@@ -2367,21 +2367,21 @@ export class MusteriService {
         dahil: boolean;
         bedel: number;
       };
-    }, 
+    },
     musteriNo: number
   ): Promise<void> {
     try {
       console.log('=== kaydetIslemWithTransaction başlatıldı ===');
-      
+
       const now = new Date();
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.OdaYatak);
-      
 
-      
+
+
       // Tarihleri hesapla
       const girisTarihi = this.formatDate(now);
       let planlananCikis: string;
-      
+
       // Daima frontend'den gelen planlanan çıkış tarihini kullan
       if (islemData.planlananCikisTarihi) {
         console.log('📅 kaydetIslemWithTransaction\'da frontend\'den gelen planlanan çıkış tarihi kullanılıyor:', islemData.planlananCikisTarihi);
@@ -2390,21 +2390,21 @@ export class MusteriService {
         // Frontend'den tarih gelmemişse hata fırlat
         throw new Error('Planlanan çıkış tarihi frontend\'den gelmedi!');
       }
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
-      
+
       // Konaklama tipini parse et
       const konaklamaTipi = this.parseKonaklamaTipi(islemData.KonaklamaTipi);
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // İşlem bilgisi oluştur - ödeme vadesi ile birlikte (stored procedure zaten zaman damgası ekliyor)
       const islemBilgi = `BAKİYE ÖDEME VADESİ: ${islemData.OdemeVadesi || 'Belirtilmemiş'} -/- ${girisTarihi} - ${planlananCikis} DÖNEMİ KONAKLAMA`;
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
         this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
@@ -2425,13 +2425,13 @@ export class MusteriService {
         'TL',                          // @15
         1.00                           // @16
       ];
-      
+
       await this.transactionService.executeStoredProcedure(
         queryRunner,
         storedProcedures.islemEkle,
         parameters
       );
-      
+
       // 🔥 DEPOZİTO KAYDI - Eğer depozito dahil ve bedel > 0 ise
       if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
         console.log('Depozito kaydı ekleniyor (Transaction-Safe):', {
@@ -2439,7 +2439,7 @@ export class MusteriService {
           depozitoBedel: islemData.depozito.bedel,
           depozitoDahil: islemData.depozito.dahil
         });
-        
+
         // İşlem bilgisi - müşteri durumuna göre
         let depozitoBilgi: string;
         if (islemData.musteriDurumu === 'YENI') {
@@ -2447,7 +2447,7 @@ export class MusteriService {
         } else {
           depozitoBilgi = 'KONAKLAMA =DEPOZİTO ALACAĞI=';
         }
-        
+
         const depozitParameters = [
           this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
           islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
@@ -2467,13 +2467,13 @@ export class MusteriService {
           'TL',                          // @15
           1.00                           // @16
         ];
-        
+
         await this.transactionService.executeStoredProcedure(
           queryRunner,
           storedProcedures.islemEkle,
           depozitParameters
         );
-        
+
         console.log('Depozito kaydı başarıyla eklendi (Transaction-Safe)');
 
         // 🔥 DEPOZİTO TAHSİLATI ARACI VE TUTARINA GÖRE SON "=DEPOZİTO ALACAĞI=" KAYDINI GÜNCELLE
@@ -2511,7 +2511,7 @@ export class MusteriService {
           console.warn('Depozito bakiyesi güncellenirken uyarı (devam ediliyor):', depError);
         }
       }
-      
+
       console.log('=== kaydetIslemWithTransaction tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('İşlem kaydı hatası (Transaction):', error);
@@ -2524,23 +2524,23 @@ export class MusteriService {
    */
   async sonlandirKonaklamaWithTransaction(
     queryRunner: QueryRunner,
-    tcNo: string, 
+    tcNo: string,
     eskiPlnTrh: string
   ): Promise<void> {
     try {
       console.log('=== sonlandirKonaklamaWithTransaction başlatıldı ===');
       console.log('TC Kimlik:', tcNo);
       console.log('Eski planlanan tarih:', eskiPlnTrh);
-      
+
       // Önce TC kimlik numarasından müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       // Mevcut konaklama kaydının KnklmCksTrh'ni KnklmPlnTrh ile güncelle
       const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const query = `
@@ -2550,10 +2550,10 @@ export class MusteriService {
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
           AND KnklmPlnTrh = @1
       `;
-      
+
       await this.transactionService.executeQuery(queryRunner, query, [musteriNo, eskiPlnTrh]);
       console.log('Konaklama sonlandırma sorgusu tamamlandı - KnklmCksTrh = KnklmPlnTrh (Transaction-Safe)');
-      
+
     } catch (error) {
       console.error('Konaklama sonlandırma hatası (Transaction):', error);
       throw new Error('Konaklama kaydı sonlandırılamadı');
@@ -2565,7 +2565,7 @@ export class MusteriService {
    */
   async kaydetDonemYenilemeKonaklamaWithTransaction(
     queryRunner: QueryRunner,
-    konaklamaData: { 
+    konaklamaData: {
       OdaYatak: string | { label?: string; value?: string };
       KonaklamaSuresi: number;
       KonaklamaTipi: string;
@@ -2585,17 +2585,17 @@ export class MusteriService {
         prizVerildi?: boolean;
         geceKonaklama?: boolean;
       };
-    }, 
+    },
     musteriNo: number
   ): Promise<void> {
     try {
       console.log('=== kaydetDonemYenilemeKonaklamaWithTransaction başlatıldı ===');
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(konaklamaData.OdaYatak);
-      
+
       // Giriş tarihi = önceki kaydın planlanan tarihi (eskiKnklmPlnTrh)
       const girisTarihi = konaklamaData.eskiKnklmPlnTrh;
-      
+
       // Çıkış tarihi belirleme: Daima formdan gelen değeri öncelikle kullan
       let planlananCikis: string;
       const uiPlanned = (konaklamaData.KnklmPlnTrh || konaklamaData.planlananCikisTarihi || '').toString().trim();
@@ -2612,30 +2612,30 @@ export class MusteriService {
         cikisTarihi.setDate(cikisTarihi.getDate() + konaklamaData.KonaklamaSuresi);
         planlananCikis = this.formatDate(cikisTarihi);
       }
-      
+
       // Konaklama tipini parse et (örn: "2 HAFTALIK" -> "HAFTALIK")
-        const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
+      const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
       // İskonto hesapla (yüzde olarak)
       let iskonto = 0;
       if (konaklamaData.HesaplananBedel > 0) {
         iskonto = ((konaklamaData.HesaplananBedel - konaklamaData.ToplamBedel) / konaklamaData.HesaplananBedel) * 100;
         iskonto = Math.round(iskonto * 100) / 100; // 2 ondalık basamak
       }
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // Ödeme takip günü - frontend'den gelen değer varsa onu kullan, yoksa boş bırak
       const odmTkvGun = konaklamaData.OdemeTakvimGunu ? konaklamaData.OdemeTakvimGunu.toString() : '';
-      
+
       // SecOdYat oluştur
       const secOdYat = this.generateSecOdYat(odaNo, yatakNo);
-      
+
       // Not bilgisi - frontend'den gelen KnklmNot kullan (stored procedure zaten zaman damgası ekliyor)
       const notlarZamanli = konaklamaData.KnklmNot || konaklamaData.ekNotlar || '';
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
         konaklamaData.MstrKllnc || 'admin',  // @0 - KnklmKllnc (kullanıcı adı)
@@ -2658,24 +2658,24 @@ export class MusteriService {
         notlarZamanli,            // @17
         secOdYat                  // @18
       ];
-      
+
       await this.transactionService.executeStoredProcedure(
         queryRunner,
         storedProcedures.konaklamaEkle,
         parameters
       );
-      
+
       // Eğer oda ARIZALI durumundaysa, durumu DOLU'ya güncelle
       const tables = this.dbConfig.getTables();
       const checkDurumQuery = `SELECT OdYatDurum FROM ${tables.odaYatak} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
       const durumResult: { OdYatDurum: string }[] = await queryRunner.query(checkDurumQuery, [odaNo, yatakNo]);
-      
+
       if (durumResult.length > 0 && (durumResult[0].OdYatDurum === 'ARIZA' || durumResult[0].OdYatDurum === 'ARIZALI')) {
         const updateDurumQuery = `UPDATE ${tables.odaYatak} SET OdYatDurum = 'DOLU' WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`;
         await queryRunner.query(updateDurumQuery, [odaNo, yatakNo]);
         console.log(`Oda ${odaNo}-${yatakNo} ARIZA durumundan DOLU durumuna güncellendi (Dönem Yenileme)`);
       }
-      
+
       console.log('Dönem yenileme konaklama kaydı başarıyla oluşturuldu (Transaction-Safe)');
     } catch (error) {
       console.error('Dönem yenileme konaklama kaydı hatası (Transaction):', error);
@@ -2699,36 +2699,36 @@ export class MusteriService {
       planlananCikisTarihi?: string; // Frontend'den gelen planlanan çıkış tarihi
       eskiKnklmPlnTrh: string; // Önceki kaydın planlanan tarihi (yeni kaydın giriş tarihi)
       OdemeVadesi?: string; // 🔥 Ödeme vadesi bilgisi eklendi
-    }, 
+    },
     musteriNo: number
   ): Promise<void> {
     try {
       console.log('=== kaydetDonemYenilemeIslemWithTransaction başlatıldı ===');
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(islemData.OdaYatak);
-      
+
       // Giriş tarihi = önceki kaydın planlanan tarihi
       const girisTarihi = islemData.eskiKnklmPlnTrh;
-      
+
       // Çıkış tarihi = giriş tarihi + konaklama süresi (yeni hesaplama fonksiyonu ile)
       const girisTarihiDate = this.parseDate(girisTarihi);
       const cikisTarihi = this.hesaplaPlanlananCikisTarihi(girisTarihiDate, islemData.KonaklamaSuresi);
       const planlananCikis = this.formatDate(cikisTarihi);
-      
+
       // Cari kod oluştur
       const cariKod = islemData.MstrHspTip === 'Kurumsal' ? `MK${musteriNo}` : `MB${musteriNo}`;
-      
+
       // Konaklama tipini parse et
       const konaklamaTipi = this.parseKonaklamaTipi(islemData.KonaklamaTipi);
-      
+
       // Blok ve kat bilgisi
       const ilkDigit = parseInt(odaNo.charAt(0));
       const blok = ilkDigit < 6 ? 'A' : 'B';
       const kat = ilkDigit.toString();
-      
+
       // İşlem bilgisi oluştur - dönem yenileme özel mesajı
       const islemBilgi = `${girisTarihi} - ${planlananCikis} DÖNEM YENİLEME KONAKLAMA`;
-      
+
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const parameters = [
         this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
@@ -2755,7 +2755,7 @@ export class MusteriService {
         storedProcedures.islemEkle,
         parameters
       );
-      
+
       console.log('Dönem yenileme işlem kaydı başarıyla oluşturuldu (Transaction-Safe)');
     } catch (error) {
       console.error('Dönem yenileme işlem kaydı hatası (Transaction):', error);
@@ -2774,24 +2774,24 @@ export class MusteriService {
     try {
       console.log('=== musteriCikisYapWithTransaction başlatıldı ===');
       console.log('Çıkış verisi:', cikisData);
-      
+
       // 🔥 1. KARA LİSTE BİLGİLERİNİ GÜNCELLE (konaklama sonlandırmadan ÖNCE!)
       if (cikisData.knklmKrLst && cikisData.knklmNot) {
         await this.updateKaraListeBilgileriWithTransaction(
-          queryRunner, 
-          cikisData.tcNo, 
-          cikisData.plnTrh, 
-          cikisData.knklmKrLst, 
+          queryRunner,
+          cikisData.tcNo,
+          cikisData.plnTrh,
+          cikisData.knklmKrLst,
           cikisData.knklmNot
         );
       }
-      
+
       // 2. Mevcut konaklama kaydını sonlandır (Çıkış tarihini ayarla)
       await this.sonlandirKonaklamaWithTransaction(queryRunner, cikisData.tcNo, cikisData.plnTrh);
-      
+
       // 3. Oda-yatak kaydını 'BOŞ' olarak güncelle
       await this.bosaltOdaYatakWithTransaction(
-        queryRunner, 
+        queryRunner,
         cikisData.odaYatak as string | { label?: string; value?: string },
         kullaniciAdi
       );
@@ -2800,7 +2800,7 @@ export class MusteriService {
       const musteriTableName = this.dbConfig.getTableName('tblMusteri');
       const query = `UPDATE ${musteriTableName} SET MstrDurum = 'AYRILDI' WHERE MstrTCN = @0`;
       await this.transactionService.executeQuery(queryRunner, query, [cikisData.tcNo]);
-      
+
       console.log(`Müşteri ${cikisData.tcNo} çıkış işlemi tamamlandı. Durum 'AYRILDI' olarak güncellendi (Transaction-Safe).`);
     } catch (error) {
       console.error('Müşteri çıkış işlemi sırasında hata (Transaction):', error);
@@ -2814,37 +2814,37 @@ export class MusteriService {
    */
   private async updateKaraListeBilgileriWithTransaction(
     queryRunner: QueryRunner,
-    tcNo: string, 
-    plnTrh: string, 
-    knklmKrLst: string, 
+    tcNo: string,
+    plnTrh: string,
+    knklmKrLst: string,
     knklmNot: string
   ): Promise<void> {
     try {
       console.log('=== Kara liste bilgileri güncelleniyor (Transaction-Safe) ===');
       console.log('TC:', tcNo, 'PlnTrh:', plnTrh, 'KrLst:', knklmKrLst, 'Not uzunluğu:', knklmNot.length);
-      
+
       // Önce TC kimlik numarasından müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const query = `
         UPDATE ${konaklamaTableName} 
         SET KnklmKrLst = @0, KnklmNot = @1 
         WHERE KnklmMstrNo = @2 AND KnklmPlnTrh = @3 AND KnklmCksTrh IS NULL
       `;
-      
+
       const result: unknown = await this.transactionService.executeQuery(
-        queryRunner, 
-        query, 
+        queryRunner,
+        query,
         [knklmKrLst, knklmNot, musteriNo, plnTrh]
       );
-      
+
       console.log('Kara liste güncelleme sonucu:', result);
       console.log('✅ Kara liste bilgileri başarıyla güncellendi (Transaction-Safe)');
     } catch (error) {
@@ -2864,19 +2864,19 @@ export class MusteriService {
     try {
       console.log('=== bosaltOdaYatakWithTransaction başlatıldı ===');
       console.log('Boşaltılacak oda-yatak:', odaYatakStr);
-      
+
       const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
       console.log('Parse edilen oda-yatak:', { odaNo, yatakNo });
-      
+
       // İşlem tarihi ve kullanıcı bilgisi
       const bugunTarihi = this.formatDate(new Date()); // DD.MM.YYYY formatında
       const kullaniciAdiFinal = kullaniciAdi || 'admin';
-      
+
       console.log('Boşaltma işlemi bilgileri:', {
         tarih: bugunTarihi,
         kullanici: kullaniciAdiFinal
       });
-      
+
       const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
       const query = `
         UPDATE ${odaYatakTableName} 
@@ -2885,14 +2885,14 @@ export class MusteriService {
             oKytTarihi = @3
         WHERE odYatOdaNo = @0 AND odYatYtkNo = @1
       `;
-      
+
       await this.transactionService.executeQuery(queryRunner, query, [odaNo, yatakNo, kullaniciAdiFinal, bugunTarihi]);
       console.log(`Oda ${odaNo}-${yatakNo} KİRLİ yapıldı (${bugunTarihi} - ${kullaniciAdiFinal}) (Transaction-Safe)`);
-      
+
     } catch (error) {
       console.error('Oda-yatak boşaltma hatası (Transaction):', error);
-      const odaYatakStrFormatted = typeof odaYatakStr === 'object' ? 
-        (odaYatakStr.label || odaYatakStr.value || JSON.stringify(odaYatakStr)) : 
+      const odaYatakStrFormatted = typeof odaYatakStr === 'object' ?
+        (odaYatakStr.label || odaYatakStr.value || JSON.stringify(odaYatakStr)) :
         String(odaYatakStr);
       throw new Error(`Oda-yatak boşaltılamadı: ${odaYatakStrFormatted}`);
     }
@@ -2954,19 +2954,19 @@ export class MusteriService {
       console.log('=== sonlandirMevcutKonaklamaWithTransaction başlatıldı ===');
       console.log('TC Kimlik:', tcNo);
       console.log('Kullanıcı adı:', kullaniciAdi);
-      
+
       // Önce TC kimlik numarasından müşteri numarasını al
       const musteriData = await this.getMusteriBilgiByTCN(tcNo) as { MstrNo?: number } | null;
       if (!musteriData || !musteriData.MstrNo) {
         throw new Error('Müşteri bulunamadı');
       }
-      
+
       const musteriNo = musteriData.MstrNo;
       console.log('Müşteri numarası:', musteriNo);
-      
+
       const konaklamaTableName = this.dbConfig.getTableName('tblKonaklama');
       const bugunTarihi = this.formatDate(new Date()); // DD.MM.YYYY formatında
-      
+
       // Mevcut konaklama kaydının KnklmCksTrh'ni bugünün tarihi ile güncelle
       const query = `
         UPDATE ${konaklamaTableName} 
@@ -2976,10 +2976,10 @@ export class MusteriService {
         WHERE KnklmMstrNo = @2 
           AND (KnklmCksTrh = '' OR KnklmCksTrh IS NULL)
       `;
-      
+
       await this.transactionService.executeQuery(queryRunner, query, [bugunTarihi, kullaniciAdi, musteriNo]);
       console.log('Mevcut konaklama sonlandırma sorgusu tamamlandı (Transaction-Safe)');
-      
+
     } catch (error) {
       console.error('Mevcut konaklama sonlandırma hatası (Transaction):', error);
       throw new Error('Mevcut konaklama kaydı sonlandırılamadı');
@@ -3020,7 +3020,7 @@ export class MusteriService {
       // Çıkış tarihi: ana formdaki planlanan çıkış tarihi
       const planlananCikis = konaklamaData.eskiKnklmPlnTrh;
       // Konaklama tipini parse et (örn: "2 HAFTALIK" -> "HAFTALIK")
-      const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);  
+      const konaklamaTipi = this.parseKonaklamaTipi(konaklamaData.KonaklamaTipi);
       // İskonto hesapla (yüzde olarak)
       let iskonto = 0;
       if (konaklamaData.HesaplananBedel > 0) {
@@ -3182,7 +3182,7 @@ export class MusteriService {
         WHERE m.MstrTCN = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;
-      
+
       const result = await this.musteriRepository.query(query, [tcNo]);
       return result;
     } catch (error) {
@@ -3212,7 +3212,7 @@ export class MusteriService {
         WHERE m.MstrFirma = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;
-      
+
       const result = await this.musteriRepository.query(query, [firmaAdi]);
       return result;
     } catch (error) {
@@ -3225,7 +3225,7 @@ export class MusteriService {
   async getCariHareketler(tcNo: string): Promise<any[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 CTE OPTİMİZASYONU: Cari hareketleri daha verimli getir
       const query = `
         WITH MusteriCariKod AS (
@@ -3279,10 +3279,10 @@ export class MusteriService {
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
         OPTION (MAXDOP 2);
       `;
-      
+
       const result: any[] = await this.musteriRepository.query(query, [tcNo]);
       console.log(`TC: ${tcNo} için ${result.length} cari hareket bulundu`);
-      
+
       return result;
     } catch (error) {
       console.error('getCariHareketler hatası:', error);
@@ -3294,7 +3294,7 @@ export class MusteriService {
   async getFirmaCariHareketler(firmaAdi: string): Promise<any[]> {
     try {
       const tables = this.dbConfig.getTables();
-      
+
       // 🔥 CTE OPTİMİZASYONU: Firma cari hareketlerini tek sorguda getir
       const query = `
         WITH FirmaMusterileri AS (
@@ -3351,7 +3351,7 @@ export class MusteriService {
         ORDER BY CONVERT(Date, iKytTarihi, 104) DESC, rn
         OPTION (MAXDOP 2);
       `;
-      
+
       const hareketler = await this.musteriRepository.query(query, [firmaAdi]);
       console.log(`[FirmaCariHareketler] ${firmaAdi} için bulunan hareket sayısı:`, hareketler.length);
       return hareketler;
@@ -3385,7 +3385,7 @@ export class MusteriService {
       const cariKod = musteriData.MstrHspTip === 'Kurumsal' ? `MK${musteriData.musteriNo}` : `MB${musteriData.musteriNo}`;
       // Konaklama tipini parse et
       //const konaklamaTipi = this.parseKonaklamaTipi( musteriData.MstrKnklmTip);
-      
+
       // Blok ve kat bilgisi
       const { odaNo, yatakNo } = this.parseOdaYatak(musteriData.MstrOdaYatak);
       const ilkDigit = parseInt(odaNo.charAt(0));
@@ -3473,78 +3473,136 @@ export class MusteriService {
     return result;
   }
 
-  // RZVRYTK TC değiştirme işlemi - çifte UPDATE
+  // RZVRYTK TC değiştirme işlemi - çifte UPDATE veya MERGE
   async rzvrytkTcDegistir(eskiTCN: string, yeniTCN: string, updateData: Partial<Musteri>, username?: string): Promise<any> {
     return this.transactionService.executeInTransaction(async (queryRunner) => {
       const tables = this.dbConfig.getTables();
       const musteriRepo = queryRunner.manager.getRepository(Musteri);
-      
+
       // Kullanıcı adını belirle
       const kullaniciAdi = username || 'admin';
-      
-      // 1. Eski TC ile müşteri kaydını bul
-      const mevcutMusteri = await musteriRepo.findOne({ where: { MstrTCN: eskiTCN } });
-      if (!mevcutMusteri) {
+
+      // 1. Eski TC ile müşteri kaydını bul (tempMusteri - RZVRYTK)
+      const tempMusteri = await musteriRepo.findOne({ where: { MstrTCN: eskiTCN } });
+      if (!tempMusteri) {
         throw new NotFoundException(`Eski TC No'su ${eskiTCN} olan müşteri bulunamadı.`);
       }
 
-      // 2. Yeni TC'nin başka bir kayıtta kullanılmadığını kontrol et
-      const yeniTCKontrol = await musteriRepo.findOne({ where: { MstrTCN: yeniTCN } });
-      if (yeniTCKontrol) {
-        throw new Error(`Yeni TC No'su ${yeniTCN} zaten başka bir kayıtta kullanılıyor.`);
+      // 2. Yeni TC kontrolü - Mevcut müşteri var mı?
+      const realMusteri = await musteriRepo.findOne({ where: { MstrTCN: yeniTCN } });
+      
+      if (realMusteri) {
+        // ═══════════════════════════════════════════════════════════
+        // MERGE SENARYOSU: Yeni TC zaten mevcut, kayıtları birleştir
+        // ═══════════════════════════════════════════════════════════
+        
+        // 2.1. CariKod'ları hesapla
+        const tempCariKod = `${tempMusteri.MstrHspTip === 'Kurumsal' ? 'MK' : 'MB'}${tempMusteri.MstrNo}`;
+        const realCariKod = `${realMusteri.MstrHspTip === 'Kurumsal' ? 'MK' : 'MB'}${realMusteri.MstrNo}`;
+        
+        // 2.2. Konaklamaları transfer et
+        const konaklamaUpdateQuery = `
+          UPDATE ${tables.konaklama}
+          SET KnklmMstrNo = @1
+          WHERE KnklmMstrNo = @0
+        `;
+        await queryRunner.query(konaklamaUpdateQuery, [tempMusteri.MstrNo, realMusteri.MstrNo]);
+        
+        // 2.3. İşlemleri transfer et (islemCrKod + islemAltG)
+        const islemUpdateQuery = `
+          UPDATE ${tables.islem}
+          SET islemCrKod = @1,
+              islemAltG = @2
+          WHERE islemCrKod = @0
+        `;
+        await queryRunner.query(islemUpdateQuery, [
+          tempCariKod, 
+          realCariKod, 
+          realMusteri.MstrAdi  // Müşteri adını güncelle
+        ]);
+        
+        // 2.4. Geçici Cari kaydını sil
+        const cariDeleteQuery = `
+          DELETE FROM ${tables.cari}
+          WHERE CariKod = @0
+        `;
+        await queryRunner.query(cariDeleteQuery, [tempCariKod]);
+        
+        // 2.5. Geçici Müşteri kaydını sil
+        const musteriDeleteQuery = `
+          DELETE FROM ${tables.musteri}
+          WHERE MstrNo = @0
+        `;
+        await queryRunner.query(musteriDeleteQuery, [tempMusteri.MstrNo]);
+        
+        console.log(`RZVRYTK Merge başarılı: ${eskiTCN} (geçici) -> ${yeniTCN} (gerçek)`);
+        
+        return {
+          success: true,
+          message: `Geçici kayıt gerçek müşteri kaydı ile birleştirildi: ${eskiTCN} -> ${yeniTCN}`,
+          eskiTCN,
+          yeniTCN,
+          merge: true
+        };
+        
+      } else {
+        // ═══════════════════════════════════════════════════════════
+        // UPDATE SENARYOSU: Yeni TC mevcut değil, sadece TC güncelle
+        // ═══════════════════════════════════════════════════════════
+        
+        // 3. tblMusteri tablosunda UPDATE işlemi (mstrTCN dahil)
+        const musteriUpdateQuery = `
+          UPDATE ${tables.musteri}
+          SET 
+            MstrTCN = @1, MstrAdi = @2, MstrTelNo = @3, MstrHspTip = @4, MstrDgmTarihi = @5, MstrTel2 = @6,
+            MstrEposta = @7, MstrMeslek = @8, MstrYakini = @9, MstrYknTel = @10, MstrAdres = @11,
+            MstrNot = @12, MstrFirma = @13, MstrVD = @14, MstrVno = @15, MstrFrmTel = @16,
+            MstrFrmMdr = @17, MstrMdrTel = @18
+          WHERE MstrTCN = @0`;
+
+        const musteriParams = [
+          eskiTCN, // @0 - WHERE koşulu
+          yeniTCN, // @1 - Yeni TC Kimlik No
+          updateData.MstrAdi || tempMusteri.MstrAdi,
+          updateData.MstrTelNo || tempMusteri.MstrTelNo,
+          updateData.MstrHspTip || tempMusteri.MstrHspTip,
+          updateData.MstrDgmTarihi || tempMusteri.MstrDgmTarihi,
+          updateData.MstrTel2 || tempMusteri.MstrTel2,
+          updateData.MstrEposta || tempMusteri.MstrEposta,
+          updateData.MstrMeslek || tempMusteri.MstrMeslek,
+          updateData.MstrYakini || tempMusteri.MstrYakini,
+          updateData.MstrYknTel || tempMusteri.MstrYknTel,
+          updateData.MstrAdres || tempMusteri.MstrAdres,
+          updateData.MstrNot || tempMusteri.MstrNot,
+          updateData.MstrFirma !== undefined ? updateData.MstrFirma : tempMusteri.MstrFirma,
+          updateData.MstrVD || tempMusteri.MstrVD,
+          updateData.MstrVno || tempMusteri.MstrVno,
+          updateData.MstrFrmTel || tempMusteri.MstrFrmTel,
+          updateData.MstrFrmMdr || tempMusteri.MstrFrmMdr,
+          updateData.MstrMdrTel || tempMusteri.MstrMdrTel,
+        ];
+
+        await queryRunner.query(musteriUpdateQuery, musteriParams);
+
+        // 4. tblCari tablosunda UPDATE işlemi (CariVTCN güncelle)
+        const cariUpdateQuery = `
+          UPDATE ${tables.cari}
+          SET CariVTCN = @1
+          WHERE CariVTCN = @0`;
+
+        const cariParams = [eskiTCN, yeniTCN];
+        await queryRunner.query(cariUpdateQuery, cariParams);
+
+        console.log(`RZVRYTK TC değiştirme başarılı: ${eskiTCN} -> ${yeniTCN}`);
+
+        return {
+          success: true,
+          message: `TC Kimlik No başarıyla değiştirildi: ${eskiTCN} -> ${yeniTCN}`,
+          eskiTCN,
+          yeniTCN,
+          merge: false
+        };
       }
-
-      // 3. tblMusteri tablosunda UPDATE işlemi (mstrTCN dahil)
-      const musteriUpdateQuery = `
-        UPDATE ${tables.musteri}
-        SET 
-          MstrTCN = @1, MstrAdi = @2, MstrTelNo = @3, MstrHspTip = @4, MstrDgmTarihi = @5, MstrTel2 = @6,
-          MstrEposta = @7, MstrMeslek = @8, MstrYakini = @9, MstrYknTel = @10, MstrAdres = @11,
-          MstrNot = @12, MstrFirma = @13, MstrVD = @14, MstrVno = @15, MstrFrmTel = @16,
-          MstrFrmMdr = @17, MstrMdrTel = @18
-        WHERE MstrTCN = @0`;
-      
-      const musteriParams = [
-        eskiTCN, // @0 - WHERE koşulu
-        yeniTCN, // @1 - Yeni TC Kimlik No
-        updateData.MstrAdi || mevcutMusteri.MstrAdi,
-        updateData.MstrTelNo || mevcutMusteri.MstrTelNo,
-        updateData.MstrHspTip || mevcutMusteri.MstrHspTip,
-        updateData.MstrDgmTarihi || mevcutMusteri.MstrDgmTarihi,
-        updateData.MstrTel2 || mevcutMusteri.MstrTel2,
-        updateData.MstrEposta || mevcutMusteri.MstrEposta,
-        updateData.MstrMeslek || mevcutMusteri.MstrMeslek,
-        updateData.MstrYakini || mevcutMusteri.MstrYakini,
-        updateData.MstrYknTel || mevcutMusteri.MstrYknTel,
-        updateData.MstrAdres || mevcutMusteri.MstrAdres,
-        updateData.MstrNot || mevcutMusteri.MstrNot,
-        updateData.MstrFirma !== undefined ? updateData.MstrFirma : mevcutMusteri.MstrFirma,
-        updateData.MstrVD || mevcutMusteri.MstrVD,
-        updateData.MstrVno || mevcutMusteri.MstrVno,
-        updateData.MstrFrmTel || mevcutMusteri.MstrFrmTel,
-        updateData.MstrFrmMdr || mevcutMusteri.MstrFrmMdr,
-        updateData.MstrMdrTel || mevcutMusteri.MstrMdrTel,
-      ];
-
-      await queryRunner.query(musteriUpdateQuery, musteriParams);
-
-      // 4. tblCari tablosunda UPDATE işlemi (CariVTCN güncelle)
-      const cariUpdateQuery = `
-        UPDATE ${tables.cari}
-        SET CariVTCN = @1
-        WHERE CariVTCN = @0`;
-      
-      const cariParams = [eskiTCN, yeniTCN];
-      await queryRunner.query(cariUpdateQuery, cariParams);
-
-      console.log(`RZVRYTK TC değiştirme başarılı: ${eskiTCN} -> ${yeniTCN}`);
-      
-      return {
-        success: true,
-        message: `TC Kimlik No başarıyla değiştirildi: ${eskiTCN} -> ${yeniTCN}`,
-        eskiTCN,
-        yeniTCN
-      };
     });
   }
 } 
