@@ -94,4 +94,31 @@ export class NakitAkisController {
       };
     }
   }
+
+  /**
+   * OdmVade bilgisi günün tarihinden eski olan ve OdmDrm = 0 olan kayıtların
+   * OdmVade bilgisini günün tarihi ile günceller
+   * @returns Güncellenen kayıt sayısı
+   */
+  @Get('guncelle-eski-odmvade')
+  async guncelleEskiOdmVade(): Promise<{ success: boolean; updatedCount: number; message: string }> {
+    try {
+      this.logger.log('🔄 Eski OdmVade kayıtları güncelleniyor...');
+      
+      const result = await this.nakitAkisService.updateEskiOdmVadeKayitlari();
+      
+      this.logger.log(`✅ ${result.updatedCount} kayıt güncellendi`);
+      
+      return result;
+      
+    } catch (error) {
+      this.logger.error(`❌ Eski OdmVade kayıtları güncellenirken hata: ${error.message}`);
+      
+      return {
+        success: false,
+        updatedCount: 0,
+        message: `Hata: ${error.message}`
+      };
+    }
+  }
 }

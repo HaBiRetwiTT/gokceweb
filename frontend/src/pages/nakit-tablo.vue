@@ -81,11 +81,11 @@
                   <q-input
                     v-model="selectedDate"
                     label="Başlangıç Tarihi"
-                    style="width: 200px;"
+                    style="width: 120px;"
                     readonly
                     class="date-input-compact"
                   >
-                    <template v-slot:append>
+                    <template v-slot:prepend>
                       <q-icon name="event" class="cursor-pointer calendar-icon-compact">
                         <q-popup-proxy 
                           ref="datePopup"
@@ -103,81 +103,90 @@
                       </q-icon>
                     </template>
                   </q-input>
-                  
-                  <!-- Refresh ikonu -->
-                  <q-btn
-                    flat
-                    round
-                    dense
-                    icon="refresh"
-                    color="primary"
-                    class="refresh-btn"
-                    @click="refreshPage"
-                    title="Sayfayı Yenile"
-                  />
                 </div>
                 
-                <div class="action-buttons">
-                  <q-btn
-                    color="primary"
-                    icon="add"
-                    label="YENİ KAYIT"
-                    @click="addNewRecord"
-                  />
-                  
-                  <!-- Kasa Bakiyeleri Etiketleri -->
-                  <div class="kasa-bakiyeleri-container">
-                    <q-chip
-                      color="green-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Nakit:</strong>&nbsp;{{ formatCurrency(nakitBakiye) }}
-                    </q-chip>
-                    <q-chip
-                      color="purple-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Banka:</strong>&nbsp;{{ formatCurrency(bankaBakiye) }}
-                    </q-chip>
-                    <q-separator vertical class="q-mx-sm" />
-                    <q-chip
-                      color="deep-purple-9"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip toplam-chip"
-                    >
-                      <strong>Nakit+Banka:</strong>&nbsp;{{ formatCurrency(nakitBakiye + bankaBakiye) }}
-                    </q-chip>
-                    <q-separator vertical class="q-mx-sm" />
-                    <q-chip
-                      color="blue-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Kart:</strong>&nbsp;{{ formatCurrency(kartBakiye) }}
-                    </q-chip>
-                    <q-chip
-                      color="orange-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Acenta:</strong>&nbsp;{{ formatCurrency(acentaBakiye) }}
-                    </q-chip>
-                    <q-chip
-                      color="teal-7"
-                      text-color="white"
-                      dense
-                      class="bakiye-chip"
-                    >
-                      <strong>Depozito:</strong>&nbsp;{{ formatCurrency(depozitoBakiye) }}
-                    </q-chip>
-                  </div>
+                <!-- Refresh ikonu -->
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="refresh"
+                  color="primary"
+                  class="refresh-btn"
+                  @click="refreshPage"
+                  title="Sayfayı Yenile"
+                />
+                
+                <!-- Yeni Kayıt Butonu -->
+                <q-btn
+                  color="primary"
+                  icon="add"
+                  label="YENİ KAYIT"
+                  style="margin-left: 16px;"
+                  @click="addNewRecord"
+                />
+                
+                <!-- İşlem Tanımı Filtresi -->
+                <div class="filter-selector" style="margin-left: 16px;">
+                  <q-input
+                    v-model="islemTanimiFilter"
+                    label="İşlem Tanımı"
+                    style="width: 150px;"
+                    dense
+                    outlined
+                    clearable
+                    placeholder="filtre gir..."
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="filter_list" />
+                    </template>
+                  </q-input>
+                </div>
+                
+                <!-- Kasa Bakiyeleri Etiketleri -->
+                <div class="kasa-bakiyeleri-container" style="margin-left: 16px;">
+                  <q-chip
+                    color="green-7"
+                    text-color="white"
+                    dense
+                    class="bakiye-chip"
+                  >
+                    <strong>Nakit:</strong>&nbsp;{{ formatCurrency(nakitBakiye) }}
+                  </q-chip>
+                  <q-chip
+                    color="purple-7"
+                    text-color="white"
+                    dense
+                    class="bakiye-chip"
+                  >
+                    <strong>Banka:</strong>&nbsp;{{ formatCurrency(bankaBakiye) }}
+                  </q-chip>
+                  <q-separator vertical class="q-mx-sm" />
+                  <q-chip
+                    color="deep-purple-9"
+                    text-color="white"
+                    dense
+                    class="bakiye-chip toplam-chip"
+                  >
+                    <strong>Nakit+Banka:</strong>&nbsp;{{ formatCurrency(nakitBakiye + bankaBakiye) }}
+                  </q-chip>
+                  <q-separator vertical class="q-mx-sm" />
+                  <q-chip
+                    color="blue-7"
+                    text-color="white"
+                    dense
+                    class="bakiye-chip"
+                  >
+                    <strong>Kart:</strong>&nbsp;{{ formatCurrency(kartBakiye) }}
+                  </q-chip>
+                  <q-chip
+                    color="orange-7"
+                    text-color="white"
+                    dense
+                    class="bakiye-chip"
+                  >
+                    <strong>Acenta:</strong>&nbsp;{{ formatCurrency(acentaBakiye) }}
+                  </q-chip>
                 </div>
               </div>
             </template>
@@ -786,6 +795,9 @@ const selectedDate = ref('');
 const datePopup = ref();
 const devredenBakiye = ref(0);
 
+// İşlem Tanımı filtreleme için
+const islemTanimiFilter = ref('');
+
 // Kasa bakiyeleri
 const nakitBakiye = ref(0);
 const kartBakiye = ref(0);
@@ -966,10 +978,23 @@ const pagination = ref({
 });
 
 // Paginated data - sadece mevcut sayfadaki kayıtları göster
+// Filtrelenmiş veri (sayfalama öncesi)
+const filteredData = computed(() => {
+  if (islemTanimiFilter.value && islemTanimiFilter.value.trim() !== '') {
+    const filterText = islemTanimiFilter.value.trim().toLowerCase();
+    return tableData.value.filter((row) => {
+      const islmAltG = (row.islmAltG || '').toLowerCase();
+      return islmAltG.includes(filterText);
+    });
+  }
+  return tableData.value;
+});
+
 const paginatedData = computed(() => {
+  // Sayfalama uygula
   const startIndex = (pagination.value.page - 1) * pagination.value.rowsPerPage;
   const endIndex = startIndex + pagination.value.rowsPerPage;
-  const paginated = tableData.value.slice(startIndex, endIndex);
+  const paginated = filteredData.value.slice(startIndex, endIndex);
   
   return paginated;
 });
@@ -1110,6 +1135,20 @@ const islemTanimiModel = ref<string | null>(null);
 onMounted(async () => {
   // Bugünün tarihini otomatik seç
   selectedDate.value = getBugunTarih();
+  
+  // Eski OdmVade kayıtlarını güncelle
+  try {
+    const updateResponse = await api.get('/nakit-akis/guncelle-eski-odmvade');
+    if (updateResponse.data.success && updateResponse.data.updatedCount > 0) {
+      console.log(`✅ ${updateResponse.data.updatedCount} kayıt güncellendi`);
+      // Eğer bir update yapıldıysa sayfayı yenile
+      await refreshPage();
+      return; // refreshPage zaten tüm verileri yükleyecek
+    }
+  } catch (error) {
+    console.error('Eski OdmVade kayıtları güncellenirken hata:', error);
+    // Hata olsa bile normal akışa devam et
+  }
   
   // Devreden bakiyeyi güncelle
   await updateDevredenBakiye(selectedDate.value);
@@ -1360,6 +1399,17 @@ watch(tableData, async () => {
   await applyRowStyling(paginatedData.value);
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
+
+// İşlem Tanımı filtresi değiştiğinde sayfa numarasını sıfırla ve toplam kayıt sayısını güncelle
+watch(islemTanimiFilter, () => {
+  pagination.value.page = 1;
+  pagination.value.rowsNumber = filteredData.value.length;
+});
+
+// Filtrelenmiş veri değiştiğinde toplam kayıt sayısını güncelle
+watch(filteredData, () => {
+  pagination.value.rowsNumber = filteredData.value.length;
+}, { immediate: true });
 
 // İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle ve işlem tanımı alanını temizle
 watch(() => newRecord.value.islmGrup, async (newKategori, oldKategori) => {
@@ -2641,9 +2691,9 @@ html body .q-table th {
   padding: 2px 12px;
   background: #f8f9fa;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
   border-bottom: none !important;
   min-height: 29px; /* Eşit yükseklik için artırıldı */
@@ -2725,7 +2775,8 @@ html body .q-table th {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 12px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .kasa-bakiyeleri-container .q-separator {

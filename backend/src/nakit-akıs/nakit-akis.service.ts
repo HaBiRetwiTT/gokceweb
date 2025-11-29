@@ -172,4 +172,78 @@ export class NakitAkisService {
       }
     ];
   }
+
+  /**
+   * OdmVade bilgisi günün tarihinden eski olan ve OdmDrm = 0 olan kayıtların
+   * OdmVade bilgisini günün tarihi ile günceller
+   * @returns Güncellenen kayıt sayısı
+   */
+  async updateEskiOdmVadeKayitlari(): Promise<{ success: boolean; updatedCount: number; message: string }> {
+    try {
+      this.logger.log('🔄 Eski OdmVade kayıtları güncelleniyor...');
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        await queryRunner.connect();
+        
+        // tblFonKasaY tablo adını al
+        const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
+        
+        // Önce güncellenecek kayıt sayısını bul
+        // CONVERT(DATE, OdmVade, 104) ile DD.MM.YYYY formatındaki tarihi DATE'e çeviriyoruz
+        // GETDATE() ile SQL Server'ın bugünün tarihini alıyoruz
+        const countQuery = `
+          SELECT COUNT(*) as count
+          FROM ${fonKasaYTableName}
+          WHERE Right(OdmVade,4) > '2024' AND CONVERT(DATE, OdmVade, 104) < CONVERT(DATE, GETDATE(), 104)
+            AND OdmDrm = 0
+        `;
+        
+        const countResult = await queryRunner.query(countQuery);
+        const count = countResult?.[0]?.count || 0;
+        
+        if (count === 0) {
+          this.logger.log('ℹ️ Güncellenecek kayıt bulunamadı');
+          return {
+            success: true,
+            updatedCount: 0,
+            message: 'Güncellenecek kayıt bulunamadı'
+          };
+        }
+        
+        // OdmVade < bugünün tarihi ve OdmDrm = 0 olan kayıtları bul ve güncelle
+        // CONVERT(nchar(10), GETDATE(), 104) ile bugünün tarihini DD.MM.YYYY formatında string olarak alıyoruz
+        const updateQuery = `
+          UPDATE ${fonKasaYTableName}
+          SET OdmVade = CONVERT(nchar(10), GETDATE(), 104)
+          WHERE Right(OdmVade,4) > '2024' AND CONVERT(DATE, OdmVade, 104) < CONVERT(DATE, GETDATE(), 104)
+            AND OdmDrm = 0
+        `;
+        
+        this.logger.debug(`🔍 Update query: ${updateQuery}`);
+        
+        await queryRunner.query(updateQuery);
+        
+        this.logger.log(`✅ ${count} kayıt güncellendi`);
+        
+        return {
+          success: true,
+          updatedCount: count,
+          message: `${count} kayıt güncellendi`
+        };
+        
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      this.logger.error(`❌ Eski OdmVade kayıtları güncellenirken hata: ${error.message}`, error.stack);
+      return {
+        success: false,
+        updatedCount: 0,
+        message: `Hata: ${error.message}`
+      };
+    }
+  }
 }

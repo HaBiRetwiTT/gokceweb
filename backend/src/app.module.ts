@@ -22,6 +22,7 @@ import { DatabaseTransactionService } from './database/database-transaction.serv
 import { HotelRunnerModule } from './hotelrunner/hotelrunner.module';
 import { PersonelModule } from './personel/personel.module';
 import { AdminModule } from './admin/admin.module';
+import { NakitAkisModule } from './nakit-akıs/nakit-akis.module';
 import { IpRestrictionGuard } from './guards/ip-restriction.guard';
 import * as dotenv from 'dotenv';
 
@@ -48,6 +49,7 @@ dotenv.config({ path: '.env.production' });
     HotelRunnerModule,
     PersonelModule,
     AdminModule,
+    NakitAkisModule,
   ],
   controllers: [AppController, OdemeIslemController],
   providers: [
