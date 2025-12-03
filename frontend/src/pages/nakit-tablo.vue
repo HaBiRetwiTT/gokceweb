@@ -13,17 +13,13 @@
             square
             dense
             class="nakit-tablo-grid left-table"
-            :pagination="pagination"
-            :rows-per-page-options="[10, 20, 50, 100]"
             :loading="loading"
             loading-label="Veriler yükleniyor..."
             :row-class-name="getRowClass"
-            @request="onTableRequest"
-            @update:pagination="onPaginationUpdate"
-            :rows-per-page-label="'Sayfa başına kayıt:'"
             :no-data-label="'Veri bulunamadı'"
             :no-results-label="'Sonuç bulunamadı'"
-            hide-bottom
+            hide-pagination
+            :pagination="{ rowsPerPage: 0 }"
 
           >
             <template v-slot:top>
@@ -45,7 +41,7 @@
           
           <!-- Sağ Grid Tablo - Ana Tablo -->
           <q-table
-            :rows="paginatedData"
+            :rows="filteredData"
             :columns="columns"
             row-key="id"
             flat
@@ -53,17 +49,14 @@
             square
             dense
             class="nakit-tablo-grid right-table"
-            :pagination="pagination"
-            :rows-per-page-options="[10, 20, 50, 100]"
             :loading="loading"
             loading-label="Veriler yükleniyor..."
             :row-class-name="getRowClass"
-            @request="onTableRequest"
-            @update:pagination="onPaginationUpdate"
             @row-dblclick="onRowDoubleClick"
-            :rows-per-page-label="'Sayfa başına kayıt:'"
             :no-data-label="'Veri bulunamadı'"
             :no-results-label="'Sonuç bulunamadı'"
+            hide-pagination
+            :pagination="{ rowsPerPage: 0 }"
           >
             <!-- Tutar sütunu için özel template -->
             <template v-slot:body-cell-islmTtr="props">
@@ -851,14 +844,14 @@ async function updateDevredenBakiye(tarih: string) {
 
 // Sol tablo için veri ve sütunlar
 const leftTableData = computed(() => {
-  return paginatedData.value.map((row, index) => {
+  return filteredData.value.map((row, index) => {
     if (index === 0) {
-      // İlk satır - Sayfa devir bakiyesi + Ana tablo 1. satır işlemi
+      // İlk satır - Devir bakiyesi + Ana tablo 1. satır işlemi
       let bakiye = getPageDevirBakiyesi();
       
       // Ana tablonun ilk satırındaki işlem tipine göre hesapla
-      if (paginatedData.value.length > 0) {
-        const firstRow = paginatedData.value[0];
+      if (filteredData.value.length > 0) {
+        const firstRow = filteredData.value[0];
         const islmTip = firstRow.islmTip;
         const islmTtr = Number(firstRow.islmTtr) || 0;
         
@@ -878,31 +871,31 @@ const leftTableData = computed(() => {
       let bakiye = 0;
       
       // Bir üst satırın sonucunu hesapla
-      if (index > 0 && index <= paginatedData.value.length) {
+      if (index > 0 && index <= filteredData.value.length) {
         let previousBakiye = getPageDevirBakiyesi();
         
         // Bir üst satıra kadar olan tüm işlemleri hesapla
         for (let i = 0; i < index; i++) {
-          const currentRow = paginatedData.value[i];
-                  const islmTip = currentRow.islmTip;
-        const islmTtr = Number(currentRow.islmTtr) || 0;
-        
-        if (islmTip === 'Çıkan') {
-          previousBakiye -= islmTtr;
-        } else if (islmTip === 'Giren') {
-          previousBakiye += islmTtr;
+          const currentRow = filteredData.value[i];
+          const islmTip = currentRow.islmTip;
+          const islmTtr = Number(currentRow.islmTtr) || 0;
+          
+          if (islmTip === 'Çıkan') {
+            previousBakiye -= islmTtr;
+          } else if (islmTip === 'Giren') {
+            previousBakiye += islmTtr;
           }
         }
         
         // Şimdi mevcut satır için işlem yap
-        const currentRow = paginatedData.value[index];
-      const islmTip = currentRow.islmTip;
-              const islmTtr = Number(currentRow.islmTtr) || 0;
-      
-      if (islmTip === 'Çıkan') {
-        bakiye = previousBakiye - islmTtr;
-      } else if (islmTip === 'Giren') {
-        bakiye = previousBakiye + islmTtr;
+        const currentRow = filteredData.value[index];
+        const islmTip = currentRow.islmTip;
+        const islmTtr = Number(currentRow.islmTtr) || 0;
+        
+        if (islmTip === 'Çıkan') {
+          bakiye = previousBakiye - islmTtr;
+        } else if (islmTip === 'Giren') {
+          bakiye = previousBakiye + islmTtr;
         } else {
           bakiye = previousBakiye; // İşlem tipi belirsizse sadece devir
         }
@@ -916,38 +909,10 @@ const leftTableData = computed(() => {
   });
 });
 
-// Sayfa devir bakiyesini hesaplayan fonksiyon
+// Devir bakiyesini hesaplayan fonksiyon (pagination olmadan, tüm veriler üzerinden)
 function getPageDevirBakiyesi(): number {
-  const currentPage = pagination.value.page;
-  
-  if (currentPage === 1) {
-    // İlk sayfa - Devreden Bakiye'den başla (Kart ve Acenta bakiyeleri düşülmüş)
-    return (devredenBakiye.value || 0) - kartBakiye.value - acentaBakiye.value;
-  } else {
-    // 2. ve sonraki sayfalar - Önceki sayfanın son satırından devir al
-    const previousPage = currentPage - 1;
-    const previousPageStartIndex = (previousPage - 1) * pagination.value.rowsPerPage;
-    const previousPageEndIndex = previousPageStartIndex + pagination.value.rowsPerPage;
-    
-    // Önceki sayfadaki tüm işlemleri hesapla (Kart ve Acenta bakiyeleri düşülmüş başlangıç)
-    let previousPageBakiye = (devredenBakiye.value || 0) - kartBakiye.value - acentaBakiye.value;
-    
-    for (let i = 0; i < previousPageEndIndex; i++) {
-      if (i < tableData.value.length) {
-        const currentRow = tableData.value[i];
-        const islmTip = currentRow.islmTip;
-        const islmTtr = Number(currentRow.islmTtr) || 0;
-        
-        if (islmTip === 'Çıkan') {
-          previousPageBakiye -= islmTtr;
-        } else if (islmTip === 'Giren') {
-          previousPageBakiye += islmTtr;
-        }
-      }
-    }
-    
-    return previousPageBakiye;
-  }
+  // Devreden Bakiye'den başla (Kart ve Acenta bakiyeleri düşülmüş)
+  return (devredenBakiye.value || 0) - kartBakiye.value - acentaBakiye.value;
 }
 
 const leftColumns = [
@@ -970,15 +935,7 @@ const leftColumns = [
   }
 ];
 
-// Pagination state
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 20,
-  rowsNumber: 0
-});
-
-// Paginated data - sadece mevcut sayfadaki kayıtları göster
-// Filtrelenmiş veri (sayfalama öncesi)
+// Filtrelenmiş veri
 const filteredData = computed(() => {
   if (islemTanimiFilter.value && islemTanimiFilter.value.trim() !== '') {
     const filterText = islemTanimiFilter.value.trim().toLowerCase();
@@ -988,15 +945,6 @@ const filteredData = computed(() => {
     });
   }
   return tableData.value;
-});
-
-const paginatedData = computed(() => {
-  // Sayfalama uygula
-  const startIndex = (pagination.value.page - 1) * pagination.value.rowsPerPage;
-  const endIndex = startIndex + pagination.value.rowsPerPage;
-  const paginated = filteredData.value.slice(startIndex, endIndex);
-  
-  return paginated;
 });
 
 // Tablo sütunları
@@ -1319,7 +1267,7 @@ function setupMutationObserver() {
     // Eğer tablo satırları değiştiyse CSS sınıflarını yeniden uygula
     if (shouldReapply) {
       void nextTick().then(() => {
-        void applyRowStyling(paginatedData.value);
+        void applyRowStyling(filteredData.value);
         applyHeaderStyling(); // Tablo başlık satırını da stillendir
       });
     }
@@ -1342,74 +1290,17 @@ function getRowClass(row: NakitAkisRecord) {
   return '';
 }
 
-// Tablo pagination event'ini dinle
-function onTableRequest(requestProp: { 
-  pagination: { 
-    sortBy: string; 
-    descending: boolean; 
-    page: number; 
-    rowsPerPage: number; 
-    rowsNumber?: number; 
-  }; 
-  filter?: string | null; 
-  getCellValue: (col: { field: string; name: string }, row: NakitAkisRecord) => string | number; 
- }) {
-  // Pagination state'ini güncelle
-  pagination.value = {
-    page: requestProp.pagination.page,
-    rowsPerPage: requestProp.pagination.rowsPerPage,
-    rowsNumber: requestProp.pagination.rowsNumber || 0
-  };
-  
-  // Pagination değiştiğinde CSS sınıflarını yeniden uygula
-  void nextTick().then(() => {
-    void applyRowStyling(paginatedData.value);
-    applyHeaderStyling(); // Tablo başlık satırını da stillendir
-  });
-}
-
-// Pagination güncellemelerini dinle
-function onPaginationUpdate(newPagination: { 
-  page: number; 
-  rowsPerPage: number; 
-  rowsNumber?: number; 
- }) {
-  // Pagination state'ini güncelle
-  pagination.value = {
-    page: newPagination.page,
-    rowsPerPage: newPagination.rowsPerPage,
-    rowsNumber: newPagination.rowsNumber || 0
-  };
-  
-  // Pagination güncellendiğinde CSS sınıflarını yeniden uygula
-  void nextTick().then(() => {
-    void applyRowStyling(paginatedData.value);
-    applyHeaderStyling(); // Tablo başlık satırını da stillendir
-  });
-}
-
-// Pagination değişikliklerini dinle - daha kapsamlı
+// Ekran boyutu değişikliklerini dinle
 watch(() => $q.screen.gt.sm, async () => {
-  await applyRowStyling(paginatedData.value);
+  await applyRowStyling(filteredData.value);
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 });
 
 // Tablo verisi değiştiğinde CSS sınıflarını uygula
 watch(tableData, async () => {
-  await applyRowStyling(paginatedData.value);
+  await applyRowStyling(filteredData.value);
   applyHeaderStyling(); // Tablo başlık satırını da stillendir
 }, { deep: true });
-
-// İşlem Tanımı filtresi değiştiğinde sayfa numarasını sıfırla ve toplam kayıt sayısını güncelle
-watch(islemTanimiFilter, () => {
-  pagination.value.page = 1;
-  pagination.value.rowsNumber = filteredData.value.length;
-});
-
-// Filtrelenmiş veri değiştiğinde toplam kayıt sayısını güncelle
-watch(filteredData, () => {
-  pagination.value.rowsNumber = filteredData.value.length;
-}, { immediate: true });
 
 // İslm kategorisi değiştiğinde işlem tanımı seçeneklerini güncelle ve işlem tanımı alanını temizle
 watch(() => newRecord.value.islmGrup, async (newKategori, oldKategori) => {
@@ -1586,10 +1477,6 @@ async function loadData() {
     console.log('API\'den gelen veriler:', veriler);
     
     tableData.value = veriler;
-    
-    // Pagination'ı güncelle - toplam kayıt sayısını set et
-    pagination.value.rowsNumber = veriler.length;
-    pagination.value.page = 1; // İlk sayfaya dön
     
     if (veriler.length === 0) {
       $q.notify({

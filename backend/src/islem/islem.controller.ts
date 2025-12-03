@@ -379,10 +379,12 @@ export class IslemController {
     @Query('islemTip') islemTip: string,
     @Query('page') page: string = '1',
     @Query('rowsPerPage') rowsPerPage: string = '15',
+    @Query('excludeKasadanAlinan') excludeKasadanAlinan: string = 'true',
   ) {
     try {
       const pageNum = parseInt(page, 10) || 1;
       const rowsPerPageNum = parseInt(rowsPerPage, 10) || 15;
+      const excludeKasadanAlinanBool = excludeKasadanAlinan === 'true';
 
       const data = await this.islemService.getDetayIslemler(
         tarih,
@@ -390,6 +392,7 @@ export class IslemController {
         islemTip,
         pageNum,
         rowsPerPageNum,
+        excludeKasadanAlinanBool,
       );
       return {
         success: true,
@@ -1266,11 +1269,16 @@ export class IslemController {
 
   /** Ödeme tipi özeti */
   @Get('odeme-tipi-ozet')
-  async getOdemeTipiOzet(@Query('tarih') tarih: string, @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa') {
+  async getOdemeTipiOzet(
+    @Query('tarih') tarih: string, 
+    @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa',
+    @Query('excludeKasadanAlinan') excludeKasadanAlinan: string = 'true'
+  ) {
     if (!tarih) {
       throw new HttpException('tarih parametresi zorunludur', HttpStatus.BAD_REQUEST)
     }
-    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode)
+    const excludeKasadanAlinanBool = excludeKasadanAlinan === 'true'
+    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode, excludeKasadanAlinanBool)
     return { success: true, data }
   }
 

@@ -1164,7 +1164,8 @@ async function onOdemeTipiDetayClick(odemeTipi: string, islemTip: 'Giren' | 'Ç�
         islemArac,
         islemTip,
         page: 1,
-        rowsPerPage: 1000 // Tüm kayıtları getir
+        rowsPerPage: 1000, // Tüm kayıtları getir
+        excludeKasadanAlinan: 'false' // Kazanc-tablo sayfasında 'Kasadan Alınan' ve 'Kasaya Verilen' işlemlerini dahil et
       }
     })
     
@@ -1368,7 +1369,8 @@ async function loadOdemeTipiOzet() {
     const response = await api.get('/islem/odeme-tipi-ozet', {
       params: {
         tarih: selectedTarih,
-        islemTipMode: islemTipMode.value
+        islemTipMode: islemTipMode.value,
+        excludeKasadanAlinan: 'false' // Kazanc-tablo sayfasında 'Kasadan Alınan' ve 'Kasaya Verilen' işlemlerini dahil et
       }
     })
     

@@ -793,15 +793,17 @@ export class IslemService {
     islemTip: string,
     page: number = 1,
     rowsPerPage: number = 15,
+    excludeKasadanAlinan: boolean = true,
   ): Promise<{ data: DetayIslem[]; totalRecords: number }> {
     try {
-      console.log('🔍 getDetayIslemler çağrıldı:', { tarih, islemArac, islemTip, page, rowsPerPage })
+      console.log('🔍 getDetayIslemler çağrıldı:', { tarih, islemArac, islemTip, page, rowsPerPage, excludeKasadanAlinan })
       console.log('🔍 getDetayIslemler parametreleri:', { 
         tarih: typeof tarih, 
         islemArac: typeof islemArac, 
         islemTip: typeof islemTip, 
         page: typeof page, 
-        rowsPerPage: typeof rowsPerPage 
+        rowsPerPage: typeof rowsPerPage,
+        excludeKasadanAlinan: typeof excludeKasadanAlinan
       })
       
 
@@ -868,7 +870,10 @@ export class IslemService {
       }
 
       // FON KAYIT ve Kasadan Alınan/Kasaya Verilen filtreleri
-      const detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
+      // Kazanc-tablo sayfasında excludeKasadanAlinan=false olarak gönderilirse filtre kaldırılır
+      const detailTableFilter = excludeKasadanAlinan
+        ? ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`
+        : ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %')`;
 
       // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
       // Püf Nokta: Kart, Nakit ve EFT seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
@@ -3709,7 +3714,11 @@ export class IslemService {
   /**
    * Ödeme tipi özeti için günlük Giren/Çıkan toplamlarını getirir
    */
-  async getOdemeTipiOzet(tarih: string, islemTipMode: 'kasa' | 'cari' = 'kasa'): Promise<{
+  async getOdemeTipiOzet(
+    tarih: string, 
+    islemTipMode: 'kasa' | 'cari' = 'kasa',
+    excludeKasadanAlinan: boolean = true
+  ): Promise<{
     nakit: { giren: number; cikan: number };
     eft: { giren: number; cikan: number };
     kart: { giren: number; cikan: number };
@@ -3722,7 +3731,10 @@ export class IslemService {
       // Kasadan Alınan/Kasaya Verilen filtreleri (SQL string olarak)
       // Püf Nokta: Ödeme Tipi Özeti tablosunda FON KAYIT içeren kayıtlar filtrelenmez
       // Ancak kasa-islem sayfasındaki tablolarda FON KAYIT filtresi devam eder
-      const detailTableFilter = ` AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`;
+      // Kazanc-tablo sayfasında bu filtreleme kaldırılabilir (excludeKasadanAlinan=false)
+      const detailTableFilter = excludeKasadanAlinan 
+        ? ` AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`
+        : '';
 
       // Depozito filtreleri - DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini hariç tut
       // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)

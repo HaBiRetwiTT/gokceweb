@@ -216,7 +216,7 @@ export class NakitAkisService {
         // CONVERT(nchar(10), GETDATE(), 104) ile bugünün tarihini DD.MM.YYYY formatında string olarak alıyoruz
         const updateQuery = `
           UPDATE ${fonKasaYTableName}
-          SET OdmVade = CONVERT(nchar(10), GETDATE(), 104)
+          SET OdmVade = CONVERT(nchar(10), GETDATE(), 104), ttrDrm = 1
           WHERE Right(OdmVade,4) > '2024' AND CONVERT(DATE, OdmVade, 104) < CONVERT(DATE, GETDATE(), 104)
             AND OdmDrm = 0
         `;
