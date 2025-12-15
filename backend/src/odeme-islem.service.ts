@@ -31,7 +31,7 @@ export class OdemeIslemService {
     },
   ): Promise<{ MstrNo?: number } | null> {
     const resultUnknown = await queryRunner.query(
-      'SELECT TOP 1 MstrNo FROM tblMusteri WHERE MstrTCN = @0',
+      `SELECT TOP 1 MstrNo FROM ${this.dbConfig.getTableName('tblMusteri')} WHERE MstrTCN = @0`,
       [tcNo],
     );
     const result = resultUnknown as Array<{ MstrNo: number }>;
@@ -47,7 +47,7 @@ export class OdemeIslemService {
         async (queryRunner) => {
           return await this.transactionService.executeQuery(
             queryRunner,
-            'SELECT ISNULL(MAX(islemno), 0) as maxIslemno FROM tblislem',
+            `SELECT ISNULL(MAX(islemno), 0) as maxIslemno FROM ${this.dbConfig.getTableName('tblislem')}`,
           );
         },
       );
@@ -181,7 +181,7 @@ export class OdemeIslemService {
         WITH lastRow AS (
                 SELECT TOP (1) islemNo
                 FROM ${tableName}
-                WHERE islemCrKod = @1 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
+                WHERE islemCrKod = @1 AND islemBilgi LIKE @2
                 ORDER BY islemNo DESC
               )
               UPDATE t
@@ -192,7 +192,7 @@ export class OdemeIslemService {
             await this.transactionService.executeQuery(
               queryRunner,
               updateQuery,
-              [lastDepositArac, cariKod],
+              [lastDepositArac, cariKod, '%=DEPOZİTO ALACAĞI=%'],
             );
             this.logger.log(
               'Depozito alacağı son kaydın islemArac alanı güncellendi',

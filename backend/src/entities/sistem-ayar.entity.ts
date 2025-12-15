@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity('tblSistemAyar', { schema: 'harunta' })
+@Entity('tblSistemAyar', { schema: 'dbo' })
 export class SistemAyar {
   @PrimaryGeneratedColumn({ name: 'SysAyrNo', type: 'bigint' })
   SysAyrNo: number;

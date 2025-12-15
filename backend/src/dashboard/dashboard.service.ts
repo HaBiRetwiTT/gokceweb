@@ -294,7 +294,7 @@ export class DashboardService {
           v.MstrNo
         FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
-        WHERE v.MstrDurum = 'KALIYOR'
+        WHERE v.MstrDurum = @1
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CAST(v.KnklmOdaNo AS NVARCHAR(50)) = @0
@@ -325,7 +325,7 @@ export class DashboardService {
     `;
 
     try {
-      const data: MusteriKonaklamaData[] = await this.musteriRepository.query(sql, [String(odaNo).trim()]);
+      const data: MusteriKonaklamaData[] = await this.musteriRepository.query(sql, [String(odaNo).trim(), 'KALIYOR']);
       return data || [];
     } catch (error) {
       console.error('searchByOdaNo hatası:', error);
@@ -371,17 +371,17 @@ export class DashboardService {
           ISNULL(v.Knklmisk, 0) as Knklmisk
         FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
-        WHERE v.MstrDurum = 'KALIYOR' 
+        WHERE v.MstrDurum = @0 
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
           AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
           AND CONVERT(Date, v.KnklmGrsTrh, 104) < GETDATE()
           AND CONVERT(Date, v.KnklmPlnTrh, 104) > GETDATE()
       `;
 
-      const parameters: string[] = [];
+      const parameters: string[] = ['KALIYOR'];
 
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND v.KnklmTip = @0`;
+        query += ` AND v.KnklmTip = @1`;
         parameters.push(knklmTipi);
       }
 
@@ -436,11 +436,11 @@ export class DashboardService {
             ) AS rn
           FROM CariKodlar ck
           INNER JOIN ${tables.islem} i ON ck.CariKod = i.islemCrKod
-          WHERE i.islemArac = 'Cari İşlem'
-            AND i.islemTip = 'GELİR'
+          WHERE i.islemArac = @0
+            AND i.islemTip = @1
             AND i.islemOzel4 IS NOT NULL
             AND i.islemOzel4 <> ''
-            AND i.islemOzel4 <> 'KAPIDAN'
+            AND i.islemOzel4 <> @2
         )
         SELECT 
           MstrTCN,
@@ -449,7 +449,7 @@ export class DashboardService {
         WHERE rn = 1
       `;
 
-      const result = await this.musteriRepository.query(query);
+      const result = await this.musteriRepository.query(query, ['Cari İşlem', 'GELİR', 'KAPIDAN']);
       return result || [];
     } catch (error) {
       console.error('getMusteriSatisKanaliMapping hatası:', error);
@@ -466,10 +466,10 @@ export class DashboardService {
         FROM ${views.musteriKonaklama} 
         WHERE KnklmTip IS NOT NULL 
           AND KnklmTip != ''
-          AND MstrDurum = 'KALIYOR'
+          AND MstrDurum = @0
         ORDER BY KnklmTip
       `;
-      const result: any[] = await this.musteriRepository.query(query);
+      const result: any[] = await this.musteriRepository.query(query, ['KALIYOR']);
       const tipler = result.map((item: any) => (item as { KnklmTip: string }).KnklmTip);
       return ['TÜMÜ', ...tipler];
     } catch (error) {
@@ -487,10 +487,10 @@ export class DashboardService {
         FROM ${views.musteriKonaklama} 
         WHERE KnklmOdaTip IS NOT NULL 
           AND KnklmOdaTip != ''
-          AND MstrDurum = 'KALIYOR'
+          AND MstrDurum = @0
         ORDER BY KnklmOdaTip
       `;
-      const result: any[] = await this.musteriRepository.query(query);
+      const result: any[] = await this.musteriRepository.query(query, ['KALIYOR']);
       const tipler = result.map((item: any) => (item as { KnklmOdaTip: string }).KnklmOdaTip);
       return ['TÜMÜ', ...tipler];
     } catch (error) {
@@ -706,7 +706,7 @@ export class DashboardService {
             v.knklmNo,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
+          WHERE v.MstrDurum = @0 
             AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
         ),
@@ -714,15 +714,15 @@ export class DashboardService {
           -- Toplam aktif konaklama istatistikleri
           SELECT 
             COUNT(*) as ToplamAktifKonaklama,
-            SUM(CASE WHEN KnklmTip = 'GÜNLÜK' THEN 1 ELSE 0 END) as GunlukKonaklama,
-            SUM(CASE WHEN KnklmTip = 'HAFTALIK' THEN 1 ELSE 0 END) as HaftalikKonaklama,
-            SUM(CASE WHEN KnklmTip = 'AYLIK' THEN 1 ELSE 0 END) as AylikKonaklama,
+            SUM(CASE WHEN KnklmTip = @1 THEN 1 ELSE 0 END) as GunlukKonaklama,
+            SUM(CASE WHEN KnklmTip = @2 THEN 1 ELSE 0 END) as HaftalikKonaklama,
+            SUM(CASE WHEN KnklmTip = @3 THEN 1 ELSE 0 END) as AylikKonaklama,
             SUM(KnklmNfyt) as ToplamGelir,
             AVG(KnklmNfyt) as OrtalamaGelir
           FROM AktifKonaklamalar
           WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-            AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
+            AND KnklmNot NOT LIKE @4
+            AND KnklmNot NOT LIKE @5
             AND rn = 1
         ),
         YeniMusteriStats AS (
@@ -730,7 +730,7 @@ export class DashboardService {
           SELECT COUNT(*) as YeniMusteriKonaklama
           FROM AktifKonaklamalar
           WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot LIKE '%- Yeni Müşteri:%'
+            AND KnklmNot LIKE @4
             AND rn = 1
         ),
         YeniGirisStats AS (
@@ -738,7 +738,7 @@ export class DashboardService {
           SELECT COUNT(*) as YeniGirisKonaklama
           FROM AktifKonaklamalar
           WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot LIKE '%- Yeni Giriş:%'
+            AND KnklmNot LIKE @5
             AND rn = 1
         ),
         DevamEdenStats AS (
@@ -746,17 +746,17 @@ export class DashboardService {
           SELECT COUNT(*) as DevamEdenKonaklama
           FROM AktifKonaklamalar
           WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-            AND KnklmNot NOT LIKE '%- Yeni Giriş:%'
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Müşteri:%')
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE '%- Yeni Giriş:%')
+            AND KnklmNot NOT LIKE @4
+            AND KnklmNot NOT LIKE @5
+            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE @4)
+            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE @5)
             AND rn = 1
         ),
         SuresiDolanStats AS (
           -- Süresi dolan konaklama istatistikleri (grid tablo ile uyumlu)
           SELECT COUNT(*) as SuresiGecentKonaklama
           FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
+          WHERE v.MstrDurum = @0 
             AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
             AND CONVERT(Date, v.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
@@ -764,7 +764,7 @@ export class DashboardService {
               SELECT MAX(v2.knklmNo) 
               FROM ${views.musteriKonaklama} v2 
               WHERE v2.MstrTCN = v.MstrTCN
-                AND v2.MstrDurum = 'KALIYOR'
+                AND v2.MstrDurum = @0
                 AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
             )
         ),
@@ -785,11 +785,11 @@ export class DashboardService {
           -- Müşteri bakiye hesaplamaları (yeni mantık)
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN islemTip IN (@6, @7) AND islemBilgi NOT LIKE @10 AND islemBilgi NOT LIKE @11 THEN islemTutar 
+			 WHEN islemTip IN (@8, @9) AND islemBilgi NOT LIKE @10 AND islemBilgi NOT LIKE @11 THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN islemTip = @9 AND islemBilgi LIKE @10 THEN islemTutar WHEN islemTip = @7 AND islemBilgi LIKE @11 THEN -islemTutar ELSE 0 END) as DepozitoBakiye
           FROM ${tables.islem}
-          WHERE islemCrKod LIKE 'M%'
+          WHERE islemCrKod LIKE @12
           GROUP BY islemCrKod
         ),
         BorcluAlacakliStats AS (
@@ -827,7 +827,23 @@ export class DashboardService {
         OPTION (MAXDOP 2);
       `;
 
-      const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery)) as unknown;
+      const params = [
+        'KALIYOR', // @0
+        'GÜNLÜK', // @1
+        'HAFTALIK', // @2
+        'AYLIK', // @3
+        '%- Yeni Müşteri:%', // @4
+        '%- Yeni Giriş:%', // @5
+        'GELİR', // @6
+        'Çıkan', // @7
+        'GİDER', // @8
+        'Giren', // @9
+        '%=DEPOZİTO TAHSİLATI=%', // @10
+        '%=DEPOZİTO İADESİ=%', // @11
+        'M%', // @12
+      ];
+
+      const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery, params)) as unknown;
       const result = resultUnknown as UnifiedStatsRow[];
 
 
@@ -1342,8 +1358,8 @@ export class DashboardService {
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1427,8 +1443,8 @@ export class DashboardService {
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1469,13 +1485,12 @@ export class DashboardService {
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
+             WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'GİREN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN islemTutar WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-					WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
-					AND SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
+                    WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) = 0
         ),
         SonKonaklamaBilgileri AS (SELECT CariKod, CksPlnTrh
 		FROM (SELECT IIF(v.MstrHspTip = 'BİREYSEL', 'MB', 'MK') + CAST(v.MstrNo AS NVARCHAR) as CariKod, COALESCE(NULLIF(v.KnklmCksTrh, ''), v.KnklmPlnTrh) as CksPlnTrh,
@@ -1493,13 +1508,12 @@ export class DashboardService {
       // Toplam sayıyı ayrı hesapla (daha hızlı) - YENİ SORGU KODU
       const countQuery = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
+             WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'GİREN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN islemTutar WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-					WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
-					AND SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
+                    WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) = 0
         )
         SELECT COUNT(*) as TotalCount
         FROM MusteriBakiyeleri mb 
@@ -1536,8 +1550,8 @@ export class DashboardService {
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1600,8 +1614,8 @@ export class DashboardService {
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
+            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -2030,11 +2044,10 @@ export class DashboardService {
 
       const query = `
         SELECT 
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'GEL%R' OR LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%DER' OR LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%REN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM ${tables.islem}
         WHERE islemCrKod = @0
-          AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
 
       const result: { MusteriBakiye: number }[] = await this.musteriRepository.query(query, [cariKod]);
@@ -2073,11 +2086,10 @@ export class DashboardService {
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') and (islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
+          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'GEL%R' OR LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%DER' OR LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%REN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
         FROM ${tables.islem}
         WHERE islemCrKod IN (${cariKodParametreleri})
-          AND (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
       `;
 
       const result: { ToplamFirmaBakiye: number }[] = await this.musteriRepository.query(bakiyeQuery, cariKodlar);
@@ -2450,9 +2462,9 @@ export class DashboardService {
           SUM(v.KnklmNfyt) as ToplamGelir,
           AVG(v.KnklmNfyt) as OrtalamaGelir
         FROM ${views.musteriKonaklama} v
-        WHERE v.MstrDurum = 'KALIYOR' 
+        WHERE v.MstrDurum = @0 
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-          AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+          AND LEFT(v.MstrAdi, 9) <> @1
         GROUP BY 
           CASE 
             WHEN v.MstrFirma IS NULL OR v.MstrFirma = '' 
@@ -2462,7 +2474,7 @@ export class DashboardService {
         ORDER BY ToplamGelir DESC
       `;
 
-      const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
+      const resultUnknown = (await this.musteriRepository.query(query, ['KALIYOR', 'PERSONEL '])) as unknown;
       const result = resultUnknown as Array<{
         FirmaAdi: string;
         AktifMusteriSayisi: number | string | null;
@@ -2614,8 +2626,8 @@ export class DashboardService {
     try {
       const result: any = await this.musteriRepository.query(`
         SELECT 
-          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar ELSE 0 END) as DepozitoTahsilat,
-          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar ELSE 0 END) as DepozitoIade
+          SUM(CASE WHEN LTRIM(RTRIM(islemTip)) = 'Giren' AND islemBilgi LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as DepozitoTahsilat,
+          SUM(CASE WHEN LTRIM(RTRIM(islemTip)) = 'Ç%kan' AND islemBilgi LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as DepozitoIade
         FROM ${this.dbConfig.getTables().islem} 
         WHERE islemCrKod = @0
       `, [cariKod]);
@@ -2648,13 +2660,11 @@ export class DashboardService {
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU (hem bakiye hem depozito 0 olan müşteriler)
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-			 WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN (LTRIM(RTRIM(islemTip)) LIKE 'GEL%R' OR LTRIM(RTRIM(islemTip)) LIKE 'Ç%kan') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar 
+             WHEN (LTRIM(RTRIM(islemTip)) LIKE 'G%DER' OR LTRIM(RTRIM(islemTip)) = 'Giren') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN -islemTutar ELSE 0 END) as MusteriBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN islemTutar 
-					WHEN islemTip IN ('GİDER', 'Giren') AND islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
-					AND SUM(CASE WHEN islemTip = 'Giren' AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' THEN islemTutar WHEN islemTip = 'Çıkan' AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%' THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN (LTRIM(RTRIM(islemTip)) LIKE 'GEL%R' OR LTRIM(RTRIM(islemTip)) LIKE 'Ç%kan') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar 
+                    WHEN (LTRIM(RTRIM(islemTip)) LIKE 'G%DER' OR LTRIM(RTRIM(islemTip)) = 'Giren') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN -islemTutar ELSE 0 END) = 0
         )
         SELECT COUNT(*) as BakiyesizHesaplarSayisi
         FROM MusteriBakiyeleri mb 
@@ -2993,24 +3003,24 @@ export class DashboardService {
 
     const query = `
       SELECT 
-        CONVERT(DATE, KnklmGrsTrh, 104) as Date,
+        TRY_CONVERT(DATE, KnklmGrsTrh, 104) as Date,
         COUNT(*) as Count,
         SUM(
           CASE 
             WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
-            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+            THEN ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays
         , SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
         )
         AND KnklmGrsTrh IS NOT NULL
-        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-      GROUP BY CONVERT(DATE, KnklmGrsTrh, 104)
+        AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY TRY_CONVERT(DATE, KnklmGrsTrh, 104)
       ORDER BY Date
     `
 
@@ -3078,25 +3088,25 @@ export class DashboardService {
       ),
               KonaklamaData AS (
           SELECT 
-            YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
-            DATEPART(WEEK, CONVERT(DATE, KnklmGrsTrh, 104)) as WeekNumber,
+            YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+            DATEPART(WEEK, TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as WeekNumber,
             COUNT(*) as Count,
             SUM(
               CASE 
                 WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-                THEN DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104))
-                ELSE DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104))
+                THEN DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104))
+                ELSE DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104))
               END
             ) as TotalDays,
             SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-          FROM tblKonaklama 
+          FROM ${this.dbConfig.getTables().konaklama} 
           WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
             AND (
               ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
             )
             AND KnklmGrsTrh IS NOT NULL
-            AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-          GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(WEEK, CONVERT(DATE, KnklmGrsTrh, 104))
+            AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+          GROUP BY YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(WEEK, TRY_CONVERT(DATE, KnklmGrsTrh, 104))
         )
       SELECT 
         wr.Year,
@@ -3158,25 +3168,25 @@ export class DashboardService {
 
     const query = `
       SELECT 
-        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
-        MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) as MonthNumber,
+        YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        MONTH(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as MonthNumber,
         COUNT(*) as Count,
         SUM(
           CASE 
             WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
-            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+            THEN ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays,
         SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
         )
         AND KnklmGrsTrh IS NOT NULL
-        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), MONTH(CONVERT(DATE, KnklmGrsTrh, 104))
+        AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)), MONTH(TRY_CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year, MonthNumber
     `
 
@@ -3230,25 +3240,25 @@ export class DashboardService {
 
     const query = `
       SELECT 
-        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
-        DATEPART(QUARTER, CONVERT(DATE, KnklmGrsTrh, 104)) as QuarterNumber,
+        YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        DATEPART(QUARTER, TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as QuarterNumber,
         COUNT(*) as Count,
         SUM(
           CASE 
             WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
-            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+            THEN ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays,
         SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
         )
         AND KnklmGrsTrh IS NOT NULL
-        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(QUARTER, CONVERT(DATE, KnklmGrsTrh, 104))
+        AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)), DATEPART(QUARTER, TRY_CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year, QuarterNumber
     `
 
@@ -3302,30 +3312,30 @@ export class DashboardService {
 
     const query = `
       SELECT 
-        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
         CASE 
-          WHEN MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
+          WHEN MONTH(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
           ELSE 2 
         END as HalfYear,
         COUNT(*) as Count,
         SUM(
           CASE 
             WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
-            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+            THEN ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays,
         SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
         )
         AND KnklmGrsTrh IS NOT NULL
-        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104)), 
+        AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)), 
         CASE 
-          WHEN MONTH(CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
+          WHEN MONTH(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) <= 6 THEN 1 
           ELSE 2 
         END
       ORDER BY Year, HalfYear
@@ -3381,24 +3391,24 @@ export class DashboardService {
 
     const query = `
       SELECT 
-        YEAR(CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
+        YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104)) as Year,
         COUNT(*) as Count,
         SUM(
           CASE 
             WHEN KnklmCksTrh <> '' AND KnklmCksTrh IS NOT NULL 
-            THEN ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmCksTrh, 104)))
-            ELSE ABS(DATEDIFF(DAY, CONVERT(DATE, KnklmGrsTrh, 104), CONVERT(DATE, KnklmPlnTrh, 104)))
+            THEN ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmCksTrh, 104)))
+            ELSE ABS(DATEDIFF(DAY, TRY_CONVERT(DATE, KnklmGrsTrh, 104), TRY_CONVERT(DATE, KnklmPlnTrh, 104)))
           END
         ) as TotalDays,
         SUM(ISNULL(KnklmNfyt, 0)) as TotalAmount
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
         )
         AND KnklmGrsTrh IS NOT NULL
-        AND CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
-      GROUP BY YEAR(CONVERT(DATE, KnklmGrsTrh, 104))
+        AND TRY_CONVERT(DATE, KnklmGrsTrh, 104) BETWEEN @${selectedAccommodationTypes.length + selectedRoomTypes.length} AND @${selectedAccommodationTypes.length + selectedRoomTypes.length + 1}
+      GROUP BY YEAR(TRY_CONVERT(DATE, KnklmGrsTrh, 104))
       ORDER BY Year
     `
 
@@ -3471,7 +3481,7 @@ export class DashboardService {
       SELECT 
         KnklmTip as Type,
         COUNT(*) as Count
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}
@@ -3509,7 +3519,7 @@ export class DashboardService {
           ELSE 'Diğer'
         END as Type,
         COUNT(*) as Count
-      FROM tblKonaklama 
+      FROM ${this.dbConfig.getTables().konaklama} 
       WHERE KnklmTip IN (${selectedAccommodationTypes.map((_, index) => `@${index}`).join(',')})
         AND (
           ${selectedRoomTypes.map((_, index) => `KnklmOdaTip LIKE @${index + selectedAccommodationTypes.length}`).join(' OR ')}

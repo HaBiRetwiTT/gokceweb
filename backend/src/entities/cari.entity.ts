@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity('tblCari', { schema: 'harunta' })
+@Entity('tblCari', { schema: 'dbo' })
 export class Cari {
   @PrimaryGeneratedColumn({ name: 'CariNo', type: 'bigint' })
   CariNo: number;

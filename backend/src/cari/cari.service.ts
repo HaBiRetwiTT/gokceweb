@@ -29,6 +29,14 @@ export class CariService {
       this.debugLog('Tedarikçi listesi isteniyor...');
 
       // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
+      const params = [
+        'GELİR', 'Çıkan',                 // @0, @1
+        '%=DEPOZİTO TAHSİLATI=%',         // @2
+        '%=DEPOZİTO İADESİ=%',            // @3
+        'GİDER', 'Giren',                 // @4, @5
+        'A%', 'CT%'                       // @6, @7
+      ];
+
       const bakiyeQuery = `
         SELECT 
           c.CariKod,
@@ -36,21 +44,22 @@ export class CariService {
           c.CariVTCN,
           ISNULL(SUM(
             CASE 
-              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
-              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              WHEN i.islemTip IN (@0, @1) and (i.islemBilgi not like @2 and i.islemBilgi not like @3) THEN i.islemTutar 
+              WHEN i.islemTip IN (@4, @5) and (i.islemBilgi not like @2 and i.islemBilgi not like @3) THEN -i.islemTutar
               ELSE 0
             END
           ), 0) as CariBakiye
-        FROM tblCari c
-        LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
-        WHERE (c.CariKod LIKE 'A%' OR c.CariKod LIKE 'CT%')
-          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%'))
+        FROM ${this.dbConfig.getTableName('tblCari')} c
+        LEFT JOIN ${this.dbConfig.getTableName('tblislem')} i ON c.CariKod = i.islemCrKod
+        WHERE (c.CariKod LIKE @6 OR c.CariKod LIKE @7)
+          AND (i.islemBilgi IS NULL OR (i.islemBilgi NOT LIKE @2 AND i.islemBilgi NOT LIKE @3))
         GROUP BY c.CariKod, c.CariAdi, c.CariVTCN
         ORDER BY c.CariAdi ASC
       `;
 
       const resultUnknown = (await this.cariRepository.query(
         bakiyeQuery,
+        params
       )) as unknown;
       const result = resultUnknown as Array<{
         CariKod: string;
@@ -83,6 +92,14 @@ export class CariService {
       this.debugLog('Müşteri listesi isteniyor...');
 
       // Müşteri listesini tblCari tablosundan al (M% ile başlayan kodlar)
+      const params = [
+        'GELİR', 'Çıkan',                 // @0, @1
+        '%=DEPOZİTO TAHSİLATI=%',         // @2
+        '%=DEPOZİTO İADESİ=%',            // @3
+        'GİDER', 'Giren',                 // @4, @5
+        'M%'                              // @6
+      ];
+
       const musteriQuery = `
         SELECT 
           c.CariKod,
@@ -90,14 +107,14 @@ export class CariService {
           c.CariVTCN,
           ISNULL(SUM(
             CASE 
-              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
-              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              WHEN i.islemTip IN (@0, @1) and (i.islemBilgi not like @2 and i.islemBilgi not like @3) THEN i.islemTutar 
+              WHEN i.islemTip IN (@4, @5) and (i.islemBilgi not like @2 and i.islemBilgi not like @3) THEN -i.islemTutar
               ELSE 0
             END
           ), 0) as CariBakiye
-        FROM tblCari c
-        LEFT JOIN tblislem i ON c.CariKod = i.islemCrKod
-        WHERE c.CariKod LIKE 'M%'
+        FROM ${this.dbConfig.getTableName('tblCari')} c
+        LEFT JOIN ${this.dbConfig.getTableName('tblislem')} i ON c.CariKod = i.islemCrKod
+        WHERE c.CariKod LIKE @6
           AND c.CariAdi IS NOT NULL
           AND c.CariAdi <> ''
         GROUP BY c.CariKod, c.CariAdi, c.CariVTCN
@@ -107,6 +124,7 @@ export class CariService {
       this.debugLog('Müşteri sorgusu çalıştırılıyor...');
       const resultUnknown = (await this.cariRepository.query(
         musteriQuery,
+        params
       )) as unknown;
       const result = resultUnknown as Array<{
         CariKod: string;

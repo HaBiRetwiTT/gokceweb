@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('tblMusteri')
+@Entity('tblMusteri', { schema: 'dbo' })
 export class Firewall {
   @PrimaryGeneratedColumn()
   id: number;

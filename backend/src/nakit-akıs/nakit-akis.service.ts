@@ -193,14 +193,15 @@ export class NakitAkisService {
         // Önce güncellenecek kayıt sayısını bul
         // CONVERT(DATE, OdmVade, 104) ile DD.MM.YYYY formatındaki tarihi DATE'e çeviriyoruz
         // GETDATE() ile SQL Server'ın bugünün tarihini alıyoruz
+        const yearCutoff = '2024';
         const countQuery = `
           SELECT COUNT(*) as count
           FROM ${fonKasaYTableName}
-          WHERE Right(OdmVade,4) > '2024' AND CONVERT(DATE, OdmVade, 104) < CONVERT(DATE, GETDATE(), 104)
+          WHERE Right(OdmVade,4) > @0 AND TRY_CONVERT(DATE, OdmVade, 104) < TRY_CONVERT(DATE, GETDATE(), 104)
             AND OdmDrm = 0
         `;
         
-        const countResult = await queryRunner.query(countQuery);
+        const countResult = await queryRunner.query(countQuery, [yearCutoff]);
         const count = countResult?.[0]?.count || 0;
         
         if (count === 0) {
@@ -217,13 +218,13 @@ export class NakitAkisService {
         const updateQuery = `
           UPDATE ${fonKasaYTableName}
           SET OdmVade = CONVERT(nchar(10), GETDATE(), 104), ttrDrm = 1
-          WHERE Right(OdmVade,4) > '2024' AND CONVERT(DATE, OdmVade, 104) < CONVERT(DATE, GETDATE(), 104)
+          WHERE Right(OdmVade,4) > @0 AND TRY_CONVERT(DATE, OdmVade, 104) < TRY_CONVERT(DATE, GETDATE(), 104)
             AND OdmDrm = 0
         `;
         
         this.logger.debug(`🔍 Update query: ${updateQuery}`);
         
-        await queryRunner.query(updateQuery);
+        await queryRunner.query(updateQuery, [yearCutoff]);
         
         this.logger.log(`✅ ${count} kayıt güncellendi`);
         

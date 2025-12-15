@@ -153,7 +153,7 @@ DB_SP_SCHEMA=dbo
 **Backend (.env.production):**
 ```bash
 NODE_ENV=production
-DB_TABLE_SCHEMA=harunta
+DB_TABLE_SCHEMA=dbo
 DB_SP_SCHEMA=dbo
 ```
 

@@ -24,7 +24,7 @@
           >
             <template v-slot:top>
               <div class="table-actions left-table-actions">
-                <div class="devreden-bakiye-section">
+                <div class="devreden-bakiye-section" style="width: 100%;">
                   <label class="devreden-bakiye-label">Devreden Bakiye</label>
                   <q-input
                     :model-value="`₺ ${(devredenBakiye - kartBakiye - acentaBakiye).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`"
@@ -32,7 +32,7 @@
                     dense
                     outlined
                     class="devreden-bakiye-input"
-                    style="width: 120px;"
+                    style="width: 100%;"
                   />
                 </div>
               </div>
@@ -2533,7 +2533,7 @@ html body .q-table th {
 }
 
 .left-table {
-  flex: 0 0 60px; /* Daha da kompakt - sağ tabloya daha fazla alan */
+  flex: 0 0 170px; /* Genişletildi - Devreden bakiye taşmasını önlemek için */
   border-right: 1px solid #dee2e6 !important;
 }
 
@@ -2615,8 +2615,8 @@ html body .q-table th {
   background-color: #f8f9fa; /* Table-actions ile aynı zemin rengi */
   border: 1px solid #ccc;
   border-radius: 6px;
-  padding: 1px 8px;
-  font-size: 0.9rem;
+  padding: 1px 2px; /* Padding azaltıldı */
+  font-size: 0.8rem; /* Font küçültüldü */
   color: #333;
   height: 29px;
   min-height: 29px;
@@ -2625,6 +2625,9 @@ html body .q-table th {
   align-items: center; /* Dikey ortalama */
   justify-content: center; /* Yatay ortalama - metni ortala */
   text-align: center; /* CSS text-align ile de ortalama */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .date-selector {

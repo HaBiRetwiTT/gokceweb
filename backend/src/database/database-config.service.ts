@@ -6,10 +6,9 @@ export class DatabaseConfigService {
   private readonly spSchema: string;
 
   constructor() {
-    // Sadece production schema kullanılıyor
-    // Tables/Views = harunta, SP = dbo
-    this.tableSchema = 'harunta';
-    this.spSchema = 'dbo';
+    // Environment variables'dan schema bilgisini al, yoksa dbo kullan
+    this.tableSchema = process.env.DB_TABLE_SCHEMA || 'dbo';
+    this.spSchema = process.env.DB_SP_SCHEMA || 'dbo';
     
     console.log(
       `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,

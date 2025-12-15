@@ -122,7 +122,7 @@ Database Schema Configuration: Tables=harunta, StoredProcedures=dbo
 
 ## 📝 Todo for Production Deployment
 
-- [ ] Production server'da `DB_TABLE_SCHEMA=harunta` environment variable set et
+- [ ] Production server'da `DB_TABLE_SCHEMA=dbo` environment variable set et
 - [ ] Production server'da `DB_SP_SCHEMA=dbo` environment variable set et  
 - [ ] Application restart yap
 - [ ] Console loglarından schema configuration'ını verify et

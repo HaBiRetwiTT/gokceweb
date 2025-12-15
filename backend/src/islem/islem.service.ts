@@ -120,17 +120,17 @@ export class IslemService {
       
       console.log('🔍 [getKarZararOzet] islemTipMode:', islemTipMode, '| mode:', mode, '| gelirTip:', gelirTip, '| giderTip:', giderTip);
 
-      const baseWhere = `CONVERT(DATE, iKytTarihi, 104) BETWEEN CONVERT(DATE, @0, 104) AND CONVERT(DATE, @1, 104)`;
+      const baseWhere = `TRY_CONVERT(DATE, iKytTarihi, 104) BETWEEN TRY_CONVERT(DATE, @0, 104) AND TRY_CONVERT(DATE, @1, 104)`;
       
       // Kasa modunda kasalar arası transfer kayıtlarını hariç tut
       const kasaTransferFilter = mode === 'kasa' 
-        ? ` AND islemGrup NOT IN ('Kasaya Verilen', 'Kasadan Alınan')` 
+        ? ` AND islemGrup NOT IN (@4, @5)` 
         : '';
 
       const gelirQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
-        WHERE ${baseWhere} AND islemTip = '${gelirTip}'${kasaTransferFilter}
+        WHERE ${baseWhere} AND islemTip = @2${kasaTransferFilter}
         GROUP BY islemGrup
         ORDER BY toplam DESC
       `;
@@ -138,13 +138,22 @@ export class IslemService {
       const giderQuery = `
         SELECT islemGrup, SUM(CAST(ISNULL(islemTutar, 0) AS DECIMAL(18,2))) AS toplam
         FROM ${tableName}
-        WHERE ${baseWhere} AND islemTip = '${giderTip}'${kasaTransferFilter}
+        WHERE ${baseWhere} AND islemTip = @3${kasaTransferFilter}
         GROUP BY islemGrup
         ORDER BY toplam DESC
         `;
 
-      const gelir = await this.dataSource.query(gelirQuery, [startDDMMYYYY, endDDMMYYYY]);
-      const gider = await this.dataSource.query(giderQuery, [startDDMMYYYY, endDDMMYYYY]);
+      const params = [
+        startDDMMYYYY, 
+        endDDMMYYYY, 
+        gelirTip, 
+        giderTip,
+        'Kasaya Verilen', // @4
+        'Kasadan Alınan'  // @5
+      ];
+
+      const gelir = await this.dataSource.query(gelirQuery, params);
+      const gider = await this.dataSource.query(giderQuery, params);
 
       return {
         gelir: (gelir || []).map((r: any) => ({ islemGrup: r.islemGrup || '', toplam: Number(r.toplam) || 0 })),
@@ -174,7 +183,7 @@ export class IslemService {
     
     // Kasa modunda kasalar arası transfer kayıtlarını hariç tut
     const kasaTransferFilter = mode === 'kasa' 
-      ? ` AND t.islemGrup NOT IN ('Kasaya Verilen', 'Kasadan Alınan')` 
+      ? ` AND t.islemGrup NOT IN (@3, @4)` 
       : '';
     
     // Period parametresini güvenli şekilde normalize et (trim + küçük harf + Türkçe karakter dönüşümleri)
@@ -199,17 +208,17 @@ export class IslemService {
           SELECT 
             i,
             -- Haftanın pazartesi başlangıcı ve pazar bitişi
-            DATEADD(DAY, - (DATEPART(WEEKDAY, CONVERT(DATE, @0, 104)) + 5) % 7, CONVERT(DATE, DATEADD(WEEK, - (11 - i), CONVERT(DATE, @0, 104)), 104)) AS weekStart,
-            DATEADD(DAY, + (6 - (DATEPART(WEEKDAY, CONVERT(DATE, @0, 104)) + 5) % 7), CONVERT(DATE, DATEADD(WEEK, - (11 - i), CONVERT(DATE, @0, 104)), 104)) AS weekEnd
+            DATEADD(DAY, - (DATEPART(WEEKDAY, TRY_CONVERT(DATE, @0, 104)) + 5) % 7, TRY_CONVERT(DATE, DATEADD(WEEK, - (11 - i), TRY_CONVERT(DATE, @0, 104)), 104)) AS weekStart,
+            DATEADD(DAY, + (6 - (DATEPART(WEEKDAY, TRY_CONVERT(DATE, @0, 104)) + 5) % 7), TRY_CONVERT(DATE, DATEADD(WEEK, - (11 - i), TRY_CONVERT(DATE, @0, 104)), 104)) AS weekEnd
           FROM Seq
         ), Sums AS (
           SELECT 
             w.i,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Weeks w
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd${kasaTransferFilter}
+            ON TRY_CONVERT(DATE, t.iKytTarihi, 104) BETWEEN w.weekStart AND w.weekEnd${kasaTransferFilter}
           GROUP BY w.i
         )
         SELECT 
@@ -228,17 +237,17 @@ export class IslemService {
         ), Months AS (
           SELECT 
             i,
-            DATEADD(DAY, 1, EOMONTH(DATEADD(MONTH, - (11 - i), CONVERT(DATE, @0, 104)), -1)) AS monthStart,
-            EOMONTH(DATEADD(MONTH, - (11 - i), CONVERT(DATE, @0, 104))) AS monthEnd
+            DATEADD(DAY, 1, EOMONTH(DATEADD(MONTH, - (11 - i), TRY_CONVERT(DATE, @0, 104)), -1)) AS monthStart,
+            EOMONTH(DATEADD(MONTH, - (11 - i), TRY_CONVERT(DATE, @0, 104))) AS monthEnd
           FROM Seq
         ), Sums AS (
           SELECT 
             m.i,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Months m
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd${kasaTransferFilter}
+            ON TRY_CONVERT(DATE, t.iKytTarihi, 104) BETWEEN m.monthStart AND m.monthEnd${kasaTransferFilter}
           GROUP BY m.i
         )
         SELECT 
@@ -257,17 +266,17 @@ export class IslemService {
         ), Quarters AS (
           SELECT 
             i,
-            DATEADD(quarter, DATEDIFF(quarter, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0) AS qStart,
-            DATEADD(day, -1, DATEADD(quarter, 1, DATEADD(quarter, DATEDIFF(quarter, 0, CONVERT(DATE, @0, 104)) - (11 - i), 0))) AS qEnd
+            DATEADD(quarter, DATEDIFF(quarter, 0, TRY_CONVERT(DATE, @0, 104)) - (11 - i), 0) AS qStart,
+            DATEADD(day, -1, DATEADD(quarter, 1, DATEADD(quarter, DATEDIFF(quarter, 0, TRY_CONVERT(DATE, @0, 104)) - (11 - i), 0))) AS qEnd
           FROM Seq
         ), Sums AS (
           SELECT 
             q.i,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Quarters q
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd${kasaTransferFilter}
+            ON TRY_CONVERT(DATE, t.iKytTarihi, 104) BETWEEN q.qStart AND q.qEnd${kasaTransferFilter}
           GROUP BY q.i
         )
         SELECT 
@@ -286,17 +295,17 @@ export class IslemService {
         ), HalfYears AS (
           SELECT 
             i,
-            DATEADD(month, ((DATEDIFF(month, 0, CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0) AS hStart,
-            DATEADD(day, -1, DATEADD(month, 6, DATEADD(month, ((DATEDIFF(month, 0, CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0))) AS hEnd
+            DATEADD(month, ((DATEDIFF(month, 0, TRY_CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0) AS hStart,
+            DATEADD(day, -1, DATEADD(month, 6, DATEADD(month, ((DATEDIFF(month, 0, TRY_CONVERT(DATE, @0, 104)) / 6) - (11 - i)) * 6, 0))) AS hEnd
           FROM Seq
         ), Sums AS (
           SELECT 
             h.i,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM HalfYears h
           LEFT JOIN ${tableName} t
-            ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd${kasaTransferFilter}
+            ON TRY_CONVERT(DATE, t.iKytTarihi, 104) BETWEEN h.hStart AND h.hEnd${kasaTransferFilter}
           GROUP BY h.i
         )
         SELECT 
@@ -321,8 +330,8 @@ export class IslemService {
         ), Sums AS (
           SELECT 
             y.i,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Years y
           LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) BETWEEN y.yStart AND y.yEnd${kasaTransferFilter}
@@ -350,8 +359,8 @@ export class IslemService {
               ), Sums AS (
           SELECT 
             d.d,
-            SUM(CASE WHEN t.islemTip = '${gelirTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
-            SUM(CASE WHEN t.islemTip = '${giderTip}' THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
+            SUM(CASE WHEN t.islemTip = @1 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gelir,
+            SUM(CASE WHEN t.islemTip = @2 THEN CAST(ISNULL(t.islemTutar,0) AS DECIMAL(18,2)) ELSE 0 END) AS gider
           FROM Days d
           LEFT JOIN ${tableName} t
             ON CONVERT(DATE, t.iKytTarihi, 104) = d.d${kasaTransferFilter}
@@ -368,7 +377,15 @@ export class IslemService {
       OPTION (MAXDOP 2);`;
     }
 
-    const rows = await this.dataSource.query(query, [endDDMMYYYY]);
+    const params = [
+      endDDMMYYYY, // @0
+      gelirTip,    // @1
+      giderTip,    // @2
+      'Kasaya Verilen', // @3
+      'Kasadan Alınan'  // @4
+    ];
+
+    const rows = await this.dataSource.query(query, params);
     return (rows || []).map((r: any) => ({
       label: r.label,
       gelir: Number(r.gelir) || 0,
@@ -397,11 +414,11 @@ export class IslemService {
         const query = `
           SELECT DISTINCT islmAltG 
           FROM ${this.dbConfig.getTableName('tblFonKasaY')} 
-          WHERE islmGrup = '${islmGrup}' 
+          WHERE islmGrup = @0 
           ORDER BY islmAltG
         `;
         
-        const result = await queryRunner.query(query);
+        const result = await queryRunner.query(query, [islmGrup]);
         
         // Sonuçları string array olarak döndür
         if (result && Array.isArray(result)) {
@@ -473,191 +490,109 @@ export class IslemService {
     rowsPerPage: number = 15,
   ): Promise<{ data: KasaGunlukOzet[]; totalRecords: number }> {
     try {
-      console.log('🔍 getKasaIslemleri çağrıldı:', { islemArac, islemTip, page, rowsPerPage })
-      console.log('🔍 getKasaIslemleri parametreleri:', { 
-        islemArac: typeof islemArac, 
-        islemTip: typeof islemTip, 
-        page: typeof page, 
-        rowsPerPage: typeof rowsPerPage 
-      })
+      console.log('🔍 getKasaIslemleri (Parameterized) çağrıldı:', { islemArac, islemTip, page, rowsPerPage });
       
       const tableName = this.dbConfig.getTableName('tblislem');
-      
-      console.log('🔍 Veritabanı bilgileri:', { tableName })
+      const params: any[] = [];
+      let pIdx = 0;
 
-      // Tarih filtresi kaldırıldı - sadece islemArac ve islemTip seçimlerine göre günlük gruplama
+      // Base filters
+      let whereClause = 'WHERE 1=1';
 
-      // İşlem türü filtresi (6'lı radio için islemArac alanı)
-      let islemAracFilter = '';
-      let depozitoFilter = '';
+      // islemArac Filter
       if (islemArac) {
-        // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
         let dbIslemArac = '';
-        switch (islemArac) {
-          case 'cari':
-            dbIslemArac = 'Cari İşlem';
-            break;
-          case 'nakit':
-            dbIslemArac = 'Nakit Kasa(TL)';
-            break;
-          case 'kart':
-            dbIslemArac = 'Kredi Kartları';
-            break;
-          case 'eft':
-            dbIslemArac = 'Banka EFT';
-            break;
-          case 'acenta':
-            dbIslemArac = 'Acenta Tahsilat';
-            break;
-          case 'depozito':
-            // Depozito kayıtları çoğunlukla islemArac alanında değil, islemBilgi içinde işaretleniyor.
-            // Bu yüzden islemArac filtresi uygulamak yerine, islemBilgi bazlı filtre kullanıyoruz.
-            dbIslemArac = 'Depozito';
-            depozitoFilter = `AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
-            break;
-          default:
-            dbIslemArac = islemArac;
-        }
-        // Depozito seçildiyse islemArac filtresi uygulanmaz; diğerlerinde uygulanır
-        if (islemArac !== 'depozito') {
-        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
-        }
-      }
+        if (islemArac === 'cari') dbIslemArac = 'Cari İşlem';
+        else if (islemArac === 'nakit') dbIslemArac = 'Nakit Kasa(TL)';
+        else if (islemArac === 'kart') dbIslemArac = 'Kredi Kartları';
+        else if (islemArac === 'eft') dbIslemArac = 'Banka EFT';
+        else if (islemArac === 'acenta') dbIslemArac = 'Acenta Tahsilat';
+        else if (islemArac === 'depozito') dbIslemArac = 'Depozito';
+        else dbIslemArac = islemArac;
 
-      // İşlem yönü filtresi (2'li radio için islemTip alanı)
-      // 🔥 EKLENEN: Ana tablo da detay tablo ile aynı islemTip filtresini kullanmalı
-      let islemTipFilter = '';
-      if (islemTip) {
-        // Depozito için yön filtrelemesini islemBilgi ile yap
         if (islemArac === 'depozito') {
-          if (islemTip === 'Giren' || islemTip === 'GELİR') {
-            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'`;
-          } else if (islemTip === 'Çıkan' || islemTip === 'GİDER') {
-            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%'`;
-          }
+             // Depozito specific filter using islemBilgi
+             whereClause += ` AND (islemBilgi LIKE @${pIdx} OR islemBilgi LIKE @${pIdx+1})`;
+             params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+             pIdx += 2;
         } else {
-          // Diğerleri için mevcut eşleme
-          let dbIslemTip = '';
-          if (islemArac === 'cari') {
-            dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
-          } else {
-            dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
-          }
-          islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
+             whereClause += ` AND islemArac = @${pIdx}`;
+             params.push(dbIslemArac);
+             pIdx++;
         }
       }
 
-      // Detay tabloda filtrelenen kayıtlar - Ana tablo toplamlarında da aynı filtreler uygulanmalı
-      // FON KAYIT: içeren kayıtlar ve Kasaya Verilen/Kasadan Alınan kayıtları hariç tut
-      const detailTableFilter = `
-        AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %')
-        AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))
-      `;
+      // islemTip Filter - REMOVED for daily summary calculation
+      // We want to show BOTH Gelir and Gider columns in the daily summary table,
+      // regardless of the radio button selection.
+      // The radio button should likely only affect the detail list (right side), not this summary.
+      console.log('🔍 getKasaIslemleri: Calculating summary for', islemArac, '(islemTip ignored)');
 
-      // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
-      // Püf Nokta: Kart, Nakit ve EFT seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
-      // Sadece Cari ve Acenta için depozito kayıtları filtrelenir
-      let depozitoExcludeFilter = '';
+      // Detay tabloda filtrelenen kayıtlar (exclude FON KAYIT, Kasadan Alınan/Verilen)
+      whereClause += ` AND (islemAltG IS NULL OR islemAltG NOT LIKE @${pIdx})`;
+      params.push('%FON KAYIT: %');
+      pIdx++;
+      
+      whereClause += ` AND (islemGrup IS NULL OR islemGrup NOT IN (@${pIdx}, @${pIdx+1}))`;
+      params.push('Kasadan Alınan', 'Kasaya Verilen');
+      pIdx += 2;
+
+      // Depozito Exclude Filter (for non-depozito/non-cash types)
       if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit' && islemArac !== 'eft') {
-        depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+         whereClause += ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx}) AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx+1})`;
+         params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+         pIdx += 2;
       }
 
-      console.log('🔍 Filtreler:', { islemAracFilter, depozitoFilter, islemTipFilter, detailTableFilter, depozitoExcludeFilter })
-
-      // Toplam kayıt sayısını al
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM ${tableName}
-        WHERE 1=1
-        ${islemAracFilter}
-        ${islemTipFilter}
-        ${depozitoFilter}
-        ${detailTableFilter}
-        ${depozitoExcludeFilter}
-      `;
-
-      console.log('🔍 Count Query:', countQuery)
-
-      const countResult = await this.dataSource.query(countQuery);
+      // Count Query
+      const countQuery = `SELECT COUNT(*) as total FROM ${tableName} ${whereClause}`;
+      console.log('🔍 Count Query:', countQuery, params);
+      const countResult = await this.dataSource.query(countQuery, params);
       const totalRecords = countResult[0]?.total || 0;
 
-      console.log('🔍 Toplam kayıt sayısı:', totalRecords)
+      // Main Query Expressions
+      let gelirExpr = '0';
+      let giderExpr = '0';
 
-      // Sayfalama hesaplamaları
-      const offset = (page - 1) * rowsPerPage;
-
-      // Ana sorgu - Depozito için gelir/gider islemBilgi'ye göre toplanır
-      // Detay tabloda filtrelenen kayıtlar (FON KAYIT ve Kasaya Verilen/Kasadan Alınan) burada da filtrelenmeli
-      // 🔥 GÜNCELLENEN: islemTip filtresine göre gelir/gider hesaplamaları güncellendi
-      // Eğer islemTip filtresi varsa, sadece o tip için hesaplama yapılmalı
-      let gelirExpr = '';
-      let giderExpr = '';
-      
-      if (islemTip) {
-        // islemTip filtresi varsa, sadece seçilen tip için hesaplama yap
-        if (islemTip === 'GELİR' || islemTip === 'Giren') {
-          // Sadece gelir/giren hesapla, gider/çıkan sıfır
-          gelirExpr =
-            islemArac === 'depozito'
-              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-          giderExpr = `0`; // Gider sıfır
-        } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
-          // Sadece gider/çıkan hesapla, gelir/giren sıfır
-          gelirExpr = `0`; // Gelir sıfır
-          giderExpr =
-            islemArac === 'depozito'
-              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-        } else {
-          // Varsayılan: her ikisini de hesapla (eski davranış)
-          gelirExpr =
-            islemArac === 'depozito'
-              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-          giderExpr =
-            islemArac === 'depozito'
-              ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-              : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-        }
+      // Always calculate both sides since we removed the islemTip filter
+      if (islemArac === 'depozito') {
+          gelirExpr = `SUM(CASE WHEN islemBilgi LIKE @${pIdx} THEN islemTutar ELSE 0 END)`;
+          params.push('%=DEPOZİTO TAHSİLATI=%');
+          pIdx++;
+          
+          giderExpr = `SUM(CASE WHEN islemBilgi LIKE @${pIdx} THEN islemTutar ELSE 0 END)`;
+          params.push('%=DEPOZİTO İADESİ=%');
+          pIdx++;
       } else {
-        // islemTip filtresi yoksa, her ikisini de hesapla (eski davranış)
-        gelirExpr =
-          islemArac === 'depozito'
-            ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-            : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GELİR'" : "islemTip = 'Giren'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
-        giderExpr =
-          islemArac === 'depozito'
-            ? `SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%' AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`
-            : `SUM(CASE WHEN ${islemArac === 'cari' ? "islemTip = 'GİDER'" : "islemTip = 'Çıkan'"} AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen')) THEN islemTutar ELSE 0 END)`;
+            // For all other types (cari, nakit, kart, etc.), merge types to be safe and cover all cases
+            // This satisfies "Cari -> GELİR/GİDER" and "Others -> Giren/Çıkan" requirements simultaneously
+            
+            gelirExpr = `SUM(CASE WHEN islemTip IN (@${pIdx}, @${pIdx+1}) THEN islemTutar ELSE 0 END)`;
+            params.push('GELİR', 'Giren');
+            pIdx += 2;
+            
+            giderExpr = `SUM(CASE WHEN islemTip IN (@${pIdx}, @${pIdx+1}) THEN islemTutar ELSE 0 END)`;
+            params.push('GİDER', 'Çıkan');
+            pIdx += 2;
       }
 
+      const offset = (page - 1) * rowsPerPage;
       const query = `
         SELECT 
           CONVERT(VARCHAR(10), iKytTarihi, 104) as iKytTarihi,
           ${gelirExpr} as gelir,
           ${giderExpr} as gider
         FROM ${tableName}
-        WHERE 1=1
-        ${islemAracFilter}
-        ${islemTipFilter}
-        ${depozitoFilter}
-        ${detailTableFilter}
-        ${depozitoExcludeFilter}
+        ${whereClause}
         GROUP BY CONVERT(VARCHAR(10), iKytTarihi, 104), CONVERT(DATE, iKytTarihi, 104)
         ORDER BY CONVERT(DATE, iKytTarihi, 104) DESC
         OFFSET ${offset} ROWS
         FETCH NEXT ${rowsPerPage} ROWS ONLY
         OPTION (MAXDOP 2);
       `;
-
-      console.log('🔍 Ana Query:', query)
-
-      const params = [];
       
+      console.log('🔍 Main Query:', query, params);
       const result = await this.dataSource.query(query, params);
-
-      console.log('🔍 Query sonucu:', result)
 
       return {
         data: result.map((row: any) => ({
@@ -667,8 +602,9 @@ export class IslemService {
         })),
         totalRecords,
       };
+
     } catch (error) {
-      console.error('❌ getKasaIslemleri hatası:', error)
+      console.error('❌ getKasaIslemleri hatası:', error);
       throw new Error(`Kasa işlemleri alınamadı: ${error.message}`);
     }
   }
@@ -796,101 +732,86 @@ export class IslemService {
     excludeKasadanAlinan: boolean = true,
   ): Promise<{ data: DetayIslem[]; totalRecords: number }> {
     try {
-      console.log('🔍 getDetayIslemler çağrıldı:', { tarih, islemArac, islemTip, page, rowsPerPage, excludeKasadanAlinan })
-      console.log('🔍 getDetayIslemler parametreleri:', { 
-        tarih: typeof tarih, 
-        islemArac: typeof islemArac, 
-        islemTip: typeof islemTip, 
-        page: typeof page, 
-        rowsPerPage: typeof rowsPerPage,
-        excludeKasadanAlinan: typeof excludeKasadanAlinan
-      })
-      
+      console.log('🔍 getDetayIslemler (Parameterized) çağrıldı:', { tarih, islemArac, islemTip, page, rowsPerPage, excludeKasadanAlinan });
 
       const tableName = this.dbConfig.getTableName('tblislem');
-      
-      console.log('🔍 Detay veritabanı bilgileri:', { tableName })
+      const params: any[] = [tarih]; // @0 is tarih
+      let pIdx = 1;
 
-      // İşlem türü filtresi (6'lı radio için islemArac alanı)
+      // İşlem türü filtresi
       let islemAracFilter = '';
       let depozitoFilter = '';
+      
       if (islemArac) {
-        // Frontend'den gelen değerleri veritabanındaki gerçek değerlere eşleştir
         let dbIslemArac = '';
         switch (islemArac) {
-          case 'cari':
-            dbIslemArac = 'Cari İşlem';
-            break;
-          case 'nakit':
-            dbIslemArac = 'Nakit Kasa(TL)';
-            break;
-          case 'kart':
-            dbIslemArac = 'Kredi Kartları';
-            break;
-          case 'eft':
-            dbIslemArac = 'Banka EFT';
-            break;
-          case 'acenta':
-            dbIslemArac = 'Acenta Tahsilat';
-            break;
-          case 'depozito':
-            dbIslemArac = 'Depozito';
-            // Depozito kayıtları çoğunlukla islemArac alanında tutulmuyor; islemBilgi ile belirleniyor
-            depozitoFilter = `AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
-            break;
-          default:
-            dbIslemArac = islemArac;
+          case 'cari': dbIslemArac = 'Cari İşlem'; break;
+          case 'nakit': dbIslemArac = 'Nakit Kasa(TL)'; break;
+          case 'kart': dbIslemArac = 'Kredi Kartları'; break;
+          case 'eft': dbIslemArac = 'Banka EFT'; break;
+          case 'acenta': dbIslemArac = 'Acenta Tahsilat'; break;
+          case 'depozito': dbIslemArac = 'Depozito'; break;
+          default: dbIslemArac = islemArac;
         }
-        // Depozito seçildiyse islemArac filtresi uygulama; diğerlerinde uygula
-        if (islemArac !== 'depozito') {
-        islemAracFilter = `AND islemArac = '${dbIslemArac}'`;
+
+        if (islemArac === 'depozito') {
+             depozitoFilter = ` AND (islemBilgi LIKE @${pIdx} OR islemBilgi LIKE @${pIdx+1})`;
+             params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+             pIdx += 2;
+        } else {
+             islemAracFilter = ` AND islemArac = @${pIdx}`;
+             params.push(dbIslemArac);
+             pIdx++;
         }
       }
 
-      // İşlem yönü filtresi (2'li radio için islemTip alanı)
+      // İşlem yönü filtresi
       let islemTipFilter = '';
       if (islemTip) {
-        // Depozito için yön filtrelemesini islemBilgi ile yap
         if (islemArac === 'depozito') {
           if (islemTip === 'Giren') {
-            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'`;
+            islemTipFilter = ` AND islemBilgi LIKE @${pIdx}`;
+            params.push('%=DEPOZİTO TAHSİLATI=%');
+            pIdx++;
           } else if (islemTip === 'Çıkan') {
-            islemTipFilter = `AND islemBilgi LIKE '%=DEPOZİTO İADESİ=%'`;
+            islemTipFilter = ` AND islemBilgi LIKE @${pIdx}`;
+            params.push('%=DEPOZİTO İADESİ=%');
+            pIdx++;
           }
         } else {
-          // Diğerleri için mevcut eşleme
-        let dbIslemTip = '';
-        if (islemArac === 'cari') {
-          dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
-        } else {
-          dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
-        }
-        islemTipFilter = `AND islemTip = '${dbIslemTip}'`;
+          let dbIslemTip = '';
+          if (islemArac === 'cari') {
+            dbIslemTip = islemTip === 'GELİR' ? 'GELİR' : 'GİDER';
+          } else {
+            dbIslemTip = islemTip === 'Giren' ? 'Giren' : 'Çıkan';
+          }
+          islemTipFilter = ` AND islemTip = @${pIdx}`;
+          params.push(dbIslemTip);
+          pIdx++;
         }
       }
 
       // FON KAYIT ve Kasadan Alınan/Kasaya Verilen filtreleri
-      // Kazanc-tablo sayfasında excludeKasadanAlinan=false olarak gönderilirse filtre kaldırılır
-      const detailTableFilter = excludeKasadanAlinan
-        ? ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %') AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`
-        : ` AND (islemAltG IS NULL OR islemAltG NOT LIKE '%FON KAYIT: %')`;
-
-      // DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini filtrele
-      // Püf Nokta: Kart, Nakit ve EFT seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
-      // Sadece Cari ve Acenta için depozito kayıtları filtrelenir
-      let depozitoExcludeFilter = '';
-      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit' && islemArac !== 'eft') {
-        depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+      let detailTableFilter = '';
+      if (excludeKasadanAlinan) {
+          detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE @${pIdx}) AND (islemGrup IS NULL OR islemGrup NOT IN (@${pIdx+1}, @${pIdx+2}))`;
+          params.push('%FON KAYIT: %', 'Kasadan Alınan', 'Kasaya Verilen');
+          pIdx += 3;
+      } else {
+          detailTableFilter = ` AND (islemAltG IS NULL OR islemAltG NOT LIKE @${pIdx})`;
+          params.push('%FON KAYIT: %');
+          pIdx++;
       }
 
-      console.log('🔍 Detay filtreler:', { islemAracFilter, islemTipFilter, depozitoFilter, depozitoExcludeFilter })
-      console.log('🔍 Tarih parametresi:', { 
-        tarih: tarih, 
-        tarihTipi: typeof tarih,
-        tarihUzunluk: tarih ? tarih.length : 0
-      })
+      // Depozito Exclude Filter
+      let depozitoExcludeFilter = '';
+      if (islemArac && islemArac !== 'depozito' && islemArac !== 'kart' && islemArac !== 'nakit' && islemArac !== 'eft') {
+        depozitoExcludeFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx}) AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx+1})`;
+        params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+        pIdx += 2;
+      }
 
-      // Toplam kayıt sayısını al
+      // Count Query
       const countQuery = `
         SELECT COUNT(*) as total
         FROM ${tableName}
@@ -901,20 +822,14 @@ export class IslemService {
         ${detailTableFilter}
         ${depozitoExcludeFilter}
       `;
+      
+      console.log('🔍 Count Query:', countQuery, params);
+      const countResult = await this.dataSource.query(countQuery, params);
+      const totalRecords = countResult[0]?.total || 0;
 
-      console.log('🔍 Detay Count Query:', countQuery)
-
-      const countParams = [tarih];
-      console.log('🔍 Count Query parametreleri:', countParams);
-      const countDetay = await this.dataSource.query(countQuery, countParams);
-      const totalRecords = countDetay[0]?.total || 0;
-
-      console.log('🔍 Detay toplam kayıt sayısı:', totalRecords)
-
-      // Sayfalama hesaplamaları
+      // Pagination
       const offset = (page - 1) * rowsPerPage;
 
-      // Ana sorgu
       const query = `
         SELECT 
           islemNo,
@@ -939,23 +854,11 @@ export class IslemService {
         OPTION (MAXDOP 2);
       `;
 
-      console.log('🔍 Detay Ana Query:', query)
-      console.log('🔍 Tarih parametresi (ana sorgu):', { 
-        tarih: tarih, 
-        tarihTipi: typeof tarih,
-        tarihUzunluk: tarih ? tarih.length : 0,
-        tarihDeger: tarih
-      })
-
-      const params = [tarih, offset, rowsPerPage];
-      console.log('🔍 Query parametreleri:', params);
+      console.log('🔍 Main Query:', query, params);
       const result = await this.dataSource.query(query, params);
-
-      console.log('🔍 Detay Query sonucu:', result)
 
       return {
         data: result.map((row: any) => {
-          // 🔥 Depozito kasası için Bilgi sütununu formatla: islemArac - islemBilgi
           let formattedIslemBilgi = row.islemBilgi || '';
           if (islemArac === 'depozito' && row.islemArac) {
             const islemAracValue = row.islemArac || '';
@@ -978,7 +881,7 @@ export class IslemService {
         totalRecords,
       };
     } catch (error) {
-      console.error('❌ getDetayIslemler hatası:', error)
+      console.error('❌ getDetayIslemler hatası:', error);
       throw new Error(`Detay işlemler alınamadı: ${error.message}`);
     }
   }
@@ -1433,80 +1336,97 @@ export class IslemService {
     endDateDDMMYYYY?: string,
   ): Promise<number> {
     try {
-      console.log('🔍 getGuncelBakiye çağrıldı:', { islemArac, islemTip, endDateDDMMYYYY })
+      console.log('🔍 getGuncelBakiye (Parameterized) çağrıldı:', { islemArac, islemTip, endDateDDMMYYYY })
       
-
       const tableName = this.dbConfig.getTableName('tblislem');
+      const params: any[] = [];
+      let pIdx = 0;
 
-      let islemAracim = '';
+      let whereClause = 'WHERE 1=1';
 
       // İşlem Aracına göre filtreleme
-      switch (islemArac) {
-        case 'cari':
-          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
-          break;
-        case 'nakit':
-          islemAracim = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
-          break;
-        case 'kart':
-          islemAracim = `WHERE i.islemArac = 'Kredi Kartları'`;
-          break;
-        case 'eft':
-          islemAracim = `WHERE i.islemArac = 'Banka EFT'`;
-          break;
-        case 'acenta':
-          islemAracim = `WHERE i.islemArac = 'Acenta Tahsilat'`;
-          break;
-        case 'depozito':
-          islemAracim = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
-          break;
-        default:
-          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
+      if (islemArac === 'cari') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Cari İşlem');
+        pIdx++;
+      } else if (islemArac === 'nakit') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Nakit Kasa(TL)');
+        pIdx++;
+      } else if (islemArac === 'kart') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Kredi Kartları');
+        pIdx++;
+      } else if (islemArac === 'eft') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Banka EFT');
+        pIdx++;
+      } else if (islemArac === 'acenta') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Acenta Tahsilat');
+        pIdx++;
+      } else if (islemArac === 'depozito') {
+        whereClause += ` AND (i.islemBilgi LIKE @${pIdx} OR i.islemBilgi LIKE @${pIdx+1})`;
+        params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+        pIdx += 2;
+      } else {
+        // Default
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Cari İşlem');
+        pIdx++;
       }
 
-      console.log('🔍 islemAracim:', islemAracim)
+      // Gelir/Gider tiplerini birleştir (GELİR/Giren ve GİDER/Çıkan)
+      // Bu sayede mod ne olursa olsun tüm ilgili kayıtlar toplanır
+      const gelirTypes = ['GELİR', 'Giren'];
+      const giderTypes = ['GİDER', 'Çıkan'];
+      
+      const idxGelir1 = pIdx;
+      params.push(gelirTypes[0]);
+      pIdx++;
+      const idxGelir2 = pIdx;
+      params.push(gelirTypes[1]);
+      pIdx++;
+      
+      const idxGider1 = pIdx;
+      params.push(giderTypes[0]);
+      pIdx++;
+      const idxGider2 = pIdx;
+      params.push(giderTypes[1]);
+      pIdx++;
 
-      // İşlem tipine göre gelir/gider hesaplama - bakiye için her iki yön de gerekli
-      let gelirCondition = '';
-      let giderCondition = '';
-
-      // Seçilen islemTip'e göre gelir ve gider koşullarını belirle
-      if (islemTip === 'GELİR' || islemTip === 'Giren') {
-        // Gelir seçilmişse, gelirleri ve giderleri ayrı ayrı topla
-        gelirCondition = `i.islemTip = '${islemTip}'`;
-        giderCondition = `i.islemTip = '${islemTip === 'GELİR' ? 'GİDER' : 'Çıkan'}'`;
-      } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
-        // Gider seçilmişse, gelirleri ve giderleri ayrı ayrı topla
-        gelirCondition = `i.islemTip = '${islemTip === 'GİDER' ? 'GELİR' : 'Giren'}'`;
-        giderCondition = `i.islemTip = '${islemTip}'`;
-      }
-
-      console.log('🔍 Gelir/Gider koşulları:', { gelirCondition, giderCondition })
+      // Depozito Alacağı hariç tutma (orijinal sorgudaki gibi)
+      whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
+      params.push('%=DEPOZİTO ALACAĞI=%');
+      pIdx++;
 
       // Tarih filtresi ekle (eğer endDate verilmişse)
-      const dateFilter = endDateDDMMYYYY 
-        ? `AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, '${endDateDDMMYYYY}', 104)`
-        : '';
+      if (endDateDDMMYYYY) {
+        whereClause += ` AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @${pIdx}, 104)`;
+        params.push(endDateDDMMYYYY);
+        pIdx++;
+      }
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
-          SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
+          SUM(CASE WHEN i.islemTip IN (@${idxGelir1}, @${idxGelir2}) THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN i.islemTip IN (@${idxGider1}, @${idxGider2}) THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${tableName} i
-        ${islemAracim}
-        AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
-        ${dateFilter}
+        ${whereClause}
       `;
 
-      console.log('🔍 Bakiye Query:', bakiyeQuery)
+      console.log('🔍 Bakiye Query:', bakiyeQuery, params);
 
       const bakiyeUnknown = (await this.dataSource.query(
         bakiyeQuery,
+        params
       )) as unknown;
+      
       const bakiyeRes = bakiyeUnknown as Array<{
         toplamGelir: number | string | null;
         toplamGider: number | string | null;
       }>;
+      
       const toplamGelir = Number(bakiyeRes[0]?.toplamGelir) || 0;
       const toplamGider = Number(bakiyeRes[0]?.toplamGider) || 0;
       const guncelBakiye = toplamGelir - toplamGider;
@@ -1530,67 +1450,90 @@ export class IslemService {
     secilenTarih: string,
   ): Promise<number> {
     try {
-
       const tableName = this.dbConfig.getTableName('tblislem');
+      const params: any[] = [];
+      let pIdx = 0;
 
-      let islemAracim = '';
+      let whereClause = 'WHERE 1=1';
 
       // İşlem Aracına göre filtreleme
-      switch (islemArac) {
-        case 'cari':
-          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
-          break;
-        case 'nakit':
-          islemAracim = `WHERE i.islemArac = 'Nakit Kasa(TL)'`;
-          break;
-        case 'kart':
-          islemAracim = `WHERE i.islemArac = 'Kredi Kartları'`;
-          break;
-        case 'eft':
-          islemAracim = `WHERE i.islemArac = 'Banka EFT'`;
-          break;
-        case 'acenta':
-          islemAracim = `WHERE i.islemArac = 'Acenta Tahsilat'`;
-          break;
-        case 'depozito':
-          islemAracim = `WHERE (i.islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR i.islemBilgi LIKE '%=DEPOZİTO İADESİ=%')`;
-          break;
-        default:
-          islemAracim = `WHERE i.islemArac = 'Cari İşlem'`;
+      if (islemArac === 'cari') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Cari İşlem');
+        pIdx++;
+      } else if (islemArac === 'nakit') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Nakit Kasa(TL)');
+        pIdx++;
+      } else if (islemArac === 'kart') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Kredi Kartları');
+        pIdx++;
+      } else if (islemArac === 'eft') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Banka EFT');
+        pIdx++;
+      } else if (islemArac === 'acenta') {
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Acenta Tahsilat');
+        pIdx++;
+      } else if (islemArac === 'depozito') {
+        whereClause += ` AND (i.islemBilgi LIKE @${pIdx} OR i.islemBilgi LIKE @${pIdx+1})`;
+        params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%');
+        pIdx += 2;
+      } else {
+        // Default
+        whereClause += ` AND i.islemArac = @${pIdx}`;
+        params.push('Cari İşlem');
+        pIdx++;
       }
 
-      // İşlem tipine göre gelir/gider hesaplama - bakiye için her iki yön de gerekli
-      let gelirCondition = '';
-      let giderCondition = '';
+      // Gelir/Gider tiplerini birleştir (GELİR/Giren ve GİDER/Çıkan)
+      const gelirTypes = ['GELİR', 'Giren'];
+      const giderTypes = ['GİDER', 'Çıkan'];
+      
+      const idxGelir1 = pIdx;
+      params.push(gelirTypes[0]);
+      pIdx++;
+      const idxGelir2 = pIdx;
+      params.push(gelirTypes[1]);
+      pIdx++;
+      
+      const idxGider1 = pIdx;
+      params.push(giderTypes[0]);
+      pIdx++;
+      const idxGider2 = pIdx;
+      params.push(giderTypes[1]);
+      pIdx++;
 
-      // Seçilen islemTip'e göre gelir ve gider koşullarını belirle
-      if (islemTip === 'GELİR' || islemTip === 'Giren') {
-        // Gelir seçilmişse, gelirleri ve giderleri ayrı ayrı topla
-        gelirCondition = `i.islemTip = '${islemTip}'`;
-        giderCondition = `i.islemTip = '${islemTip === 'GELİR' ? 'GİDER' : 'Çıkan'}'`;
-      } else if (islemTip === 'GİDER' || islemTip === 'Çıkan') {
-        // Gider seçilmişse, gelirleri ve giderleri ayrı ayrı topla
-        gelirCondition = `i.islemTip = '${islemTip === 'GİDER' ? 'GELİR' : 'Giren'}'`;
-        giderCondition = `i.islemTip = '${islemTip}'`;
-      }
+      // Depozito Alacağı hariç tutma
+      whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
+      params.push('%=DEPOZİTO ALACAĞI=%');
+      pIdx++;
+
+      // Tarih filtresi
+      whereClause += ` AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @${pIdx}, 104)`;
+      params.push(secilenTarih);
+      pIdx++;
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN ${gelirCondition} THEN i.islemTutar ELSE 0 END) as toplamGelir,
-          SUM(CASE WHEN ${giderCondition} THEN i.islemTutar ELSE 0 END) as toplamGider
+          SUM(CASE WHEN i.islemTip IN (@${idxGelir1}, @${idxGelir2}) THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN i.islemTip IN (@${idxGider1}, @${idxGider2}) THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${tableName} i
-        ${islemAracim}
-        AND i.islemBilgi NOT LIKE '%=DEPOZİTO ALACAĞI=%'
-        AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @0, 104)
+        ${whereClause}
       `;
 
-      const secilenUnknown = (await this.dataSource.query(bakiyeQuery, [
-        secilenTarih,
-      ])) as unknown;
+      const secilenUnknown = (await this.dataSource.query(
+        bakiyeQuery,
+        params
+      )) as unknown;
+      
       const secilenRes = secilenUnknown as Array<{
         toplamGelir: number | string | null;
         toplamGider: number | string | null;
       }>;
+      
       const toplamGelir = Number(secilenRes[0]?.toplamGelir) || 0;
       const toplamGider = Number(secilenRes[0]?.toplamGider) || 0;
       const secilenGunBakiyesi = toplamGelir - toplamGider;
@@ -1658,11 +1601,11 @@ export class IslemService {
       const query = `
         SELECT DISTINCT islemGrup
         FROM ${tableName}
-        WHERE islemGrup IS NOT NULL AND islemGrup <> '' AND islemGrup NOT LIKE '%Kasa%' AND islemAltG NOT LIKE '%FON KAYIT%'
+        WHERE islemGrup IS NOT NULL AND islemGrup <> @0 AND islemGrup NOT LIKE @1 AND islemAltG NOT LIKE @2
         ORDER BY islemGrup
       `;
 
-      const result = await this.dataSource.query(query);
+      const result = await this.dataSource.query(query, ['', '%Kasa%', '%FON KAYIT%']);
       return result.map((row: any) => row.islemGrup);
     } catch (error) {
       throw error;
@@ -1682,11 +1625,11 @@ export class IslemService {
       const query = `
         SELECT CariAdi
         FROM ${tableName}
-        WHERE CariAdi IS NOT NULL AND CariAdi <> ''
+        WHERE CariAdi IS NOT NULL AND CariAdi <> @0
         ORDER BY CariAdi
       `;
 
-      const result = await this.dataSource.query(query);
+      const result = await this.dataSource.query(query, ['']);
       return result.map((row: any) => row.CariAdi);
     } catch (error) {
       throw error;
@@ -1724,12 +1667,12 @@ export class IslemService {
           kd.nKasaYekun as KasaYekun
         FROM ${kasaDevirTableName} kd
         ORDER BY kd.nKasaNo DESC
-        OFFSET ${offset} ROWS
-        FETCH NEXT ${rowsPerPage} ROWS ONLY
+        OFFSET @0 ROWS
+        FETCH NEXT @1 ROWS ONLY
         OPTION (MAXDOP 2);
       `;
 
-      const devirUnknown = (await this.dataSource.query(query)) as unknown;
+      const devirUnknown = (await this.dataSource.query(query, [offset, rowsPerPage])) as unknown;
       const result = devirUnknown as Array<{
         DevirTarihi: string;
         DevirEden: string;
@@ -1773,10 +1716,10 @@ export class IslemService {
       const query = `
         SELECT TOP 1 PrsnUsrNm 
         FROM ${personelTableName} 
-        WHERE PrsnUsrNm = 'SAadmin'
+        WHERE PrsnUsrNm = @0
       `;
 
-      const userUnknown = (await this.dataSource.query(query)) as unknown;
+      const userUnknown = (await this.dataSource.query(query, ['SAadmin'])) as unknown;
       const result = userUnknown as Array<{ PrsnUsrNm: string }>;
       const kullaniciAdi = result[0]?.PrsnUsrNm ?? 'SAadmin';
 
@@ -3566,14 +3509,13 @@ export class IslemService {
 
       // IN clause için parametreleri hazırla
       const placeholders = islemNoList.map((_, index) => `@${index}`).join(',');
-      const params = islemNoList.map((islemNo, index) => ({ [`@${index}`]: islemNo }));
 
       const query = `
         SELECT islemNo, iKytTarihi, islemKllnc, islemOzel1, islemOzel2, 
                islemOzel3, islemOzel4, islemBirim, islemDoviz, islemKur, 
                islemBilgi, islemCrKod, islemArac, islemTip, islemGrup, 
                islemAltG, islemMiktar, islemTutar, Onay
-        FROM tblislemRST 
+        FROM ${this.dbConfig.getTableName('tblislemRST')} 
         WHERE islemNo IN (${placeholders})
         ORDER BY islemNo DESC
       `;
@@ -3582,16 +3524,7 @@ export class IslemService {
       
       try {
         await queryRunner.connect();
-        
-        // Parametreleri query'e bind et
-        let finalQuery = query;
-        params.forEach((param, index) => {
-          const paramName = `@${index}`;
-          const paramValue = param[paramName];
-          finalQuery = finalQuery.replace(new RegExp(paramName, 'g'), paramValue.toString());
-        });
-
-        const result = await queryRunner.query(finalQuery);
+        const result = await queryRunner.query(query, islemNoList);
         return result || [];
         
       } finally {
@@ -3631,8 +3564,8 @@ export class IslemService {
           i.islemMiktar, 
           i.islemTutar, 
           i.Onay
-        FROM tblislemRST i
-        LEFT JOIN tblOdaYatak oy ON oy.OdYatOdaNo = 
+        FROM ${this.dbConfig.getTableName('tblislemRST')} i
+        LEFT JOIN ${this.dbConfig.getTableName('tblOdaYatak')} oy ON oy.OdYatOdaNo = 
           CASE 
             WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
             THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
@@ -3686,8 +3619,8 @@ export class IslemService {
           i.islemMiktar, 
           i.islemTutar, 
           i.Onay
-        FROM tblislemARV i
-        LEFT JOIN tblOdaYatak oy ON oy.OdYatOdaNo = 
+        FROM ${this.dbConfig.getTableName('tblislemARV')} i
+        LEFT JOIN ${this.dbConfig.getTableName('tblOdaYatak')} oy ON oy.OdYatOdaNo = 
           CASE 
             WHEN LEN(i.islemOzel3) >= 3 AND CHARINDEX(' -', i.islemOzel3) > 0 
             THEN LTRIM(RTRIM(SUBSTRING(i.islemOzel3, 1, CHARINDEX(' -', i.islemOzel3) - 1)))
@@ -3728,75 +3661,93 @@ export class IslemService {
     try {
       const tableName = this.dbConfig.getTableName('tblislem');
       
+      const params: any[] = ['Giren', 'GELİR', 'Çıkan', 'GİDER', tarih];
+      let pIdx = params.length;
+
+      // islemArac params to avoid hardcoded strings with Turkish chars
+      const aracNakit = 'Nakit Kasa(TL)';
+      const aracEft = 'Banka EFT';
+      const aracKart = 'Kredi Kartları';
+      const aracAcenta = 'Acenta Tahsilat';
+      
+      params.push(aracNakit, aracEft, aracKart, aracAcenta);
+      // indices: 5, 6, 7, 8
+      const idxNakit = pIdx;
+      const idxEft = pIdx + 1;
+      const idxKart = pIdx + 2;
+      const idxAcenta = pIdx + 3;
+      pIdx += 4;
+      
       // Kasadan Alınan/Kasaya Verilen filtreleri (SQL string olarak)
-      // Püf Nokta: Ödeme Tipi Özeti tablosunda FON KAYIT içeren kayıtlar filtrelenmez
-      // Ancak kasa-islem sayfasındaki tablolarda FON KAYIT filtresi devam eder
-      // Kazanc-tablo sayfasında bu filtreleme kaldırılabilir (excludeKasadanAlinan=false)
-      const detailTableFilter = excludeKasadanAlinan 
-        ? ` AND (islemGrup IS NULL OR islemGrup NOT IN ('Kasadan Alınan', 'Kasaya Verilen'))`
-        : '';
+      let detailTableFilter = '';
+      if (excludeKasadanAlinan) {
+        detailTableFilter = ` AND (islemGrup IS NULL OR islemGrup NOT IN (@${pIdx}, @${pIdx+1}))`;
+        params.push('Kasadan Alınan', 'Kasaya Verilen');
+        pIdx += 2;
+      }
 
       // Depozito filtreleri - DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini hariç tut
-      // Püf Nokta: Kart ve Nakit seçildiğinde depozito kayıtları gösterilmeli (filtrelenmemeli)
       // Sadece EFT ve Acenta için depozito kayıtları filtrelenir
-      const depozitoFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%') AND (islemBilgi IS NULL OR islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')`;
+      const depozitoFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx})`;
+      const depozitoLikeParamIdx = pIdx;
+      params.push('%DEPOZİTO%');
+      pIdx++;
 
       // İşlem tipi kontrolü (kasa modunda 'Giren'/'Çıkan', cari modunda 'GELİR'/'GİDER')
-      const girenTip = islemTipMode === 'kasa' ? 'Giren' : 'GELİR';
-      const cikanTip = islemTipMode === 'kasa' ? 'Çıkan' : 'GİDER';
+      // NOT: Kart ve Depozito gibi bazı işlemler her iki modda da görünebilir, bu yüzden
+      // tipleri birleştiriyoruz.
 
-      // Nakit Kasa(TL) - Depozito filtreleme yok (depozito kayıtları dahil)
+      // Nakit Kasa(TL) - Depozito filtreleme var (depozito kayıtları hariç)
       const nakitQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Nakit Kasa(TL)'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxNakit}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip IN (@2, @3) AND islemArac = @${idxNakit}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Banka EFT - Depozito filtreleme yok (depozito kayıtları dahil)
+      // Banka EFT - Depozito filtreleme var (depozito kayıtları hariç)
       const eftQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Banka EFT'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Banka EFT'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxEft}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip IN (@2, @3) AND islemArac = @${idxEft}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Kredi Kartları - Depozito filtreleme yok (depozito kayıtları dahil)
+      // Kredi Kartları - Depozito filtreleme var (depozito kayıtları hariç)
       const kartQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Kredi Kartları'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Kredi Kartları'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxKart}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip IN (@2, @3) AND islemArac = @${idxKart}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
       // Acenta Tahsilat - Depozito filtreleme var
       const acentaQuery = `
         SELECT 
-          SUM(CASE WHEN islemTip = @0 AND islemArac = 'Acenta Tahsilat'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemTip = @1 AND islemArac = 'Acenta Tahsilat'${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxAcenta}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip IN (@2, @3) AND islemArac = @${idxAcenta}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @2, 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Depozito (islemBilgi alanından tespit edilecek)
+      // Depozito (islemBilgi alanından tespit edilecek - Genişletilmiş filtre)
+      // Tip yönüne göre (Giren/GELİR -> giren, Çıkan/GİDER -> cikan)
       const depozitoQuery = `
         SELECT 
-          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%'${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
-          SUM(CASE WHEN islemBilgi LIKE '%=DEPOZİTO İADESİ=%'${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
+          SUM(CASE WHEN islemTip IN (@0, @1) AND islemBilgi LIKE @${depozitoLikeParamIdx}${detailTableFilter} THEN islemTutar ELSE 0 END) as giren,
+          SUM(CASE WHEN islemTip IN (@2, @3) AND islemBilgi LIKE @${depozitoLikeParamIdx}${detailTableFilter} THEN islemTutar ELSE 0 END) as cikan
         FROM ${tableName}
-        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @0, 104)
+        WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
-
-      const params = [girenTip, cikanTip, tarih];
-
+      
       const [nakitResult] = await this.dataSource.query(nakitQuery, params);
       const [eftResult] = await this.dataSource.query(eftQuery, params);
       const [kartResult] = await this.dataSource.query(kartQuery, params);
       const [acentaResult] = await this.dataSource.query(acentaQuery, params);
-      const [depozitoResult] = await this.dataSource.query(depozitoQuery, [tarih]);
+      const [depozitoResult] = await this.dataSource.query(depozitoQuery, params);
 
       return {
         nakit: {

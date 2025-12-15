@@ -1,6 +1,7 @@
 -- IP Kısıtlama Tablosu
 -- Bu tablo maksimum 5 IP adresini saklar
-USE harunta;
+-- NOT: Bu scripti çalıştırmadan önce hedef veritabanını seçtiğinizden emin olun (örn: USE [gokcepansiyon2010]).
+-- Tablolar varsayılan şemada (genellikle dbo) oluşturulacaktır.
 GO
 
 -- IP Kısıtlama Tablosu

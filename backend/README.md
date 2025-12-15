@@ -280,7 +280,7 @@ const query = `SELECT * FROM ${tables.musteri} WHERE MstrTCN = @0`;
 **Console Output on Startup:**
 ```
 Database Schema Configuration: Tables=dbo, StoredProcedures=dbo        # Development
-Database Schema Configuration: Tables=harunta, StoredProcedures=dbo    # Production
+Database Schema Configuration: Tables=dbo, StoredProcedures=dbo    # Production
 ```
 
 ## 🚀 API Endpoints
@@ -383,7 +383,7 @@ async advancedSearch(criteria: SearchCriteria) {
 
 1. **Set Environment Variables:**
 ```bash
-set DB_TABLE_SCHEMA=harunta
+set DB_TABLE_SCHEMA=dbo
 set DB_SP_SCHEMA=dbo
 set NODE_ENV=production
 ```
@@ -427,7 +427,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DB_TABLE_SCHEMA=harunta
+      - DB_TABLE_SCHEMA=dbo
       - DB_SP_SCHEMA=dbo
       - DB_HOST=your_sql_server
       - DB_USERNAME=your_username

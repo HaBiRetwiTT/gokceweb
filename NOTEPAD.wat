@@ -52,4 +52,4 @@ SELECT
 FROM sys.objects o
 WHERE o.type = 'U' 
 AND o.name = 'tblPersonel'  -- Tablo adını buraya yaz
-AND SCHEMA_NAME(o.schema_id) = 'harunta';  -- Schema adını buraya yaz
+AND SCHEMA_NAME(o.schema_id) = 'dbo';  -- Schema adını buraya yaz

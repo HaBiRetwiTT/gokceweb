@@ -470,7 +470,8 @@ const showOdemeTipiOzet = computed(() => {
   const selectedPeriod = timePeriods.value.find(p => p.selected)?.value || 'gunler'
   // Başlangıç tarihi girilmişse GÜNLER seçiliymiş gibi davran
   const isGunlerPeriod = selectedPeriod === 'gunler' || !!customStartDate.value
-  return isGunlerPeriod && islemTipMode.value === 'kasa'
+  // islemTipMode kontrolü kaldırıldı - her iki modda da gösterilsin
+  return isGunlerPeriod
 })
 
 // Kasalar arası aktarım formu
@@ -560,8 +561,8 @@ const odemeTipiDetayColumns = ref<QTableColumn<DetailRow>[]>([
 // 🔥 Ödeme Tipi Özet Tablosu için kolonlar
 const odemeTipiOzetColumns = computed(() => [
   { name: 'odemeTipi', label: 'Ödeme Tipi', field: 'odemeTipi', align: 'left' as const, headerAlign: 'center' as const },
-  { name: 'giren', label: 'Giren', field: 'giren', align: 'right' as const, headerAlign: 'center' as const },
-  { name: 'cikan', label: 'Çıkan', field: 'cikan', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'giren', label: 'Giren / Gelir', field: 'giren', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'cikan', label: 'Çıkan / Gider', field: 'cikan', align: 'right' as const, headerAlign: 'center' as const },
   { name: 'kalan', label: 'Kalan', field: 'kalan', align: 'right' as const, headerAlign: 'center' as const }
 ])
 

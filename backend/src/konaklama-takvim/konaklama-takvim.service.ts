@@ -230,7 +230,7 @@ export class KonaklamaTakvimService {
             v.knklmNo,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = 'KALIYOR' 
+          WHERE v.MstrDurum = @0 
             AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
             AND v.KnklmPlnTrh IS NOT NULL
@@ -260,9 +260,9 @@ export class KonaklamaTakvimService {
         FROM SonKonaklamalar
         ORDER BY KnklmOdaTip,
                  CASE KnklmTip 
-                   WHEN 'GÜNLÜK' THEN 1
-                   WHEN 'HAFTALIK' THEN 2  
-                   WHEN 'AYLIK' THEN 3
+                   WHEN @1 THEN 1
+                   WHEN @2 THEN 2  
+                   WHEN @3 THEN 3
                    ELSE 4
                  END,
                  KnklmOdaNo ASC, 
@@ -270,7 +270,14 @@ export class KonaklamaTakvimService {
         OPTION (MAXDOP 2);
       `;
       
-      const result = (await this.musteriRepository.query(query)) as unknown as AktifKonaklamaRow[];
+      const params = [
+        'KALIYOR', // @0
+        'GÜNLÜK',  // @1
+        'HAFTALIK',// @2
+        'AYLIK'    // @3
+      ];
+
+      const result = (await this.musteriRepository.query(query, params)) as unknown as AktifKonaklamaRow[];
       console.log('Aktif konaklamalar:', result.length, 'kayıt bulundu');
       
       // Debug için ilk birkaç kaydı logla
@@ -292,7 +299,7 @@ export class KonaklamaTakvimService {
     try {
       const query = `
         SELECT COUNT(*) as toplamYatakSayisi
-        FROM tblOdaYatak 
+        FROM ${this.dbConfig.getTableName('tblOdaYatak')} 
         WHERE odYatOdaTip = @0 AND odYatDurum IN ('BOŞ', 'DOLU')
       `;
       
@@ -312,7 +319,7 @@ export class KonaklamaTakvimService {
     try {
       const query = `
         SELECT COUNT(*) as bosYatakSayisi
-        FROM tblOdaYatak
+        FROM ${this.dbConfig.getTableName('tblOdaYatak')}
         WHERE odYatOdaTip = @0 AND odYatDurum = 'BOŞ'
       `;
 
@@ -663,7 +670,7 @@ export class KonaklamaTakvimService {
     try {
       const query = `
         SELECT DISTINCT odYatOdaTip AS odaTipi
-        FROM tblOdaYatak
+        FROM ${this.dbConfig.getTableName('tblOdaYatak')}
         WHERE odYatOdaTip IS NOT NULL AND LTRIM(RTRIM(odYatOdaTip)) <> ''
       `;
       const result = (await this.musteriRepository.query(query));

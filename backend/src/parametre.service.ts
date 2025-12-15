@@ -19,14 +19,14 @@ export class ParametreService {
     const query = `
         SELECT Prm01, PrmAdi, Prm04
         FROM ${tables.parametreler}
-        WHERE Prm01 IN ('1','2','3','4','5','6')
+        WHERE Prm01 IN (@0, @1, @2, @3, @4, @5)
         ORDER BY Prm01
     `;
     // debug
     // this.debugLog('Table:', tables.parametreler, 'Query:', query);
 
     try {
-      const resultUnknown = await this.parametreRepository.query(query);
+      const resultUnknown = await this.parametreRepository.query(query, ['1', '2', '3', '4', '5', '6']);
       const result = resultUnknown as Array<{
         Prm01: string;
         PrmAdi: string;
@@ -44,13 +44,13 @@ export class ParametreService {
     const query = `
       SELECT TOP 1 Prm04
       FROM ${tables.parametreler}
-      WHERE Prm01 = '8'
+      WHERE Prm01 = @0
     `;
     // debug
     // this.debugLog('Komisyon table:', tables.parametreler, 'Query:', query);
 
     try {
-      const resultUnknown = await this.parametreRepository.query(query);
+      const resultUnknown = await this.parametreRepository.query(query, ['8']);
       const result = resultUnknown as Array<{ Prm04: number | null }>;
       return result[0]?.Prm04 ?? null;
     } catch (error) {
@@ -64,11 +64,11 @@ export class ParametreService {
     const query = `
       SELECT TOP 1 Prm04
       FROM ${tables.parametreler}
-      WHERE PrmAdi = 'GecSaatSonu'
+      WHERE PrmAdi = @0
     `;
 
     try {
-      const resultUnknown = await this.parametreRepository.query(query);
+      const resultUnknown = await this.parametreRepository.query(query, ['GecSaatSonu']);
       const result = resultUnknown as Array<{ Prm04: number | null }>;
       return result[0]?.Prm04 ?? 6; // Default 6 (saat)
     } catch (error) {
@@ -82,11 +82,11 @@ export class ParametreService {
     const query = `
       UPDATE ${tables.parametreler}
       SET Prm04 = @0
-      WHERE PrmAdi = 'GecSaatSonu'
+      WHERE PrmAdi = @1
     `;
 
     try {
-      await this.parametreRepository.query(query, [yeniSaat]);
+      await this.parametreRepository.query(query, [yeniSaat, 'GecSaatSonu']);
       console.log(`✅ GecSaatSonu güncellendi: ${yeniSaat}:00`);
       return true;
     } catch (error) {

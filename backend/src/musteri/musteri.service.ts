@@ -328,12 +328,12 @@ export class MusteriService {
         SELECT TOP 1 islemBilgi, iKytTarihi
         FROM ${tables.islem}
         WHERE islemCrKod = @0 
-          AND islemGrup = 'Konaklama' 
-          AND islemTip = 'GELİR'
+          AND islemGrup = @1 
+          AND islemTip = @2
         ORDER BY islemNo DESC
       `;
 
-      const result: { islemBilgi?: string; iKytTarihi?: string }[] = await this.musteriRepository.query(query, [cariKod]);
+      const result: { islemBilgi?: string; iKytTarihi?: string }[] = await this.musteriRepository.query(query, [cariKod, 'Konaklama', 'GELİR']);
 
       if (result.length > 0) {
         const islemBilgi = result[0].islemBilgi;
@@ -408,11 +408,11 @@ export class MusteriService {
         FROM ${views.musteriKonaklama} v
         LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
         WHERE v.MstrTCN = @0 
-          AND v.MstrDurum = 'KALIYOR'
+          AND v.MstrDurum = @1
           AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
       `;
 
-      const result: any[] = await this.musteriRepository.query(query, [tcNo]);
+      const result: any[] = await this.musteriRepository.query(query, [tcNo, 'KALIYOR']);
       return result[0] || null;
     } catch (error) {
       console.error('Mevcut konaklama bilgileri alınırken hata:', error);
@@ -1083,15 +1083,14 @@ export class MusteriService {
     try {
       const tables = this.dbConfig.getTables();
 
-      // Basit ve hızlı sorgu: Sadece tblOdaYatak'tan oda tiplerini getir
+      // Tüm oda tiplerini ve boş oda sayılarını getir
       const query = `
         SELECT 
           OdYatOdaTip as OdaTipi,
-          COUNT(*) as BosOdaSayisi
+          SUM(CASE WHEN (OdYatDurum IS NULL OR OdYatDurum != 'DOLU') THEN 1 ELSE 0 END) as BosOdaSayisi
         FROM ${tables.odaYatak} 
         WHERE OdYatOdaTip IS NOT NULL 
           AND OdYatOdaTip != '' 
-          AND OdYatDurum = 'BOŞ'
         GROUP BY OdYatOdaTip
         ORDER BY OdYatOdaTip
       `;
@@ -1115,7 +1114,7 @@ export class MusteriService {
       const query = `
         SELECT OdYatOdaNo, OdYatYtkNo, OdYatDurum 
         FROM ${tables.odaYatak} 
-        WHERE OdYatOdaTip = @0 AND OdYatDurum <> 'DOLU'
+        WHERE OdYatOdaTip = @0 AND (OdYatDurum IS NULL OR OdYatDurum != 'DOLU')
         ORDER BY OdYatOdaNo, OdYatYtkNo
       `;
       const result: { OdYatOdaNo: string; OdYatYtkNo: string; OdYatDurum?: string }[] = await this.odaYatakRepository.query(query, [odaTipi]);
@@ -1159,7 +1158,8 @@ export class MusteriService {
       const odaYatakDurum = result[0];
 
       const durumNorm = (odaYatakDurum.OdYatDurum || '').toString().trim().toUpperCase();
-      if (durumNorm === 'BOŞ') {
+      // BOŞ veya NULL/Empty durumunu müsait kabul et
+      if (durumNorm === 'BOŞ' || durumNorm === '') {
         return {
           musait: true,
           message: 'Oda-yatak müsait'
@@ -1168,6 +1168,11 @@ export class MusteriService {
         return {
           musait: false,
           message: 'KİRLİ' // Frontend bu mesajı özel uyarı için kullanacak
+        };
+      } else if (durumNorm.includes('ARIZA')) {
+        return {
+          musait: false,
+          message: `Oda ${odaNo} - Yatak ${yatakNo} ARIZALI! Lütfen başka bir oda-yatak seçin.`
         };
       } else {
         const dolulukBilgisi = odaYatakDurum.OdYatKllnc ?
@@ -3463,12 +3468,12 @@ export class MusteriService {
     const query = `
       SELECT mstrTCN
       FROM ${tables.musteri}
-      WHERE mstrTCN LIKE 'RZVRYTK_%'
+      WHERE mstrTCN LIKE @0
       ORDER BY mstrTCN DESC
     `;
     console.log('RZVRYTK sorgusu:', query);
     console.log('Tablo adı:', tables.musteri);
-    const result = await this.musteriRepository.query(query);
+    const result = await this.musteriRepository.query(query, ['RZVRYTK_%']);
     console.log('RZVRYTK sorgu sonucu:', result);
     return result;
   }

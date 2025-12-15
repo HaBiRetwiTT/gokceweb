@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity('tblOdaYatak', { schema: 'harunta' })
+@Entity('tblOdaYatak', { schema: 'dbo' })
 export class OdaYatak {
   @PrimaryGeneratedColumn({ name: 'OdYatNo', type: 'bigint' })
   OdYatNo: number;
@@ -37,7 +37,7 @@ export class OdaYatak {
   OdYatDurum: string;
 }
 
-@Entity('tblOdaTipLfyt', { schema: 'harunta' })
+@Entity('tblOdaTipLfyt', { schema: 'dbo' })
 export class OdaTipLfyt {
   @PrimaryGeneratedColumn({ name: 'OdTipNo', type: 'bigint' })
   OdTipNo: number;

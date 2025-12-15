@@ -22,11 +22,11 @@ export class PersonelService {
       // TODO: Gerçek authentication sistemi entegre edildiğinde bu kısım güncellenecek
       const query = `
         SELECT TOP 1 PrsnUsrNm 
-        FROM tblPersonel 
-        WHERE PrsnUsrNm = 'SAadmin'
+        FROM ${this.dbConfig.getTableName('tblPersonel')} 
+        WHERE PrsnUsrNm = @0
       `;
 
-      const userUnknown = (await this.personelRepository.query(query)) as unknown;
+      const userUnknown = (await this.personelRepository.query(query, ['SAadmin'])) as unknown;
       const result = userUnknown as Array<{ PrsnUsrNm: string }>;
       const kullaniciAdi = result[0]?.PrsnUsrNm ?? 'SAadmin';
 
@@ -50,20 +50,33 @@ export class PersonelService {
 
       console.log('🔍 Backend sıralama parametreleri:', { sortBy, sortOrder });
 
-        // Varsayılan sıralama: PrsnYetki alanına göre ASC (nvarchar olduğu için sayısal sıralama)
-        let orderByClause = 'ORDER BY CAST(PrsnYetki AS INT) ASC';
+      // Sıralama parametrelerini güvenli hale getir
+      const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+      
+      // İzin verilen sıralama sütunları (Whitelist)
+      const allowedSortColumns = [
+        'PrsnNo', 'PrsnTCN', 'PrsnAdi', 'PrsnDurum', 'PrsnTelNo', 
+        'PrsnGrsTrh', 'PrsnCksTrh', 'PrsnGorev', 'PrsnYetki', 
+        'PrsnMaas', 'PrsnOdGun', 'PrsnUsrNm', 'PrsnDuzey', 
+        'PrsnOda', 'PrsnYtk', 'PrsnDgmTarihi'
+      ];
 
-       // Eğer sıralama parametreleri verilmişse, bunları kullan
-       if (sortBy && sortOrder) {
+      // Varsayılan sıralama: PrsnYetki alanına göre ASC (nvarchar olduğu için sayısal sıralama)
+      let orderByClause = 'ORDER BY CAST(PrsnYetki AS INT) ASC';
+
+      // Eğer sıralama parametreleri verilmişse ve whitelist'te varsa
+      if (sortBy && allowedSortColumns.includes(sortBy)) {
          if (sortBy === 'PrsnYetki') {
            // PrsnYetki alanı nvarchar(50) olduğu için INT cast ile sayısal sıralama
            console.log('✅ PrsnYetki sütunu için INT cast sıralaması uygulanıyor (nvarchar tipi)');
-           orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${sortOrder}`;
+           orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${safeSortOrder}`;
          } else {
            // Diğer alanlar için normal sıralama
-           console.log('📝 Diğer sütun için normal sıralama uygulanıyor');
-           orderByClause = `ORDER BY ${sortBy} ${sortOrder}`;
+           console.log(`📝 ${sortBy} sütunu için normal sıralama uygulanıyor`);
+           orderByClause = `ORDER BY ${sortBy} ${safeSortOrder}`;
          }
+       } else if (sortBy) {
+         console.warn(`⚠️ Geçersiz sıralama sütunu istendi: ${sortBy}. Varsayılan sıralama kullanılıyor.`);
        }
       console.log('📋 Kullanılacak ORDER BY:', orderByClause);
 
@@ -93,12 +106,12 @@ export class PersonelService {
           PrsnMedeni,
           PrsnAdres,
           PrsnBilgi
-        FROM tblPersonel
-        WHERE PrsnDurum = 'ÇALIŞIYOR'
+        FROM ${this.dbConfig.getTableName('tblPersonel')}
+        WHERE PrsnDurum = @0
         ${orderByClause}
       `;
       console.log('📝 Çalıştırılan SQL sorgusu:\n', query);
-      const personel = await this.personelRepository.query(query);
+      const personel = await this.personelRepository.query(query, ['ÇALIŞIYOR']);
       console.log('📊 Çalışan personel sorgu sonucu:', personel.length, 'kayıt bulundu');
       return {
         success: true,
@@ -138,7 +151,7 @@ export class PersonelService {
 
              // Mevcut personel bilgilerini al (oda-yatak durumu güncelleme için de kullanılacak)
        const mevcutPersonel = await this.personelRepository.query(
-         'SELECT PrsnOda, PrsnYtk FROM tblPersonel WHERE PrsnNo = @0',
+         `SELECT PrsnOda, PrsnYtk FROM ${this.dbConfig.getTableName('tblPersonel')} WHERE PrsnNo = @0`,
          [PrsnNo]
        );
 
@@ -156,7 +169,7 @@ export class PersonelService {
 
              // Önce oda-yatak kombinasyonunun envanterde mevcut olup olmadığını kontrol et
              const odaYatakEnvanterKontrol = await this.personelRepository.query(
-               'SELECT OdYatDurum FROM tblOdaYatak WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1',
+               `SELECT OdYatDurum FROM ${this.dbConfig.getTableName('tblOdaYatak')} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`,
                [PrsnOda, PrsnYtk]
              );
 
@@ -177,7 +190,7 @@ export class PersonelService {
 
         // Personel bilgilerini güncelle - Veri tipi uyumluluğu için CAST kullan
        const updateQuery = `
-         UPDATE tblPersonel SET
+         UPDATE ${this.dbConfig.getTableName('tblPersonel')} SET
            PrsnAdi = @0,
            PrsnDurum = @1,
            PrsnTelNo = @2,
@@ -244,14 +257,14 @@ export class PersonelService {
           console.log('🔍 Yeni oda-yatak durumu DOLU yapılıyor:', { oda: PrsnOda, yatak: PrsnYtk });
           
           const odaYatakUpdateQuery = `
-            UPDATE tblOdaYatak 
-            SET OdYatDurum = 'DOLU' 
+            UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
+            SET OdYatDurum = @2 
             WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
           `;
           
           const odaYatakUpdateResult = await this.personelRepository.query(
             odaYatakUpdateQuery, 
-            [PrsnOda, PrsnYtk]
+            [PrsnOda, PrsnYtk, 'DOLU']
           );
           
           console.log('✅ Yeni oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
@@ -272,14 +285,14 @@ export class PersonelService {
               console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk });
               
               const odaYatakBosUpdateQuery = `
-                UPDATE tblOdaYatak 
-                SET OdYatDurum = 'BOŞ' 
+                UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
+                SET OdYatDurum = @2 
                 WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
               `;
               
               const odaYatakBosUpdateResult = await this.personelRepository.query(
                 odaYatakBosUpdateQuery, 
-                [mevcut.PrsnOda, mevcut.PrsnYtk]
+                [mevcut.PrsnOda, mevcut.PrsnYtk, 'BOŞ']
               );
               
               console.log('✅ Eski oda-yatak durumu BOŞ olarak güncellendi:', odaYatakBosUpdateResult);
@@ -298,14 +311,14 @@ export class PersonelService {
               console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk });
               
               const odaYatakBosUpdateQuery = `
-                UPDATE tblOdaYatak 
-                SET OdYatDurum = 'BOŞ' 
+                UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
+                SET OdYatDurum = @2 
                 WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
               `;
               
               const odaYatakBosUpdateResult = await this.personelRepository.query(
                 odaYatakBosUpdateQuery, 
-                [mevcut.PrsnOda, mevcut.PrsnYtk]
+                [mevcut.PrsnOda, mevcut.PrsnYtk, 'BOŞ']
               );
               
               console.log('✅ Eski oda-yatak durumu BOŞ olarak güncellendi:', odaYatakBosUpdateResult);
@@ -360,7 +373,7 @@ export class PersonelService {
       if (personelData.PrsnOda && personelData.PrsnYtk) {
         // Envanter kontrolü
         const odaYatakEnvanterKontrol = await this.personelRepository.query(
-          'SELECT OdYatDurum FROM tblOdaYatak WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1',
+          `SELECT OdYatDurum FROM ${this.dbConfig.getTableName('tblOdaYatak')} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`,
           [personelData.PrsnOda, personelData.PrsnYtk]
         );
 
@@ -375,7 +388,7 @@ export class PersonelService {
 
              // INSERT sorgusu - Veri tipi uyumluluğu için CAST kullan
        const insertQuery = `
-         INSERT INTO tblPersonel (
+         INSERT INTO ${this.dbConfig.getTableName('tblPersonel')} (
            pKytTarihi, PrsnKllnc, PrsnTCN, PrsnAdi, PrsnDurum, PrsnTelNo, 
            PrsnGrsTrh, PrsnCksTrh, PrsnGorev, PrsnYetki, PrsnMaas, PrsnOdGun,
            PrsnUsrNm, PrsnPassw, PrsnDuzey, PrsnOda, PrsnYtk, PrsnDgmTarihi,
@@ -429,14 +442,14 @@ export class PersonelService {
           console.log('🔍 Oda-yatak durumu DOLU yapılıyor:', { oda: personelData.PrsnOda, yatak: personelData.PrsnYtk });
 
           const odaYatakUpdateQuery = `
-            UPDATE tblOdaYatak
-            SET OdYatDurum = 'DOLU'
+            UPDATE ${this.dbConfig.getTableName('tblOdaYatak')}
+            SET OdYatDurum = @2
             WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
           `;
 
           const odaYatakUpdateResult = await this.personelRepository.query(
             odaYatakUpdateQuery,
-            [personelData.PrsnOda, personelData.PrsnYtk]
+            [personelData.PrsnOda, personelData.PrsnYtk, 'DOLU']
           );
 
           console.log('✅ Oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
@@ -490,10 +503,10 @@ export class PersonelService {
       const personelQuery = `
         SELECT TOP 1 PrsnNo 
         FROM ${personelTableName} 
-        WHERE PrsnAdi = @0 AND PrsnDurum = 'ÇALIŞIYOR'
+        WHERE PrsnAdi = @0 AND PrsnDurum = @1
       `;
       
-      const personelResult = await this.personelRepository.query(personelQuery, [tahakkukData.personel]);
+      const personelResult = await this.personelRepository.query(personelQuery, [tahakkukData.personel, 'ÇALIŞIYOR']);
       
       if (!personelResult || personelResult.length === 0) {
         throw new Error('Seçilen personel bulunamadı');
@@ -640,17 +653,25 @@ export class PersonelService {
         SELECT 
           ISNULL(SUM(
             CASE 
-              WHEN i.islemTip IN ('GELİR', 'Çıkan') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN i.islemTutar 
-              WHEN i.islemTip IN ('GİDER', 'Giren') and (i.islemBilgi not like '%=DEPOZİTO TAHSİLATI=%' and i.islemBilgi not like '%=DEPOZİTO İADESİ=%') THEN -i.islemTutar
+              WHEN i.islemTip IN (@1, @2) and (i.islemBilgi not like @3 and i.islemBilgi not like @4) THEN i.islemTutar 
+              WHEN i.islemTip IN (@5, @6) and (i.islemBilgi not like @3 and i.islemBilgi not like @4) THEN -i.islemTutar
               ELSE 0
             END
           ), 0) as PersonelBakiye
         FROM ${islemTableName} i
         WHERE i.islemCrKod = @0
-          AND (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
+          AND (i.islemBilgi NOT LIKE @3 AND i.islemBilgi NOT LIKE @4)
       `;
       
-      const bakiyeResult = await this.personelRepository.query(bakiyeQuery, [cariKod]);
+      const bakiyeResult = await this.personelRepository.query(bakiyeQuery, [
+        cariKod,
+        'GELİR',
+        'Çıkan',
+        '%=DEPOZİTO TAHSİLATI=%',
+        '%=DEPOZİTO İADESİ=%',
+        'GİDER',
+        'Giren'
+      ]);
       const bakiye = Number(bakiyeResult[0]?.PersonelBakiye || 0);
       
       console.log('✨ Personel bakiyesi hesaplandı:', bakiye);
