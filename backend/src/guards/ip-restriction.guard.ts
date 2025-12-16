@@ -74,15 +74,19 @@ export class IpRestrictionGuard implements CanActivate {
     // Püf Nokta: Super admin ve yetkili kullanıcılar her zaman erişebilir
     const user = request.user;
     if (user && this.exemptUsers.includes(user.username)) {
-      console.log(`IP Restriction - ${user.username} user bypassed (exempt user)`);
+      if (process.env.NODE_ENV === 'development' || process.env.DEBUG_IP_CHECK === 'true') {
+        console.log(`IP Restriction - ${user.username} user bypassed (exempt user)`);
+      }
       return true;
     }
 
     // Client IP adresini al
     const clientIp = this.getClientIp(request);
 
-    // Debug için console'a yazdır (production'da kaldırılabilir)
-    console.log(`IP Restriction Check - Client IP: ${clientIp}, Route: ${request.url}, User: ${user?.username || 'anonymous'}`);
+    // Debug için console'a yazdır (sadece development modunda)
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_IP_CHECK === 'true') {
+      console.log(`IP Restriction Check - Client IP: ${clientIp}, Route: ${request.url}, User: ${user?.username || 'anonymous'}`);
+    }
 
     // IPv6 localhost'u IPv4'e çevir
     const normalizedIp = clientIp === '::1' ? '127.0.0.1' : clientIp;

@@ -157,52 +157,13 @@ export class OdemeIslemService {
         }
       }
 
-      // Eğer bu transaction'da depozito tahsilatı yapıldıysa, ilgili müşterinin
-      // tblislem tablosunda islemBilgi LIKE '%DEPOZİTO ALACAĞI%' olan son kaydının islemArac alanını güncelle
-      try {
-        if (lastDepositArac && dto.islemler && dto.islemler.length > 0) {
-          // Müşteri TCN veya MusteriNo'dan cari kodu üret
-          const first = dto.islemler[0];
-          let musteriNo: number | undefined = first.musteriNo;
-          if (!musteriNo && first.MstrTCN) {
-            const musteriData = await this.getMusteriBilgiByTCN(
-              first.MstrTCN,
-              queryRunner,
-            );
-            musteriNo = musteriData?.MstrNo;
-          }
-          if (musteriNo) {
-            const cariKod =
-              first.MstrHspTip === 'Kurumsal'
-                ? `MK${musteriNo}`
-                : `MB${musteriNo}`;
-            const tableName = this.dbConfig.getTableName('tblislem');
-            const updateQuery = `
-        WITH lastRow AS (
-                SELECT TOP (1) islemNo
-                FROM ${tableName}
-                WHERE islemCrKod = @1 AND islemBilgi LIKE @2
-                ORDER BY islemNo DESC
-              )
-              UPDATE t
-              SET t.islemArac = @0
-              FROM ${tableName} AS t
-              INNER JOIN lastRow lr ON lr.islemNo = t.islemNo
-            `; //OPTION (MAXDOP 2);
-            await this.transactionService.executeQuery(
-              queryRunner,
-              updateQuery,
-              [lastDepositArac, cariKod, '%=DEPOZİTO ALACAĞI=%'],
-            );
-            this.logger.log(
-              'Depozito alacağı son kaydın islemArac alanı güncellendi',
-            );
-          }
-        }
-      } catch (e) {
-        this.logger.warn('Depozito alacağı islemArac güncelleme uyarısı:', e);
-        // Bu adım kritik değil; ana transaction'ı bozmayalım.
-      }
+      // 🔥 DEPOZİTO ALACAĞI GÜNCELLEME - DEVRE DIŞI BIRAKILDI
+      // NOT: '=DEPOZİTO ALACAĞI=' içeren kayıtlar artık eklenmediği için güncelleme kodu kaldırıldı
+      // try {
+      //   ... depozito alacağı güncelleme kodu kaldırıldı ...
+      // } catch (e) {
+      //   ...
+      // }
     });
 
     return {

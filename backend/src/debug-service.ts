@@ -48,8 +48,8 @@ async function debugMusteriBakiye() {
     // 3. Test CURRENT dashboard.service.ts logic (No Wildcards)
     const currentQuery = `
         SELECT 
-          SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM tblIslem
         WHERE islemCrKod = '${cariKod}'
     `;
@@ -59,8 +59,8 @@ async function debugMusteriBakiye() {
     // 4. Test PROPOSED logic (With Wildcards)
     const proposedQuery = `
       SELECT 
-        SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) LIKE 'GEL%R' OR LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN' THEN islemTutar ELSE 0 END) -
-        SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%DER' OR LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%REN' THEN islemTutar ELSE 0 END) as MusteriBakiye
+        SUM(CASE WHEN islemTip LIKE 'GELİR' OR islemTip = 'Çıkan' THEN islemTutar ELSE 0 END) -
+        SUM(CASE WHEN islemTip LIKE 'GİDER' OR islemTip LIKE 'Giren' THEN islemTutar ELSE 0 END) as MusteriBakiye
       FROM tblIslem
       WHERE islemCrKod = '${cariKod}'
     `;

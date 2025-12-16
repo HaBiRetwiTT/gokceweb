@@ -1508,8 +1508,8 @@ function updateBarChartSeri(
   }
   
   // 🔄 Dinamik label'lar
-  const gelirLabel = islemTipMode.value === 'kasa' ? 'GİREN' : 'GELİR'
-  const giderLabel = islemTipMode.value === 'kasa' ? 'ÇIKAN' : 'GİDER'
+  const gelirLabel = islemTipMode.value === 'kasa' ? 'Giren' : 'GELİR'
+  const giderLabel = islemTipMode.value === 'kasa' ? 'Çıkan' : 'GİDER'
   
   barInstance = new Chart(barChart.value, {
     type: 'bar',

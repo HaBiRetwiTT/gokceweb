@@ -783,13 +783,14 @@ export class DashboardService {
         ),
         MusteriBakiyeleri AS (
           -- Müşteri bakiye hesaplamaları (yeni mantık)
+          -- NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN islemTip IN (@6, @7) AND islemBilgi NOT LIKE @10 AND islemBilgi NOT LIKE @11 THEN islemTutar 
-			 WHEN islemTip IN (@8, @9) AND islemBilgi NOT LIKE @10 AND islemBilgi NOT LIKE @11 THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = @9 AND islemBilgi LIKE @10 THEN islemTutar WHEN islemTip = @7 AND islemBilgi LIKE @11 THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN islemTip IN (@6, @7) AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+			 WHEN islemTip IN (@8, @9) AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN islemTip = @9 AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = @7 AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
           FROM ${tables.islem}
-          WHERE islemCrKod LIKE @12
+          WHERE islemCrKod LIKE @10
           GROUP BY islemCrKod
         ),
         BorcluAlacakliStats AS (
@@ -838,9 +839,7 @@ export class DashboardService {
         'Çıkan', // @7
         'GİDER', // @8
         'Giren', // @9
-        '%=DEPOZİTO TAHSİLATI=%', // @10
-        '%=DEPOZİTO İADESİ=%', // @11
-        'M%', // @12
+        'M%', // @10 (eski @12)
       ];
 
       const resultUnknown = (await this.musteriRepository.query(unifiedStatsQuery, params)) as unknown;
@@ -1354,12 +1353,13 @@ export class DashboardService {
       const usePagination = limit < 1000;
 
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1439,12 +1439,13 @@ export class DashboardService {
       });
 
       // Toplam sayıyı ayrı hesapla (daha hızlı)
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const countQuery = `
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1483,14 +1484,15 @@ export class DashboardService {
       const orderByClause = 'ORDER BY CONVERT(Date, c.cKytTarihi, 104) ASC, c.CariAdi ASC';
 
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
-             WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'GİREN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN islemTutar WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
-                    WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
         ),
         SonKonaklamaBilgileri AS (SELECT CariKod, CksPlnTrh
 		FROM (SELECT IIF(v.MstrHspTip = 'BİREYSEL', 'MB', 'MK') + CAST(v.MstrNo AS NVARCHAR) as CariKod, COALESCE(NULLIF(v.KnklmCksTrh, ''), v.KnklmPlnTrh) as CksPlnTrh,
@@ -1506,14 +1508,15 @@ export class DashboardService {
       const result: any[] = await this.musteriRepository.query(query);
 
       // Toplam sayıyı ayrı hesapla (daha hızlı) - YENİ SORGU KODU
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const countQuery = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
-             WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'GİREN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN islemTutar WHEN LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN' AND UPPER(islemBilgi) LIKE '%DEPOZİTO%' THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
+            SUM(CASE WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar 
-                    WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
         )
         SELECT COUNT(*) as TotalCount
         FROM MusteriBakiyeleri mb 
@@ -1546,12 +1549,13 @@ export class DashboardService {
       const usePagination = limit < 1000;
 
       // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -1610,12 +1614,13 @@ export class DashboardService {
       const result: any[] = await this.musteriRepository.query(query);
 
       // Toplam sayıyı ayrı hesapla (daha hızlı)
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const countQuery = `
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GELİR', 'ÇIKAN') THEN islemTutar ELSE 0 END) -
-            SUM(CASE WHEN LTRIM(RTRIM(UPPER(islemTip))) IN ('GİDER', 'GİREN') THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE left(islemCrKod,1) = 'M'
           GROUP BY islemCrKod
@@ -2038,14 +2043,16 @@ export class DashboardService {
   }
 
   // 🔥 MÜŞTERİ BAKİYE HESAPLAMA
+  // Mantık: (GELİR, Çıkan) = Gelir (bakiyeye eklenir), (GİDER, Giren) = Gider (bakiyeden çıkarılır)
+  // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
   async getMusteriBakiye(cariKod: string): Promise<number> {
     try {
       const tables = this.dbConfig.getTables();
 
       const query = `
         SELECT 
-          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'GEL%R' OR LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%DER' OR LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%REN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as MusteriBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
         FROM ${tables.islem}
         WHERE islemCrKod = @0
       `;
@@ -2086,8 +2093,8 @@ export class DashboardService {
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'GEL%R' OR LTRIM(RTRIM(UPPER(islemTip))) = 'ÇIKAN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN (LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%DER' OR LTRIM(RTRIM(UPPER(islemTip))) LIKE 'G%REN') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
+          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
+          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as ToplamFirmaBakiye
         FROM ${tables.islem}
         WHERE islemCrKod IN (${cariKodParametreleri})
       `;
@@ -2523,9 +2530,10 @@ export class DashboardService {
     const now = new Date();
 
     for (const islem of islemList) {
-      // Eğer islemBilgi'de 'DEPOZİTO' ifadesi geçiyorsa bu kaydı hesap dışı bırak
-      // (Büyük/küçük harf duyarsız kontrol)
-      if ((islem.islemBilgi || '').toUpperCase().includes('DEPOZİTO')) {
+      // Eğer islemBilgi'de depozito işlemi geçiyorsa bu kaydı hesap dışı bırak
+      // Sadece spesifik depozito formatlarını kontrol et
+      const islemBilgiUpper = (islem.islemBilgi || '').toUpperCase();
+      if (islemBilgiUpper.includes('=DEPOZİTO TAHSİLATI=') || islemBilgiUpper.includes('=DEPOZİTO İADESİ=')) {
         this.debugLog('🔍 DEPOZİTO kaydı atlandı:', islem.islemBilgi);
         continue;
       }
@@ -2626,8 +2634,8 @@ export class DashboardService {
     try {
       const result: any = await this.musteriRepository.query(`
         SELECT 
-          SUM(CASE WHEN LTRIM(RTRIM(islemTip)) = 'Giren' AND islemBilgi LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as DepozitoTahsilat,
-          SUM(CASE WHEN LTRIM(RTRIM(islemTip)) = 'Ç%kan' AND islemBilgi LIKE '%DEPOZ%T%' THEN islemTutar ELSE 0 END) as DepozitoIade
+          SUM(CASE WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as DepozitoTahsilat,
+          SUM(CASE WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar ELSE 0 END) as DepozitoIade
         FROM ${this.dbConfig.getTables().islem} 
         WHERE islemCrKod = @0
       `, [cariKod]);
@@ -2658,13 +2666,14 @@ export class DashboardService {
       const tables = this.dbConfig.getTables();
 
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU (hem bakiye hem depozito 0 olan müşteriler)
+      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
         WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN (LTRIM(RTRIM(islemTip)) LIKE 'GEL%R' OR LTRIM(RTRIM(islemTip)) LIKE 'Ç%kan') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar 
-             WHEN (LTRIM(RTRIM(islemTip)) LIKE 'G%DER' OR LTRIM(RTRIM(islemTip)) = 'Giren') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN -islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye
             FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN (LTRIM(RTRIM(islemTip)) LIKE 'GEL%R' OR LTRIM(RTRIM(islemTip)) LIKE 'Ç%kan') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN islemTutar 
-                    WHEN (LTRIM(RTRIM(islemTip)) LIKE 'G%DER' OR LTRIM(RTRIM(islemTip)) = 'Giren') AND islemBilgi NOT LIKE '%DEPOZ%T%' THEN -islemTutar ELSE 0 END) = 0
+            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
         )
         SELECT COUNT(*) as BakiyesizHesaplarSayisi
         FROM MusteriBakiyeleri mb 

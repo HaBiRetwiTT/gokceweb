@@ -886,50 +886,11 @@ export class MusteriService {
         1.00                           // @16
       ]);
 
-      // 🔥 DEPOZİTO KAYDI - Eğer depozito dahil ve bedel > 0 ise
-      if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
-        console.log('Depozito kaydı ekleniyor:', {
-          musteriDurumu: islemData.musteriDurumu,
-          depozitoBedel: islemData.depozito.bedel,
-          depozitoDahil: islemData.depozito.dahil
-        });
-
-        // İşlem bilgisi - müşteri durumuna göre
-        let depozitoBilgi: string;
-        if (islemData.musteriDurumu === 'YENI') {
-          depozitoBilgi = 'İLK KONAKLAMA =DEPOZİTO ALACAĞI=';
-        } else {
-          depozitoBilgi = 'KONAKLAMA =DEPOZİTO ALACAĞI=';
-        }
-
-        const depozitQuery = `EXEC ${storedProcedures.islemEkle} 
-          @iKytTarihi = @0, @islemKllnc = @1, @islemCrKod = @2, @islemOzel1 = @3, @islemOzel2 = @4,
-          @islemOzel3 = @5, @islemOzel4 = @6, @islemArac = @7, @islemTip = @8, @islemGrup = @9,
-          @islemAltG = @10, @islemBilgi = @11, @islemMiktar = @12, @islemBirim = @13, @islemTutar = @14,
-          @islemDoviz = @15, @islemKur = @16`;
-
-        await this.musteriRepository.query(depozitQuery, [
-          this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
-          islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
-          cariKod,                       // @2
-          konaklamaTipi,                 // @3
-          `${blok}-BLOK - ${kat}. KAT`,  // @4
-          `${odaNo} - ${yatakNo}`,       // @5
-          '',                            // @6 - islemOzel4 boş (depozito kaydı için)
-          'Nakit Kasa(TL)',              // @7 - DEĞİŞTİ: 'Cari İşlem' -> 'Nakit Kasa(TL)'
-          'Çıkan',                       // @8 - DEĞİŞTİ: 'GELİR' -> 'Çıkan'
-          'Konaklama',                   // @9
-          islemData.MstrAdi,             // @10
-          depozitoBilgi,                 // @11 - DEĞİŞTİ: Depozito bilgisi
-          1.00,                          // @12
-          'ADET',                        // @13
-          islemData.depozito.bedel,      // @14 - DEĞİŞTİ: Depozito bedeli
-          'TL',                          // @15
-          1.00                           // @16
-        ]);
-
-        console.log('Depozito kaydı başarıyla eklendi');
-      }
+      // 🔥 DEPOZİTO KAYDI - DEVRE DIŞI BIRAKILDI
+      // NOT: '=DEPOZİTO ALACAĞI=' içeren otomatik kayıt ekleme iş akışından çıkarıldı
+      // if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
+      //   ... depozito kaydı kodu kaldırıldı ...
+      // }
 
       return { success: true };
     } catch (error) {
@@ -2437,85 +2398,12 @@ export class MusteriService {
         parameters
       );
 
-      // 🔥 DEPOZİTO KAYDI - Eğer depozito dahil ve bedel > 0 ise
-      if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
-        console.log('Depozito kaydı ekleniyor (Transaction-Safe):', {
-          musteriDurumu: islemData.musteriDurumu,
-          depozitoBedel: islemData.depozito.bedel,
-          depozitoDahil: islemData.depozito.dahil
-        });
-
-        // İşlem bilgisi - müşteri durumuna göre
-        let depozitoBilgi: string;
-        if (islemData.musteriDurumu === 'YENI') {
-          depozitoBilgi = 'İLK KONAKLAMA =DEPOZİTO ALACAĞI=';
-        } else {
-          depozitoBilgi = 'KONAKLAMA =DEPOZİTO ALACAĞI=';
-        }
-
-        const depozitParameters = [
-          this.getCurrentTransactionDate(), // @0 - iKytTarihi: Her zaman işlemin yapıldığı günün tarihi
-          islemData.MstrKllnc || 'admin', // @1 - Kullanıcı adı (varsayılan: admin)
-          cariKod,                       // @2
-          konaklamaTipi,                 // @3
-          `${blok}-BLOK - ${kat}. KAT`,  // @4
-          `${odaNo} - ${yatakNo}`,       // @5
-          '',                            // @6 - islemOzel4 boş
-          'Nakit Kasa(TL)',              // @7 - DEĞİŞTİ: 'Cari İşlem' -> 'Nakit Kasa(TL)'
-          'Çıkan',                       // @8 - DEĞİŞTİ: 'GELİR' -> 'Çıkan'
-          'Konaklama',                   // @9
-          islemData.MstrAdi,             // @10
-          depozitoBilgi,                 // @11 - DEĞİŞTİ: Depozito bilgisi
-          1.00,                          // @12
-          'ADET',                        // @13
-          islemData.depozito.bedel,      // @14 - DEĞİŞTİ: Depozito bedeli
-          'TL',                          // @15
-          1.00                           // @16
-        ];
-
-        await this.transactionService.executeStoredProcedure(
-          queryRunner,
-          storedProcedures.islemEkle,
-          depozitParameters
-        );
-
-        console.log('Depozito kaydı başarıyla eklendi (Transaction-Safe)');
-
-        // 🔥 DEPOZİTO TAHSİLATI ARACI VE TUTARINA GÖRE SON "=DEPOZİTO ALACAĞI=" KAYDINI GÜNCELLE
-        try {
-          const alinacakTutar = Number(islemData.depozito.bedel) || 0;
-          const tahsilatArac = 'Nakit Kasa(TL)'; // Yukarıda kullanılan islemArac değeri ile aynı
-          if (alinacakTutar > 0) {
-            // 1) İlgili müşterinin cari kodunu bul (zaten var): cariKod
-            // 2) En son "=DEPOZİTO ALACAĞI=" kaydını çek
-            const islemTableName = this.dbConfig.getTableName('tblislem');
-            const selectSql = `
-              SELECT TOP 1 islemNo, islemTutar
-              FROM ${islemTableName} WITH (UPDLOCK, ROWLOCK)
-              WHERE islemCrKod = @0 AND islemBilgi LIKE '%=DEPOZİTO ALACAĞI=%'
-              ORDER BY islemNo DESC`;
-            const rows: { islemNo: number; islemTutar: number }[] = await this.transactionService.executeQuery(queryRunner, selectSql, [cariKod]);
-            if (rows && rows.length > 0) {
-              const { islemNo, islemTutar } = rows[0];
-              const kalan = Number(islemTutar) - alinacakTutar;
-              if (kalan > 0) {
-                // 3a) UPDATE: Tutarı düş ve aracı tahsilat aracına eşitle
-                const updateSql = `
-                  UPDATE ${islemTableName}
-                  SET islemTutar = @0, islemArac = @1
-                  WHERE islemNo = @2`;
-                await this.transactionService.executeQuery(queryRunner, updateSql, [kalan, tahsilatArac, islemNo]);
-              } else {
-                // 3b) DELETE: Kalan ≤ 0 ise kaydı sil
-                const deleteSql = `DELETE FROM ${islemTableName} WHERE islemNo = @0`;
-                await this.transactionService.executeQuery(queryRunner, deleteSql, [islemNo]);
-              }
-            }
-          }
-        } catch (depError) {
-          console.warn('Depozito bakiyesi güncellenirken uyarı (devam ediliyor):', depError);
-        }
-      }
+      // 🔥 DEPOZİTO KAYDI - DEVRE DIŞI BIRAKILDI
+      // NOT: '=DEPOZİTO ALACAĞI=' içeren otomatik kayıt ekleme iş akışından çıkarıldı
+      // Depozito kaydı ve güncelleme kodları kaldırıldı
+      // if (islemData.depozito?.dahil === true && islemData.depozito.bedel > 0) {
+      //   ... depozito kaydı ve güncelleme kodu kaldırıldı ...
+      // }
 
       console.log('=== kaydetIslemWithTransaction tamamlandı (Transaction-Safe) ===');
     } catch (error) {

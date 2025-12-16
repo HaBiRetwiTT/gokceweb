@@ -710,12 +710,21 @@ export class KonaklamaTakvimService {
    * DD.MM.YYYY formatındaki tarihi ISO formatına çevirir
    */
   private parseDate(dateStr: string): string {
-    const parts = dateStr.split('.');
+    if (!dateStr) return dateStr;
+    // Önce trim yap ve fazladan boşlukları temizle
+    const trimmed = dateStr.trim().replace(/\s+/g, ' ');
+    // Eğer birden fazla tarih varsa (boşlukla ayrılmış), sadece ilkini al
+    const firstDate = trimmed.split(' ')[0];
+    const parts = firstDate.split('.');
     if (parts.length === 3) {
+      // Her parçayı trim et ve sayıya çevir
+      const day = parts[0].trim();
+      const month = parts[1].trim();
+      const year = parts[2].trim();
       // DD.MM.YYYY -> YYYY-MM-DD
-      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
-    return dateStr;
+    return dateStr.trim();
   }
 
   /**
