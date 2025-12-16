@@ -1091,23 +1091,41 @@ export class MusteriService {
     }
   }
 
-  async checkOdaYatakMusaitlik(odaYatakStr: string | { label?: string; value?: string }): Promise<{ musait: boolean, message: string }> {
+  async checkOdaYatakMusaitlik(
+    odaYatakStr: string | { label?: string; value?: string },
+    queryRunner?: QueryRunner
+  ): Promise<{ musait: boolean, message: string }> {
     try {
       console.log('=== checkOdaYatakMusaitlik called ===');
       console.log('odaYatakStr:', odaYatakStr);
+      console.log('queryRunner kullanılıyor:', !!queryRunner);
 
       const { odaNo, yatakNo } = this.parseOdaYatak(odaYatakStr);
       console.log('Parse edilen oda-yatak:', { odaNo, yatakNo });
 
       const tables = this.dbConfig.getTables();
-      const query = `
-        SELECT OdYatDurum, OdYatKllnc, oKytTarihi
-        FROM ${tables.odaYatak} 
-        WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
-      `;
+      
+      // Transaction içindeyse UPDLOCK kullanarak odayı kilitle (race condition önleme)
+      // Transaction dışındaysa normal SELECT kullan
+      const query = queryRunner
+        ? `
+          SELECT OdYatDurum, OdYatKllnc, oKytTarihi
+          FROM ${tables.odaYatak} WITH (UPDLOCK, ROWLOCK)
+          WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+        `
+        : `
+          SELECT OdYatDurum, OdYatKllnc, oKytTarihi
+          FROM ${tables.odaYatak} 
+          WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+        `;
 
-      const result: { OdYatDurum: string; OdYatKllnc?: string; oKytTarihi?: string }[] = await this.odaYatakRepository.query(query, [odaNo, yatakNo]);
+      // Transaction içindeyse queryRunner kullan, değilse normal repository kullan
+      const result: { OdYatDurum: string; OdYatKllnc?: string; oKytTarihi?: string }[] = queryRunner
+        ? await queryRunner.query(query, [odaNo, yatakNo])
+        : await this.odaYatakRepository.query(query, [odaNo, yatakNo]);
       console.log('Oda-yatak durum sorgusu sonucu:', result);
+      console.log('Oda-yatak durum değeri (raw):', result[0]?.OdYatDurum);
+      console.log('Oda-yatak durum değeri (normalized):', result[0] ? (result[0].OdYatDurum || '').toString().trim().toUpperCase() : 'N/A');
 
       if (result.length === 0) {
         return {
@@ -1118,9 +1136,19 @@ export class MusteriService {
 
       const odaYatakDurum = result[0];
 
-      const durumNorm = (odaYatakDurum.OdYatDurum || '').toString().trim().toUpperCase();
+      // Durum değerini normalize et - boşlukları ve özel karakterleri temizle
+      const durumRaw = (odaYatakDurum.OdYatDurum || '').toString();
+      const durumNorm = durumRaw.trim().replace(/\s+/g, ' ').toUpperCase();
+      
+      console.log('Durum analizi:', {
+        raw: durumRaw,
+        normalized: durumNorm,
+        length: durumRaw.length,
+        charCodes: durumRaw.split('').map(c => c.charCodeAt(0))
+      });
+      
       // BOŞ veya NULL/Empty durumunu müsait kabul et
-      if (durumNorm === 'BOŞ' || durumNorm === '') {
+      if (durumNorm === 'BOŞ' || durumNorm === '' || durumNorm === 'NULL') {
         return {
           musait: true,
           message: 'Oda-yatak müsait'
@@ -2338,9 +2366,20 @@ export class MusteriService {
   ): Promise<void> {
     try {
       console.log('=== kaydetIslemWithTransaction başlatıldı ===');
+      console.log('islemData:', JSON.stringify(islemData, null, 2));
+      console.log('musteriNo:', musteriNo);
 
       const now = new Date();
-      const { odaNo, yatakNo } = this.parseOdaYatak(islemData.OdaYatak);
+      let odaNo: string, yatakNo: string;
+      try {
+        const parsed = this.parseOdaYatak(islemData.OdaYatak);
+        odaNo = parsed.odaNo;
+        yatakNo = parsed.yatakNo;
+        console.log('Oda-Yatak parse başarılı:', { odaNo, yatakNo });
+      } catch (parseError) {
+        console.error('Oda-Yatak parse hatası:', parseError);
+        throw new Error(`Oda-Yatak parse hatası: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
 
 
 
@@ -2392,11 +2431,19 @@ export class MusteriService {
         1.00                           // @16
       ];
 
-      await this.transactionService.executeStoredProcedure(
-        queryRunner,
-        storedProcedures.islemEkle,
-        parameters
-      );
+      console.log('Stored procedure çağrılıyor:', storedProcedures.islemEkle);
+      console.log('Parameters:', parameters);
+      try {
+        await this.transactionService.executeStoredProcedure(
+          queryRunner,
+          storedProcedures.islemEkle,
+          parameters
+        );
+        console.log('Stored procedure başarıyla tamamlandı');
+      } catch (spError) {
+        console.error('Stored procedure hatası:', spError);
+        throw new Error(`Stored procedure hatası: ${spError instanceof Error ? spError.message : String(spError)}`);
+      }
 
       // 🔥 DEPOZİTO KAYDI - DEVRE DIŞI BIRAKILDI
       // NOT: '=DEPOZİTO ALACAĞI=' içeren otomatik kayıt ekleme iş akışından çıkarıldı
@@ -2408,7 +2455,8 @@ export class MusteriService {
       console.log('=== kaydetIslemWithTransaction tamamlandı (Transaction-Safe) ===');
     } catch (error) {
       console.error('İşlem kaydı hatası (Transaction):', error);
-      throw new Error('İşlem kaydı yapılamadı');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`İşlem kaydı yapılamadı: ${errorMessage}`);
     }
   }
 

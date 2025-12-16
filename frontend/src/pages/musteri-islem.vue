@@ -2173,10 +2173,17 @@ async function submitForm() {
         // ignore
       }
     } else {
-      notify.value = 'Kayıt sırasında hata oluştu!'
+      const errorMsg = response.data?.message || response.data?.error || 'Kayıt sırasında hata oluştu!';
+      notify.value = errorMsg;
+      console.error('Kayıt başarısız - response.data:', response.data);
     }
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      response: isAxiosError(error) ? error.response?.data : null,
+      status: isAxiosError(error) ? error.response?.status : null
+    });
     if (
       isAxiosError(error) &&
       error.response &&

@@ -155,8 +155,10 @@ export class MusteriController {
       // 🔒 TRANSACTION İÇİNDE TÜM İŞLEMLERİ GÜVENLİ ÇALIŞTIR
       const result = await this.transactionService.executeInTransaction(async (queryRunner) => {
         // 1. Önce oda-yatak müsaitlik kontrolü yap (race condition önlemi)
+        // Transaction içinde olduğumuz için queryRunner kullanarak transaction snapshot'ını görmemiz gerekiyor
         const musaitlikKontrol = await this.musteriService.checkOdaYatakMusaitlik(
-          musteriData.OdaYatak as string | { label?: string; value?: string }
+          musteriData.OdaYatak as string | { label?: string; value?: string },
+          queryRunner
         );
         if (!musaitlikKontrol.musait) {
           // KİRLİ ise kullanıcı onayı gerektirir
