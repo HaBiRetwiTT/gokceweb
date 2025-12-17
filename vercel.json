@@ -2,11 +2,6 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist/spa",
   "installCommand": "npm install",
-  "functions": {
-    "api/[...path].ts": {
-      "runtime": "@vercel/node"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
