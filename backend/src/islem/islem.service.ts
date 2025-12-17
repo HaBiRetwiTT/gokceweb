@@ -3686,18 +3686,18 @@ export class IslemService {
         pIdx += 2;
       }
 
-      // Depozito filtreleri - DEPOZİTO haricindeki ödeme tipleri için depozito işlemlerini hariç tut
-      // Sadece EFT ve Acenta için depozito kayıtları filtrelenir
-      const depozitoFilter = ` AND (islemBilgi IS NULL OR islemBilgi NOT LIKE @${pIdx})`;
+      // Depozito filtreleri - KALDIRILDI: DEPOZİTO TAHSİLATI ve DEPOZİTO İADESİ ifadeleri geçen satırlar da toplamlara dahil edilecek
+      // Artık Nakit, EFT, Kart ve Acenta için depozito kayıtları filtrelenmiyor
+      const depozitoFilter = ''; // Boş string - filtre kaldırıldı
       const depozitoLikeParamIdx = pIdx;
-      params.push('%DEPOZİTO%');
-      pIdx++;
+      params.push('%=DEPOZİTO TAHSİLATI=%', '%=DEPOZİTO İADESİ=%'); // Depozito sorgusu için hala gerekli
+      pIdx += 2;
 
       // İşlem tipi kontrolü (kasa modunda 'Giren'/'Çıkan', cari modunda 'GELİR'/'GİDER')
       // NOT: Kart ve Depozito gibi bazı işlemler her iki modda da görünebilir, bu yüzden
       // tipleri birleştiriyoruz.
 
-      // Nakit Kasa(TL) - Depozito filtreleme var (depozito kayıtları hariç)
+      // Nakit Kasa(TL) - Depozito filtreleme KALDIRILDI (DEPOZİTO TAHSİLATI ve DEPOZİTO İADESİ dahil)
       const nakitQuery = `
         SELECT 
           SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxNakit}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
@@ -3706,7 +3706,7 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Banka EFT - Depozito filtreleme var (depozito kayıtları hariç)
+      // Banka EFT - Depozito filtreleme KALDIRILDI (DEPOZİTO TAHSİLATI ve DEPOZİTO İADESİ dahil)
       const eftQuery = `
         SELECT 
           SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxEft}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
@@ -3715,7 +3715,7 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Kredi Kartları - Depozito filtreleme var (depozito kayıtları hariç)
+      // Kredi Kartları - Depozito filtreleme KALDIRILDI (DEPOZİTO TAHSİLATI ve DEPOZİTO İADESİ dahil)
       const kartQuery = `
         SELECT 
           SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxKart}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,
@@ -3724,7 +3724,7 @@ export class IslemService {
         WHERE CONVERT(DATE, iKytTarihi, 104) = CONVERT(DATE, @4, 104)
       `;
 
-      // Acenta Tahsilat - Depozito filtreleme var
+      // Acenta Tahsilat - Depozito filtreleme KALDIRILDI (DEPOZİTO TAHSİLATI ve DEPOZİTO İADESİ dahil)
       const acentaQuery = `
         SELECT 
           SUM(CASE WHEN islemTip IN (@0, @1) AND islemArac = @${idxAcenta}${detailTableFilter}${depozitoFilter} THEN islemTutar ELSE 0 END) as giren,

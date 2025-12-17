@@ -4343,86 +4343,48 @@ function stopDrag() {
 
 
 
-// 🔥 AKILLI KART SEÇİM FONKSİYONU (asenkron)
-async function selectBestCard() {
+// 🔥 AKILLI KART SEÇİM FONKSİYONU (OPTİMİZE EDİLDİ - Stats verisini kullanır)
+function selectBestCard() {
+  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Stats verisini kullan, gereksiz API çağrıları yapma!
+  // Stats zaten refreshData() içinde yüklenmiş, onu kullan
+  
+  const currentStats = stats.value;
+  
   // 🔥 ÖNCELİK SIRASI: Süresi dolan kartlar her zaman öncelikli!
-  
-  // 1. Önce süresi dolan kartlarını kontrol et
-  const suresiDolanList = await loadMusteriListesiReturn('suresi-dolan');
-  const suresiDolanSayisi = suresiDolanList ? suresiDolanList.length : 0;
-  
-  // Süresi dolan kart sayısı > 0 ise daima bu kart seçilir
-  if (suresiDolanSayisi > 0) {
+  if ((currentStats.SuresiGecentKonaklama ?? 0) > 0) {
     void loadFilteredData('suresi-dolan');
     return;
   }
   
-  // 2. Süresi dolan kart yoksa (stats verisi 0 ise) devam eden kartını seç
-  const devamEdenList = await loadMusteriListesiReturn('toplam-aktif');
-  const devamEdenSayisi = devamEdenList ? devamEdenList.length : 0;
-  
-  if (devamEdenSayisi > 0) {
+  // 2. Süresi dolan kart yoksa devam eden kartını seç
+  if ((currentStats.DevamEdenKonaklama ?? 0) > 0) {
     void loadFilteredData('toplam-aktif');
     return;
   }
   
-  // 3. Diğer kartları kontrol et (devam eden kartı zaten kontrol ettik)
-  const cardTypes = [
-    'alacakli-musteriler',
-    'borclu-musteriler', 
-    'yeni-musteri',
-    'yeni-giris',
-    'bugun-cikan',
-    'cikis-yapanlar'
+  // 3. Diğer kartları stats verisine göre kontrol et (API çağrısı yapmadan!)
+  const cardPriorities = [
+    { count: currentStats.AlacakliMusteriSayisi ?? 0, card: 'alacakli-musteriler' },
+    { count: currentStats.BorcluMusteriSayisi ?? 0, card: 'borclu-musteriler' },
+    { count: currentStats.YeniMusteriKonaklama ?? 0, card: 'yeni-musteri' },
+    { count: currentStats.YeniGirisKonaklama ?? 0, card: 'yeni-giris' },
+    { count: currentStats.BugünCikanKonaklama ?? 0, card: 'bugun-cikan' },
+    { count: cikisYapanlarSayisi.value ?? 0, card: 'cikis-yapanlar' },
   ];
 
-  let bestCard = null;
-  let maxCount = 0;
+  // En yüksek sayıya sahip kartı bul
+  const bestCard = cardPriorities.reduce((max, current) => 
+    current.count > max.count ? current : max
+  , cardPriorities[0]);
 
-  for (const cardType of cardTypes) {
-    let list = [];
-    if (cardType === 'borclu-musteriler') {
-      list = await loadBorcluMusterilerReturn();
-    } else if (cardType === 'alacakli-musteriler') {
-      list = await loadAlacakliMusterilerReturn();
-    } else if (cardType === 'cikis-yapanlar') {
-      list = await loadCikisYapanlarListesiReturn();
-    } else {
-      list = await loadMusteriListesiReturn(cardType);
-    }
-    
-    if (list && list.length > maxCount) {
-      maxCount = list.length;
-      bestCard = cardType;
-    }
+  if (bestCard.count > 0) {
+    currentFilter.value = bestCard.card;
+    sessionStorage.setItem('kartliIslemLastCard', bestCard.card);
+    void loadSelectedCardData(bestCard.card);
+  } else {
+    // Varsayılan olarak toplam-aktif'i seç
+    void loadFilteredData('toplam-aktif');
   }
-
-  if (bestCard) {
-    currentFilter.value = bestCard;
-    sessionStorage.setItem('kartliIslemLastCard', bestCard);
-    void loadSelectedCardData(bestCard);
-  }
-}
-
-// Her API için "return" eden versiyonunu yazın:
-async function loadBorcluMusterilerReturn() {
-  const response = await api.get('/dashboard/borclu-musteriler');
-  return response.data.success ? response.data.data : [];
-}
-async function loadAlacakliMusterilerReturn() {
-  const response = await api.get('/dashboard/alacakli-musteriler?page=1&limit=1000');
-  return response.data.success ? response.data.data : [];
-}
-async function loadCikisYapanlarListesiReturn() {
-  const response = await api.get('/dashboard/cikis-yapanlar?tip=TÜMÜ');
-  return response.data.success ? response.data.data : [];
-}
-async function loadMusteriListesiReturn(cardType: string) {
-  const endpoint = cardType === 'yeni-musteri' ? 'yeni-musteri'
-    : cardType === 'yeni-giris' ? 'yeni-giris'
-    : cardType;
-  const response = await api.get(`/dashboard/${endpoint}?tip=TÜMÜ&odaTip=TÜMÜ`);
-  return response.data.success ? response.data.data : [];
 }
 
 // 🔥 SEÇİLEN KARTIN VERİLERİNİ YÜKLEME FONKSİYONU
@@ -4555,7 +4517,7 @@ onMounted(() => {
     
     void (async () => {
       await refreshData();
-      await selectBestCard();
+      selectBestCard();
     })();
 
     // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR

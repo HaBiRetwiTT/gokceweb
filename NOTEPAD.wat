@@ -18,6 +18,18 @@ taskkill /f /im node.exe
   cd backend; npm run build; cd ..;
   cd frontend; npm version patch; npm run build; cd ..;
   git add .; git commit -m "Sistem Sürüm Düzenlemeleri (auto)"; git push origin master
+  =========================================================================
+  YENİ VPS DEPLOYMENT WORKFLOW:
+  =========================================================================
+  YEREL BİLGİSAYARDA:
+  1. .\deploy.ps1                    # Backend + Frontend build + Git push
+  2. .\frontend\deploy-frontend-vps.ps1  # Frontend'i VPS'e kopyala (opsiyonel)
+  
+  VPS'TE:
+  1. cd C:\gokce-backend
+  2. .\deploy-vps.ps1                 # Backend git pull + build + PM2 restart
+  3. Frontend: RDP ile manuel kopyala veya deploy-frontend-vps.ps1 kullan
+  4. iisreset                         # IIS restart
 ========================================================================
 netstat -ano | findstr :3000
 # Çiktidaki PID'yi kullanin:
