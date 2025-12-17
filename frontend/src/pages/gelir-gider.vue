@@ -1750,9 +1750,7 @@ async function loadTedarikciListesi() {
     debugLog('Tedarikçi listesi yükleniyor...')
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-production.up.railway.app'
-      : ''
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
     debugLog('Tedarikçi response status:', response.status)
     debugLog('Tedarikçi response headers:', response.headers)
@@ -1811,9 +1809,7 @@ async function loadMusteriListesi() {
     debugLog('Müşteri listesi yükleniyor...')
 
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-production.up.railway.app'
-      : ''
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/musteri`)
     debugLog('Müşteri response status:', response.status)
     debugLog('Müşteri response headers:', response.headers)
@@ -1872,9 +1868,7 @@ async function testApiConnection() {
     debugLog('API bağlantısı test ediliyor...')
     
     // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.PROD 
-      ? 'https://gokceweb-production.up.railway.app'
-      : ''
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)
