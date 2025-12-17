@@ -28,6 +28,7 @@
     "@quasar/app-vite": "^2.3.0",
     "@quasar/cli": "^2.5.0",
     "@quasar/extras": "^1.16.4",
+    "@vercel/node": "^3.0.0",
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.4.0",
     "autoprefixer": "^10.4.2",
