@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "buildCommand": "cd frontend; npm install; npm run build",
   "outputDirectory": "frontend/dist/spa",
-  "installCommand": "cd frontend && npm install",
+  "installCommand": "cd frontend; npm install",
   "functions": {
     "frontend/api/[...path].ts": {
       "runtime": "@vercel/node"
