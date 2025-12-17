@@ -21,26 +21,51 @@ async function bootstrap() {
   });
   
   // Enable CORS for frontend communication
-  const allowedOrigins = [
-    'http://localhost:9000', // Development
-    'https://gokceweb.vercel.app', // Production - Vercel URL'inizi buraya ekleyin
-    'https://gokcepansiyon-pyxgdccln-habiretwitt-6937s-projects.vercel.app', // Mevcut Vercel URL'iniz
-    'https://*.vercel.app', // Tüm Vercel subdomain'leri
-  ];
-  
+  // VPS'te frontend ve backend aynı sunucuda olduğu için CORS ayarları basitleştirilebilir
   app.enableCors({
-    origin: [
-      'http://localhost:9000',
-      'http://localhost:3000',
-      'https://*.vercel.app',
-      'https://vercel.app',
-      /^https:\/\/.*\.vercel\.app$/,
-    ],
+    origin: (origin, callback) => {
+      // Püf Nokta: origin undefined olabilir (same-origin istekleri için)
+      // Bu durumda izin ver (backend'den backend'e istekler için)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      const allowedOrigins = [
+        'http://localhost:9000', // Development
+        'http://localhost:80', // VPS'te IIS varsayılan port (HTTP)
+        'http://localhost:443', // VPS'te IIS varsayılan port (HTTPS)
+        'http://77.245.151.173', // VPS IP adresi (HTTP) - Frontend
+        'http://77.245.151.173:80', // VPS IP adresi port ile (HTTP) - Frontend
+        'http://77.245.151.173:3000', // VPS IP adresi backend port (HTTP) - API istekleri için
+        // Domain adresi kullanıyorsanız aşağıdaki satırları ekleyin:
+        // 'http://gokcepansiyon.com',
+        // 'https://gokcepansiyon.com',
+        // 'http://www.gokcepansiyon.com',
+        // 'https://www.gokcepansiyon.com',
+      ];
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+    ],
+    exposedHeaders: ['Content-Length', 'Content-Type'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
+    maxAge: 86400, // 24 saat - preflight cache süresi
   });
   
   await app.listen(3000);

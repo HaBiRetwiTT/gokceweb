@@ -17,14 +17,16 @@ declare module 'vue' {
 //  return 'http://localhost:3000'; // Development default
 //};
 
-// Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+// VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
+// Tarayıcı güvenlik politikası nedeniyle public IP'den localhost'a istek yapılamaz
 const getApiBaseUrl = () => {
+  // Production'da VPS IP adresini kullan, development'ta localhost kullan
   if (import.meta.env.PROD) {
-    // Production'da Vercel rewrites ile /api üzerinden proxy yapılacak
-    return '/api';
+    // VPS IP adresi (frontend ve backend aynı VPS'te)
+    return 'http://77.245.151.173:3000';
   }
-  // Development'ta environment variable veya localhost kullan
-  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  // Development'ta localhost kullan
+  return 'http://localhost:3000';
 };
 
 const api = axios.create({ 

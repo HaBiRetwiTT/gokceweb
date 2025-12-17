@@ -362,12 +362,8 @@ const loadChartData = async () => {
       timePeriod: currentTimePeriod
     })
     
-    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
-    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean; PROD?: boolean } }).env || {}
-    const isProd = !!envObj.PROD
-    const isDev = !!envObj.DEV
-    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
-    const apiBaseUrl = isProd ? '/api' : (envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : ''))
+    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
+    const apiBaseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
     const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
       params: {
         timePeriod: currentTimePeriod,
@@ -1017,12 +1013,8 @@ const loadPieChartData = async () => {
       startDate: startDate.value
     })
     
-    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
-    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean; PROD?: boolean } }).env || {}
-    const isProd = !!envObj.PROD
-    const isDev = !!envObj.DEV
-    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
-    const apiBaseUrl = isProd ? '/api' : (envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : ''))
+    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
+    const apiBaseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
     let sqlStartDateForPie = ''
     if (startDate.value) {
       const [day, month, year] = startDate.value.split('.')
