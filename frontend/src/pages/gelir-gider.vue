@@ -1749,8 +1749,10 @@ async function loadTedarikciListesi() {
   try {
     debugLog('Tedarikçi listesi yükleniyor...')
 
-    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+    const baseUrl = import.meta.env.PROD 
+      ? '/api'
+      : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
     debugLog('Tedarikçi response status:', response.status)
     debugLog('Tedarikçi response headers:', response.headers)
@@ -1808,8 +1810,10 @@ async function loadMusteriListesi() {
   try {
     debugLog('Müşteri listesi yükleniyor...')
 
-    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+    const baseUrl = import.meta.env.PROD 
+      ? '/api'
+      : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
     const response = await fetch(`${baseUrl}/cari/musteri`)
     debugLog('Müşteri response status:', response.status)
     debugLog('Müşteri response headers:', response.headers)
@@ -1867,8 +1871,10 @@ async function testApiConnection() {
   try {
     debugLog('API bağlantısı test ediliyor...')
     
-    // Production'da Railway backend URL'ini kullan, development'ta proxy kullan
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+    const baseUrl = import.meta.env.PROD 
+      ? '/api'
+      : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)

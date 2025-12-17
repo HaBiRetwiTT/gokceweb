@@ -17,8 +17,18 @@ declare module 'vue' {
 //  return 'http://localhost:3000'; // Development default
 //};
 
+// Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+const getApiBaseUrl = () => {
+  if (import.meta.env.PROD) {
+    // Production'da Vercel rewrites ile /api üzerinden proxy yapılacak
+    return '/api';
+  }
+  // Development'ta environment variable veya localhost kullan
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+};
+
 const api = axios.create({ 
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: getApiBaseUrl(),
   timeout: 60000, // 60 saniye - büyük veri setleri için
 });
 

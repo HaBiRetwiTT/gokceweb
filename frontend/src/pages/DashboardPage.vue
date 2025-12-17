@@ -362,11 +362,12 @@ const loadChartData = async () => {
       timePeriod: currentTimePeriod
     })
     
-    // Make API call with environment variable (prod'da localhost'a düşmemek için güvenli fallback)
-    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean } }).env || {}
-    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean; PROD?: boolean } }).env || {}
+    const isProd = !!envObj.PROD
     const isDev = !!envObj.DEV
-    const apiBaseUrl = envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : '')
+    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    const apiBaseUrl = isProd ? '/api' : (envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : ''))
     const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
       params: {
         timePeriod: currentTimePeriod,
@@ -1016,11 +1017,12 @@ const loadPieChartData = async () => {
       startDate: startDate.value
     })
     
-    // API base URL fallback ve başlangıç tarihini SQL formatına çevir (prod'da localhost'a düşmemek için güvenli fallback)
-    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean } }).env || {}
-    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    // Production'da Vercel proxy kullan (/api), development'ta direkt backend URL'i kullan
+    const envObj = (import.meta as unknown as { env?: { VITE_API_BASE_URL?: string; VITE_API_URL?: string; DEV?: boolean; PROD?: boolean } }).env || {}
+    const isProd = !!envObj.PROD
     const isDev = !!envObj.DEV
-    const apiBaseUrl = envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : '')
+    const envBaseUrl = envObj.VITE_API_BASE_URL || envObj.VITE_API_URL || ''
+    const apiBaseUrl = isProd ? '/api' : (envBaseUrl !== '' ? envBaseUrl : (isDev ? 'http://localhost:3000' : ''))
     let sqlStartDateForPie = ''
     if (startDate.value) {
       const [day, month, year] = startDate.value.split('.')
