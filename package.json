@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@quasar/cli": "^2.5.0"
+    "@quasar/cli": "^2.5.0",
+    "@vercel/node": "^3.0.0"
   }
 }
