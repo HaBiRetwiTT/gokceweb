@@ -7,14 +7,24 @@ export default async function handler(
   // Backend URL'i
   const backendUrl = 'http://77.245.151.173:3000';
   
-  // Path'i al (örnek: /api/dashboard/stats -> dashboard/stats)
-  const pathArray = Array.isArray(req.query.path) 
-    ? req.query.path 
-    : req.query.path 
-    ? [req.query.path] 
-    : [];
+  // Path'i al - Vercel'de [...path] için req.query.path array olur
+  // Örnek: /api/auth/login -> req.query.path = ['auth', 'login']
+  let path = '';
+  if (req.query.path) {
+    if (Array.isArray(req.query.path)) {
+      path = req.query.path.join('/');
+    } else if (typeof req.query.path === 'string') {
+      path = req.query.path;
+    }
+  }
   
-  const path = pathArray.join('/');
+  // Eğer path boşsa, URL'den parse et (fallback)
+  if (!path && req.url) {
+    const urlPath = req.url.split('?')[0]; // Query string'i kaldır
+    if (urlPath.startsWith('/api/')) {
+      path = urlPath.substring(5); // '/api/' kısmını kaldır
+    }
+  }
   
   // Query parametrelerini filtrele (path'i hariç tut)
   const queryParams: Record<string, string> = {};
@@ -35,6 +45,24 @@ export default async function handler(
   
   // Backend'e istek yap
   const targetUrl = `${backendUrl}/${fullPath}`;
+  
+  // Debug için log (production'da kaldırılabilir)
+  console.log('Proxy request:', {
+    method: req.method,
+    originalUrl: req.url,
+    path,
+    fullPath,
+    targetUrl,
+  });
+  
+  // CORS preflight (OPTIONS) istekleri için
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(200).end();
+  }
   
   try {
     // Request headers'ı hazırla
