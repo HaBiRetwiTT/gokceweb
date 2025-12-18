@@ -1376,31 +1376,28 @@ export class IslemService {
         pIdx++;
       }
 
-      // Gelir/Gider tiplerini birleştir (GELİR/Giren ve GİDER/Çıkan)
-      // Bu sayede mod ne olursa olsun tüm ilgili kayıtlar toplanır
-      const gelirTypes = ['GELİR', 'Giren'];
-      const giderTypes = ['GİDER', 'Çıkan'];
+      // İşlem tipi mantığı: Cari için GELİR/GİDER, diğer kasalar için Giren/Çıkan
+      const isCari = islemArac === 'cari';
+      const gelirTypes = isCari ? ['GELİR'] : ['Giren'];
+      const giderTypes = isCari ? ['GİDER'] : ['Çıkan'];
       
       const idxGelir1 = pIdx;
       params.push(gelirTypes[0]);
-      pIdx++;
-      const idxGelir2 = pIdx;
-      params.push(gelirTypes[1]);
       pIdx++;
       
       const idxGider1 = pIdx;
       params.push(giderTypes[0]);
       pIdx++;
-      const idxGider2 = pIdx;
-      params.push(giderTypes[1]);
-      pIdx++;
 
-      // Depozito Alacağı hariç tutma (orijinal sorgudaki gibi)
-      whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
-      params.push('%=DEPOZİTO ALACAĞI=%');
-      pIdx++;
+      // Depozito Alacağı hariç tutma - Sadece Cari hariç diğer kasalar için
+      if (!isCari) {
+        whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
+        params.push('%=DEPOZİTO ALACAĞI=%');
+        pIdx++;
+      }
 
       // Tarih filtresi ekle (eğer endDate verilmişse)
+      // NOT: Kazanc-tablo sayfası için endDate undefined olacak (tüm zamanlar)
       if (endDateDDMMYYYY) {
         whereClause += ` AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @${pIdx}, 104)`;
         params.push(endDateDDMMYYYY);
@@ -1409,8 +1406,8 @@ export class IslemService {
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN i.islemTip IN (@${idxGelir1}, @${idxGelir2}) THEN i.islemTutar ELSE 0 END) as toplamGelir,
-          SUM(CASE WHEN i.islemTip IN (@${idxGider1}, @${idxGider2}) THEN i.islemTutar ELSE 0 END) as toplamGider
+          SUM(CASE WHEN i.islemTip = @${idxGelir1} THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN i.islemTip = @${idxGider1} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${tableName} i
         ${whereClause}
       `;
@@ -1488,38 +1485,35 @@ export class IslemService {
         pIdx++;
       }
 
-      // Gelir/Gider tiplerini birleştir (GELİR/Giren ve GİDER/Çıkan)
-      const gelirTypes = ['GELİR', 'Giren'];
-      const giderTypes = ['GİDER', 'Çıkan'];
+      // İşlem tipi mantığı: Cari için GELİR/GİDER, diğer kasalar için Giren/Çıkan
+      const isCari = islemArac === 'cari';
+      const gelirTypes = isCari ? ['GELİR'] : ['Giren'];
+      const giderTypes = isCari ? ['GİDER'] : ['Çıkan'];
       
       const idxGelir1 = pIdx;
       params.push(gelirTypes[0]);
-      pIdx++;
-      const idxGelir2 = pIdx;
-      params.push(gelirTypes[1]);
       pIdx++;
       
       const idxGider1 = pIdx;
       params.push(giderTypes[0]);
       pIdx++;
-      const idxGider2 = pIdx;
-      params.push(giderTypes[1]);
-      pIdx++;
 
-      // Depozito Alacağı hariç tutma
-      whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
-      params.push('%=DEPOZİTO ALACAĞI=%');
-      pIdx++;
+      // Depozito Alacağı hariç tutma - Sadece Cari hariç diğer kasalar için
+      if (!isCari) {
+        whereClause += ` AND (i.islemBilgi IS NULL OR i.islemBilgi NOT LIKE @${pIdx})`;
+        params.push('%=DEPOZİTO ALACAĞI=%');
+        pIdx++;
+      }
 
-      // Tarih filtresi
+      // Tarih filtresi - Her zaman var (seçilen tarihe kadar)
       whereClause += ` AND CONVERT(DATE, i.iKytTarihi, 104) <= CONVERT(DATE, @${pIdx}, 104)`;
       params.push(secilenTarih);
       pIdx++;
 
       const bakiyeQuery = `
         SELECT 
-          SUM(CASE WHEN i.islemTip IN (@${idxGelir1}, @${idxGelir2}) THEN i.islemTutar ELSE 0 END) as toplamGelir,
-          SUM(CASE WHEN i.islemTip IN (@${idxGider1}, @${idxGider2}) THEN i.islemTutar ELSE 0 END) as toplamGider
+          SUM(CASE WHEN i.islemTip = @${idxGelir1} THEN i.islemTutar ELSE 0 END) as toplamGelir,
+          SUM(CASE WHEN i.islemTip = @${idxGider1} THEN i.islemTutar ELSE 0 END) as toplamGider
         FROM ${tableName} i
         ${whereClause}
       `;
