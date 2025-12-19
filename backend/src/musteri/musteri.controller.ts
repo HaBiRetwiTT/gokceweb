@@ -25,8 +25,22 @@ export class MusteriController {
 
   // IIS / Reverse Proxy gibi katmanlarda path parametreleri (özellikle %2B / "+") bazen
   // backend'e ulaşmadan 404 ile düşebiliyor. Bu yüzden aynı işi query ile de destekliyoruz.
-  private normalizeOdaTipi(rawOdaTipi: string | undefined | null, logPrefix: string): string {
-    const odaTipi = String(rawOdaTipi ?? '');
+  private normalizeOdaTipi(rawOdaTipi: unknown, logPrefix: string): string {
+    // Query param aynı key ile 2 kez gelirse Express bunu array yapar.
+    // Ayrıca bazı durumlarda yanlış proxy ayarı "a,a" gibi string üretebilir.
+    const first =
+      Array.isArray(rawOdaTipi) ? (rawOdaTipi[0] ?? '') :
+      (rawOdaTipi ?? '');
+
+    let odaTipi = String(first);
+
+    // "X,X" gibi (aynı değerin virgülle tekrarı) durumunu sadeleştir
+    if (odaTipi.includes(',')) {
+      const parts = odaTipi.split(',').map(p => p.trim()).filter(Boolean);
+      if (parts.length > 1 && parts.every(p => p === parts[0])) {
+        odaTipi = parts[0];
+      }
+    }
 
     console.log(`🔍 [${logPrefix}] Gelen parametre:`, {
       raw: odaTipi,
