@@ -34,9 +34,6 @@ async function bootstrap() {
         'http://localhost:9000', // Development
         'http://localhost:80', // VPS'te IIS varsayılan port (HTTP)
         'http://localhost:443', // VPS'te IIS varsayılan port (HTTPS)
-        'http://77.245.151.173', // VPS IP adresi (HTTP) - Frontend (eski yapılandırma için)
-        'http://77.245.151.173:80', // VPS IP adresi port ile (HTTP) - Frontend (eski yapılandırma için)
-        'http://77.245.151.173:3000', // VPS IP adresi backend port (HTTP) - API istekleri için (eski yapılandırma için)
         // Domain adresi (HTTPS)
         'https://gokcepms.com', // Ana domain (HTTPS)
         'http://gokcepms.com', // Ana domain (HTTP - yönlendirme için)
