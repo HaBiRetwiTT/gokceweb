@@ -390,13 +390,36 @@ export class MusteriController {
   @Get('bos-odalar/:odaTipi')
   async getBosOdalar(@Param('odaTipi') odaTipi: string) {
     try {
-      // Püf Nokta: Frontend'de double encode yapılıyor (encodeURIComponent(encodeURIComponent(odaTipi)))
-      // Bu sayede IIS reverse proxy "+" karakterini boşluğa çevirse bile, burada double decode yaparak
-      // orijinal "+" karakterini geri getiriyoruz
-      // Örnek: Frontend: "Tek Kişilik Camlı+TV" -> "%254B" (double encode)
-      // IIS: "%254B" -> "%2B" (ilk decode)
-      // Backend: "%2B" -> "+" (ikinci decode)
-      const decodedOdaTipi = decodeURIComponent(decodeURIComponent(odaTipi));
+      // Püf Nokta: Frontend'de "+" karakteri içeren oda tipleri için double encode yapılıyor
+      // Normal oda tipleri için tek encode yapılıyor
+      // IIS reverse proxy "+" karakterini boşluğa çevirebilir, bu yüzden "+" içerenler için double encode/decode gerekli
+      // Backend'de gelen parametreyi kontrol edip uygun şekilde decode ediyoruz
+      let decodedOdaTipi: string;
+      try {
+        // Önce normal decode dene
+        decodedOdaTipi = decodeURIComponent(odaTipi);
+        
+        // Püf Nokta: Eğer decode edilmiş string hala encode karakterleri içeriyorsa (%2B, %20 gibi)
+        // bu double encode edilmiş demektir ve tekrar decode etmemiz gerekir
+        // Ancak sadece "+" karakteri içeren oda tipleri için double encode yapıldığından
+        // eğer decode edilmiş string'de "+" karakteri yoksa ama "%" varsa, bu normal bir durum olabilir
+        // Bu yüzden daha akıllı bir kontrol yapıyoruz:
+        // Eğer decode edilmiş string'de "%" karakteri varsa VE "+" karakteri yoksa, double decode yap
+        if (decodedOdaTipi.includes('%') && !decodedOdaTipi.includes('+')) {
+          // Muhtemelen double encode edilmiş, tekrar decode et
+          decodedOdaTipi = decodeURIComponent(decodedOdaTipi);
+        } else if (decodedOdaTipi.includes(' ') && decodedOdaTipi.includes('TV') && decodedOdaTipi.includes('Camlı')) {
+          // Püf Nokta: IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
+          // "Camlı TV" -> "Camlı+TV" olarak düzelt
+          decodedOdaTipi = decodedOdaTipi.replace(/\s+TV/g, '+TV');
+        }
+      } catch (decodeError) {
+        // Decode hatası olursa, direkt kullan
+        console.warn('Decode hatası, direkt kullanılıyor:', decodeError);
+        decodedOdaTipi = odaTipi;
+      }
+      
+      console.log('Oda tipi decode:', { original: odaTipi, decoded: decodedOdaTipi });
       const bosOdalar = await this.musteriService.getBosOdalar(decodedOdaTipi)
       return {
         success: true,
@@ -419,14 +442,20 @@ export class MusteriController {
     try {
       // Önce normal decode dene
       decodedOdaTipi = decodeURIComponent(odaTipi);
-      // Eğer hala encode karakterleri varsa (örn: %2B, %20), double encode edilmiş demektir
-      if (decodedOdaTipi.includes('%')) {
+      
+      // Püf Nokta: Eğer decode edilmiş string hala encode karakterleri içeriyorsa (%2B, %20 gibi)
+      // ve "+" karakteri yoksa, double encode edilmiş demektir
+      if (decodedOdaTipi.includes('%') && !decodedOdaTipi.includes('+')) {
         decodedOdaTipi = decodeURIComponent(decodedOdaTipi);
+      } else if (decodedOdaTipi.includes(' ') && decodedOdaTipi.includes('TV') && decodedOdaTipi.includes('Camlı')) {
+        // IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
+        decodedOdaTipi = decodedOdaTipi.replace(/\s+TV/g, '+TV');
       }
-    } catch {
-      // Decode hatası olursa, direkt kullan
+    } catch (decodeError) {
+      console.warn('Decode hatası, direkt kullanılıyor:', decodeError);
       decodedOdaTipi = odaTipi;
     }
+    
     try {
       const fiyatlar = await this.musteriService.getOdaTipFiyatlari(decodedOdaTipi)
       return {
