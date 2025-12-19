@@ -1749,8 +1749,8 @@ async function loadTedarikciListesi() {
   try {
     debugLog('Tedarikçi listesi yükleniyor...')
 
-    // Domain adresi üzerinden backend'e bağlan
-    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
+    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
     debugLog('Tedarikçi response status:', response.status)
     debugLog('Tedarikçi response headers:', response.headers)
@@ -1808,8 +1808,8 @@ async function loadMusteriListesi() {
   try {
     debugLog('Müşteri listesi yükleniyor...')
 
-    // Domain adresi üzerinden backend'e bağlan
-    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
+    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/musteri`)
     debugLog('Müşteri response status:', response.status)
     debugLog('Müşteri response headers:', response.headers)
@@ -1867,8 +1867,8 @@ async function testApiConnection() {
   try {
     debugLog('API bağlantısı test ediliyor...')
     
-    // Domain adresi üzerinden backend'e bağlan
-    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
+    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)

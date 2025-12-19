@@ -362,8 +362,8 @@ const loadChartData = async () => {
       timePeriod: currentTimePeriod
     })
     
-    // Domain adresi üzerinden backend'e bağlan
-    const apiBaseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
+    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
+    const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
     const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
       params: {
         timePeriod: currentTimePeriod,

@@ -17,14 +17,15 @@ declare module 'vue' {
 //  return 'http://localhost:3000'; // Development default
 //};
 
-// Püf Nokta: IIS reverse proxy kurulumu tamamlanana kadar doğrudan backend'e bağlanıyoruz
-// ARR modülü yüklendikten sonra '/api' kullanılacak şekilde güncellenecek
+// Püf Nokta: IIS reverse proxy kullanarak backend'e /api üzerinden erişiyoruz
+// Bu sayede port 3000'i dışarıya açmadan güvenli bir şekilde API istekleri yapabiliyoruz
+// IIS web.config dosyasında /api istekleri localhost:3000'e yönlendiriliyor
 const getApiBaseUrl = () => {
-  // Production'da domain adresi üzerinden backend'e doğrudan bağlanıyoruz
+  // Production'da IIS reverse proxy üzerinden /api kullanıyoruz
   if (import.meta.env.PROD) {
-    // Geçici: Doğrudan backend'e bağlan (HTTP)
-    // ARR modülü yüklendikten sonra '/api' olarak değiştirilecek
-    return 'http://gokcepms.com:3000';
+    // IIS reverse proxy: http://gokcepms.com/api -> http://localhost:3000
+    // Relative path kullanarak otomatik olarak mevcut domain'i kullanır
+    return '/api';
   }
   // Development'ta localhost kullan
   return 'http://localhost:3000';
