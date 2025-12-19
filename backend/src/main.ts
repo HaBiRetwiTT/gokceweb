@@ -20,6 +20,27 @@ async function bootstrap() {
     next();
   });
   
+  // Püf Nokta: Tüm gelen istekleri loglayarak debug yapıyoruz
+  // Özellikle "+" karakteri içeren URL'lerin nasıl geldiğini görmek için
+  app.use((req, res, next) => {
+    // Sadece musteri endpoint'leri için detaylı log
+    if (req.url.includes('bos-odalar') || req.url.includes('oda-tip-fiyatlari')) {
+      console.log('🌐 [REQUEST LOG]', {
+        method: req.method,
+        url: req.url,
+        originalUrl: req.originalUrl,
+        path: req.path,
+        query: req.query,
+        params: req.params,
+        headers: {
+          host: req.headers.host,
+          'user-agent': req.headers['user-agent']
+        }
+      });
+    }
+    next();
+  });
+  
   // Enable CORS for frontend communication
   // VPS'te frontend ve backend aynı sunucuda olduğu için CORS ayarları basitleştirilebilir
   app.enableCors({
