@@ -1167,9 +1167,11 @@ async function hesaplaBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    // Püf Nokta: Normal encodeURIComponent kullanıyoruz, "+" karakteri "%2B" olarak encode edilir
-    const encodedOdaTipi = encodeURIComponent(form.value.OdaTipi)
-    const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodedOdaTipi}`)
+    // Püf Nokta: IIS bazı path parametrelerinde (%2B gibi) isteği backend'e ulaştırmadan 404 döndürebiliyor.
+    // Bu yüzden oda tipini query param olarak gönderiyoruz (daha dayanıklı).
+    const response = await api.get('/musteri/oda-tip-fiyatlari', {
+      params: { odaTipi: form.value.OdaTipi }
+    })
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data
       
@@ -1312,13 +1314,11 @@ async function loadBosOdalar(odaTipi: string) {
       bosOdalarOptions.value = []
       return
     }
-    // Püf Nokta: "+" karakterini "%2B" olarak encode ediyoruz
-    // Normal encodeURIComponent "+" karakterini "%2B" olarak encode eder
-    // IIS reverse proxy "+" karakterini boşluğa çevirebilir, bu yüzden encode ediyoruz
-    // Backend'de "+" karakteri eksikse geri getirilecek
-    const encodedOdaTipi = encodeURIComponent(odaTipi)
-    debugLog('Encoded oda tipi:', encodedOdaTipi)
-    const response = await api.get(`/musteri/bos-odalar/${encodedOdaTipi}`)
+    // Püf Nokta: IIS bazı path parametrelerinde (%2B gibi) isteği backend'e ulaştırmadan 404 döndürebiliyor.
+    // Bu yüzden oda tipini query param olarak gönderiyoruz (daha dayanıklı).
+    const response = await api.get('/musteri/bos-odalar', {
+      params: { odaTipi }
+    })
     debugLog('Boş odalar response:', response.data)
     if (response.data.success) {
       bosOdalarOptions.value = response.data.data
@@ -3450,9 +3450,11 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && form.value.OdaTipi) {
     try {
-      // Püf Nokta: Normal encodeURIComponent kullanıyoruz
-      const encodedOdaTipi = encodeURIComponent(form.value.OdaTipi)
-      const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodedOdaTipi}`)
+      // Püf Nokta: IIS bazı path parametrelerinde (%2B gibi) isteği backend'e ulaştırmadan 404 döndürebiliyor.
+      // Bu yüzden oda tipini query param olarak gönderiyoruz (daha dayanıklı).
+      const response = await api.get('/musteri/oda-tip-fiyatlari', {
+        params: { odaTipi: form.value.OdaTipi }
+      })
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data
       }

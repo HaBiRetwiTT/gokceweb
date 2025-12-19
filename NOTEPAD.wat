@@ -22,8 +22,8 @@ taskkill /f /im node.exe
 Özet: Güncelleme Akışı:
 Yerel: .\deploy.ps1 (gokceweb klasöründe)
 Frontend: manuel kopyala (C:\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> (C:\inetpub\wwwroot\gokce-frontend) 
-                         (Restart-WebAppPool -Name "DefaultAppPool" veya iisreset)
-VPS: .\deploy-vps.ps1 (C:\gokce-backend klasöründe) 
+                         (Restart-WebAppPool -Name "gokcepms.com" veya iisreset)
+VPS: .\deploy-vps.ps1 (C:\gokce-backend\backend klasöründe) 
                          (pm2 reload gokce-backend !!!)
 Bu adımları her güncellemede tekrarlayın.
   =========================================================================

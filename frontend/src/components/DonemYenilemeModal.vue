@@ -1736,7 +1736,9 @@ async function loadBosOdalar() {
   }
   
   try {
-    const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get('/musteri/bos-odalar', {
+      params: { odaTipi: formData.value.KnklmOdaTip }
+    });
     if (response.data.success) {
       bosOdalar.value = response.data.data;
       
@@ -1847,7 +1849,9 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && formData.value.KnklmOdaTip) {
     try {
-      const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+      const response = await api.get('/musteri/oda-tip-fiyatlari', {
+        params: { odaTipi: formData.value.KnklmOdaTip }
+      });
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data;
       }
@@ -1936,7 +1940,9 @@ async function calculateBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodeURIComponent(formData.value.KnklmOdaTip)}`);
+    const response = await api.get('/musteri/oda-tip-fiyatlari', {
+      params: { odaTipi: formData.value.KnklmOdaTip }
+    });
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data;
       

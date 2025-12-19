@@ -23,6 +23,41 @@ export class MusteriController {
     private readonly dbConfig: DatabaseConfigService
   ) {}
 
+  // IIS / Reverse Proxy gibi katmanlarda path parametreleri (özellikle %2B / "+") bazen
+  // backend'e ulaşmadan 404 ile düşebiliyor. Bu yüzden aynı işi query ile de destekliyoruz.
+  private normalizeOdaTipi(rawOdaTipi: string | undefined | null, logPrefix: string): string {
+    const odaTipi = String(rawOdaTipi ?? '');
+
+    console.log(`🔍 [${logPrefix}] Gelen parametre:`, {
+      raw: odaTipi,
+      includesPlus: odaTipi.includes('+'),
+      includesSpace: odaTipi.includes(' '),
+      includesPercent: odaTipi.includes('%'),
+      length: odaTipi.length,
+    });
+
+    let finalOdaTipi = odaTipi;
+
+    // Eğer "+" karakteri yoksa ama boşluk varsa ve TV içeriyorsa, IIS "+" -> " " çevirmiş olabilir.
+    if (!finalOdaTipi.includes('+') && finalOdaTipi.includes(' ') && finalOdaTipi.includes('TV')) {
+      finalOdaTipi = finalOdaTipi.replace(/\s+TV/g, '+TV');
+      console.log(`🔧 [${logPrefix}] "+" karakteri geri getirildi:`, { before: odaTipi, after: finalOdaTipi });
+    }
+
+    // Eğer hala encode karakterleri varsa, decode et (örn: %2B)
+    if (finalOdaTipi.includes('%')) {
+      try {
+        finalOdaTipi = decodeURIComponent(finalOdaTipi);
+        console.log(`🔧 [${logPrefix}] Decode yapıldı:`, { before: odaTipi, after: finalOdaTipi });
+      } catch (decodeError) {
+        console.warn(`⚠️ [${logPrefix}] Decode hatası:`, decodeError);
+      }
+    }
+
+    console.log(`✅ [${logPrefix}] Final oda tipi:`, finalOdaTipi);
+    return finalOdaTipi;
+  }
+
   // Güvenli dosya adı oluşturucu - HTTP header uyumlu ASCII-only
   private createSafeFileName(fileName: string): string {
     return fileName
@@ -390,40 +425,7 @@ export class MusteriController {
   @Get('bos-odalar/:odaTipi')
   async getBosOdalar(@Param('odaTipi') odaTipi: string) {
     try {
-      // Püf Nokta: NestJS @Param() decorator'ı URL parametrelerini otomatik olarak decode eder
-      // Ancak IIS reverse proxy "+" karakterini boşluğa çevirebilir
-      // Bu yüzden gelen parametreyi kontrol edip "+" karakterini geri getirmemiz gerekebilir
-      
-      // ÖNEMLİ: Gelen parametreyi loglayarak ne geldiğini görelim
-      console.log('🔍 [bos-odalar] Gelen parametre:', {
-        raw: odaTipi,
-        includesPlus: odaTipi.includes('+'),
-        includesSpace: odaTipi.includes(' '),
-        includesPercent: odaTipi.includes('%'),
-        length: odaTipi.length
-      });
-      
-      let finalOdaTipi = odaTipi;
-      
-      // Püf Nokta: Eğer gelen parametrede "+" karakteri yoksa ama boşluk varsa
-      // ve "TV" ile "Camlı" içeriyorsa, IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
-      if (!finalOdaTipi.includes('+') && finalOdaTipi.includes(' ') && finalOdaTipi.includes('TV')) {
-        // "Camlı TV" -> "Camlı+TV" olarak düzelt
-        finalOdaTipi = finalOdaTipi.replace(/\s+TV/g, '+TV');
-        console.log('🔧 [bos-odalar] "+" karakteri geri getirildi:', { before: odaTipi, after: finalOdaTipi });
-      }
-      
-      // Püf Nokta: Eğer hala encode karakterleri varsa (%2B gibi), decode et
-      if (finalOdaTipi.includes('%')) {
-        try {
-          finalOdaTipi = decodeURIComponent(finalOdaTipi);
-          console.log('🔧 [bos-odalar] Decode yapıldı:', { before: odaTipi, after: finalOdaTipi });
-        } catch (decodeError) {
-          console.warn('⚠️ [bos-odalar] Decode hatası:', decodeError);
-        }
-      }
-      
-      console.log('✅ [bos-odalar] Final oda tipi:', finalOdaTipi);
+      const finalOdaTipi = this.normalizeOdaTipi(odaTipi, 'bos-odalar');
       const bosOdalar = await this.musteriService.getBosOdalar(finalOdaTipi)
       return {
         success: true,
@@ -438,38 +440,25 @@ export class MusteriController {
     }
   }
 
+  // Query tabanlı alternatif (IIS path filtering / special char sorunlarına dayanıklı)
+  @Get('bos-odalar')
+  async getBosOdalarQuery(@Query('odaTipi') odaTipi: string) {
+    try {
+      if (!odaTipi) {
+        return { success: true, data: [] };
+      }
+      const finalOdaTipi = this.normalizeOdaTipi(odaTipi, 'bos-odalar(query)');
+      const bosOdalar = await this.musteriService.getBosOdalar(finalOdaTipi);
+      return { success: true, data: bosOdalar };
+    } catch (error) {
+      if (error instanceof Error) return error.message;
+      return String(error);
+    }
+  }
+
   @Get('oda-tip-fiyatlari/:odaTipi')
   async getOdaTipFiyatlari(@Param('odaTipi') odaTipi: string) {
-    // Püf Nokta: NestJS @Param() decorator'ı URL parametrelerini otomatik olarak decode eder
-    // Ancak IIS reverse proxy "+" karakterini boşluğa çevirebilir
-    
-    console.log('🔍 [oda-tip-fiyatlari] Gelen parametre:', {
-      raw: odaTipi,
-      includesPlus: odaTipi.includes('+'),
-      includesSpace: odaTipi.includes(' '),
-      includesPercent: odaTipi.includes('%'),
-      length: odaTipi.length
-    });
-    
-    let finalOdaTipi = odaTipi;
-    
-    // "+" karakteri eksikse ve boşluk varsa, geri getir
-    if (!finalOdaTipi.includes('+') && finalOdaTipi.includes(' ') && finalOdaTipi.includes('TV')) {
-      finalOdaTipi = finalOdaTipi.replace(/\s+TV/g, '+TV');
-      console.log('🔧 [oda-tip-fiyatlari] "+" karakteri geri getirildi:', { before: odaTipi, after: finalOdaTipi });
-    }
-    
-    // Eğer hala encode karakterleri varsa, decode et
-    if (finalOdaTipi.includes('%')) {
-      try {
-        finalOdaTipi = decodeURIComponent(finalOdaTipi);
-        console.log('🔧 [oda-tip-fiyatlari] Decode yapıldı:', { before: odaTipi, after: finalOdaTipi });
-      } catch (decodeError) {
-        console.warn('⚠️ [oda-tip-fiyatlari] Decode hatası:', decodeError);
-      }
-    }
-    
-    console.log('✅ [oda-tip-fiyatlari] Final oda tipi:', finalOdaTipi);
+    const finalOdaTipi = this.normalizeOdaTipi(odaTipi, 'oda-tip-fiyatlari');
     
     try {
       const fiyatlar = await this.musteriService.getOdaTipFiyatlari(finalOdaTipi)
@@ -482,6 +471,22 @@ export class MusteriController {
       if (error instanceof Error) {
         return error.message;
       }
+      return String(error);
+    }
+  }
+
+  // Query tabanlı alternatif (IIS path filtering / special char sorunlarına dayanıklı)
+  @Get('oda-tip-fiyatlari')
+  async getOdaTipFiyatlariQuery(@Query('odaTipi') odaTipi: string) {
+    try {
+      if (!odaTipi) {
+        return { success: false, message: 'odaTipi gerekli' };
+      }
+      const finalOdaTipi = this.normalizeOdaTipi(odaTipi, 'oda-tip-fiyatlari(query)');
+      const fiyatlar = await this.musteriService.getOdaTipFiyatlari(finalOdaTipi);
+      return { success: true, data: fiyatlar };
+    } catch (error) {
+      if (error instanceof Error) return error.message;
       return String(error);
     }
   }

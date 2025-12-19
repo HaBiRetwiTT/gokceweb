@@ -325,8 +325,9 @@ const route = useRoute()
       if (bosOdalarLoading.value[odaTipi]) return
       bosOdalarLoading.value = { ...bosOdalarLoading.value, [odaTipi]: true }
       // Basit SQL mantığı backend'de uygulanıyor.
-      // Doğru endpoint: GET /musteri/bos-odalar/:odaTipi
-      const response = await api.get(`/musteri/bos-odalar/${encodeURIComponent(odaTipi)}`)
+      // Püf Nokta: IIS bazı path parametrelerinde (%2B gibi) isteği backend'e ulaştırmadan 404 döndürebiliyor.
+      // Bu yüzden oda tipini query param olarak gönderiyoruz (daha dayanıklı).
+      const response = await api.get('/musteri/bos-odalar', { params: { odaTipi } })
       const rows = ((response.data?.data || []) as Array<{ label?: string; value: string; durum?: string }>)
         .map((r) => ({ label: r.label || r.value, value: r.value, durum: r.durum }))
       bosOdalarCache.value = { ...bosOdalarCache.value, [odaTipi]: rows }
