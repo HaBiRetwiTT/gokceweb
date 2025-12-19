@@ -390,10 +390,13 @@ export class MusteriController {
   @Get('bos-odalar/:odaTipi')
   async getBosOdalar(@Param('odaTipi') odaTipi: string) {
     try {
-      // Püf Nokta: URL'de "+" karakteri boşluk olarak yorumlanabilir
-      // decodeURIComponent ile doğru şekilde decode ediyoruz
-      // "+" karakteri "%2B" olarak encode edilmişse doğru decode edilir
-      const decodedOdaTipi = decodeURIComponent(odaTipi);
+      // Püf Nokta: Frontend'de double encode yapılıyor (encodeURIComponent(encodeURIComponent(odaTipi)))
+      // Bu sayede IIS reverse proxy "+" karakterini boşluğa çevirse bile, burada double decode yaparak
+      // orijinal "+" karakterini geri getiriyoruz
+      // Örnek: Frontend: "Tek Kişilik Camlı+TV" -> "%254B" (double encode)
+      // IIS: "%254B" -> "%2B" (ilk decode)
+      // Backend: "%2B" -> "+" (ikinci decode)
+      const decodedOdaTipi = decodeURIComponent(decodeURIComponent(odaTipi));
       const bosOdalar = await this.musteriService.getBosOdalar(decodedOdaTipi)
       return {
         success: true,
@@ -410,9 +413,8 @@ export class MusteriController {
 
   @Get('oda-tip-fiyatlari/:odaTipi')
   async getOdaTipFiyatlari(@Param('odaTipi') odaTipi: string) {
-    // Püf Nokta: URL'de "+" karakteri boşluk olarak yorumlanabilir
-    // decodeURIComponent ile doğru şekilde decode ediyoruz
-    const decodedOdaTipi = decodeURIComponent(odaTipi);
+    // Püf Nokta: Frontend'de double encode yapılıyor, burada double decode yapıyoruz
+    const decodedOdaTipi = decodeURIComponent(decodeURIComponent(odaTipi));
     try {
       const fiyatlar = await this.musteriService.getOdaTipFiyatlari(decodedOdaTipi)
       return {
