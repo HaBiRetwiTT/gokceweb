@@ -390,37 +390,41 @@ export class MusteriController {
   @Get('bos-odalar/:odaTipi')
   async getBosOdalar(@Param('odaTipi') odaTipi: string) {
     try {
-      // Püf Nokta: Frontend'de "+" karakteri içeren oda tipleri için double encode yapılıyor
-      // Normal oda tipleri için tek encode yapılıyor
-      // IIS reverse proxy "+" karakterini boşluğa çevirebilir, bu yüzden "+" içerenler için double encode/decode gerekli
-      // Backend'de gelen parametreyi kontrol edip uygun şekilde decode ediyoruz
-      let decodedOdaTipi: string;
-      try {
-        // Önce normal decode dene
-        decodedOdaTipi = decodeURIComponent(odaTipi);
-        
-        // Püf Nokta: Eğer decode edilmiş string hala encode karakterleri içeriyorsa (%2B, %20 gibi)
-        // bu double encode edilmiş demektir ve tekrar decode etmemiz gerekir
-        // Ancak sadece "+" karakteri içeren oda tipleri için double encode yapıldığından
-        // eğer decode edilmiş string'de "+" karakteri yoksa ama "%" varsa, bu normal bir durum olabilir
-        // Bu yüzden daha akıllı bir kontrol yapıyoruz:
-        // Eğer decode edilmiş string'de "%" karakteri varsa VE "+" karakteri yoksa, double decode yap
-        if (decodedOdaTipi.includes('%') && !decodedOdaTipi.includes('+')) {
-          // Muhtemelen double encode edilmiş, tekrar decode et
-          decodedOdaTipi = decodeURIComponent(decodedOdaTipi);
-        } else if (decodedOdaTipi.includes(' ') && decodedOdaTipi.includes('TV') && decodedOdaTipi.includes('Camlı')) {
-          // Püf Nokta: IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
-          // "Camlı TV" -> "Camlı+TV" olarak düzelt
-          decodedOdaTipi = decodedOdaTipi.replace(/\s+TV/g, '+TV');
-        }
-      } catch (decodeError) {
-        // Decode hatası olursa, direkt kullan
-        console.warn('Decode hatası, direkt kullanılıyor:', decodeError);
-        decodedOdaTipi = odaTipi;
+      // Püf Nokta: NestJS @Param() decorator'ı URL parametrelerini otomatik olarak decode eder
+      // Ancak IIS reverse proxy "+" karakterini boşluğa çevirebilir
+      // Bu yüzden gelen parametreyi kontrol edip "+" karakterini geri getirmemiz gerekebilir
+      
+      // ÖNEMLİ: Gelen parametreyi loglayarak ne geldiğini görelim
+      console.log('🔍 [bos-odalar] Gelen parametre:', {
+        raw: odaTipi,
+        includesPlus: odaTipi.includes('+'),
+        includesSpace: odaTipi.includes(' '),
+        includesPercent: odaTipi.includes('%'),
+        length: odaTipi.length
+      });
+      
+      let finalOdaTipi = odaTipi;
+      
+      // Püf Nokta: Eğer gelen parametrede "+" karakteri yoksa ama boşluk varsa
+      // ve "TV" ile "Camlı" içeriyorsa, IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
+      if (!finalOdaTipi.includes('+') && finalOdaTipi.includes(' ') && finalOdaTipi.includes('TV')) {
+        // "Camlı TV" -> "Camlı+TV" olarak düzelt
+        finalOdaTipi = finalOdaTipi.replace(/\s+TV/g, '+TV');
+        console.log('🔧 [bos-odalar] "+" karakteri geri getirildi:', { before: odaTipi, after: finalOdaTipi });
       }
       
-      console.log('Oda tipi decode:', { original: odaTipi, decoded: decodedOdaTipi });
-      const bosOdalar = await this.musteriService.getBosOdalar(decodedOdaTipi)
+      // Püf Nokta: Eğer hala encode karakterleri varsa (%2B gibi), decode et
+      if (finalOdaTipi.includes('%')) {
+        try {
+          finalOdaTipi = decodeURIComponent(finalOdaTipi);
+          console.log('🔧 [bos-odalar] Decode yapıldı:', { before: odaTipi, after: finalOdaTipi });
+        } catch (decodeError) {
+          console.warn('⚠️ [bos-odalar] Decode hatası:', decodeError);
+        }
+      }
+      
+      console.log('✅ [bos-odalar] Final oda tipi:', finalOdaTipi);
+      const bosOdalar = await this.musteriService.getBosOdalar(finalOdaTipi)
       return {
         success: true,
         data: bosOdalar
@@ -436,28 +440,39 @@ export class MusteriController {
 
   @Get('oda-tip-fiyatlari/:odaTipi')
   async getOdaTipFiyatlari(@Param('odaTipi') odaTipi: string) {
-    // Püf Nokta: Frontend'de "+" karakteri içeren oda tipleri için double encode yapılıyor
-    // Normal oda tipleri için tek encode yapılıyor
-    let decodedOdaTipi: string;
-    try {
-      // Önce normal decode dene
-      decodedOdaTipi = decodeURIComponent(odaTipi);
-      
-      // Püf Nokta: Eğer decode edilmiş string hala encode karakterleri içeriyorsa (%2B, %20 gibi)
-      // ve "+" karakteri yoksa, double encode edilmiş demektir
-      if (decodedOdaTipi.includes('%') && !decodedOdaTipi.includes('+')) {
-        decodedOdaTipi = decodeURIComponent(decodedOdaTipi);
-      } else if (decodedOdaTipi.includes(' ') && decodedOdaTipi.includes('TV') && decodedOdaTipi.includes('Camlı')) {
-        // IIS reverse proxy "+" karakterini boşluğa çevirmiş olabilir
-        decodedOdaTipi = decodedOdaTipi.replace(/\s+TV/g, '+TV');
-      }
-    } catch (decodeError) {
-      console.warn('Decode hatası, direkt kullanılıyor:', decodeError);
-      decodedOdaTipi = odaTipi;
+    // Püf Nokta: NestJS @Param() decorator'ı URL parametrelerini otomatik olarak decode eder
+    // Ancak IIS reverse proxy "+" karakterini boşluğa çevirebilir
+    
+    console.log('🔍 [oda-tip-fiyatlari] Gelen parametre:', {
+      raw: odaTipi,
+      includesPlus: odaTipi.includes('+'),
+      includesSpace: odaTipi.includes(' '),
+      includesPercent: odaTipi.includes('%'),
+      length: odaTipi.length
+    });
+    
+    let finalOdaTipi = odaTipi;
+    
+    // "+" karakteri eksikse ve boşluk varsa, geri getir
+    if (!finalOdaTipi.includes('+') && finalOdaTipi.includes(' ') && finalOdaTipi.includes('TV')) {
+      finalOdaTipi = finalOdaTipi.replace(/\s+TV/g, '+TV');
+      console.log('🔧 [oda-tip-fiyatlari] "+" karakteri geri getirildi:', { before: odaTipi, after: finalOdaTipi });
     }
     
+    // Eğer hala encode karakterleri varsa, decode et
+    if (finalOdaTipi.includes('%')) {
+      try {
+        finalOdaTipi = decodeURIComponent(finalOdaTipi);
+        console.log('🔧 [oda-tip-fiyatlari] Decode yapıldı:', { before: odaTipi, after: finalOdaTipi });
+      } catch (decodeError) {
+        console.warn('⚠️ [oda-tip-fiyatlari] Decode hatası:', decodeError);
+      }
+    }
+    
+    console.log('✅ [oda-tip-fiyatlari] Final oda tipi:', finalOdaTipi);
+    
     try {
-      const fiyatlar = await this.musteriService.getOdaTipFiyatlari(decodedOdaTipi)
+      const fiyatlar = await this.musteriService.getOdaTipFiyatlari(finalOdaTipi)
       return {
         success: true,
         data: fiyatlar
