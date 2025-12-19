@@ -18,6 +18,14 @@ taskkill /f /im node.exe
   cd backend; npm run build; cd ..;
   cd frontend; npm version patch; npm run build; cd ..;
   git add .; git commit -m "Sistem Sürüm Düzenlemeleri (auto)"; git push origin master
+--------------------------------------------------------------------------------------
+Özet: Güncelleme Akışı:
+Yerel: .\deploy.ps1 (gokceweb klasöründe)
+Frontend: manuel kopyala (C:\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> (C:\inetpub\wwwroot\gokce-frontend) 
+                         (Restart-WebAppPool -Name "DefaultAppPool" veya iisreset)
+VPS: .\deploy-vps.ps1 (C:\gokce-backend klasöründe) 
+                         (pm2 reload gokce-backend !!!)
+Bu adımları her güncellemede tekrarlayın.
   =========================================================================
   YENİ VPS DEPLOYMENT WORKFLOW:
   =========================================================================
@@ -30,13 +38,6 @@ taskkill /f /im node.exe
   2. .\deploy-vps.ps1                 # Backend git pull + build + PM2 reload (zero-downtime)
   3. Frontend: RDP ile manuel kopyala veya deploy-frontend-vps.ps1 kullan
   4. Restart-WebAppPool -Name "DefaultAppPool"  # Application Pool restart (iisreset yerine)
-========================================================================
-Özet akış:
-Yerel: .\deploy.ps1 (gokceweb klasöründe)
-Frontend: manuel kopyala (C:\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> 
-    (C:\inetpub\wwwroot\gokce-frontend\dist\spa) -> (Restart-WebAppPool -Name "DefaultAppPool" veya site pool adı)
-VPS: .\deploy-vps.ps1 (C:\gokce-backend klasöründe) (pm2 reload gokce-backend !!!)
-Bu adımları her güncellemede tekrarlayın.
 ========================================================================
 NOT: Zero-Downtime Deployment İyileştirmeleri:
 - Backend: Graceful shutdown eklendi (aktif istekler tamamlanana kadar bekler)

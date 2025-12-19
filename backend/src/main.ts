@@ -34,14 +34,14 @@ async function bootstrap() {
         'http://localhost:9000', // Development
         'http://localhost:80', // VPS'te IIS varsayılan port (HTTP)
         'http://localhost:443', // VPS'te IIS varsayılan port (HTTPS)
-        'http://77.245.151.173', // VPS IP adresi (HTTP) - Frontend
-        'http://77.245.151.173:80', // VPS IP adresi port ile (HTTP) - Frontend
-        'http://77.245.151.173:3000', // VPS IP adresi backend port (HTTP) - API istekleri için
-        // Domain adresi kullanıyorsanız aşağıdaki satırları ekleyin:
-        // 'http://gokcepansiyon.com',
-        // 'https://gokcepansiyon.com',
-        // 'http://www.gokcepansiyon.com',
-        // 'https://www.gokcepansiyon.com',
+        'http://77.245.151.173', // VPS IP adresi (HTTP) - Frontend (eski yapılandırma için)
+        'http://77.245.151.173:80', // VPS IP adresi port ile (HTTP) - Frontend (eski yapılandırma için)
+        'http://77.245.151.173:3000', // VPS IP adresi backend port (HTTP) - API istekleri için (eski yapılandırma için)
+        // Domain adresi (HTTPS)
+        'https://gokcepms.com', // Ana domain (HTTPS)
+        'http://gokcepms.com', // Ana domain (HTTP - yönlendirme için)
+        'https://www.gokcepms.com', // www subdomain (HTTPS)
+        'http://www.gokcepms.com', // www subdomain (HTTP - yönlendirme için)
       ];
       
       if (allowedOrigins.includes(origin)) {
@@ -68,8 +68,10 @@ async function bootstrap() {
     maxAge: 86400, // 24 saat - preflight cache süresi
   });
   
-  await app.listen(3000);
-  debugLog(`Backend running on port 3000`);
+  // Püf Nokta: Backend'i sadece localhost'tan erişilebilir yaparak güvenliği artırıyoruz
+  // IIS reverse proxy üzerinden /api istekleri backend'e yönlendirilecek
+  await app.listen(3000, '127.0.0.1');
+  debugLog(`Backend running on port 3000 (localhost only - accessible via IIS reverse proxy)`);
   
   // Graceful shutdown: PM2 restart/reload sırasında aktif isteklerin tamamlanmasını sağlar
   // Püf Nokta: SIGTERM ve SIGINT sinyalleri geldiğinde, NestJS aktif bağlantıları kapatmadan önce

@@ -17,13 +17,15 @@ declare module 'vue' {
 //  return 'http://localhost:3000'; // Development default
 //};
 
-// VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-// Tarayıcı güvenlik politikası nedeniyle public IP'den localhost'a istek yapılamaz
+// Püf Nokta: IIS reverse proxy kullanarak backend'e /api üzerinden erişiyoruz
+// Bu sayede port 3000'i dışarıya açmadan güvenli bir şekilde API istekleri yapabiliyoruz
+// IIS web.config dosyasında /api istekleri localhost:3000'e yönlendiriliyor
 const getApiBaseUrl = () => {
-  // Production'da VPS IP adresini kullan, development'ta localhost kullan
+  // Production'da IIS reverse proxy üzerinden /api kullanıyoruz
   if (import.meta.env.PROD) {
-    // VPS IP adresi (frontend ve backend aynı VPS'te)
-    return 'http://77.245.151.173:3000';
+    // IIS reverse proxy: https://gokcepms.com/api -> http://localhost:3000
+    // Relative path kullanarak otomatik olarak mevcut domain'i kullanır
+    return '/api';
   }
   // Development'ta localhost kullan
   return 'http://localhost:3000';
