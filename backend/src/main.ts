@@ -70,5 +70,20 @@ async function bootstrap() {
   
   await app.listen(3000);
   debugLog(`Backend running on port 3000`);
+  
+  // Graceful shutdown: PM2 restart/reload sırasında aktif isteklerin tamamlanmasını sağlar
+  // Püf Nokta: SIGTERM ve SIGINT sinyalleri geldiğinde, NestJS aktif bağlantıları kapatmadan önce
+  // mevcut isteklerin tamamlanmasını bekler (varsayılan 10 saniye timeout)
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM signal received: closing HTTP server gracefully');
+    await app.close();
+    process.exit(0);
+  });
+  
+  process.on('SIGINT', async () => {
+    console.log('SIGINT signal received: closing HTTP server gracefully');
+    await app.close();
+    process.exit(0);
+  });
 }
 void bootstrap();

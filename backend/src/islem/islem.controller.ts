@@ -1271,14 +1271,14 @@ export class IslemController {
   @Get('odeme-tipi-ozet')
   async getOdemeTipiOzet(
     @Query('tarih') tarih: string, 
-    @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa',
-    @Query('excludeKasadanAlinan') excludeKasadanAlinan: string = 'true'
+    @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa'
   ) {
     if (!tarih) {
       throw new HttpException('tarih parametresi zorunludur', HttpStatus.BAD_REQUEST)
     }
-    const excludeKasadanAlinanBool = excludeKasadanAlinan === 'true'
-    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode, excludeKasadanAlinanBool)
+    // 🔥 PÜF NOKTA: 'Kasadan Alınan' ve 'Kasaya Verilen' filtreleri her zaman uygulanır
+    // excludeKasadanAlinan parametresi kaldırıldı çünkü artık gereksiz
+    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode)
     return { success: true, data }
   }
 

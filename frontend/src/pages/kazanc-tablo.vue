@@ -70,7 +70,7 @@
             
             <q-space />
             
-            <div class="period-net-info">{{ periodNetText }}</div>
+            <div class="period-net-info" :class="netToplam < 0 ? 'text-red' : (netToplam > 0 ? 'text-green' : '')">{{ periodNetText }}</div>
             <q-btn
               label="YENİLE"
               icon="refresh"
@@ -246,8 +246,18 @@
                 </q-td>
               </template>
               <template v-slot:body-cell-kalan="props">
-                <q-td :props="props" class="text-right" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : (props.value >= 0 ? 'text-green' : 'text-red')">
+                <q-td :props="props" class="text-right odeme-tipi-kalan-col" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''" :style="props.value < 0 ? 'color: #c62828 !important;' : (props.value > 0 ? 'color: #2e7d32 !important;' : '')">
                   {{ formatTL(Math.abs(props.value)) }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-alinan="props">
+                <q-td :props="props" class="text-right" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''">
+                  {{ formatTL(props.value) }}
+                </q-td>
+              </template>
+              <template v-slot:body-cell-verilen="props">
+                <q-td :props="props" class="text-right" :class="props.row.isToplam ? 'text-weight-bold odeme-tipi-toplam-row' : ''">
+                  {{ formatTL(props.value) }}
                 </q-td>
               </template>
             </q-table>
@@ -447,21 +457,21 @@ const isLoading = ref(false)
 
 // 🔥 Ödeme Tipi Özet Tablosu için state
 type OdemeTipiOzet = {
-  nakit: { giren: number; cikan: number; kalan: number }
-  eft: { giren: number; cikan: number; kalan: number }
-  kart: { giren: number; cikan: number; kalan: number }
-  acenta: { giren: number; cikan: number; kalan: number }
-  depozito: { giren: number; cikan: number; kalan: number }
-  toplam: { giren: number; cikan: number; kalan: number }
+  nakit: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
+  eft: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
+  kart: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
+  acenta: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
+  depozito: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
+  toplam: { giren: number; cikan: number; kalan: number; alinan: number; verilen: number }
 }
 
 const odemeTipiOzet = ref<OdemeTipiOzet>({
-  nakit: { giren: 0, cikan: 0, kalan: 0 },
-  eft: { giren: 0, cikan: 0, kalan: 0 },
-  kart: { giren: 0, cikan: 0, kalan: 0 },
-  acenta: { giren: 0, cikan: 0, kalan: 0 },
-  depozito: { giren: 0, cikan: 0, kalan: 0 },
-  toplam: { giren: 0, cikan: 0, kalan: 0 }
+  nakit: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+  eft: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+  kart: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+  acenta: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+  depozito: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+  toplam: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 }
 })
 const odemeTipiOzetLoading = ref(false)
 
@@ -509,6 +519,10 @@ const activeBarIndex = ref(11) // Default: Son bar (12. bar)
 const seriData = ref<Array<{ label: string; gelir: number; gider: number; dateISO?: string }>>([])
 const currentBarLabel = ref('')
 
+// 🔥 Sütun toplamları için reactive değerler
+const gelirToplamLabel = ref('₺ 0')
+const giderToplamLabel = ref('₺ 0')
+
 // 🔄 Dinamik sütun tanımları
 const columns = computed<QTableColumn<Row>[]>(() => {
   const gelirLabel = islemTipMode.value === 'kasa' ? 'GİRENLER' : 'GELİRLER'
@@ -516,9 +530,9 @@ const columns = computed<QTableColumn<Row>[]>(() => {
   
   return [
     { name: 'gelirGrup', label: gelirLabel, field: 'gelirGrup', align: 'left', headerAlign: 'center' as const, classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-    { name: 'gelirToplam', label: 'Toplam', field: 'gelirToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+    { name: 'gelirToplam', label: gelirToplamLabel.value, field: 'gelirToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
     { name: 'giderGrup', label: giderLabel, field: 'giderGrup', align: 'left', headerAlign: 'center' as const, classes: 'narrow-col-85', headerClasses: 'narrow-col-85 grid-header' },
-    { name: 'giderToplam', label: 'Toplam', field: 'giderToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
+    { name: 'giderToplam', label: giderToplamLabel.value, field: 'giderToplam', align: 'right', headerAlign: 'center' as const, classes: 'narrow-col', headerClasses: 'narrow-col grid-header', format: (val: unknown) => formatTLBlankZero(Number(val || 0)) },
   ]
 })
 
@@ -563,16 +577,21 @@ const odemeTipiOzetColumns = computed(() => [
   { name: 'odemeTipi', label: 'Ödeme Tipi', field: 'odemeTipi', align: 'left' as const, headerAlign: 'center' as const },
   { name: 'giren', label: 'Giren', field: 'giren', align: 'right' as const, headerAlign: 'center' as const },
   { name: 'cikan', label: 'Çıkan', field: 'cikan', align: 'right' as const, headerAlign: 'center' as const },
-  { name: 'kalan', label: 'Kalan', field: 'kalan', align: 'right' as const, headerAlign: 'center' as const }
+  { name: 'kalan', label: 'KALAN', field: 'kalan', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'alinan', label: 'Alınan', field: 'alinan', align: 'right' as const, headerAlign: 'center' as const },
+  { name: 'verilen', label: 'Verilen', field: 'verilen', align: 'right' as const, headerAlign: 'center' as const }
 ])
 
 // 🔥 Ödeme Tipi Özet Tablosu için satırlar
+// PÜF NOKTA: Depozito satırı TOPLAM satırının altında yer alır
 const odemeTipiOzetRows = computed(() => [
   {
     odemeTipi: 'Nakit Kasa(TL)',
     giren: odemeTipiOzet.value.nakit.giren,
     cikan: odemeTipiOzet.value.nakit.cikan,
     kalan: odemeTipiOzet.value.nakit.kalan,
+    alinan: odemeTipiOzet.value.nakit.alinan,
+    verilen: odemeTipiOzet.value.nakit.verilen,
     isToplam: false
   },
   {
@@ -580,6 +599,8 @@ const odemeTipiOzetRows = computed(() => [
     giren: odemeTipiOzet.value.eft.giren,
     cikan: odemeTipiOzet.value.eft.cikan,
     kalan: odemeTipiOzet.value.eft.kalan,
+    alinan: odemeTipiOzet.value.eft.alinan,
+    verilen: odemeTipiOzet.value.eft.verilen,
     isToplam: false
   },
   {
@@ -587,6 +608,8 @@ const odemeTipiOzetRows = computed(() => [
     giren: odemeTipiOzet.value.kart.giren,
     cikan: odemeTipiOzet.value.kart.cikan,
     kalan: odemeTipiOzet.value.kart.kalan,
+    alinan: odemeTipiOzet.value.kart.alinan,
+    verilen: odemeTipiOzet.value.kart.verilen,
     isToplam: false
   },
   {
@@ -594,13 +617,8 @@ const odemeTipiOzetRows = computed(() => [
     giren: odemeTipiOzet.value.acenta.giren,
     cikan: odemeTipiOzet.value.acenta.cikan,
     kalan: odemeTipiOzet.value.acenta.kalan,
-    isToplam: false
-  },
-  {
-    odemeTipi: 'Depozito',
-    giren: odemeTipiOzet.value.depozito.giren,
-    cikan: odemeTipiOzet.value.depozito.cikan,
-    kalan: odemeTipiOzet.value.depozito.kalan,
+    alinan: odemeTipiOzet.value.acenta.alinan,
+    verilen: odemeTipiOzet.value.acenta.verilen,
     isToplam: false
   },
   {
@@ -608,7 +626,18 @@ const odemeTipiOzetRows = computed(() => [
     giren: odemeTipiOzet.value.toplam.giren,
     cikan: odemeTipiOzet.value.toplam.cikan,
     kalan: odemeTipiOzet.value.toplam.kalan,
+    alinan: odemeTipiOzet.value.toplam.alinan,
+    verilen: odemeTipiOzet.value.toplam.verilen,
     isToplam: true
+  },
+  {
+    odemeTipi: 'Depozito',
+    giren: odemeTipiOzet.value.depozito.giren,
+    cikan: odemeTipiOzet.value.depozito.cikan,
+    kalan: odemeTipiOzet.value.depozito.kalan,
+    alinan: odemeTipiOzet.value.depozito.alinan,
+    verilen: odemeTipiOzet.value.depozito.verilen,
+    isToplam: false
   }
 ])
 
@@ -961,11 +990,16 @@ async function loadTableDataForBar(barIndex: number) {
   const giderSum = result.reduce((acc, r) => acc + (Number(r.giderToplam) || 0), 0)
   netToplam.value = gelirSum - giderSum
   
-  periodNetText.value = `${netToplam.value >= 0 ? 'KAZANÇ' : 'ZARAR'}: ${formatTL(Math.abs(netToplam.value))}`
-  const gelirCol = columns.value.find(c => c.name === 'gelirToplam')
-  const giderCol = columns.value.find(c => c.name === 'giderToplam')
-  if (gelirCol) gelirCol.label = formatTL(gelirSum)
-  if (giderCol) giderCol.label = formatTL(giderSum)
+  // 🔥 Giren/Çıkan modunda etiket "KALAN", GELİR/GİDER modunda "KAZANÇ" veya "ZARAR"
+  if (islemTipMode.value === 'kasa') {
+    periodNetText.value = `KALAN: ${formatTL(Math.abs(netToplam.value))}`
+  } else {
+    periodNetText.value = `${netToplam.value >= 0 ? 'KAZANÇ' : 'ZARAR'}: ${formatTL(Math.abs(netToplam.value))}`
+  }
+  
+  // 🔥 Sütun başlıklarını toplam değerleriyle güncelle
+  gelirToplamLabel.value = formatTL(gelirSum)
+  giderToplamLabel.value = formatTL(giderSum)
   
   // Pie chart'ları güncelle
   updatePieCharts(gelir, gider)
@@ -1159,6 +1193,8 @@ async function onOdemeTipiDetayClick(odemeTipi: string, islemTip: 'Giren' | 'Ç�
     }
     
     // Backend'den detay verilerini çek
+    // 🔥 PÜF NOKTA: Ödeme Tipi Özeti sorgusuyla aynı filtreleri kullanmak için excludeKasadanAlinan: 'true' olmalı
+    // Bu sayede detay penceresindeki liste toplamı ile tablodaki rakam aynı olacak
     const response = await api.get('/islem/detay-islemler', {
       params: {
         tarih: selectedTarih,
@@ -1166,7 +1202,7 @@ async function onOdemeTipiDetayClick(odemeTipi: string, islemTip: 'Giren' | 'Ç�
         islemTip,
         page: 1,
         rowsPerPage: 1000, // Tüm kayıtları getir
-        excludeKasadanAlinan: 'false' // Kazanc-tablo sayfasında 'Kasadan Alınan' ve 'Kasaya Verilen' işlemlerini dahil et
+        excludeKasadanAlinan: 'true' // Ödeme Tipi Özeti ile aynı filtreleri kullan
       }
     })
     
@@ -1367,11 +1403,11 @@ async function loadOdemeTipiOzet() {
     }
     
     // Backend API'yi çağır
+    // 🔥 PÜF NOKTA: 'Kasadan Alınan' ve 'Kasaya Verilen' filtreleri backend'de her zaman uygulanır
     const response = await api.get('/islem/odeme-tipi-ozet', {
       params: {
         tarih: selectedTarih,
-        islemTipMode: islemTipMode.value,
-        excludeKasadanAlinan: 'false' // Kazanc-tablo sayfasında 'Kasadan Alınan' ve 'Kasaya Verilen' işlemlerini dahil et
+        islemTipMode: islemTipMode.value
       }
     })
     
@@ -1383,33 +1419,45 @@ async function loadOdemeTipiOzet() {
         nakit: {
           giren: data.nakit?.giren || 0,
           cikan: data.nakit?.cikan || 0,
-          kalan: (data.nakit?.giren || 0) - (data.nakit?.cikan || 0)
+          kalan: (data.nakit?.giren || 0) - (data.nakit?.cikan || 0),
+          alinan: data.nakit?.alinan || 0,
+          verilen: data.nakit?.verilen || 0
         },
         eft: {
           giren: data.eft?.giren || 0,
           cikan: data.eft?.cikan || 0,
-          kalan: (data.eft?.giren || 0) - (data.eft?.cikan || 0)
+          kalan: (data.eft?.giren || 0) - (data.eft?.cikan || 0),
+          alinan: data.eft?.alinan || 0,
+          verilen: data.eft?.verilen || 0
         },
         kart: {
           giren: data.kart?.giren || 0,
           cikan: data.kart?.cikan || 0,
-          kalan: (data.kart?.giren || 0) - (data.kart?.cikan || 0)
+          kalan: (data.kart?.giren || 0) - (data.kart?.cikan || 0),
+          alinan: data.kart?.alinan || 0,
+          verilen: data.kart?.verilen || 0
         },
         acenta: {
           giren: data.acenta?.giren || 0,
           cikan: data.acenta?.cikan || 0,
-          kalan: (data.acenta?.giren || 0) - (data.acenta?.cikan || 0)
+          kalan: (data.acenta?.giren || 0) - (data.acenta?.cikan || 0),
+          alinan: data.acenta?.alinan || 0,
+          verilen: data.acenta?.verilen || 0
         },
         depozito: {
           giren: data.depozito?.giren || 0,
           cikan: data.depozito?.cikan || 0,
-          kalan: (data.depozito?.giren || 0) - (data.depozito?.cikan || 0)
+          kalan: (data.depozito?.giren || 0) - (data.depozito?.cikan || 0),
+          alinan: data.depozito?.alinan || 0,
+          verilen: data.depozito?.verilen || 0
         },
         toplam: {
           // Püf Nokta: Toplam hesaplamasında Depozito ödeme tipi toplamları dahil edilmez
           giren: (data.nakit?.giren || 0) + (data.eft?.giren || 0) + (data.kart?.giren || 0) + (data.acenta?.giren || 0),
           cikan: (data.nakit?.cikan || 0) + (data.eft?.cikan || 0) + (data.kart?.cikan || 0) + (data.acenta?.cikan || 0),
-          kalan: 0 // Hesaplanacak
+          kalan: 0, // Hesaplanacak
+          alinan: (data.nakit?.alinan || 0) + (data.eft?.alinan || 0) + (data.kart?.alinan || 0) + (data.acenta?.alinan || 0),
+          verilen: (data.nakit?.verilen || 0) + (data.eft?.verilen || 0) + (data.kart?.verilen || 0) + (data.acenta?.verilen || 0)
         }
       }
       
@@ -1420,12 +1468,12 @@ async function loadOdemeTipiOzet() {
     console.error('❌ Ödeme tipi özeti yükleme hatası:', error)
     // Hata durumunda sıfırla
     odemeTipiOzet.value = {
-      nakit: { giren: 0, cikan: 0, kalan: 0 },
-      eft: { giren: 0, cikan: 0, kalan: 0 },
-      kart: { giren: 0, cikan: 0, kalan: 0 },
-      acenta: { giren: 0, cikan: 0, kalan: 0 },
-      depozito: { giren: 0, cikan: 0, kalan: 0 },
-      toplam: { giren: 0, cikan: 0, kalan: 0 }
+      nakit: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+      eft: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+      kart: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+      acenta: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+      depozito: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 },
+      toplam: { giren: 0, cikan: 0, kalan: 0, alinan: 0, verilen: 0 }
     }
   } finally {
     odemeTipiOzetLoading.value = false
@@ -1857,6 +1905,15 @@ function updatePieCharts(
 }
 
 .body--dark .odeme-tipi-toplam-row {
+  background-color: rgba(97, 97, 97, 0.3) !important;
+}
+
+/* KALAN sütunu zemin rengi - TOPLAM satırı ile aynı */
+.odeme-tipi-kalan-col {
+  background-color: rgba(158, 158, 158, 0.2) !important;
+}
+
+.body--dark .odeme-tipi-kalan-col {
   background-color: rgba(97, 97, 97, 0.3) !important;
 }
 

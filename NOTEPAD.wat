@@ -27,9 +27,29 @@ taskkill /f /im node.exe
   
   VPS'TE:
   1. cd C:\gokce-backend
-  2. .\deploy-vps.ps1                 # Backend git pull + build + PM2 restart
+  2. .\deploy-vps.ps1                 # Backend git pull + build + PM2 reload (zero-downtime)
   3. Frontend: RDP ile manuel kopyala veya deploy-frontend-vps.ps1 kullan
-  4. iisreset                         # IIS restart
+  4. Restart-WebAppPool -Name "DefaultAppPool"  # Application Pool restart (iisreset yerine)
+========================================================================
+Özet akış:
+Yerel: .\deploy.ps1 (gokceweb klasöründe)
+Frontend: manuel kopyala (C:\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> 
+    (C:\inetpub\wwwroot\gokce-frontend\dist\spa) -> (Restart-WebAppPool -Name "DefaultAppPool" veya site pool adı)
+VPS: .\deploy-vps.ps1 (C:\gokce-backend klasöründe) (pm2 reload gokce-backend !!!)
+Bu adımları her güncellemede tekrarlayın.
+========================================================================
+NOT: Zero-Downtime Deployment İyileştirmeleri:
+- Backend: Graceful shutdown eklendi (aktif istekler tamamlanana kadar bekler)
+- PM2 reload kullanılıyor (restart yerine - kesinti süresi 1-2 saniye)
+- IIS: Application Pool restart (iisreset yerine - sadece ilgili site etkilenir)
+- Kullanıcılar genellikle kesintiyi fark etmez, kritik işlemler için uyarı gerekmez
+========================================================================
+IIS Application Pool Adını Öğrenme:
+1. PowerShell'de: Get-WebSite | Select-Object Name, PhysicalPath, ApplicationPool
+2. IIS Manager'da: Sites → Site Adı → Basic Settings → Application Pool
+3. deploy-vps.ps1 script'i otomatik olarak pool adını bulur ve gösterir
+4. DefaultAppPool genellikle kullanılır, ancak özel pool adı varsa onu kullanın
+======================================================================== 
 ========================================================================
 netstat -ano | findstr :3000
 # Çiktidaki PID'yi kullanin:

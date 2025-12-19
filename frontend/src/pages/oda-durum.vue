@@ -11,24 +11,24 @@
         @mouseenter="onLegendMouseEnter(tip)"
         @mouseleave="onLegendMouseLeave()"
       >
-        {{ tip }}
+        {{ tip }} ({{ getBosYatakSayisi(tip) }})
       </div>
       <div class="legend-spacer"></div>
       <div
         class="legend-item legend-kirli"
         @mouseenter="onKirliHoverEnter()"
         @mouseleave="onKirliHoverLeave()"
-      >Kirli</div>
+      >Kirli ({{ getKirliSayisi() }})</div>
       <div
         class="legend-item legend-ariza"
         @mouseenter="onArizaHoverEnter()"
         @mouseleave="onArizaHoverLeave()"
-      >Arıza</div>
+      >Arıza ({{ getArizaSayisi() }})</div>
       <div
         class="legend-item legend-extra"
         @mouseenter="onSuresiDolanHoverEnter()"
         @mouseleave="onSuresiDolanHoverLeave()"
-      >Süresi Dolan</div>
+      >Süresi Dolan ({{ getSuresiDolanSayisi() }})</div>
     </div>
     <div ref="tableScrollRef" class="table-scroll">
     <q-table
@@ -570,6 +570,59 @@ function hasDolu(room: unknown): boolean {
   return false
 }
 
+// 🔥 Oda tipine göre boş yatak toplamını hesapla
+function getBosYatakSayisi(odaTip: string): number {
+  let toplamBosYatak = 0
+  for (const row of tableRows.value) {
+    const allRooms = getAllRoomsInRow(row)
+    for (const room of allRooms) {
+      if (room && typeof room === 'object' && 'odaTip' in room) {
+        const tip = (room as { odaTip?: string }).odaTip || ''
+        if (tip.trim() === odaTip.trim()) {
+          const yatak = typeof room.yatak === 'number' ? room.yatak : Number(room.yatak ?? 0) || 0
+          const dolu = typeof room.dolu === 'number' ? room.dolu : Number(room.dolu ?? 0) || 0
+          const bosYatak = Math.max(0, yatak - dolu)
+          toplamBosYatak += bosYatak
+        }
+      }
+    }
+  }
+  return toplamBosYatak
+}
+
+// 🔥 Kirli oda sayısını hesapla
+function getKirliSayisi(): number {
+  let count = 0
+  for (const row of tableRows.value) {
+    const allRooms = getAllRoomsInRow(row)
+    for (const room of allRooms) {
+      if (isKirli(room)) {
+        count++
+      }
+    }
+  }
+  return count
+}
+
+// 🔥 Arızalı oda sayısını hesapla
+function getArizaSayisi(): number {
+  let count = 0
+  for (const row of tableRows.value) {
+    const allRooms = getAllRoomsInRow(row)
+    for (const room of allRooms) {
+      if (isAriza(room)) {
+        count++
+      }
+    }
+  }
+  return count
+}
+
+// 🔥 Süresi dolan oda sayısını hesapla
+function getSuresiDolanSayisi(): number {
+  return suresiDolanOdaSet.value.size
+}
+
 function isKirli(room: unknown): boolean {
   if (room && typeof room === 'object') {
     const obj = room as Record<string, unknown>
@@ -784,8 +837,10 @@ function reloadPage(): void {
 
 .legend-row {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  flex-wrap: nowrap; /* Chipleri aynı satırda tut */
+  overflow-x: auto; /* Gerekirse yatay scroll */
+  align-items: center;
 }
 .kat-sticky-td {
   position: sticky;
@@ -854,8 +909,11 @@ function reloadPage(): void {
   padding: 6px 10px;
   border-radius: 4px;
   font-weight: 600;
+  font-size: 0.75rem; /* 1 kademe küçültüldü (14px -> ~14px, varsayılan 16px'den küçük) */
   text-shadow: 0 1px 2px rgba(0,0,0,0.45);
   cursor: pointer;
+  flex-shrink: 0; /* Chipleri küçültme, aynı satırda tut */
+  white-space: nowrap; /* Metni tek satırda tut */
 }
 .no-scrollbar {
   overflow: hidden !important;
