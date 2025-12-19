@@ -413,8 +413,20 @@ export class MusteriController {
 
   @Get('oda-tip-fiyatlari/:odaTipi')
   async getOdaTipFiyatlari(@Param('odaTipi') odaTipi: string) {
-    // Püf Nokta: Frontend'de double encode yapılıyor, burada double decode yapıyoruz
-    const decodedOdaTipi = decodeURIComponent(decodeURIComponent(odaTipi));
+    // Püf Nokta: Frontend'de "+" karakteri içeren oda tipleri için double encode yapılıyor
+    // Normal oda tipleri için tek encode yapılıyor
+    let decodedOdaTipi: string;
+    try {
+      // Önce normal decode dene
+      decodedOdaTipi = decodeURIComponent(odaTipi);
+      // Eğer hala encode karakterleri varsa (örn: %2B, %20), double encode edilmiş demektir
+      if (decodedOdaTipi.includes('%')) {
+        decodedOdaTipi = decodeURIComponent(decodedOdaTipi);
+      }
+    } catch {
+      // Decode hatası olursa, direkt kullan
+      decodedOdaTipi = odaTipi;
+    }
     try {
       const fiyatlar = await this.musteriService.getOdaTipFiyatlari(decodedOdaTipi)
       return {

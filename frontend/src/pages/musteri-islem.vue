@@ -1167,8 +1167,10 @@ async function hesaplaBedel() {
 
   try {
     // Oda tip fiyatlarını getir
-    // Püf Nokta: IIS reverse proxy "+" karakterini boşluğa çevirebilir, double encode yapıyoruz
-    const encodedOdaTipi = encodeURIComponent(encodeURIComponent(form.value.OdaTipi))
+    // Püf Nokta: Sadece "+" karakteri içeren oda tipleri için double encode yapıyoruz
+    const encodedOdaTipi = form.value.OdaTipi.includes('+')
+      ? encodeURIComponent(encodeURIComponent(form.value.OdaTipi))
+      : encodeURIComponent(form.value.OdaTipi)
     const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodedOdaTipi}`)
     if (response.data.success && response.data.data) {
       odaTipFiyatlari.value = response.data.data
@@ -1312,10 +1314,12 @@ async function loadBosOdalar(odaTipi: string) {
       bosOdalarOptions.value = []
       return
     }
-    // Püf Nokta: IIS reverse proxy URL'yi rewrite ederken "+" karakterini boşluğa çevirebilir
-    // Bu yüzden double encode yapıyoruz: encodeURIComponent(encodeURIComponent(odaTipi))
-    // Bu sayede IIS "+" karakterini boşluğa çevirse bile, backend'de decode edildiğinde "+" karakteri geri gelir
-    const encodedOdaTipi = encodeURIComponent(encodeURIComponent(odaTipi))
+    // Püf Nokta: Sadece "+" karakteri içeren oda tipleri için double encode yapıyoruz
+    // Normal oda tipleri için tek encode yeterli
+    // IIS reverse proxy "+" karakterini boşluğa çevirebilir, bu yüzden "+" içerenler için double encode gerekli
+    const encodedOdaTipi = odaTipi.includes('+') 
+      ? encodeURIComponent(encodeURIComponent(odaTipi))
+      : encodeURIComponent(odaTipi)
     const response = await api.get(`/musteri/bos-odalar/${encodedOdaTipi}`)
     debugLog('Boş odalar response:', response.data)
     if (response.data.success) {
@@ -3448,9 +3452,11 @@ async function onKonaklamaSuresiChanged() {
   // Oda tipi fiyatları yoksa önce getir
   if (!odaTipFiyatlari.value && form.value.OdaTipi) {
     try {
-      // Püf Nokta: IIS reverse proxy "+" karakterini boşluğa çevirebilir, double encode yapıyoruz
-    const encodedOdaTipi = encodeURIComponent(encodeURIComponent(form.value.OdaTipi))
-    const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodedOdaTipi}`)
+      // Püf Nokta: Sadece "+" karakteri içeren oda tipleri için double encode yapıyoruz
+      const encodedOdaTipi = form.value.OdaTipi.includes('+')
+        ? encodeURIComponent(encodeURIComponent(form.value.OdaTipi))
+        : encodeURIComponent(form.value.OdaTipi)
+      const response = await api.get(`/musteri/oda-tip-fiyatlari/${encodedOdaTipi}`)
       if (response.data.success && response.data.data) {
         odaTipFiyatlari.value = response.data.data
       }
