@@ -1749,8 +1749,8 @@ async function loadTedarikciListesi() {
   try {
     debugLog('Tedarikçi listesi yükleniyor...')
 
-    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-    const baseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
+    // Domain adresi üzerinden backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/tedarikci`)
     debugLog('Tedarikçi response status:', response.status)
     debugLog('Tedarikçi response headers:', response.headers)
@@ -1808,8 +1808,8 @@ async function loadMusteriListesi() {
   try {
     debugLog('Müşteri listesi yükleniyor...')
 
-    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-    const baseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
+    // Domain adresi üzerinden backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/cari/musteri`)
     debugLog('Müşteri response status:', response.status)
     debugLog('Müşteri response headers:', response.headers)
@@ -1867,8 +1867,8 @@ async function testApiConnection() {
   try {
     debugLog('API bağlantısı test ediliyor...')
     
-    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-    const baseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
+    // Domain adresi üzerinden backend'e bağlan
+    const baseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)

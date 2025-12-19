@@ -68,10 +68,10 @@ async function bootstrap() {
     maxAge: 86400, // 24 saat - preflight cache süresi
   });
   
-  // Püf Nokta: Backend'i sadece localhost'tan erişilebilir yaparak güvenliği artırıyoruz
-  // IIS reverse proxy üzerinden /api istekleri backend'e yönlendirilecek
-  await app.listen(3000, '127.0.0.1');
-  debugLog(`Backend running on port 3000 (localhost only - accessible via IIS reverse proxy)`);
+  // Geçici: IIS reverse proxy kurulumu tamamlanana kadar HTTP üzerinden erişilebilir
+  // ARR modülü yüklendikten sonra bu satırı '127.0.0.1' olarak değiştirin
+  await app.listen(3000);
+  debugLog(`Backend running on port 3000 (HTTP - temporary until reverse proxy is configured)`);
   
   // Graceful shutdown: PM2 restart/reload sırasında aktif isteklerin tamamlanmasını sağlar
   // Püf Nokta: SIGTERM ve SIGINT sinyalleri geldiğinde, NestJS aktif bağlantıları kapatmadan önce

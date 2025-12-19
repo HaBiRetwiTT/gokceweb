@@ -362,8 +362,8 @@ const loadChartData = async () => {
       timePeriod: currentTimePeriod
     })
     
-    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-    const apiBaseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
+    // Domain adresi üzerinden backend'e bağlan
+    const apiBaseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
       params: {
         timePeriod: currentTimePeriod,
@@ -1013,8 +1013,8 @@ const loadPieChartData = async () => {
       startDate: startDate.value
     })
     
-    // VPS'te frontend ve backend aynı sunucuda olduğu için VPS IP adresini kullan
-    const apiBaseUrl = import.meta.env.PROD ? 'http://77.245.151.173:3000' : 'http://localhost:3000'
+    // Domain adresi üzerinden backend'e bağlan
+    const apiBaseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     let sqlStartDateForPie = ''
     if (startDate.value) {
       const [day, month, year] = startDate.value.split('.')
