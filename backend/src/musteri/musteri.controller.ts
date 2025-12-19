@@ -390,7 +390,11 @@ export class MusteriController {
   @Get('bos-odalar/:odaTipi')
   async getBosOdalar(@Param('odaTipi') odaTipi: string) {
     try {
-      const bosOdalar = await this.musteriService.getBosOdalar(odaTipi)
+      // Püf Nokta: URL'de "+" karakteri boşluk olarak yorumlanabilir
+      // decodeURIComponent ile doğru şekilde decode ediyoruz
+      // "+" karakteri "%2B" olarak encode edilmişse doğru decode edilir
+      const decodedOdaTipi = decodeURIComponent(odaTipi);
+      const bosOdalar = await this.musteriService.getBosOdalar(decodedOdaTipi)
       return {
         success: true,
         data: bosOdalar
@@ -406,8 +410,11 @@ export class MusteriController {
 
   @Get('oda-tip-fiyatlari/:odaTipi')
   async getOdaTipFiyatlari(@Param('odaTipi') odaTipi: string) {
+    // Püf Nokta: URL'de "+" karakteri boşluk olarak yorumlanabilir
+    // decodeURIComponent ile doğru şekilde decode ediyoruz
+    const decodedOdaTipi = decodeURIComponent(odaTipi);
     try {
-      const fiyatlar = await this.musteriService.getOdaTipFiyatlari(odaTipi)
+      const fiyatlar = await this.musteriService.getOdaTipFiyatlari(decodedOdaTipi)
       return {
         success: true,
         data: fiyatlar
