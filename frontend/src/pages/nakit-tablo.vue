@@ -1089,6 +1089,14 @@ onMounted(async () => {
     const updateResponse = await api.get('/nakit-akis/guncelle-eski-odmvade');
     if (updateResponse.data.success && updateResponse.data.updatedCount > 0) {
       console.log(`✅ ${updateResponse.data.updatedCount} kayıt güncellendi`);
+      
+      $q.notify({
+        type: 'positive',
+        message: `${updateResponse.data.updatedCount} adet gecikmiş ödeme tarihi güncellendi.`,
+        position: 'top',
+        timeout: 3000
+      });
+
       // Eğer bir update yapıldıysa sayfayı yenile
       await refreshPage();
       return; // refreshPage zaten tüm verileri yükleyecek

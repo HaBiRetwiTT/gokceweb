@@ -197,7 +197,8 @@ export class NakitAkisService {
         const countQuery = `
           SELECT COUNT(*) as count
           FROM ${fonKasaYTableName}
-          WHERE Right(OdmVade,4) > @0 AND TRY_CONVERT(DATE, OdmVade, 104) < TRY_CONVERT(DATE, GETDATE(), 104)
+          WHERE Right(RTRIM(OdmVade),4) > @0 
+            AND TRY_CONVERT(DATE, OdmVade, 104) < CAST(GETDATE() AS DATE)
             AND OdmDrm = 0
         `;
         
@@ -218,7 +219,8 @@ export class NakitAkisService {
         const updateQuery = `
           UPDATE ${fonKasaYTableName}
           SET OdmVade = CONVERT(nchar(10), GETDATE(), 104), ttrDrm = 1
-          WHERE Right(OdmVade,4) > @0 AND TRY_CONVERT(DATE, OdmVade, 104) < TRY_CONVERT(DATE, GETDATE(), 104)
+          WHERE Right(RTRIM(OdmVade),4) > @0 
+            AND TRY_CONVERT(DATE, OdmVade, 104) < CAST(GETDATE() AS DATE)
             AND OdmDrm = 0
         `;
         
