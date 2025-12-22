@@ -1313,6 +1313,8 @@ const selectedFirmaBakiye = ref<number>(0)
 // 🔥 FİRMA FİLTRESİ
 const firmaFiltresiAktif = ref<boolean>(false)
 const selectedFirmaAdi = ref<string>('')
+const lastSelectedNormalMusteriBeforeFirmaFilter = ref<MusteriKonaklama | null>(null)
+const cariKodByTcnCache = new Map<string, string>()
 
 // 🚨 KARA LİSTE UYARI SİSTEMİ
 const showKaraListeDialog = ref<boolean>(false)
@@ -3320,25 +3322,48 @@ function getIslemTutarClass(tip: string): string {
 }
 
 // 🔥 MÜŞTERİ BAKİYE HESAPLAMA FONKSİYONU
+async function resolveCariKod(musteri: MusteriKonaklama | BorcluMusteri | AlacakliMusteri): Promise<string> {
+  if ('CariKod' in musteri) {
+    return (musteri.CariKod || '').trim().toUpperCase()
+  }
+
+  const tcKimlik = (musteri.MstrTCN || '').trim()
+  if (tcKimlik && cariKodByTcnCache.has(tcKimlik)) {
+    return cariKodByTcnCache.get(tcKimlik) || ''
+  }
+
+  if ('MstrNo' in musteri) {
+    const mstrNo = Number(musteri.MstrNo)
+    if (Number.isFinite(mstrNo) && mstrNo > 0) {
+      const hspTip = musteri.MstrHspTip || ''
+      const cariKod = hspTip === 'Kurumsal' ? `MK${mstrNo}` : `MB${mstrNo}`
+      if (tcKimlik) cariKodByTcnCache.set(tcKimlik, cariKod)
+      return cariKod
+    }
+  }
+
+  if (!tcKimlik) return ''
+
+  try {
+    const response = await api.get(`/musteri/musteri-bilgi/${encodeURIComponent(tcKimlik)}`)
+    if (response.data.success && response.data.data) {
+      const mstrNo = Number(response.data.data.MstrNo)
+      if (!Number.isFinite(mstrNo) || mstrNo <= 0) return ''
+      const hspTip = response.data.data.MstrHspTip || musteri.MstrHspTip || ''
+      const cariKod = hspTip === 'Kurumsal' ? `MK${mstrNo}` : `MB${mstrNo}`
+      cariKodByTcnCache.set(tcKimlik, cariKod)
+      return cariKod
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
 async function hesaplaMusteriBakiye(musteri: MusteriKonaklama | BorcluMusteri | AlacakliMusteri) {
   try {
-    // Cari kodu belirle
-    let cariKod = '';
-    
-    if ('CariKod' in musteri) {
-      // Borçlu/Alacaklı müşteri tablosundan geliyorsa
-      cariKod = musteri.CariKod;
-    } else {
-      // Normal müşteri tablosundan geliyorsa - cari kodu oluştur
-      // MstrNo'yu TC'den bulmamız gerekiyor, backend'den alacağız
-      const response = await api.get(`/musteri/musteri-bilgi/${musteri.MstrTCN}`);
-      
-      if (response.data.success && response.data.data) {
-        const mstrNo = response.data.data.MstrNo;
-        const hspTip = response.data.data.MstrHspTip || musteri.MstrHspTip;
-        cariKod = hspTip === 'Kurumsal' ? `MK${mstrNo}` : `MB${mstrNo}`;
-      }
-    }
+    const cariKod = await resolveCariKod(musteri)
     
     if (!cariKod) {
       console.log('🔥 CariKod bulunamadı, bakiyeler sıfırlanıyor');
@@ -4307,17 +4332,23 @@ async function loadKonaklamaGecmisi(tcKimlik: string) {
   // 🔥 Pagination'ı sıfırla
   konaklamaGecmisiPagination.value.page = 1
   
+  const cleanTCKimlik = (tcKimlik || '').trim()
+  if (!cleanTCKimlik) {
+    konaklamaGecmisiLoading.value = false;
+    return
+  }
+
   // 🔥 Key'i sadece farklı müşteri seçildiğinde güncelle
-  const newKey = `konaklama-${tcKimlik}`
+  const newKey = `konaklama-${cleanTCKimlik}`
   if (konaklamaGecmisiKey.value !== newKey) {
     konaklamaGecmisiKey.value = newKey
   }
   
   try {
-    const response = await api.get(`/dashboard/musteri-konaklama-gecmisi/${tcKimlik}`);
+    const response = await api.get(`/dashboard/musteri-konaklama-gecmisi/${encodeURIComponent(cleanTCKimlik)}`);
     if (response.data.success) {
       konaklamaGecmisiListesi.value = response.data.data;
-      console.log(`${tcKimlik} için ${response.data.data.length} konaklama geçmişi kaydı yüklendi`);
+      console.log(`${cleanTCKimlik} için ${response.data.data.length} konaklama geçmişi kaydı yüklendi`);
       
       // 🔥 Tablo yüklendikten sonra scroll pozisyonunu sıfırla
       await nextTick()
@@ -4328,7 +4359,7 @@ async function loadKonaklamaGecmisi(tcKimlik: string) {
         }
       }
     } else {
-      console.log(`${tcKimlik} için konaklama geçmişi bulunamadı`);
+      console.log(`${cleanTCKimlik} için konaklama geçmişi bulunamadı`);
     }
   } catch (error) {
     console.error('Konaklama geçmişi yüklenemedi:', error);
@@ -4621,6 +4652,7 @@ function onFirmaFiltresiChange(newValue: boolean) {
   console.log('Firma filtresi değişti:', newValue, 'Firma adı:', selectedFirmaAdi.value);
 
   if (newValue && selectedFirmaAdi.value) {
+    lastSelectedNormalMusteriBeforeFirmaFilter.value = selectedNormalMusteri.value
     // Önce firma geneli verilerini yükle
     void loadFirmaGenelVerileri().then(() => {
       // Sonra mevcut seçimleri temizle (ama firma bilgilerini koru)
@@ -4631,16 +4663,32 @@ function onFirmaFiltresiChange(newValue: boolean) {
       (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
     });
   } else {
-    // Filtre kapandığında tümünü temizle
-    selectedNormalMusteri.value = null;
-    selectedBorcluMusteri.value = null;
-    showKonaklamaGecmisi.value = false;
-    showCariHareketler.value = false;
-    selectedMusteriBakiye.value = 0;
-    selectedMusteriDepozito.value = 0;
-    selectedFirmaBakiye.value = 0;
-    (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
-    selectedFirmaAdi.value = '';
+    const prev = lastSelectedNormalMusteriBeforeFirmaFilter.value
+    if (prev && prev.MstrTCN) {
+      selectedNormalMusteri.value = prev
+      selectedBorcluMusteri.value = null
+      showKonaklamaGecmisi.value = true
+      showCariHareketler.value = false
+      currentAltTableType.value = 'konaklama'
+      selectedFirmaAdi.value = prev.MstrFirma || selectedFirmaAdi.value
+      void loadKonaklamaGecmisi(prev.MstrTCN)
+      void hesaplaMusteriBakiye(prev)
+      if (prev.MstrHspTip === 'Kurumsal') {
+        void hesaplaFirmaBakiye(prev)
+      } else {
+        selectedFirmaBakiye.value = 0
+      }
+    } else {
+      selectedNormalMusteri.value = null;
+      selectedBorcluMusteri.value = null;
+      showKonaklamaGecmisi.value = false;
+      showCariHareketler.value = false;
+      selectedMusteriBakiye.value = 0;
+      selectedMusteriDepozito.value = 0;
+      selectedFirmaBakiye.value = 0;
+      (window as { selectedMusteriBakiye?: number }).selectedMusteriBakiye = 0;
+      selectedFirmaAdi.value = '';
+    }
   }
 }
 

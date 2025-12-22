@@ -550,7 +550,7 @@ const showEkHizmetlerModal = ref(false);
 const kartliIslemCurrentFilter = ref<string | null>(null);
 
 interface KartliIslemMusteri {
-  MstrNo?: number;
+  MstrNo?: number | string;
   MstrAdi?: string;
   KonaklamaTipi?: string;
   KnklmTip?: string;
@@ -1231,8 +1231,13 @@ async function onKaydet() {
     return;
   }
   try {
+    const musteriNo = Number(musteri.MstrNo)
+    if (!Number.isFinite(musteriNo) || musteriNo <= 0) {
+      Notify.create({ type: 'warning', message: 'Müşteri numarası geçersiz.' });
+      return;
+    }
     const payload = {
-      musteriNo: musteri.MstrNo,
+      musteriNo,
       MstrAdi: musteri.MstrAdi,
       MstrKllnc: localStorage.getItem('username') || 'admin',
       MstrHspTip: musteri.MstrHspTip,
