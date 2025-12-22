@@ -2535,6 +2535,36 @@ function onOdemeVadesiSelected(date: string) {
   }
 }
 
+function replaceTurkishCharsWithLatin(input: string): string {
+  const map: Record<string, string> = {
+    'ğ': 'g',
+    'Ğ': 'G',
+    'ş': 's',
+    'Ş': 'S',
+    'ç': 'c',
+    'Ç': 'C',
+    'ö': 'o',
+    'Ö': 'O',
+    'ü': 'u',
+    'Ü': 'U',
+    'ı': 'i',
+    'İ': 'I'
+  }
+
+  return input.replace(/[ğĞşŞçÇöÖüÜıİ]/g, (ch) => map[ch] ?? ch)
+}
+
+function normalizeTcKimlikInput(raw: string | null | undefined, opts?: { uppercase?: boolean }): string {
+  let s = raw ?? ''
+  s = replaceTurkishCharsWithLatin(s)
+  s = s.replace(/\s+/g, '')
+  s = s.replace(/[^A-Za-z0-9_]/g, '')
+  if (opts?.uppercase) {
+    s = s.toUpperCase().replace(/İ/g, 'I')
+  }
+  return s
+}
+
 // TC kimlik no focus - orijinal değeri kaydet
 function onTCNFocus() {
   // TC input'a odaklanıldığında orijinal değeri kaydet
@@ -2549,6 +2579,11 @@ function onTCNFocus() {
 
 // TC kimlik no değişikliği - form temizleme kontrolü
 function onTCNInput() {
+  const normalized = normalizeTcKimlikInput(form.value.MstrTCN)
+  if (normalized !== form.value.MstrTCN) {
+    form.value.MstrTCN = normalized
+  }
+
   // Eğer form dolu ve TC değiştiriliyorsa önce temizle
   const formDolu = form.value.MstrAdi || 
                    form.value.MstrTelNo || 
@@ -2707,6 +2742,11 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
 
 // TC kimlik no blur kontrolü - 3 aşamalı sistem
 async function onTCNBlur() {
+  const normalized = normalizeTcKimlikInput(form.value.MstrTCN, { uppercase: true })
+  if (normalized !== form.value.MstrTCN) {
+    form.value.MstrTCN = normalized
+  }
+
   // 🔥 RZVRYTK modu aktifken (TC DEĞİŞTİR butonu görünürken) blur eventi çalışmasın
   if (rzvrytkModuAktif.value) {
     return
@@ -2715,7 +2755,7 @@ async function onTCNBlur() {
   tcKimlikProcessing.value = true
   
   try {
-    const currentTCN = form.value.MstrTCN?.trim() || ''
+    const currentTCN = form.value.MstrTCN || ''
     
     // 🔥 RZVRYTK OTOMATIK NUMARA KONTROLÜ
     if (currentTCN === 'RZVRYTK') {

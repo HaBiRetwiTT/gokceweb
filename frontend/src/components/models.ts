@@ -42,7 +42,6 @@ export interface EssentialLinkProps {
 }
 
 export interface MusteriKonaklama {
-  MstrNo?: number | string;
   MstrTCN: string;
   MstrHspTip: string;
   MstrFirma?: string;

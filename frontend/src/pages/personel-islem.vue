@@ -1720,9 +1720,31 @@ const onSingleSalaryCancel = () => {
   previewSingleSalary.value = 0;
 };
 
+function normalizeDateText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  let s = '';
+  if (typeof value === 'string') {
+    s = value;
+  } else if (typeof value === 'number') {
+    s = String(value);
+  } else {
+    return '';
+  }
+  s = s.normalize('NFC');
+  s = s.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '');
+  s = s.replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g, ' ');
+  s = s.replace(/\s+/g, '');
+  return s.trim();
+}
+
 // Çift tık event handler
 const onRowDblClick = (evt: Event, row: Personel) => {
-  selectedPersonel.value = { ...row };
+  selectedPersonel.value = {
+    ...row,
+    PrsnGrsTrh: normalizeDateText(row.PrsnGrsTrh),
+    PrsnCksTrh: normalizeDateText(row.PrsnCksTrh),
+    PrsnDgmTarihi: normalizeDateText(row.PrsnDgmTarihi)
+  };
   showPersonelModal.value = true;
   // Modal açıldığında şifreyi gizle ve form durumunu sıfırla
   showPassword.value = false;
@@ -1731,17 +1753,18 @@ const onRowDblClick = (evt: Event, row: Personel) => {
 
 // Tarih validasyonu için yardımcı fonksiyon
 const validateGirisTarihi = (girisTarihi: string): { isValid: boolean; message: string } => {
-  if (!girisTarihi || girisTarihi.trim() === '') {
+  const normalizedGirisTarihi = normalizeDateText(girisTarihi);
+  if (!normalizedGirisTarihi) {
     return { isValid: true, message: '' }; // Boş tarih kabul edilir
   }
 
   // Tarih formatını kontrol et (DD.MM.YYYY)
   const tarihRegex = /^(\d{2})\.(\d{2})\.(\d{4})$/;
-  if (!tarihRegex.test(girisTarihi)) {
+  if (!tarihRegex.test(normalizedGirisTarihi)) {
     return { isValid: false, message: 'Giriş tarihi DD.MM.YYYY formatında olmalıdır' };
   }
 
-  const [, gun, ay, yil] = girisTarihi.match(tarihRegex)!;
+  const [, gun, ay, yil] = normalizedGirisTarihi.match(tarihRegex)!;
   const girisDate = new Date(parseInt(yil), parseInt(ay) - 1, parseInt(gun));
   
   // Geçerli tarih kontrolü
@@ -1759,10 +1782,11 @@ const validateGirisTarihi = (girisTarihi: string): { isValid: boolean; message: 
   }
 
   // Doğum tarihi varsa, giriş tarihi doğum tarihinden önce mi?
-  if (selectedPersonel.value.PrsnDgmTarihi && selectedPersonel.value.PrsnDgmTarihi.trim() !== '') {
+  const normalizedDogumTarihi = normalizeDateText(selectedPersonel.value.PrsnDgmTarihi);
+  if (normalizedDogumTarihi) {
     const dogumRegex = /^(\d{2})\.(\d{2})\.(\d{4})$/;
-    if (dogumRegex.test(selectedPersonel.value.PrsnDgmTarihi)) {
-      const [, dGun, dAy, dYil] = selectedPersonel.value.PrsnDgmTarihi.match(dogumRegex)!;
+    if (dogumRegex.test(normalizedDogumTarihi)) {
+      const [, dGun, dAy, dYil] = normalizedDogumTarihi.match(dogumRegex)!;
       const dogumDate = new Date(parseInt(dYil), parseInt(dAy) - 1, parseInt(dGun));
       
       if (girisDate < dogumDate) {
@@ -1776,17 +1800,18 @@ const validateGirisTarihi = (girisTarihi: string): { isValid: boolean; message: 
 
 // Çıkış tarihi validasyonu için yardımcı fonksiyon
 const validateCikisTarihi = (cikisTarihi: string, girisTarihi: string): { isValid: boolean; message: string } => {
-  if (!cikisTarihi || cikisTarihi.trim() === '') {
+  const normalizedCikisTarihi = normalizeDateText(cikisTarihi);
+  if (!normalizedCikisTarihi) {
     return { isValid: true, message: '' }; // Boş tarih kabul edilir
   }
 
   // Tarih formatını kontrol et (DD.MM.YYYY)
   const tarihRegex = /^(\d{2})\.(\d{2})\.(\d{4})$/;
-  if (!tarihRegex.test(cikisTarihi)) {
+  if (!tarihRegex.test(normalizedCikisTarihi)) {
     return { isValid: false, message: 'Çıkış tarihi DD.MM.YYYY formatında olmalıdır' };
   }
 
-  const [, gun, ay, yil] = cikisTarihi.match(tarihRegex)!;
+  const [, gun, ay, yil] = normalizedCikisTarihi.match(tarihRegex)!;
   const cikisDate = new Date(parseInt(yil), parseInt(ay) - 1, parseInt(gun));
   
   // Geçerli tarih kontrolü
@@ -1804,10 +1829,11 @@ const validateCikisTarihi = (cikisTarihi: string, girisTarihi: string): { isVali
   }
 
   // Giriş tarihi varsa, çıkış tarihi giriş tarihinden önce mi?
-  if (girisTarihi && girisTarihi.trim() !== '') {
+  const normalizedGirisTarihi = normalizeDateText(girisTarihi);
+  if (normalizedGirisTarihi) {
     const girisRegex = /^(\d{2})\.(\d{2})\.(\d{4})$/;
-    if (girisRegex.test(girisTarihi)) {
-      const [, gGun, gAy, gYil] = girisTarihi.match(girisRegex)!;
+    if (girisRegex.test(normalizedGirisTarihi)) {
+      const [, gGun, gAy, gYil] = normalizedGirisTarihi.match(girisRegex)!;
       const girisDate = new Date(parseInt(gYil), parseInt(gAy) - 1, parseInt(gGun));
       
       if (cikisDate < girisDate) {
@@ -1953,6 +1979,10 @@ const onTemizleClick = () => {
 // Düzenle butonu click handler
 const onDuzenleClick = async () => {
   try {
+    selectedPersonel.value.PrsnGrsTrh = normalizeDateText(selectedPersonel.value.PrsnGrsTrh);
+    selectedPersonel.value.PrsnCksTrh = normalizeDateText(selectedPersonel.value.PrsnCksTrh);
+    selectedPersonel.value.PrsnDgmTarihi = normalizeDateText(selectedPersonel.value.PrsnDgmTarihi);
+
     // Zorunlu alan validasyonu
     const zorunluAlanValidation = validateZorunluAlanlar(selectedPersonel.value.PrsnTCN, selectedPersonel.value.PrsnAdi, selectedPersonel.value.PrsnGrsTrh);
     if (!zorunluAlanValidation.isValid) {
@@ -2080,6 +2110,10 @@ const onDuzenleClick = async () => {
 // Personel Ekle butonu click handler
 const onPersonelEkleClick = async () => {
   try {
+    selectedPersonel.value.PrsnGrsTrh = normalizeDateText(selectedPersonel.value.PrsnGrsTrh);
+    selectedPersonel.value.PrsnCksTrh = normalizeDateText(selectedPersonel.value.PrsnCksTrh);
+    selectedPersonel.value.PrsnDgmTarihi = normalizeDateText(selectedPersonel.value.PrsnDgmTarihi);
+
     // Zorunlu alan validasyonu
     const zorunluAlanValidation = validateZorunluAlanlar(selectedPersonel.value.PrsnTCN, selectedPersonel.value.PrsnAdi, selectedPersonel.value.PrsnGrsTrh);
     if (!zorunluAlanValidation.isValid) {
@@ -2294,7 +2328,8 @@ function setupModalDraggable() {
 
 // Çıkış tarihi değiştiğinde durumu otomatik güncelle
 watch(() => selectedPersonel.value.PrsnCksTrh, (newCikisTarihi) => {
-  if (newCikisTarihi && newCikisTarihi.trim() !== '') {
+  const normalizedCikisTarihi = normalizeDateText(newCikisTarihi);
+  if (normalizedCikisTarihi) {
     // Çıkış tarihi doldurulduğunda durumu AYRILDI yap
     selectedPersonel.value.PrsnDurum = 'AYRILDI';
     console.log('🔍 Çıkış tarihi dolduruldu, durum AYRILDI olarak güncellendi');
