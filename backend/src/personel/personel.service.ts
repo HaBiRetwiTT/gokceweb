@@ -8,9 +8,9 @@ import { DatabaseConfigService } from '../database/database-config.service';
 export class PersonelService {
   constructor(
     @InjectRepository(Object) // Personel entity'si yok, Object kullanıyoruz
-    private readonly personelRepository: Repository<Object>,
+    private readonly personelRepository: Repository<object>,
     private readonly databaseTransactionService: DatabaseTransactionService,
-    private readonly dbConfig: DatabaseConfigService
+    private readonly dbConfig: DatabaseConfigService,
   ) {}
 
   /**
@@ -26,7 +26,9 @@ export class PersonelService {
         WHERE PrsnUsrNm = @0
       `;
 
-      const userUnknown = (await this.personelRepository.query(query, ['SAadmin'])) as unknown;
+      const userUnknown = (await this.personelRepository.query(query, [
+        'SAadmin',
+      ])) as unknown;
       const result = userUnknown as Array<{ PrsnUsrNm: string }>;
       const kullaniciAdi = result[0]?.PrsnUsrNm ?? 'SAadmin';
 
@@ -38,7 +40,7 @@ export class PersonelService {
     }
   }
 
-    async getCalisanPersonel(sortBy?: string, sortOrder?: 'ASC' | 'DESC') {
+  async getCalisanPersonel(sortBy?: string, sortOrder?: 'ASC' | 'DESC') {
     try {
       // Önce aktif kullanıcının yetkisini kontrol et
       const currentUsername = await this.getAktifKullaniciAdi();
@@ -51,14 +53,27 @@ export class PersonelService {
       console.log('🔍 Backend sıralama parametreleri:', { sortBy, sortOrder });
 
       // Sıralama parametrelerini güvenli hale getir
-      const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-      
+      const safeSortOrder =
+        sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
       // İzin verilen sıralama sütunları (Whitelist)
       const allowedSortColumns = [
-        'PrsnNo', 'PrsnTCN', 'PrsnAdi', 'PrsnDurum', 'PrsnTelNo', 
-        'PrsnGrsTrh', 'PrsnCksTrh', 'PrsnGorev', 'PrsnYetki', 
-        'PrsnMaas', 'PrsnOdGun', 'PrsnUsrNm', 'PrsnDuzey', 
-        'PrsnOda', 'PrsnYtk', 'PrsnDgmTarihi'
+        'PrsnNo',
+        'PrsnTCN',
+        'PrsnAdi',
+        'PrsnDurum',
+        'PrsnTelNo',
+        'PrsnGrsTrh',
+        'PrsnCksTrh',
+        'PrsnGorev',
+        'PrsnYetki',
+        'PrsnMaas',
+        'PrsnOdGun',
+        'PrsnUsrNm',
+        'PrsnDuzey',
+        'PrsnOda',
+        'PrsnYtk',
+        'PrsnDgmTarihi',
       ];
 
       // Varsayılan sıralama: PrsnYetki alanına göre ASC (nvarchar olduğu için sayısal sıralama)
@@ -66,18 +81,22 @@ export class PersonelService {
 
       // Eğer sıralama parametreleri verilmişse ve whitelist'te varsa
       if (sortBy && allowedSortColumns.includes(sortBy)) {
-         if (sortBy === 'PrsnYetki') {
-           // PrsnYetki alanı nvarchar(50) olduğu için INT cast ile sayısal sıralama
-           console.log('✅ PrsnYetki sütunu için INT cast sıralaması uygulanıyor (nvarchar tipi)');
-           orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${safeSortOrder}`;
-         } else {
-           // Diğer alanlar için normal sıralama
-           console.log(`📝 ${sortBy} sütunu için normal sıralama uygulanıyor`);
-           orderByClause = `ORDER BY ${sortBy} ${safeSortOrder}`;
-         }
-       } else if (sortBy) {
-         console.warn(`⚠️ Geçersiz sıralama sütunu istendi: ${sortBy}. Varsayılan sıralama kullanılıyor.`);
-       }
+        if (sortBy === 'PrsnYetki') {
+          // PrsnYetki alanı nvarchar(50) olduğu için INT cast ile sayısal sıralama
+          console.log(
+            '✅ PrsnYetki sütunu için INT cast sıralaması uygulanıyor (nvarchar tipi)',
+          );
+          orderByClause = `ORDER BY CAST(PrsnYetki AS INT) ${safeSortOrder}`;
+        } else {
+          // Diğer alanlar için normal sıralama
+          console.log(`📝 ${sortBy} sütunu için normal sıralama uygulanıyor`);
+          orderByClause = `ORDER BY ${sortBy} ${safeSortOrder}`;
+        }
+      } else if (sortBy) {
+        console.warn(
+          `⚠️ Geçersiz sıralama sütunu istendi: ${sortBy}. Varsayılan sıralama kullanılıyor.`,
+        );
+      }
       console.log('📋 Kullanılacak ORDER BY:', orderByClause);
 
       // Cari service'deki gibi direkt tablo adını kullan
@@ -111,12 +130,18 @@ export class PersonelService {
         ${orderByClause}
       `;
       console.log('📝 Çalıştırılan SQL sorgusu:\n', query);
-      const personel = await this.personelRepository.query(query, ['ÇALIŞIYOR']);
-      console.log('📊 Çalışan personel sorgu sonucu:', personel.length, 'kayıt bulundu');
+      const personel = await this.personelRepository.query(query, [
+        'ÇALIŞIYOR',
+      ]);
+      console.log(
+        '📊 Çalışan personel sorgu sonucu:',
+        personel.length,
+        'kayıt bulundu',
+      );
       return {
         success: true,
         data: personel,
-        message: 'Çalışan personel listesi başarıyla getirildi'
+        message: 'Çalışan personel listesi başarıyla getirildi',
       };
     } catch (error) {
       console.error('Backend personel yükleme hatası:', error);
@@ -135,61 +160,82 @@ export class PersonelService {
       }
 
       // Zorunlu alan kontrolü
-      if (!personelData.PrsnTCN || personelData.PrsnTCN === '' || personelData.PrsnTCN === null || personelData.PrsnTCN === undefined) {
+      if (
+        !personelData.PrsnTCN ||
+        personelData.PrsnTCN === '' ||
+        personelData.PrsnTCN === null ||
+        personelData.PrsnTCN === undefined
+      ) {
         throw new Error('TC Kimlik No alanı zorunludur');
       }
 
-      if (!personelData.PrsnAdi || personelData.PrsnAdi === '' || personelData.PrsnAdi === null || personelData.PrsnAdi === undefined) {
+      if (
+        !personelData.PrsnAdi ||
+        personelData.PrsnAdi === '' ||
+        personelData.PrsnAdi === null ||
+        personelData.PrsnAdi === undefined
+      ) {
         throw new Error('Adı Soyadı alanı zorunludur');
       }
 
-      if (!personelData.PrsnGrsTrh || personelData.PrsnGrsTrh === '' || personelData.PrsnGrsTrh === null || personelData.PrsnGrsTrh === undefined) {
+      if (
+        !personelData.PrsnGrsTrh ||
+        personelData.PrsnGrsTrh === '' ||
+        personelData.PrsnGrsTrh === null ||
+        personelData.PrsnGrsTrh === undefined
+      ) {
         throw new Error('Giriş Tarihi alanı zorunludur');
       }
 
       const { PrsnNo, PrsnOda, PrsnYtk, ...updateData } = personelData;
 
-             // Mevcut personel bilgilerini al (oda-yatak durumu güncelleme için de kullanılacak)
-       const mevcutPersonel = await this.personelRepository.query(
-         `SELECT PrsnOda, PrsnYtk FROM ${this.dbConfig.getTableName('tblPersonel')} WHERE PrsnNo = @0`,
-         [PrsnNo]
-       );
+      // Mevcut personel bilgilerini al (oda-yatak durumu güncelleme için de kullanılacak)
+      const mevcutPersonel = await this.personelRepository.query(
+        `SELECT PrsnOda, PrsnYtk FROM ${this.dbConfig.getTableName('tblPersonel')} WHERE PrsnNo = @0`,
+        [PrsnNo],
+      );
 
-       // Oda No ve Yatak No değişmiş mi kontrol et
-       if (PrsnOda && PrsnYtk) {
-         if (mevcutPersonel.length > 0) {
-           const mevcut = mevcutPersonel[0];
-           
-           // Oda No veya Yatak No değişmiş mi kontrol et
-           if (mevcut.PrsnOda !== PrsnOda || mevcut.PrsnYtk !== PrsnYtk) {
-             console.log('🔍 Oda/Yatak değişikliği tespit edildi:', {
-               eski: { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk },
-               yeni: { oda: PrsnOda, yatak: PrsnYtk }
-             });
+      // Oda No ve Yatak No değişmiş mi kontrol et
+      if (PrsnOda && PrsnYtk) {
+        if (mevcutPersonel.length > 0) {
+          const mevcut = mevcutPersonel[0];
 
-             // Önce oda-yatak kombinasyonunun envanterde mevcut olup olmadığını kontrol et
-             const odaYatakEnvanterKontrol = await this.personelRepository.query(
-               `SELECT OdYatDurum FROM ${this.dbConfig.getTableName('tblOdaYatak')} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`,
-               [PrsnOda, PrsnYtk]
-             );
+          // Oda No veya Yatak No değişmiş mi kontrol et
+          if (mevcut.PrsnOda !== PrsnOda || mevcut.PrsnYtk !== PrsnYtk) {
+            console.log('🔍 Oda/Yatak değişikliği tespit edildi:', {
+              eski: { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk },
+              yeni: { oda: PrsnOda, yatak: PrsnYtk },
+            });
 
-             // Envanterde mevcut değilse hata ver
-             if (odaYatakEnvanterKontrol.length === 0) {
-               throw new Error(`Girdiğiniz ${PrsnOda} Oda + ${PrsnYtk} Yatak bilgisi envanterimizde bulunamamıştır!`);
-             }
+            // Önce oda-yatak kombinasyonunun envanterde mevcut olup olmadığını kontrol et
+            const odaYatakEnvanterKontrol = await this.personelRepository.query(
+              `SELECT OdYatDurum FROM ${this.dbConfig.getTableName('tblOdaYatak')} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`,
+              [PrsnOda, PrsnYtk],
+            );
 
-             // Envanterde mevcut ama DOLU ise hata ver
-             if (odaYatakEnvanterKontrol[0].OdYatDurum === 'DOLU') {
-               throw new Error(`Seçtiğiniz ${PrsnOda} Oda - ${PrsnYtk} Yatak DOLU durumdadır. Başka bir seçim yapınız!`);
-             }
+            // Envanterde mevcut değilse hata ver
+            if (odaYatakEnvanterKontrol.length === 0) {
+              throw new Error(
+                `Girdiğiniz ${PrsnOda} Oda + ${PrsnYtk} Yatak bilgisi envanterimizde bulunamamıştır!`,
+              );
+            }
 
-             console.log('✅ Yeni oda-yatak kombinasyonu envanterde mevcut ve müsait');
-           }
-         }
-       }
+            // Envanterde mevcut ama DOLU ise hata ver
+            if (odaYatakEnvanterKontrol[0].OdYatDurum === 'DOLU') {
+              throw new Error(
+                `Seçtiğiniz ${PrsnOda} Oda - ${PrsnYtk} Yatak DOLU durumdadır. Başka bir seçim yapınız!`,
+              );
+            }
 
-        // Personel bilgilerini güncelle - Veri tipi uyumluluğu için CAST kullan
-       const updateQuery = `
+            console.log(
+              '✅ Yeni oda-yatak kombinasyonu envanterde mevcut ve müsait',
+            );
+          }
+        }
+      }
+
+      // Personel bilgilerini güncelle - Veri tipi uyumluluğu için CAST kullan
+      const updateQuery = `
          UPDATE ${this.dbConfig.getTableName('tblPersonel')} SET
            PrsnAdi = @0,
            PrsnDurum = @1,
@@ -216,89 +262,120 @@ export class PersonelService {
        `;
 
       // Aylık maaş değerini handle et - boş string ise NULL yap
-      const maasValue = updateData.PrsnMaas === '' || updateData.PrsnMaas === null || updateData.PrsnMaas === undefined 
-        ? null 
-        : updateData.PrsnMaas;
+      const maasValue =
+        updateData.PrsnMaas === '' ||
+        updateData.PrsnMaas === null ||
+        updateData.PrsnMaas === undefined
+          ? null
+          : updateData.PrsnMaas;
 
-        const updateParams = [
-         updateData.PrsnAdi,                    // PrsnAdi (nvarchar(50))
-         updateData.PrsnDurum,                  // PrsnDurum (nvarchar(50))
-         updateData.PrsnTelNo,                  // PrsnTelNo (nchar(15))
-         updateData.PrsnGrsTrh,                 // PrsnGrsTrh (nchar(10))
-         updateData.PrsnCksTrh,                 // PrsnCksTrh (nchar(10))
-         updateData.PrsnGorev,                  // PrsnGorev (nvarchar(50))
-         String(updateData.PrsnYetki),          // PrsnYetki (nvarchar(50)) - String'e çevir
-         maasValue,                             // PrsnMaas (decimal(10,2))
-         String(updateData.PrsnOdGun),          // PrsnOdGun (nvarchar(50)) - String'e çevir
-         PrsnOda,                               // PrsnOda (nvarchar(50))
-         PrsnYtk,                               // PrsnYtk (nvarchar(50))
-         updateData.PrsnYakini,                 // PrsnYakini (nvarchar(50))
-         updateData.PrsnDuzey,                  // PrsnDuzey (nvarchar(50))
-         updateData.PrsnUsrNm,                  // PrsnUsrNm (nvarchar(50))
-         updateData.PrsnPassw,                  // PrsnPassw (nvarchar(50))
-         updateData.PrsnDgmTarihi,              // PrsnDgmTarihi (nchar(10))
-         updateData.PrsnOkul,                   // PrsnOkul (nvarchar(50))
-         updateData.PrsnMedeni,                 // PrsnMedeni (nvarchar(50))
-         updateData.PrsnYknTel,                 // PrsnYknTel (nchar(15))
-         updateData.PrsnAdres,                  // PrsnAdres (nvarchar(200))
-         updateData.PrsnBilgi,                  // PrsnBilgi (nvarchar(50))
-         PrsnNo                                 // PrsnNo (bigint)
-       ];
+      const updateParams = [
+        updateData.PrsnAdi, // PrsnAdi (nvarchar(50))
+        updateData.PrsnDurum, // PrsnDurum (nvarchar(50))
+        updateData.PrsnTelNo, // PrsnTelNo (nchar(15))
+        updateData.PrsnGrsTrh, // PrsnGrsTrh (nchar(10))
+        updateData.PrsnCksTrh, // PrsnCksTrh (nchar(10))
+        updateData.PrsnGorev, // PrsnGorev (nvarchar(50))
+        String(updateData.PrsnYetki), // PrsnYetki (nvarchar(50)) - String'e çevir
+        maasValue, // PrsnMaas (decimal(10,2))
+        String(updateData.PrsnOdGun), // PrsnOdGun (nvarchar(50)) - String'e çevir
+        PrsnOda, // PrsnOda (nvarchar(50))
+        PrsnYtk, // PrsnYtk (nvarchar(50))
+        updateData.PrsnYakini, // PrsnYakini (nvarchar(50))
+        updateData.PrsnDuzey, // PrsnDuzey (nvarchar(50))
+        updateData.PrsnUsrNm, // PrsnUsrNm (nvarchar(50))
+        updateData.PrsnPassw, // PrsnPassw (nvarchar(50))
+        updateData.PrsnDgmTarihi, // PrsnDgmTarihi (nchar(10))
+        updateData.PrsnOkul, // PrsnOkul (nvarchar(50))
+        updateData.PrsnMedeni, // PrsnMedeni (nvarchar(50))
+        updateData.PrsnYknTel, // PrsnYknTel (nchar(15))
+        updateData.PrsnAdres, // PrsnAdres (nvarchar(200))
+        updateData.PrsnBilgi, // PrsnBilgi (nvarchar(50))
+        PrsnNo, // PrsnNo (bigint)
+      ];
 
-      console.log('📝 Personel güncelleme sorgusu çalıştırılıyor:', { PrsnNo, PrsnOda, PrsnYtk });
-      
-      const result = await this.personelRepository.query(updateQuery, updateParams);
-      
+      console.log('📝 Personel güncelleme sorgusu çalıştırılıyor:', {
+        PrsnNo,
+        PrsnOda,
+        PrsnYtk,
+      });
+
+      const result = await this.personelRepository.query(
+        updateQuery,
+        updateParams,
+      );
+
       console.log('✅ Personel başarıyla güncellendi:', result);
 
       // Eğer oda-yatak bilgisi girilmiş ve envanterde bulunmuşsa, OdYatDurum'u DOLU yap
       if (PrsnOda && PrsnYtk) {
         try {
-          console.log('🔍 Yeni oda-yatak durumu DOLU yapılıyor:', { oda: PrsnOda, yatak: PrsnYtk });
-          
+          console.log('🔍 Yeni oda-yatak durumu DOLU yapılıyor:', {
+            oda: PrsnOda,
+            yatak: PrsnYtk,
+          });
+
           const odaYatakUpdateQuery = `
             UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
             SET OdYatDurum = @2 
             WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
           `;
-          
+
           const odaYatakUpdateResult = await this.personelRepository.query(
-            odaYatakUpdateQuery, 
-            [PrsnOda, PrsnYtk, 'DOLU']
+            odaYatakUpdateQuery,
+            [PrsnOda, PrsnYtk, 'DOLU'],
           );
-          
-          console.log('✅ Yeni oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
-          
+
+          console.log(
+            '✅ Yeni oda-yatak durumu DOLU olarak güncellendi:',
+            odaYatakUpdateResult,
+          );
         } catch (odaYatakUpdateError) {
-          console.error('⚠️ Yeni oda-yatak durumu güncellenirken hata oluştu:', odaYatakUpdateError);
+          console.error(
+            '⚠️ Yeni oda-yatak durumu güncellenirken hata oluştu:',
+            odaYatakUpdateError,
+          );
           // Oda-yatak güncelleme hatası olsa bile personel güncelleme başarılı sayılır
           // Bu işlem transaction korumasında değil, ayrı bir işlem
         }
-        
+
         // 🔥 EKLENEN: Eski oda-yatak varsa ve yeni oda-yatak'tan farklıysa BOŞ yap
         if (mevcutPersonel && mevcutPersonel.length > 0) {
           const mevcut = mevcutPersonel[0];
           // Eski oda-yatak var ve yeni oda-yatak'tan farklıysa
-          if (mevcut.PrsnOda && mevcut.PrsnYtk && 
-              (mevcut.PrsnOda !== PrsnOda || mevcut.PrsnYtk !== PrsnYtk)) {
+          if (
+            mevcut.PrsnOda &&
+            mevcut.PrsnYtk &&
+            (mevcut.PrsnOda !== PrsnOda || mevcut.PrsnYtk !== PrsnYtk)
+          ) {
             try {
-              console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk });
-              
+              console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', {
+                oda: mevcut.PrsnOda,
+                yatak: mevcut.PrsnYtk,
+              });
+
               const odaYatakBosUpdateQuery = `
                 UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
                 SET OdYatDurum = @2 
                 WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
               `;
-              
-              const odaYatakBosUpdateResult = await this.personelRepository.query(
-                odaYatakBosUpdateQuery, 
-                [mevcut.PrsnOda, mevcut.PrsnYtk, 'BOŞ']
+
+              const odaYatakBosUpdateResult =
+                await this.personelRepository.query(odaYatakBosUpdateQuery, [
+                  mevcut.PrsnOda,
+                  mevcut.PrsnYtk,
+                  'BOŞ',
+                ]);
+
+              console.log(
+                '✅ Eski oda-yatak durumu BOŞ olarak güncellendi:',
+                odaYatakBosUpdateResult,
               );
-              
-              console.log('✅ Eski oda-yatak durumu BOŞ olarak güncellendi:', odaYatakBosUpdateResult);
-              
             } catch (odaYatakBosUpdateError) {
-              console.error('⚠️ Eski oda-yatak durumu güncellenirken hata oluştu:', odaYatakBosUpdateError);
+              console.error(
+                '⚠️ Eski oda-yatak durumu güncellenirken hata oluştu:',
+                odaYatakBosUpdateError,
+              );
             }
           }
         }
@@ -308,23 +385,33 @@ export class PersonelService {
           const mevcut = mevcutPersonel[0];
           if (mevcut.PrsnOda && mevcut.PrsnYtk) {
             try {
-              console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', { oda: mevcut.PrsnOda, yatak: mevcut.PrsnYtk });
-              
+              console.log('🔍 Eski oda-yatak durumu BOŞ yapılıyor:', {
+                oda: mevcut.PrsnOda,
+                yatak: mevcut.PrsnYtk,
+              });
+
               const odaYatakBosUpdateQuery = `
                 UPDATE ${this.dbConfig.getTableName('tblOdaYatak')} 
                 SET OdYatDurum = @2 
                 WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
               `;
-              
-              const odaYatakBosUpdateResult = await this.personelRepository.query(
-                odaYatakBosUpdateQuery, 
-                [mevcut.PrsnOda, mevcut.PrsnYtk, 'BOŞ']
+
+              const odaYatakBosUpdateResult =
+                await this.personelRepository.query(odaYatakBosUpdateQuery, [
+                  mevcut.PrsnOda,
+                  mevcut.PrsnYtk,
+                  'BOŞ',
+                ]);
+
+              console.log(
+                '✅ Eski oda-yatak durumu BOŞ olarak güncellendi:',
+                odaYatakBosUpdateResult,
               );
-              
-              console.log('✅ Eski oda-yatak durumu BOŞ olarak güncellendi:', odaYatakBosUpdateResult);
-              
             } catch (odaYatakBosUpdateError) {
-              console.error('⚠️ Eski oda-yatak durumu güncellenirken hata oluştu:', odaYatakBosUpdateError);
+              console.error(
+                '⚠️ Eski oda-yatak durumu güncellenirken hata oluştu:',
+                odaYatakBosUpdateError,
+              );
             }
           }
         }
@@ -332,9 +419,8 @@ export class PersonelService {
 
       return {
         success: true,
-        message: 'Personel bilgileri başarıyla güncellendi'
+        message: 'Personel bilgileri başarıyla güncellendi',
       };
-
     } catch (error) {
       console.error('Backend personel güncelleme hatası:', error);
       throw error;
@@ -350,15 +436,30 @@ export class PersonelService {
       }
 
       // Zorunlu alan kontrolü
-      if (!personelData.PrsnTCN || personelData.PrsnTCN === '' || personelData.PrsnTCN === null || personelData.PrsnTCN === undefined) {
+      if (
+        !personelData.PrsnTCN ||
+        personelData.PrsnTCN === '' ||
+        personelData.PrsnTCN === null ||
+        personelData.PrsnTCN === undefined
+      ) {
         throw new Error('TC Kimlik No alanı zorunludur');
       }
 
-      if (!personelData.PrsnAdi || personelData.PrsnAdi === '' || personelData.PrsnAdi === null || personelData.PrsnAdi === undefined) {
+      if (
+        !personelData.PrsnAdi ||
+        personelData.PrsnAdi === '' ||
+        personelData.PrsnAdi === null ||
+        personelData.PrsnAdi === undefined
+      ) {
         throw new Error('Adı Soyadı alanı zorunludur');
       }
 
-      if (!personelData.PrsnGrsTrh || personelData.PrsnGrsTrh === '' || personelData.PrsnGrsTrh === null || personelData.PrsnGrsTrh === undefined) {
+      if (
+        !personelData.PrsnGrsTrh ||
+        personelData.PrsnGrsTrh === '' ||
+        personelData.PrsnGrsTrh === null ||
+        personelData.PrsnGrsTrh === undefined
+      ) {
         throw new Error('Giriş Tarihi alanı zorunludur');
       }
 
@@ -374,20 +475,24 @@ export class PersonelService {
         // Envanter kontrolü
         const odaYatakEnvanterKontrol = await this.personelRepository.query(
           `SELECT OdYatDurum FROM ${this.dbConfig.getTableName('tblOdaYatak')} WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1`,
-          [personelData.PrsnOda, personelData.PrsnYtk]
+          [personelData.PrsnOda, personelData.PrsnYtk],
         );
 
         if (odaYatakEnvanterKontrol.length === 0) {
-          throw new Error(`Girdiğiniz ${personelData.PrsnOda} Oda + ${personelData.PrsnYtk} Yatak bilgisi envanterimizde bulunamamıştır!`);
+          throw new Error(
+            `Girdiğiniz ${personelData.PrsnOda} Oda + ${personelData.PrsnYtk} Yatak bilgisi envanterimizde bulunamamıştır!`,
+          );
         }
 
         if (odaYatakEnvanterKontrol[0].OdYatDurum === 'DOLU') {
-          throw new Error(`Seçtiğiniz ${personelData.PrsnOda} Oda - ${personelData.PrsnYtk} Yatak DOLU durumdadır. Başka bir seçim yapınız!`);
+          throw new Error(
+            `Seçtiğiniz ${personelData.PrsnOda} Oda - ${personelData.PrsnYtk} Yatak DOLU durumdadır. Başka bir seçim yapınız!`,
+          );
         }
       }
 
-             // INSERT sorgusu - Veri tipi uyumluluğu için CAST kullan
-       const insertQuery = `
+      // INSERT sorgusu - Veri tipi uyumluluğu için CAST kullan
+      const insertQuery = `
          INSERT INTO ${this.dbConfig.getTableName('tblPersonel')} (
            pKytTarihi, PrsnKllnc, PrsnTCN, PrsnAdi, PrsnDurum, PrsnTelNo, 
            PrsnGrsTrh, PrsnCksTrh, PrsnGorev, PrsnYetki, PrsnMaas, PrsnOdGun,
@@ -400,46 +505,55 @@ export class PersonelService {
        `;
 
       // Maaş alanını NULL olarak ayarla (eğer boşsa)
-      const maas = personelData.PrsnMaas && personelData.PrsnMaas !== '' ? personelData.PrsnMaas : null;
+      const maas =
+        personelData.PrsnMaas && personelData.PrsnMaas !== ''
+          ? personelData.PrsnMaas
+          : null;
 
-        const insertParams = [
-         bugunTarihi,                    // pKytTarihi - Bugünün tarihi (nchar(10))
-         aktifKullanici,                 // PrsnKllnc - Aktif kullanıcı (nvarchar(50))
-         personelData.PrsnTCN,           // PrsnTCN (nchar(11))
-         personelData.PrsnAdi,           // PrsnAdi (nvarchar(50))
-         personelData.PrsnDurum || 'ÇALIŞIYOR', // PrsnDurum (nvarchar(50))
-         personelData.PrsnTelNo || '',   // PrsnTelNo (nchar(15))
-         personelData.PrsnGrsTrh || '',  // PrsnGrsTrh (nchar(10))
-         personelData.PrsnCksTrh || '',  // PrsnCksTrh (nchar(10))
-         personelData.PrsnGorev || '',   // PrsnGorev (nvarchar(50))
-         String(personelData.PrsnYetki || 0),    // PrsnYetki (nvarchar(50)) - String'e çevir
-         maas,                           // PrsnMaas (decimal(10,2))
-         String(personelData.PrsnOdGun || 1),    // PrsnOdGun (nvarchar(50)) - String'e çevir
-         personelData.PrsnUsrNm || '',   // PrsnUsrNm (nvarchar(50))
-         personelData.PrsnPassw || '',   // PrsnPassw (nvarchar(50))
-         personelData.PrsnDuzey || '',   // PrsnDuzey (nvarchar(50))
-         personelData.PrsnOda || '',     // PrsnOda (nvarchar(50))
-         personelData.PrsnYtk || '',     // PrsnYtk (nvarchar(50))
-         personelData.PrsnDgmTarihi || '', // PrsnDgmTarihi (nchar(10))
-         personelData.PrsnOkul || '',    // PrsnOkul (nvarchar(50))
-         personelData.PrsnYakini || '',  // PrsnYakini (nvarchar(50))
-         personelData.PrsnYknTel || '',  // PrsnYknTel (nchar(15))
-         personelData.PrsnMedeni || '',  // PrsnMedeni (nvarchar(50))
-         personelData.PrsnAdres || '',   // PrsnAdres (nvarchar(200))
-         personelData.PrsnBilgi || ''    // PrsnBilgi (nvarchar(50))
-       ];
+      const insertParams = [
+        bugunTarihi, // pKytTarihi - Bugünün tarihi (nchar(10))
+        aktifKullanici, // PrsnKllnc - Aktif kullanıcı (nvarchar(50))
+        personelData.PrsnTCN, // PrsnTCN (nchar(11))
+        personelData.PrsnAdi, // PrsnAdi (nvarchar(50))
+        personelData.PrsnDurum || 'ÇALIŞIYOR', // PrsnDurum (nvarchar(50))
+        personelData.PrsnTelNo || '', // PrsnTelNo (nchar(15))
+        personelData.PrsnGrsTrh || '', // PrsnGrsTrh (nchar(10))
+        personelData.PrsnCksTrh || '', // PrsnCksTrh (nchar(10))
+        personelData.PrsnGorev || '', // PrsnGorev (nvarchar(50))
+        String(personelData.PrsnYetki || 0), // PrsnYetki (nvarchar(50)) - String'e çevir
+        maas, // PrsnMaas (decimal(10,2))
+        String(personelData.PrsnOdGun || 1), // PrsnOdGun (nvarchar(50)) - String'e çevir
+        personelData.PrsnUsrNm || '', // PrsnUsrNm (nvarchar(50))
+        personelData.PrsnPassw || '', // PrsnPassw (nvarchar(50))
+        personelData.PrsnDuzey || '', // PrsnDuzey (nvarchar(50))
+        personelData.PrsnOda || '', // PrsnOda (nvarchar(50))
+        personelData.PrsnYtk || '', // PrsnYtk (nvarchar(50))
+        personelData.PrsnDgmTarihi || '', // PrsnDgmTarihi (nchar(10))
+        personelData.PrsnOkul || '', // PrsnOkul (nvarchar(50))
+        personelData.PrsnYakini || '', // PrsnYakini (nvarchar(50))
+        personelData.PrsnYknTel || '', // PrsnYknTel (nchar(15))
+        personelData.PrsnMedeni || '', // PrsnMedeni (nvarchar(50))
+        personelData.PrsnAdres || '', // PrsnAdres (nvarchar(200))
+        personelData.PrsnBilgi || '', // PrsnBilgi (nvarchar(50))
+      ];
 
       console.log('🔍 Personel ekleme sorgusu:', insertQuery);
       console.log('🔍 Parametreler:', insertParams);
 
-      const result = await this.personelRepository.query(insertQuery, insertParams);
+      const result = await this.personelRepository.query(
+        insertQuery,
+        insertParams,
+      );
 
       console.log('✅ Personel başarıyla eklendi:', result);
 
       // Eğer oda-yatak bilgisi girilmişse, OdYatDurum'u DOLU yap
       if (personelData.PrsnOda && personelData.PrsnYtk) {
         try {
-          console.log('🔍 Oda-yatak durumu DOLU yapılıyor:', { oda: personelData.PrsnOda, yatak: personelData.PrsnYtk });
+          console.log('🔍 Oda-yatak durumu DOLU yapılıyor:', {
+            oda: personelData.PrsnOda,
+            yatak: personelData.PrsnYtk,
+          });
 
           const odaYatakUpdateQuery = `
             UPDATE ${this.dbConfig.getTableName('tblOdaYatak')}
@@ -449,19 +563,23 @@ export class PersonelService {
 
           const odaYatakUpdateResult = await this.personelRepository.query(
             odaYatakUpdateQuery,
-            [personelData.PrsnOda, personelData.PrsnYtk, 'DOLU']
+            [personelData.PrsnOda, personelData.PrsnYtk, 'DOLU'],
           );
 
-          console.log('✅ Oda-yatak durumu DOLU olarak güncellendi:', odaYatakUpdateResult);
-
+          console.log(
+            '✅ Oda-yatak durumu DOLU olarak güncellendi:',
+            odaYatakUpdateResult,
+          );
         } catch (odaYatakUpdateError) {
-          console.error('⚠️ Oda-yatak durumu güncellenirken hata oluştu:', odaYatakUpdateError);
+          console.error(
+            '⚠️ Oda-yatak durumu güncellenirken hata oluştu:',
+            odaYatakUpdateError,
+          );
           // Oda-yatak güncelleme hatası olsa bile personel ekleme başarılı sayılır
         }
       }
 
       return { success: true, message: 'Personel başarıyla eklendi' };
-
     } catch (error) {
       console.error('Backend personel ekleme hatası:', error);
       throw error;
@@ -489,7 +607,10 @@ export class PersonelService {
     islemBilgi?: string;
   }) {
     try {
-      console.log('🔍 Personel tahakkuk/ödeme kaydı başlatılıyor:', tahakkukData);
+      console.log(
+        '🔍 Personel tahakkuk/ödeme kaydı başlatılıyor:',
+        tahakkukData,
+      );
 
       // Aktif kullanıcıyı al
       const aktifKullanici = await this.getAktifKullaniciAdi();
@@ -497,7 +618,7 @@ export class PersonelService {
 
       // İşlem tarihi
       const iKytTarihi = this.getCurrentTransactionDate();
-      
+
       // Modal form header'daki label değerini al (PrsnNo)
       const personelTableName = this.dbConfig.getTableName('tblPersonel');
       const personelQuery = `
@@ -505,24 +626,27 @@ export class PersonelService {
         FROM ${personelTableName} 
         WHERE PrsnAdi = @0 AND PrsnDurum = @1
       `;
-      
-      const personelResult = await this.personelRepository.query(personelQuery, [tahakkukData.personel, 'ÇALIŞIYOR']);
-      
+
+      const personelResult = await this.personelRepository.query(
+        personelQuery,
+        [tahakkukData.personel, 'ÇALIŞIYOR'],
+      );
+
       if (!personelResult || personelResult.length === 0) {
         throw new Error('Seçilen personel bulunamadı');
       }
-      
+
       const prsnNo = personelResult[0].PrsnNo;
       console.log('📝 Seçilen personel numarası:', prsnNo);
-      
+
       // İşlem tipişine göre dinamik parametreleri belirle
       let islemArac: string;
       let islemTip: string;
       let islemGrup: string;
-      
+
       // İşlem tipi like '%Tahakkuk%' kontrolü
       const isTahakkuk = tahakkukData.islemTipi.includes('tahakkuk');
-      
+
       if (isTahakkuk) {
         // Tahakkuk işlemleri
         islemArac = 'Cari İşlem';
@@ -531,8 +655,11 @@ export class PersonelService {
         islemGrup = tahakkukData.islemGrup || 'Personel Tahakkuku';
       } else {
         // Ödeme işlemleri
-        islemArac = tahakkukData.odemeYontemi === 'nakit_kasa' ? 'Nakit Kasa(TL)' : 'Banka EFT';
-        
+        islemArac =
+          tahakkukData.odemeYontemi === 'nakit_kasa'
+            ? 'Nakit Kasa(TL)'
+            : 'Banka EFT';
+
         // İşlem tipi kontrolü
         if (tahakkukData.islemTipi === 'borc_iade') {
           islemTip = 'Giren';
@@ -543,29 +670,30 @@ export class PersonelService {
         } else {
           islemTip = 'Çıkan';
         }
-        
+
         // Frontend'den gelen islemGrup'u kullan, yoksa varsayılan değeri kullan
         islemGrup = tahakkukData.islemGrup || 'Personel İşlemi';
       }
-      
+
       // İşlem tipi etiketini al
       const islemTipiLabels: { [key: string]: string } = {
-        'maas_tahakkuk': 'Maaş Tahakkuk',
-        'ikramiye_tahakkuk': 'İkramiye Tahakkuk',
-        'maas_odeme': 'Maaş Ödemesi',
-        'ikramiye_odeme': 'İkramiye Ödemesi',
-        'borc_verme': 'Borç Verme',
-        'borc_iade': 'Borç İadesi',
-        'cikis_hesap_kapama': 'Çıkış Hesap Kapama',
-        'cikis_hesap_kapama_giren': 'Çıkış Hesap Kapama',
-        'cikis_hesap_kapama_cikan': 'Çıkış Hesap Kapama'
+        maas_tahakkuk: 'Maaş Tahakkuk',
+        ikramiye_tahakkuk: 'İkramiye Tahakkuk',
+        maas_odeme: 'Maaş Ödemesi',
+        ikramiye_odeme: 'İkramiye Ödemesi',
+        borc_verme: 'Borç Verme',
+        borc_iade: 'Borç İadesi',
+        cikis_hesap_kapama: 'Çıkış Hesap Kapama',
+        cikis_hesap_kapama_giren: 'Çıkış Hesap Kapama',
+        cikis_hesap_kapama_cikan: 'Çıkış Hesap Kapama',
       };
-      
-      const islemTipiLabel = islemTipiLabels[tahakkukData.islemTipi] || tahakkukData.islemTipi;
-      
+
+      const islemTipiLabel =
+        islemTipiLabels[tahakkukData.islemTipi] || tahakkukData.islemTipi;
+
       // Frontend'den gelen özel islemBilgi'yi kullan, yoksa varsayılan islemTipiLabel kullan
       const finalIslemBilgi = tahakkukData.islemBilgi || islemTipiLabel;
-      
+
       // Stored procedure parametrelerini hazırla
       const storedProcedures = this.dbConfig.getStoredProcedures();
       const spQuery = `
@@ -588,35 +716,35 @@ export class PersonelService {
           @islemDoviz = @15,
           @islemKur = @16
       `;
-      
+
       const spParams = [
-        iKytTarihi,                           // @0 - iKytTarihi: günün tarihi (DD.MM.YYYY)
-        aktifKullanici,                       // @1 - islemKllnc: aktif kullanıcı PrsnUsrNm
-        `CP${prsnNo}`,                        // @2 - islemCrKod: "CP" + personel numarası
-        '',                                   // @3 - islemOzel1: boş
-        '',                                   // @4 - islemOzel2: boş
-        '',                                   // @5 - islemOzel3: boş
-        '',                                   // @6 - islemOzel4: boş
-        islemArac,                            // @7 - islemArac: dinamik
-        islemTip,                             // @8 - islemTip: dinamik
-        islemGrup,                            // @9 - islemGrup: dinamik
-        tahakkukData.personel,                // @10 - islemAltG: seçilen personel adı
-        finalIslemBilgi,                      // @11 - islemBilgi: frontend'den gelen özel bilgi veya varsayılan
-        1.00,                                 // @12 - islemMiktar: 1.00
-        'Adet',                               // @13 - islemBirim: 'Adet'
-        tahakkukData.tutar,                   // @14 - islemTutar: girilen tutar
-        'TL',                                 // @15 - islemDoviz: 'TL'
-        1                                     // @16 - islemKur: 1
+        iKytTarihi, // @0 - iKytTarihi: günün tarihi (DD.MM.YYYY)
+        aktifKullanici, // @1 - islemKllnc: aktif kullanıcı PrsnUsrNm
+        `CP${prsnNo}`, // @2 - islemCrKod: "CP" + personel numarası
+        '', // @3 - islemOzel1: boş
+        '', // @4 - islemOzel2: boş
+        '', // @5 - islemOzel3: boş
+        '', // @6 - islemOzel4: boş
+        islemArac, // @7 - islemArac: dinamik
+        islemTip, // @8 - islemTip: dinamik
+        islemGrup, // @9 - islemGrup: dinamik
+        tahakkukData.personel, // @10 - islemAltG: seçilen personel adı
+        finalIslemBilgi, // @11 - islemBilgi: frontend'den gelen özel bilgi veya varsayılan
+        1.0, // @12 - islemMiktar: 1.00
+        'Adet', // @13 - islemBirim: 'Adet'
+        tahakkukData.tutar, // @14 - islemTutar: girilen tutar
+        'TL', // @15 - islemDoviz: 'TL'
+        1, // @16 - islemKur: 1
       ];
-      
+
       console.log('📝 Stored procedure çağrısı:', spQuery);
       console.log('📝 Parametreler:', spParams);
-      
+
       // Stored procedure'ü çalıştır
       await this.personelRepository.query(spQuery, spParams);
-      
+
       console.log('✅ Personel tahakkuk/ödeme kaydı başarıyla eklendi');
-      
+
       return {
         success: true,
         message: `${tahakkukData.personel} için ${islemTipiLabel} kaydı başarıyla oluşturuldu`,
@@ -624,29 +752,36 @@ export class PersonelService {
           personel: tahakkukData.personel,
           islemTipi: islemTipiLabel,
           tutar: tahakkukData.tutar,
-          tarih: iKytTarihi
-        }
+          tarih: iKytTarihi,
+        },
       };
-      
     } catch (error) {
       console.error('❌ Personel tahakkuk/ödeme kaydetme hatası:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      throw new Error(`Personel tahakkuk/ödeme kaydı yapılamadı: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Bilinmeyen hata';
+      throw new Error(
+        `Personel tahakkuk/ödeme kaydı yapılamadı: ${errorMessage}`,
+      );
     }
   }
 
   /**
    * Personel hesap bakiyesini hesaplar (personel numarası ile)
    */
-  async getPersonelBakiye(personelNo: number): Promise<{ success: boolean; bakiye: number; message: string }> {
+  async getPersonelBakiye(
+    personelNo: number,
+  ): Promise<{ success: boolean; bakiye: number; message: string }> {
     try {
-      console.log('🔍 Personel bakiye hesaplama başlatılıyor, Personel No:', personelNo);
+      console.log(
+        '🔍 Personel bakiye hesaplama başlatılıyor, Personel No:',
+        personelNo,
+      );
 
       // Personel cari kodunu oluştur: CP + personel numarası
       const cariKod = `CP${personelNo}`;
-      
+
       console.log('📝 Personel cari kodu:', cariKod);
-      
+
       // Cari hesap bakiyesini hesapla (diğer cari hesap hesaplamalarıyla aynı mantık)
       const islemTableName = this.dbConfig.getTableName('tblislem');
       const bakiyeQuery = `
@@ -662,7 +797,7 @@ export class PersonelService {
         WHERE i.islemCrKod = @0
           AND (i.islemBilgi NOT LIKE @3 AND i.islemBilgi NOT LIKE @4)
       `;
-      
+
       const bakiyeResult = await this.personelRepository.query(bakiyeQuery, [
         cariKod,
         'GELİR',
@@ -670,21 +805,21 @@ export class PersonelService {
         '%=DEPOZİTO TAHSİLATI=%',
         '%=DEPOZİTO İADESİ=%',
         'GİDER',
-        'Giren'
+        'Giren',
       ]);
       const bakiye = Number(bakiyeResult[0]?.PersonelBakiye || 0);
-      
+
       console.log('✨ Personel bakiyesi hesaplandı:', bakiye);
-      
+
       return {
         success: true,
         bakiye: bakiye,
-        message: `${cariKod} için hesap bakiyesi başarıyla hesaplandı`
+        message: `${cariKod} için hesap bakiyesi başarıyla hesaplandı`,
       };
-      
     } catch (error) {
       console.error('❌ Personel bakiye hesaplama hatası:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Bilinmeyen hata';
       throw new Error(`Personel bakiye hesaplanamadı: ${errorMessage}`);
     }
   }
@@ -694,17 +829,22 @@ export class PersonelService {
    * CP{PrsnNo} formatında cari kod oluşturulur ve tblislem tablosunda sorgu yapılır
    * Yeniden eskiye doğru sıralanmış şekilde
    */
-  async getPersonelHesapHareketleri(personelNo: number): Promise<{ success: boolean; data: any[]; message: string }> {
+  async getPersonelHesapHareketleri(
+    personelNo: number,
+  ): Promise<{ success: boolean; data: any[]; message: string }> {
     try {
-      console.log('🔍 Personel hesap hareketleri getiriliyor, Personel No:', personelNo);
+      console.log(
+        '🔍 Personel hesap hareketleri getiriliyor, Personel No:',
+        personelNo,
+      );
 
       // Personel cari kodunu oluştur: CP + personel numarası
       const cariKod = `CP${personelNo}`;
       console.log('📝 Personel cari kodu:', cariKod);
-      
+
       // Personel hesap hareketlerini getir (yeniden eskiye doğru)
       const islemTableName = this.dbConfig.getTableName('tblislem');
-      
+
       const hareketlerQuery = `
         SELECT 
           i.iKytTarihi,
@@ -723,24 +863,31 @@ export class PersonelService {
         WHERE i.islemCrKod = @0
         ORDER BY CONVERT(Date, i.iKytTarihi, 104) DESC, i.islemNo DESC
       `;
-      
+
       console.log('🔍 Sorgu çalıştırılıyor, cari kod:', cariKod);
-      const hareketlerResult = await this.personelRepository.query(hareketlerQuery, [cariKod]);
-      
-      console.log('✨ Personel hesap hareketleri getirildi:', hareketlerResult.length, 'kayıt');
+      const hareketlerResult = await this.personelRepository.query(
+        hareketlerQuery,
+        [cariKod],
+      );
+
+      console.log(
+        '✨ Personel hesap hareketleri getirildi:',
+        hareketlerResult.length,
+        'kayıt',
+      );
       if (hareketlerResult.length > 0) {
         console.log('🔍 İlk kayıt örneği:', hareketlerResult[0]);
       }
-      
+
       return {
         success: true,
         data: hareketlerResult || [],
-        message: `${cariKod} için hesap hareketleri başarıyla getirildi`
+        message: `${cariKod} için hesap hareketleri başarıyla getirildi`,
       };
-      
     } catch (error) {
       console.error('❌ Personel hesap hareketleri getirme hatası:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Bilinmeyen hata';
       throw new Error(`Personel hesap hareketleri alınamadı: ${errorMessage}`);
     }
   }

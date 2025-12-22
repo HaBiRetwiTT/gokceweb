@@ -827,6 +827,8 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="odemeMusteriAdi" />
   </q-page>
 </template>
 
@@ -834,12 +836,12 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
-import { useRouter } from 'vue-router'
 import { api } from '../boot/axios'
 import { QForm } from 'quasar'
 import { useDoubleClickPrevention } from '../composables/useDoubleClickPrevention'
 import type { AxiosError } from 'axios';
 import { Notify } from 'quasar';
+import OdemeIslemForm from '../components/OdemeIslemForm.vue';
 
 function debugLog(...args: unknown[]) {
   if (import.meta.env.MODE !== 'production') {
@@ -848,7 +850,6 @@ function debugLog(...args: unknown[]) {
 }
 
 const $q = useQuasar()
-const router = useRouter()
 
 // Helper function to safely extract value from OdaYatak field
 function getOdaYatakValue(odaYatak: string | { value: string; label: string } | null | undefined): string {
@@ -894,6 +895,12 @@ async function checkAndApplyAutoFillTCKimlik() {
   }
 }
 
+async function openOdemeIslemModal(musteriAdi: string) {
+  odemeMusteriAdi.value = musteriAdi || ''
+  await nextTick()
+  showOdemeIslemModal.value = true
+}
+
 const hesapTipleri = [
   { label: 'Bireysel', value: 'Bireysel' },
   { label: 'Kurumsal', value: 'Kurumsal' }
@@ -931,6 +938,9 @@ const odemeVadesiPopup = ref() // 🔥 Ödeme vadesi popup ref'i
 const formRef = ref()
 const anaContainerRef = ref()
 const ekBilgilerContainerRef = ref()
+
+const showOdemeIslemModal = ref(false)
+const odemeMusteriAdi = ref('')
 
 // Ek Bilgiler Dialog
 const showEkBilgilerDialog = ref(false)
@@ -2067,7 +2077,7 @@ async function submitForm() {
       // 🔥 STATS GÜNCELLEME EVENT'İ GÖNDER
       window.dispatchEvent(new Event('statsNeedsUpdate'));
       
-      // 🔥 KAYIT BAŞARILI - KARTLI İŞLEM SAYFASINA YÖNLENDİR VE TAHSİLAT MODALINI AÇ
+      // 🔥 KAYIT BAŞARILI - TAHSİLAT MODALINI BU SAYFADA AÇ
       const savedMusteriData = {
         MstrTCN: form.value.MstrTCN,
         MstrAdi: form.value.MstrAdi,
@@ -2112,27 +2122,15 @@ async function submitForm() {
       if (musteriAdi && gelirTutari > 0) {
         (win.kartliIslemYeniGelirTutari as { [key: string]: number })[musteriAdi] = gelirTutari;
       }
-      
-      // 2 saniye sonra kartli-islem sayfasına yönlendir
-      setTimeout(() => {
-        Notify.create({
-          type: 'positive',
-          message: 'Kayıt başarılı! Kartlı işlem sayfasına yönlendiriliyor ve tahsilat formu açılıyor...',
-          position: 'top',
-          timeout: 2000
-        })
-        
-        void router.push('/kartli-islem?autoOpenModal=true')
-        
-        // Kartli-islem sayfası yüklendikten sonra tahsilat modalını aç
-        setTimeout(() => {
-          // DOM'un tamamen güncellendiğinden emin ol
-          void nextTick().then(() => {
-            debugLog('🔥 showOdemeIslemModal event dispatched')
-            window.dispatchEvent(new Event('showOdemeIslemModal'))
-          })
-        }, 1000)
-      }, 2000)
+
+      Notify.create({
+        type: 'positive',
+        message: 'Kayıt başarılı! Müşteri tahsilat formu açıldı.',
+        position: 'top',
+        timeout: 2000
+      })
+
+      await openOdemeIslemModal(savedMusteriData.MstrAdi || '')
       
       // Form temizle
       form.value = { MstrAdi: '', MstrHspTip: 'Bireysel', MstrTCN: '', MstrTelNo: '', OdaTipi: '', OdaYatak: '', KonaklamaSuresi: 1, KonaklamaTipi: 'GÜNLÜK', ToplamBedel: 0, HesaplananBedel: 0, OdemeVadesi: bugunTarihi.value, OdemeTakvimGunu: null, OtgCheckbox: false }

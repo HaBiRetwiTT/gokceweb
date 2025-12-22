@@ -1,4 +1,14 @@
-import { Controller, Get, Put, Post, Body, Query, Param, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Body,
+  Query,
+  Param,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { PersonelService } from './personel.service';
 
 @Controller('personel')
@@ -8,13 +18,13 @@ export class PersonelController {
   @Get('calisanlar')
   async getCalisanPersonel(
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
   ) {
     return this.personelService.getCalisanPersonel(sortBy, sortOrder);
   }
 
-    @Put('guncelle')
-    async guncellePersonel(@Body() personelData: any) {
+  @Put('guncelle')
+  async guncellePersonel(@Body() personelData: any) {
     try {
       return await this.personelService.guncellePersonel(personelData);
     } catch (error) {
@@ -24,9 +34,9 @@ export class PersonelController {
           {
             success: false,
             message: error.message,
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -35,9 +45,9 @@ export class PersonelController {
         {
           success: false,
           message: 'Personel güncellenirken beklenmeyen bir hata oluştu',
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -53,9 +63,9 @@ export class PersonelController {
           {
             success: false,
             message: error.message,
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -64,9 +74,9 @@ export class PersonelController {
         {
           success: false,
           message: 'Personel eklenirken beklenmeyen bir hata oluştu',
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -74,7 +84,9 @@ export class PersonelController {
   @Post('tahakkuk-odeme')
   async kaydetPersonelTahakkukOdeme(@Body() tahakkukData: any) {
     try {
-      return await this.personelService.kaydetPersonelTahakkukOdeme(tahakkukData);
+      return await this.personelService.kaydetPersonelTahakkukOdeme(
+        tahakkukData,
+      );
     } catch (error) {
       // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
       if (error instanceof Error) {
@@ -82,9 +94,9 @@ export class PersonelController {
           {
             success: false,
             message: error.message,
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -92,10 +104,11 @@ export class PersonelController {
       throw new HttpException(
         {
           success: false,
-          message: 'Personel tahakkuk/ödeme işlemi kaydedilirken beklenmeyen bir hata oluştu',
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+          message:
+            'Personel tahakkuk/ödeme işlemi kaydedilirken beklenmeyen bir hata oluştu',
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -109,12 +122,12 @@ export class PersonelController {
           {
             success: false,
             message: 'Geçersiz personel numarası',
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
-      
+
       return await this.personelService.getPersonelBakiye(personelNoNum);
     } catch (error) {
       // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
@@ -123,9 +136,9 @@ export class PersonelController {
           {
             success: false,
             message: error.message,
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -134,9 +147,9 @@ export class PersonelController {
         {
           success: false,
           message: 'Personel bakiye hesaplama hatası',
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -150,13 +163,15 @@ export class PersonelController {
           {
             success: false,
             message: 'Geçersiz personel numarası',
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
-      
-      return await this.personelService.getPersonelHesapHareketleri(personelNoNum);
+
+      return await this.personelService.getPersonelHesapHareketleri(
+        personelNoNum,
+      );
     } catch (error) {
       // Service'den gelen hata mesajını yakala ve HTTP exception olarak fırlat
       if (error instanceof Error) {
@@ -164,9 +179,9 @@ export class PersonelController {
           {
             success: false,
             message: error.message,
-            statusCode: HttpStatus.BAD_REQUEST
+            statusCode: HttpStatus.BAD_REQUEST,
           },
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -175,9 +190,9 @@ export class PersonelController {
         {
           success: false,
           message: 'Personel hesap hareketleri getirme hatası',
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

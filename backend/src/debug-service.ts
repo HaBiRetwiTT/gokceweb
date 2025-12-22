@@ -1,4 +1,3 @@
-
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { join } from 'path';
@@ -26,19 +25,19 @@ async function debugMusteriBakiye() {
     console.log('Database connected');
 
     // 1. Find Customer Code from tblIslem
-     const islemCheck = await dataSource.query(`
+    const islemCheck = await dataSource.query(`
        SELECT DISTINCT islemCrKod FROM tblIslem WHERE islemCrKod LIKE '%1182956'
      `);
-     console.log('Found cariKods in Islem:', islemCheck);
+    console.log('Found cariKods in Islem:', islemCheck);
 
-     let cariKod = 'MK1182956';
-     if (islemCheck.length > 0) {
-        cariKod = islemCheck[0].islemCrKod;
-     }
-     console.log('Using cariKod:', cariKod);
+    let cariKod = 'MK1182956';
+    if (islemCheck.length > 0) {
+      cariKod = islemCheck[0].islemCrKod;
+    }
+    console.log('Using cariKod:', cariKod);
 
-     // 2. Fetch raw rows
-      const rawRows = await dataSource.query(`
+    // 2. Fetch raw rows
+    const rawRows = await dataSource.query(`
         SELECT islemTip, islemBilgi, islemTutar, islemCrKod
         FROM tblIslem
         WHERE islemCrKod = '${cariKod}'
@@ -66,7 +65,6 @@ async function debugMusteriBakiye() {
     `;
     const proposedResult = await dataSource.query(proposedQuery);
     console.log('Proposed Logic Result:', proposedResult);
-
   } catch (error) {
     console.error('Error:', error);
   } finally {

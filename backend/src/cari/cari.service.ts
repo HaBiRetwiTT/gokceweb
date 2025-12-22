@@ -30,11 +30,14 @@ export class CariService {
 
       // Kartli-islem sayfasında kullanılan bakiye hesaplama sorgusu
       const params = [
-        'GELİR', 'Çıkan',                 // @0, @1
-        '%=DEPOZİTO TAHSİLATI=%',         // @2
-        '%=DEPOZİTO İADESİ=%',            // @3
-        'GİDER', 'Giren',                 // @4, @5
-        'A%', 'CT%'                       // @6, @7
+        'GELİR',
+        'Çıkan', // @0, @1
+        '%=DEPOZİTO TAHSİLATI=%', // @2
+        '%=DEPOZİTO İADESİ=%', // @3
+        'GİDER',
+        'Giren', // @4, @5
+        'A%',
+        'CT%', // @6, @7
       ];
 
       const bakiyeQuery = `
@@ -59,7 +62,7 @@ export class CariService {
 
       const resultUnknown = (await this.cariRepository.query(
         bakiyeQuery,
-        params
+        params,
       )) as unknown;
       const result = resultUnknown as Array<{
         CariKod: string;
@@ -93,11 +96,13 @@ export class CariService {
 
       // Müşteri listesini tblCari tablosundan al (M% ile başlayan kodlar)
       const params = [
-        'GELİR', 'Çıkan',                 // @0, @1
-        '%=DEPOZİTO TAHSİLATI=%',         // @2
-        '%=DEPOZİTO İADESİ=%',            // @3
-        'GİDER', 'Giren',                 // @4, @5
-        'M%'                              // @6
+        'GELİR',
+        'Çıkan', // @0, @1
+        '%=DEPOZİTO TAHSİLATI=%', // @2
+        '%=DEPOZİTO İADESİ=%', // @3
+        'GİDER',
+        'Giren', // @4, @5
+        'M%', // @6
       ];
 
       const musteriQuery = `
@@ -124,7 +129,7 @@ export class CariService {
       this.debugLog('Müşteri sorgusu çalıştırılıyor...');
       const resultUnknown = (await this.cariRepository.query(
         musteriQuery,
-        params
+        params,
       )) as unknown;
       const result = resultUnknown as Array<{
         CariKod: string;

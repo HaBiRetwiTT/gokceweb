@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { HotelRunnerController } from './hotelrunner.controller';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Controller, Get, Post, Put, Body, Query } from '@nestjs/common';
 import { HotelRunnerService } from './hotelrunner.service';
 

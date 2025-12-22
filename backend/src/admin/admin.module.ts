@@ -9,12 +9,9 @@ import { IPKisitlama } from '../entities/ip-kisitlama.entity';
 import { SistemAyar } from '../entities/sistem-ayar.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([IPKisitlama, SistemAyar]),
-    HttpModule
-  ],
+  imports: [TypeOrmModule.forFeature([IPKisitlama, SistemAyar]), HttpModule],
   controllers: [AdminController],
   providers: [AdminService, IpRestrictionService, DatabaseConfigService],
-  exports: [AdminService, IpRestrictionService]
+  exports: [AdminService, IpRestrictionService],
 })
 export class AdminModule {}

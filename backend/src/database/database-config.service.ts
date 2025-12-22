@@ -9,7 +9,7 @@ export class DatabaseConfigService {
     // Environment variables'dan schema bilgisini al, yoksa dbo kullan
     this.tableSchema = process.env.DB_TABLE_SCHEMA || 'dbo';
     this.spSchema = process.env.DB_SP_SCHEMA || 'dbo';
-    
+
     console.log(
       `Database Schema Configuration: Tables=${this.tableSchema}, StoredProcedures=${this.spSchema}`,
     );
@@ -38,10 +38,12 @@ export class DatabaseConfigService {
    DB_DATABASE=${dbDatabase ? '✅' : '❌'} (${dbDatabase || 'eksik'})
    DB_PORT=${dbPort ? '✅' : '❌'} (${dbPort || '1433'})
       `;
-      
+
       console.error(errorMessage);
       console.error(details);
-      throw new Error('Veritabanı konfigürasyonu eksik! .env.production dosyası oluşturulmalı.');
+      throw new Error(
+        'Veritabanı konfigürasyonu eksik! .env.production dosyası oluşturulmalı.',
+      );
     }
 
     return {
@@ -110,6 +112,7 @@ export class DatabaseConfigService {
       konaklama: this.getTableName('tblKonaklama'),
       islem: this.getTableName('tblislem'),
       parametreler: this.getTableName('tblParametreler'),
+      personel: this.getTableName('tblPersonel'),
     };
   }
 

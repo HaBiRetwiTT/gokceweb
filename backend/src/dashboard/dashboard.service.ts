@@ -47,6 +47,8 @@ type UnifiedStatsRow = {
   AlacakliMusteriSayisi: number | string | null;
   BakiyesizHesaplarSayisi: number | string | null;
   SuresiGecentKonaklama: number | string | null;
+  DoluOdaYatakSayisi: number | string | null;
+  ToplamOdaSayisi: number | string | null;
 };
 
 // Tip güvenliği: Borçlu müşteri satırı (liste sorgusu)
@@ -90,8 +92,10 @@ type KonaklamaGecmisRow = {
 @Injectable()
 export class DashboardService {
   private dbConfig: DatabaseConfigService;
+  private readonly debugEnabled =
+    process.env.DEBUG_DASHBOARD === 'true' || process.env.NODE_ENV !== 'production';
   private debugLog(...args: unknown[]): void {
-    // Production'da logging kapalı
+    if (!this.debugEnabled) return;
     console.log(...args);
   }
   private statsCache: { data: any; timestamp: number } | null = null;
@@ -746,27 +750,39 @@ export class DashboardService {
           SELECT COUNT(*) as DevamEdenKonaklama
           FROM AktifKonaklamalar
           WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND KnklmNot NOT LIKE @4
-            AND KnklmNot NOT LIKE @5
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE @4)
-            AND NOT (CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND KnklmNot LIKE @5)
+            AND NOT (
+              CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) 
+              AND (KnklmNot LIKE @4 OR KnklmNot LIKE @5)
+            )
             AND rn = 1
         ),
         SuresiDolanStats AS (
-          -- Süresi dolan konaklama istatistikleri (grid tablo ile uyumlu)
+          -- Süresi dolan konaklama istatistikleri (AktifKonaklamalar CTE üzerinden)
           SELECT COUNT(*) as SuresiGecentKonaklama
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum = @0 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
-            AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
-            AND CONVERT(Date, v.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
-            AND v.knklmNo = (
-              SELECT MAX(v2.knklmNo) 
-              FROM ${views.musteriKonaklama} v2 
-              WHERE v2.MstrTCN = v.MstrTCN
-                AND v2.MstrDurum = @0
-                AND LEFT(v2.MstrAdi, 9) <> 'PERSONEL '
+          FROM AktifKonaklamalar
+          WHERE CONVERT(Date, KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
+            AND NOT (
+              CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) 
+              AND (KnklmNot LIKE @4 OR KnklmNot LIKE @5)
             )
+            AND rn = 1
+        ),
+        DoluOdaYatakStats AS (
+          -- tblOdaYatak tablosunda OdYatDurum='DOLU' olan kayıtların sayısı
+          SELECT COUNT(*) as DoluOdaYatakSayisi
+          FROM ${tables.odaYatak}
+          WHERE OdYatDurum = 'DOLU'
+        ),
+        PersonelKonaklayanStats AS (
+          -- Personel tablosunda odada kalan çalışanların sayısı
+          SELECT COUNT(*) as PersonelKonaklayanSayisi
+          FROM ${tables.personel}
+          WHERE PrsnOda <> '' AND PrsnDurum = 'ÇALIŞIYOR'
+        ),
+        ToplamOdaStats AS (
+          -- Toplam oda/yatak sayısı
+          SELECT COUNT(*) as ToplamOdaSayisi
+          FROM ${tables.odaYatak}
         ),
         BugunCikanStats AS (
           -- Bugün çıkan müşteri istatistikleri
@@ -787,8 +803,7 @@ export class DashboardService {
           SELECT 
             islemCrKod,
             SUM(CASE WHEN islemTip IN (@6, @7) AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-			 WHEN islemTip IN (@8, @9) AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = @9 AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = @7 AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
+			 WHEN islemTip IN (@8, @9) AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
           WHERE islemCrKod LIKE @10
           GROUP BY islemCrKod
@@ -798,7 +813,7 @@ export class DashboardService {
           SELECT 
             COUNT(CASE WHEN mb.MusteriBakiye > 0 THEN 1 END) as BorcluMusteriSayisi,
             COUNT(CASE WHEN mb.MusteriBakiye < 0 THEN 1 END) as AlacakliMusteriSayisi,
-            COUNT(CASE WHEN mb.MusteriBakiye = 0 AND mb.DepozitoBakiye = 0 THEN 1 END) as BakiyesizHesaplarSayisi
+            COUNT(CASE WHEN mb.MusteriBakiye = 0 THEN 1 END) as BakiyesizHesaplarSayisi
           FROM ${tables.cari} c
           INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
           WHERE left(c.CariKod,1)='M'
@@ -817,7 +832,9 @@ export class DashboardService {
           bas.BorcluMusteriSayisi,
           bas.AlacakliMusteriSayisi,
           bas.BakiyesizHesaplarSayisi,
-          sds.SuresiGecentKonaklama
+          sds.SuresiGecentKonaklama,
+          (doys.DoluOdaYatakSayisi - ISNULL(pks.PersonelKonaklayanSayisi, 0)) as DoluOdaYatakSayisi,
+          tos.ToplamOdaSayisi
         FROM ToplamAktifStats tas
         CROSS JOIN YeniMusteriStats yms
         CROSS JOIN YeniGirisStats ygs
@@ -825,6 +842,9 @@ export class DashboardService {
         CROSS JOIN BugunCikanStats bcs
         CROSS JOIN BorcluAlacakliStats bas
         CROSS JOIN SuresiDolanStats sds
+        CROSS JOIN DoluOdaYatakStats doys
+        CROSS JOIN PersonelKonaklayanStats pks
+        CROSS JOIN ToplamOdaStats tos
         OPTION (MAXDOP 2);
       `;
 
@@ -912,11 +932,26 @@ export class DashboardService {
             v.KnklmOdaTip,
             v.KnklmOdaNo,
             v.KnklmYtkNo,
+            d.PlnDate,
+            d.GrsDate,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
+          CROSS APPLY (
+            SELECT
+              TRY_CONVERT(date, v.KnklmPlnTrh, 104) as PlnDate,
+              TRY_CONVERT(date, v.KnklmGrsTrh, 104) as GrsDate
+          ) d
           WHERE v.MstrDurum = 'KALIYOR' 
             AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
+            AND d.PlnDate > CONVERT(date, GETDATE())
+            AND NOT (
+              d.GrsDate = CONVERT(date, GETDATE())
+              AND (
+                ISNULL(v.KnklmNot, '') LIKE '%- Yeni Müşteri:%'
+                OR ISNULL(v.KnklmNot, '') LIKE '%- Yeni Giriş:%'
+              )
+            )
         )
         SELECT 
           ak.MstrTCN, 
@@ -932,38 +967,19 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+          '' as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
-            k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
         WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-          AND ak.KnklmNot NOT LIKE '%- Yeni Müşteri:%'
-          AND ak.KnklmNot NOT LIKE '%- Yeni Giriş:%'
-          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Müşteri:%')
-          AND NOT (CONVERT(Date, ak.KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) AND ak.KnklmNot LIKE '%- Yeni Giriş:%')
       `;
 
       const parameters: string[] = [];
       let paramIndex = 0;
 
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @${paramIndex} OPTION (MAXDOP 2);`;
+        query += ` AND ak.KnklmTip = @${paramIndex}`;
         parameters.push(knklmTipi);
         paramIndex++;
       }
@@ -974,7 +990,7 @@ export class DashboardService {
         paramIndex++;
       }
 
-      query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
+      query += ` ORDER BY ak.PlnDate, ak.KnklmTip DESC, ak.GrsDate DESC OPTION (MAXDOP 2);`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 
@@ -1028,37 +1044,35 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          ISNULL(lastStay.KnklmCksTrh, '') as KnklmCksTrh,
+          '' as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        LEFT JOIN (
-          -- Her müşterinin tblKonaklama tablosundaki MAX(knklmNo) kaydının knklmCksTrh alanını al
-          SELECT 
-            k2.knklmMstrNo,
-            k2.KnklmCksTrh
-          FROM ${tables.konaklama} k2
-          INNER JOIN (
-            SELECT 
-              knklmMstrNo,
-              MAX(knklmNo) as maxKnklmNo
-            FROM ${tables.konaklama}
-            GROUP BY knklmMstrNo
-          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
-        ) lastStay ON m.MstrNo = lastStay.knklmMstrNo
+        CROSS APPLY (
+          SELECT
+            TRY_CONVERT(date, ak.KnklmPlnTrh, 104) as PlnDate,
+            TRY_CONVERT(date, ak.KnklmGrsTrh, 104) as GrsDate
+        ) d
         WHERE ak.rn = 1
-          AND CONVERT(Date, ak.KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
+          AND d.PlnDate <= CONVERT(date, GETDATE())
+          AND NOT (
+            d.GrsDate = CONVERT(date, GETDATE())
+            AND (
+              ISNULL(ak.KnklmNot, '') LIKE '%- Yeni Müşteri:%'
+              OR ISNULL(ak.KnklmNot, '') LIKE '%- Yeni Giriş:%'
+            )
+          )
       `;
 
       const parameters: string[] = [];
 
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND ak.KnklmTip = @0 OPTION (MAXDOP 2);`;
+        query += ` AND ak.KnklmTip = @0`;
         parameters.push(knklmTipi);
       }
 
-      query += ` ORDER BY CONVERT(Date, ak.KnklmPlnTrh, 104), ak.KnklmTip DESC, CONVERT(Date, ak.KnklmGrsTrh, 104) DESC`;
+      query += ` ORDER BY d.PlnDate, ak.KnklmTip DESC, d.GrsDate DESC OPTION (MAXDOP 2);`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 
@@ -1348,80 +1362,83 @@ export class DashboardService {
   async getBorcluMusteriler(page: number = 1, limit: number = 100): Promise<{ data: BorcluMusteriRow[]; total: number; page: number; limit: number }> {
     try {
       const tables = this.dbConfig.getTables();
-      const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
 
-      // 🔥 Optimize edilmiş sorgu - CTE kullanarak tek seferde bakiye hesaplama
-      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar
+              ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
-          WHERE left(islemCrKod,1) = 'M'
+          WHERE islemCrKod LIKE 'M%'
           GROUP BY islemCrKod
         ),
         BorcluMusteriler AS (
           SELECT c.CariKod
           FROM ${tables.cari} c
           INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
-          WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye > 0
+          WHERE c.CariKod LIKE 'M%' AND mb.MusteriBakiye > 0
         ),
-        SonKonaklamaBilgileri AS (
+        BorcluMusteriDetay AS (
           SELECT 
-            v.MstrTCN,
-            v.MstrNo,
-            v.KnklmCksTrh,
-            v.KnklmPlnTrh,
-            v.MstrDurum,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum IN ('KALIYOR', 'AYRILDI')
+            c.cKytTarihi,
+            c.CariKllnc,
+            c.CariKod,
+            c.CariAdi,
+            c.CariVD,
+            c.CariVTCN,
+            c.CariYetkili,
+            c.CariTelNo,
+            mb.MusteriBakiye,
+            TRY_CONVERT(int, SUBSTRING(c.CariKod, 3, 20)) as MstrNo
+          FROM BorcluMusteriler bm
+          INNER JOIN ${tables.cari} c ON bm.CariKod = c.CariKod
+          INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
+        ),
+        SonKonaklama AS (
+          SELECT
+            k.knklmMstrNo,
+            MAX(k.knklmNo) as SonKnklmNo
+          FROM ${tables.konaklama} k
+          GROUP BY k.knklmMstrNo
         )
         SELECT 
-          c.cKytTarihi,
-          c.CariKllnc,
-          c.CariKod,
-          c.CariAdi,
-          c.CariVD,
-          c.CariVTCN,
-          c.CariYetkili,
-          c.CariTelNo,
+          bmd.cKytTarihi,
+          bmd.CariKllnc,
+          bmd.CariKod,
+          bmd.CariAdi,
+          bmd.CariVD,
+          bmd.CariVTCN,
+          bmd.CariYetkili,
+          bmd.CariTelNo,
           ISNULL(m.MstrFirma, '') as MstrFirma,
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          mb.MusteriBakiye as BorcTutari,
+          bmd.MusteriBakiye as BorcTutari,
           CASE 
-            WHEN skb.KnklmCksTrh IS NOT NULL AND skb.KnklmCksTrh != '' THEN skb.KnklmCksTrh
-            ELSE skb.KnklmPlnTrh
+            WHEN k.KnklmCksTrh IS NOT NULL AND k.KnklmCksTrh != '' THEN k.KnklmCksTrh
+            ELSE k.KnklmPlnTrh
           END as CikisTarihi,
-          skb.KnklmCksTrh,
-          skb.KnklmPlnTrh,
-          skb.MstrDurum
-        FROM BorcluMusteriler bm
-        INNER JOIN ${tables.cari} c ON bm.CariKod = c.CariKod
-        INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
-        LEFT JOIN ${tables.musteri} m ON (
-          (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
-          (c.CariKod LIKE 'MK%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT))
-        )
-        LEFT JOIN SonKonaklamaBilgileri skb ON (
-          (skb.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL AND skb.rn = 1) OR
-          (skb.MstrNo = m.MstrNo AND m.MstrTCN IS NULL AND skb.rn = 1)
-        )
-        ORDER BY mb.MusteriBakiye DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
+          k.KnklmCksTrh,
+          k.KnklmPlnTrh,
+          m.MstrDurum
+        FROM BorcluMusteriDetay bmd
+        LEFT JOIN ${tables.musteri} m ON bmd.MstrNo = m.MstrNo
+        LEFT JOIN SonKonaklama sk ON sk.knklmMstrNo = bmd.MstrNo
+        LEFT JOIN ${tables.konaklama} k ON sk.SonKnklmNo = k.knklmNo
+        ORDER BY bmd.MusteriBakiye DESC, CONVERT(Date, bmd.cKytTarihi, 104) DESC
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
+        OPTION (MAXDOP 2);
       `;
 
       const resultUnknown = (await this.musteriRepository.query(query)) as unknown;
       const result = resultUnknown as BorcluMusteriRow[];
 
-      // Her müşteri için ödeme vadesi hesapla (sadece bu sayfadaki)
+      const odemeVadesiMap = await this.hesaplaOdemeVadeleriToplu(result.map(r => r.CariKod));
       for (const musteri of result) {
-        const vade = await this.hesaplaOdemeVadesi(musteri.CariKod);
-        musteri.odemeVadesi = vade;
+        musteri.odemeVadesi = odemeVadesiMap.get(musteri.CariKod) ?? null;
       }
 
       // Ödeme vadesine göre küçükten büyüğe sırala, null/boş olanlar en sonda
@@ -1444,16 +1461,17 @@ export class DashboardService {
         WITH MusteriBakiyeleri AS (
           SELECT 
             islemCrKod,
-          SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) -
-          SUM(CASE WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar ELSE 0 END) as MusteriBakiye
+            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar
+              ELSE 0 END) as MusteriBakiye
           FROM ${tables.islem}
-          WHERE left(islemCrKod,1) = 'M'
+          WHERE islemCrKod LIKE 'M%'
           GROUP BY islemCrKod
         )
         SELECT COUNT(*) as TotalCount
         FROM ${tables.cari} c
         INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
-        WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye > 0
+        WHERE c.CariKod LIKE 'M%' AND mb.MusteriBakiye > 0
         OPTION (MAXDOP 2);
       `;
 
@@ -1472,51 +1490,169 @@ export class DashboardService {
     }
   }
 
-  // 🔥 Bakiyesiz Hesaplar - hem bakiye hem de depozito bakiyesi 0 olan müşteriler
+  // 🔥 Bakiyesiz Hesaplar - ana bakiye 0 olan müşteriler
   async getBakiyesizHesaplar(page: number = 1, limit: number = 1000): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
       const tables = this.dbConfig.getTables();
-      const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
 
       // 🔥 Basit sıralama - eskiden yeniye tarih sıralaması
-      const orderByClause = 'ORDER BY CONVERT(Date, c.cKytTarihi, 104) ASC, c.CariAdi ASC';
+      const orderByClause = 'ORDER BY CONVERT(Date, bd.cKytTarihi, 104) ASC, bd.CariAdi ASC';
 
       // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU
       // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
-        WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
-            FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
+        WITH MusteriBakiyeleri AS (
+          SELECT 
+            islemCrKod,
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) as MusteriBakiye,
+            SUM(CASE 
+              WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar 
+              WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar 
+              ELSE 0 
+            END) as DepozitoBakiye
+          FROM ${tables.islem}
+          WHERE islemCrKod LIKE 'M%'
+          GROUP BY islemCrKod
+          HAVING 
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) = 0
+            AND SUM(CASE 
+              WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar 
+              WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar 
+              ELSE 0 
+            END) = 0
         ),
-        SonKonaklamaBilgileri AS (SELECT CariKod, CksPlnTrh
-		FROM (SELECT IIF(v.MstrHspTip = 'BİREYSEL', 'MB', 'MK') + CAST(v.MstrNo AS NVARCHAR) as CariKod, COALESCE(NULLIF(v.KnklmCksTrh, ''), v.KnklmPlnTrh) as CksPlnTrh,
-			ROW_NUMBER() OVER (PARTITION BY IIF(v.MstrHspTip = 'BİREYSEL', 'MB', 'MK') + CAST(v.MstrNo AS NVARCHAR) ORDER BY COALESCE(NULLIF(v.KnklmCksTrh, ''), v.KnklmPlnTrh) DESC) as rn
-    FROM ${views.musteriKonaklama} v WHERE v.MstrHspTip IN ('BİREYSEL', 'KURUMSAL')) ranked WHERE rn = 1
+        BakiyesizDetay AS (
+          SELECT
+            c.cKytTarihi,
+            c.CariKllnc,
+            mb.islemCrKod as CariKod,
+            c.CariAdi,
+            c.CariVD,
+            c.CariVTCN,
+            c.CariYetkili,
+            c.CariTelNo,
+            TRY_CONVERT(int, SUBSTRING(mb.islemCrKod, 3, 20)) as MstrNo
+          FROM MusteriBakiyeleri mb
+          INNER JOIN ${tables.cari} c ON mb.islemCrKod = c.CariKod
         )
-        SELECT c.cKytTarihi, c.CariKllnc, mb.islemCrKod as CariKod, c.CariAdi, c.CariVD, c.CariVTCN, c.CariYetkili, c.CariTelNo, 0 as BorcTutari, skb.CksPlnTrh as CksPlnTrh FROM MusteriBakiyeleri mb 
-        INNER JOIN ${tables.cari} c ON mb.islemCrKod = c.CariKod LEFT JOIN SonKonaklamaBilgileri skb ON mb.islemCrKod = skb.CariKod
+        SELECT 
+          bd.cKytTarihi,
+          bd.CariKllnc,
+          bd.CariKod,
+          bd.CariAdi,
+          bd.CariVD,
+          bd.CariVTCN,
+          bd.CariYetkili,
+          bd.CariTelNo,
+          0 as BorcTutari,
+          bd.MstrNo,
+          NULL as CksPlnTrh
+        FROM BakiyesizDetay bd
         ${orderByClause}
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
+        OPTION (MAXDOP 2);
       `;
 
       const result: any[] = await this.musteriRepository.query(query);
 
+      const mstrNoList = Array.from(
+        new Set(
+          result
+            .map(r => Number(r.MstrNo))
+            .filter(n => Number.isFinite(n) && n > 0),
+        ),
+      );
+
+      if (mstrNoList.length > 0) {
+        // Parametre sayısını kontrol et (SQL Server sınırı 2100)
+        // Eğer çok fazla MstrNo varsa, sorguyu parçalara böl
+        const CHUNK_SIZE = 1000;
+        const cksByMstrNo = new Map<number, string | null>();
+
+        for (let i = 0; i < mstrNoList.length; i += CHUNK_SIZE) {
+          const chunk = mstrNoList.slice(i, i + CHUNK_SIZE);
+          const placeholders = chunk.map((_, idx) => `@${idx}`).join(',');
+          
+          const konaklamaQuery = `
+            SELECT
+              k.knklmMstrNo as MstrNo,
+              COALESCE(NULLIF(k.KnklmCksTrh, ''), k.KnklmPlnTrh) as CksPlnTrh
+            FROM ${tables.konaklama} k
+            WHERE k.knklmMstrNo IN (${placeholders})
+              AND k.knklmNo = (
+                SELECT MAX(k2.knklmNo)
+                FROM ${tables.konaklama} k2
+                WHERE k2.knklmMstrNo = k.knklmMstrNo
+              )
+            OPTION (MAXDOP 2);
+          `;
+
+          const konaklamaRowsUnknown = (await this.musteriRepository.query(
+            konaklamaQuery,
+            chunk,
+          )) as unknown;
+          
+          const konaklamaRows = konaklamaRowsUnknown as Array<{
+            MstrNo: number | string | null;
+            CksPlnTrh: string | null;
+          }>;
+
+          for (const row of konaklamaRows) {
+            const mstrNo = Number(row.MstrNo);
+            if (Number.isFinite(mstrNo) && mstrNo > 0) {
+              cksByMstrNo.set(mstrNo, row.CksPlnTrh ?? null);
+            }
+          }
+        }
+
+        for (const r of result) {
+          const mstrNo = Number(r.MstrNo);
+          if (Number.isFinite(mstrNo) && mstrNo > 0 && cksByMstrNo.has(mstrNo)) {
+            r.CksPlnTrh = cksByMstrNo.get(mstrNo) ?? null;
+          }
+        }
+      }
+
       // Toplam sayıyı ayrı hesapla (daha hızlı) - YENİ SORGU KODU
       // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const countQuery = `
-        WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye,
-            SUM(CASE WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar ELSE 0 END) as DepozitoBakiye
-            FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
+        WITH MusteriBakiyeleri AS (
+          SELECT 
+            islemCrKod,
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) as MusteriBakiye,
+            SUM(CASE 
+              WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar 
+              WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar 
+              ELSE 0 
+            END) as DepozitoBakiye
+          FROM ${tables.islem}
+          WHERE islemCrKod LIKE 'M%'
+          GROUP BY islemCrKod
+          HAVING 
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) = 0
+            AND SUM(CASE 
+              WHEN islemTip = 'Giren' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN islemTutar 
+              WHEN islemTip = 'Çıkan' AND (islemBilgi LIKE '%=DEPOZİTO TAHSİLATI=%' OR islemBilgi LIKE '%=DEPOZİTO İADESİ=%') THEN -islemTutar 
+              ELSE 0 
+            END) = 0
         )
         SELECT COUNT(*) as TotalCount
         FROM MusteriBakiyeleri mb 
@@ -1527,7 +1663,7 @@ export class DashboardService {
       const total = countResult[0]?.TotalCount || 0;
 
       const response = {
-        data: result,
+        data: result.map(({ MstrNo, ...row }) => row),
         total: total,
         page: page,
         limit: limit
@@ -1544,7 +1680,6 @@ export class DashboardService {
   async getAlacakliMusteriler(page: number = 1, limit: number = 100): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
       const tables = this.dbConfig.getTables();
-      const views = this.dbConfig.getViews();
       const offset = (page - 1) * limit;
       const usePagination = limit < 1000;
 
@@ -1566,49 +1701,52 @@ export class DashboardService {
           INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
           WHERE left(c.CariKod,1)='M' AND mb.MusteriBakiye < 0
         ),
-        SonKonaklamaBilgileri AS (
+        AlacakliMusteriDetay AS (
           SELECT 
-            v.MstrTCN,
-            v.MstrNo,
-            v.KnklmCksTrh,
-            v.KnklmPlnTrh,
-            v.MstrDurum,
-            ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
-          FROM ${views.musteriKonaklama} v
-          WHERE v.MstrDurum IN ('KALIYOR', 'AYRILDI')
+            c.cKytTarihi,
+            c.CariKllnc,
+            c.CariKod,
+            c.CariAdi,
+            c.CariVD,
+            c.CariVTCN,
+            c.CariYetkili,
+            c.CariTelNo,
+            mb.MusteriBakiye,
+            TRY_CONVERT(int, SUBSTRING(c.CariKod, 3, 20)) as MstrNo
+          FROM AlacakliMusteriler am
+          INNER JOIN ${tables.cari} c ON am.CariKod = c.CariKod
+          INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
+        ),
+        SonKonaklama AS (
+          SELECT
+            k.knklmMstrNo,
+            MAX(k.knklmNo) as SonKnklmNo
+          FROM ${tables.konaklama} k
+          GROUP BY k.knklmMstrNo
         )
         SELECT 
-          c.cKytTarihi,
-          c.CariKllnc,
-          c.CariKod,
-          c.CariAdi,
-          c.CariVD,
-          c.CariVTCN,
-          c.CariYetkili,
-          c.CariTelNo,
+          amd.cKytTarihi,
+          amd.CariKllnc,
+          amd.CariKod,
+          amd.CariAdi,
+          amd.CariVD,
+          amd.CariVTCN,
+          amd.CariYetkili,
+          amd.CariTelNo,
           ISNULL(m.MstrFirma, '') as MstrFirma,
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
-          ABS(mb.MusteriBakiye) as AlacakTutari,
-          CASE 
-            WHEN skb.KnklmCksTrh IS NOT NULL AND skb.KnklmCksTrh != '' THEN skb.KnklmCksTrh
-            ELSE skb.KnklmPlnTrh
-          END as CikisTarihi,
-          skb.KnklmCksTrh,
-          skb.KnklmPlnTrh,
-          skb.MstrDurum
-        FROM AlacakliMusteriler am
-        INNER JOIN ${tables.cari} c ON am.CariKod = c.CariKod
-        INNER JOIN MusteriBakiyeleri mb ON c.CariKod = mb.islemCrKod
-        LEFT JOIN ${tables.musteri} m ON (
-          (c.CariKod LIKE 'MB%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT)) OR
-          (c.CariKod LIKE 'MK%' AND m.MstrNo = CAST(SUBSTRING(c.CariKod, 3, LEN(c.CariKod) - 2) AS INT))
-        )
-        LEFT JOIN SonKonaklamaBilgileri skb ON (
-          (skb.MstrTCN = m.MstrTCN AND m.MstrTCN IS NOT NULL AND skb.rn = 1) OR
-          (skb.MstrNo = m.MstrNo AND m.MstrTCN IS NULL AND skb.rn = 1)
-        )
-        ORDER BY ABS(mb.MusteriBakiye) DESC, CONVERT(Date, c.cKytTarihi, 104) DESC
+          ABS(amd.MusteriBakiye) as AlacakTutari,
+          COALESCE(NULLIF(k.KnklmCksTrh, ''), k.KnklmPlnTrh) as CikisTarihi,
+          k.KnklmCksTrh,
+          k.KnklmPlnTrh,
+          m.MstrDurum
+        FROM AlacakliMusteriDetay amd
+        LEFT JOIN ${tables.musteri} m ON amd.MstrNo = m.MstrNo
+        LEFT JOIN SonKonaklama sk ON sk.knklmMstrNo = amd.MstrNo
+        LEFT JOIN ${tables.konaklama} k ON sk.SonKnklmNo = k.knklmNo
+        ORDER BY ABS(amd.MusteriBakiye) DESC, CONVERT(Date, amd.cKytTarihi, 104) DESC
         ${usePagination ? `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY` : ''}
+        OPTION (MAXDOP 2);
       `;
 
       const result: any[] = await this.musteriRepository.query(query);
@@ -1812,22 +1950,24 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
 
-      // 🔥 UYUM SAĞLAMA: Liste fonksiyonu ile aynı filtreleme mantığını kullan
       const query = `
-        SELECT COUNT(*) as CikisYapanSayisi
-        FROM (
-          SELECT 
+        WITH SonKonaklama AS (
+          SELECT
             k.knklmMstrNo,
             MAX(k.knklmNo) as SonKnklmNo
           FROM ${tables.konaklama} k
           GROUP BY k.knklmMstrNo
-        ) SonKayitlar
-        INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 
-                                           AND SonKayitlar.SonKnklmNo = k2.knklmNo
-        INNER JOIN ${tables.musteri} m ON k2.knklmMstrNo = m.MstrNo
-        WHERE k2.knklmCksTrh IS NOT NULL 
-          AND k2.knklmCksTrh != ''
-          AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
+        )
+        SELECT COUNT(*) as CikisYapanSayisi
+        FROM SonKonaklama sk
+        INNER JOIN ${tables.konaklama} k ON sk.SonKnklmNo = k.knklmNo
+        INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
+        CROSS APPLY (
+          SELECT TRY_CONVERT(date, k.KnklmCksTrh, 104) as CksDate
+        ) d
+        WHERE d.CksDate < CONVERT(date, GETDATE())
+          AND k.KnklmCksTrh IS NOT NULL
+          AND k.KnklmCksTrh <> ''
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
         OPTION (MAXDOP 2);
       `;
@@ -1889,112 +2029,62 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
 
-      // 🔥 URL DECODING: URL encoding'den gelen + karakterlerini boşluk yap
       const decodedOdaTipi = decodeURIComponent(odaTipi);
 
-
-      // 🔥 DEBUG: Canlı veritabanındaki oda tipi değerlerini kontrol et
-      if (odaTipi !== 'TÜMÜ') {
-        const odaTipiKontrolQuery = `
-          SELECT DISTINCT KnklmOdaTip, COUNT(*) as KayitSayisi
-          FROM ${tables.konaklama} k2
-          INNER JOIN ${tables.musteri} m ON k2.knklmMstrNo = m.MstrNo
-          WHERE k2.knklmCksTrh IS NOT NULL 
-            AND k2.knklmCksTrh != ''
-            AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
-            AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
-          GROUP BY KnklmOdaTip
-          ORDER BY KnklmOdaTip
-        `;
-
-        try {
-          await this.musteriRepository.query(odaTipiKontrolQuery);
-        } catch (_error) {
-          // Devam et
-        }
-      }
       let query = `
-        SELECT 
+        WITH SonKonaklama AS (
+          SELECT
+            k.knklmMstrNo,
+            MAX(k.knklmNo) as SonKnklmNo
+          FROM ${tables.konaklama} k
+          GROUP BY k.knklmMstrNo
+        )
+        SELECT
           m.MstrTCN,
           ISNULL(m.MstrHspTip, 'Bireysel') as MstrHspTip,
           ISNULL(m.MstrFirma, '') as MstrFirma,
           m.MstrAdi,
           m.MstrTelNo,
           m.MstrDurum,
-          k2.KnklmOdaTip,
-          k2.KnklmOdaNo,
-          k2.KnklmYtkNo,
-          k2.KnklmTip,
-          k2.KnklmNfyt,
-          k2.KnklmGrsTrh,
-          k2.KnklmPlnTrh,
-          k2.KnklmCksTrh,
-          ISNULL(k2.KnklmNot, '') as KnklmNot,
-          ISNULL(k2.KnklmKrLst, '') as KnklmKrLst,
-          ISNULL(k2.Knklmisk, 0) as Knklmisk
-        FROM (
-          SELECT 
-            k.knklmMstrNo,
-            MAX(k.knklmNo) as SonKnklmNo
-          FROM ${tables.konaklama} k
-          GROUP BY k.knklmMstrNo
-        ) SonKayitlar
-        INNER JOIN ${tables.konaklama} k2 ON SonKayitlar.knklmMstrNo = k2.knklmMstrNo 
-                                           AND SonKayitlar.SonKnklmNo = k2.knklmNo
-        INNER JOIN ${tables.musteri} m ON k2.knklmMstrNo = m.MstrNo
-        WHERE k2.knklmCksTrh IS NOT NULL 
-          AND k2.knklmCksTrh != ''
-          AND CONVERT(Date, k2.knklmCksTrh, 104) < CONVERT(Date, GETDATE(), 104)
+          k.KnklmOdaTip,
+          k.KnklmOdaNo,
+          k.KnklmYtkNo,
+          k.KnklmTip,
+          k.KnklmNfyt,
+          k.KnklmGrsTrh,
+          k.KnklmPlnTrh,
+          k.KnklmCksTrh,
+          ISNULL(k.KnklmNot, '') as KnklmNot,
+          ISNULL(k.KnklmKrLst, '') as KnklmKrLst,
+          ISNULL(k.Knklmisk, 0) as Knklmisk
+        FROM SonKonaklama sk
+        INNER JOIN ${tables.konaklama} k ON sk.SonKnklmNo = k.knklmNo
+        INNER JOIN ${tables.musteri} m ON k.knklmMstrNo = m.MstrNo
+        CROSS APPLY (
+          SELECT TRY_CONVERT(date, k.KnklmCksTrh, 104) as CksDate
+        ) d
+        WHERE d.CksDate < CONVERT(date, GETDATE())
+          AND k.KnklmCksTrh IS NOT NULL
+          AND k.KnklmCksTrh <> ''
           AND LEFT(m.MstrAdi, 9) <> 'PERSONEL '
       `;
 
       const parameters: string[] = [];
 
       if (knklmTipi && knklmTipi !== 'TÜMÜ') {
-        query += ` AND k2.KnklmTip = @${parameters.length} OPTION (MAXDOP 2);`;
+        query += ` AND k.KnklmTip = @${parameters.length}`;
         parameters.push(knklmTipi);
       }
 
       if (decodedOdaTipi && decodedOdaTipi !== 'TÜMÜ') {
-        query += ` AND k2.KnklmOdaTip = @${parameters.length}`;
+        query += ` AND k.KnklmOdaTip = @${parameters.length}`;
         parameters.push(decodedOdaTipi);
       }
 
-      query += ` ORDER BY CONVERT(Date, k2.knklmCksTrh, 104) DESC, k2.KnklmTip DESC`;
-
-      this.debugLog('🔍 SQL SORGUSU:', query);
-      this.debugLog('🔍 PARAMETRELER:', parameters);
+      query += ` ORDER BY d.CksDate DESC, k.KnklmTip DESC OPTION (MAXDOP 2);`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
-
-      // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
-      if (result.length > 0) {
-        this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
-        result.slice(0, 3).forEach((item, index) => {
-          this.debugLog(`Kayıt ${index + 1}:`, {
-            MstrAdi: item.MstrAdi,
-            KnklmCksTrh: item.KnklmCksTrh,
-            KnklmPlnTrh: item.KnklmPlnTrh,
-            KnklmCksTrhType: typeof item.KnklmCksTrh
-          });
-        });
-      }
-
       this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
-      this.debugLog('Çıkış yapanlar listesi:', result.length, 'kayıt bulundu');
-
-      // Debug: İlk 3 kaydın KnklmCksTrh değerlerini kontrol et
-      if (result.length > 0) {
-        this.debugLog('🔍 DEBUG - İlk 3 kayıt KnklmCksTrh değerleri:');
-        result.slice(0, 3).forEach((item, index) => {
-          this.debugLog(`Kayıt ${index + 1}:`, {
-            MstrAdi: item.MstrAdi,
-            KnklmCksTrh: item.KnklmCksTrh,
-            KnklmPlnTrh: item.KnklmPlnTrh,
-            KnklmCksTrhType: typeof item.KnklmCksTrh
-          });
-        });
-      }
 
       return result;
     } catch (error) {
@@ -2510,6 +2600,68 @@ export class DashboardService {
     return new Date(year, month, day);
   }
 
+  private async hesaplaOdemeVadeleriToplu(cariKodlar: string[]): Promise<Map<string, string | null>> {
+    const odemeVadesiMap = new Map<string, string | null>();
+    const temizKodlar = (cariKodlar || []).filter(k => typeof k === 'string' && k.trim() !== '');
+    if (temizKodlar.length === 0) return odemeVadesiMap;
+
+    const tables = this.dbConfig.getTables();
+    const paramList = temizKodlar.map((_, idx) => `@${idx}`).join(',');
+
+    const query = `
+      WITH IslemTemiz AS (
+        SELECT
+          i.islemCrKod,
+          ABS(ISNULL(i.islemTutar, 0)) as tutarAbs,
+          COALESCE(
+            TRY_CONVERT(
+              DATETIME,
+              CASE
+                WHEN i.islemBilgi IS NOT NULL AND CHARINDEX('BAKİYE ÖDEME VADESİ: ', i.islemBilgi) > 0
+                  THEN SUBSTRING(i.islemBilgi, CHARINDEX('BAKİYE ÖDEME VADESİ: ', i.islemBilgi) + LEN('BAKİYE ÖDEME VADESİ: '), 10)
+                ELSE NULL
+              END,
+              104
+            ),
+            TRY_CONVERT(DATETIME, i.iKytTarihi, 104)
+          ) as vadeTarihi
+        FROM ${tables.islem} i
+        WHERE i.islemCrKod IN (${paramList})
+          AND i.islemTip IN ('GELİR', 'GİDER', 'Giren', 'Çıkan')
+          AND (
+            i.islemBilgi IS NULL
+            OR (i.islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND i.islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')
+          )
+      ),
+      Agirlikli AS (
+        SELECT
+          it.islemCrKod,
+          SUM(CASE WHEN it.tutarAbs > 0 AND it.vadeTarihi IS NOT NULL THEN CAST(DATEDIFF(SECOND, GETDATE(), it.vadeTarihi) AS BIGINT) * CAST(it.tutarAbs AS BIGINT) ELSE 0 END) as toplamSaniyeAgirlikli,
+          SUM(CASE WHEN it.tutarAbs > 0 AND it.vadeTarihi IS NOT NULL THEN it.tutarAbs ELSE 0 END) as toplamTutar
+        FROM IslemTemiz it
+        GROUP BY it.islemCrKod
+      )
+      SELECT
+        a.islemCrKod,
+        CASE
+          WHEN a.toplamTutar IS NULL OR a.toplamTutar = 0 THEN NULL
+          ELSE CONVERT(VARCHAR(10), DATEADD(SECOND, CAST(CAST(a.toplamSaniyeAgirlikli AS FLOAT) / NULLIF(CAST(a.toplamTutar AS FLOAT), 0) AS INT), GETDATE()), 104)
+        END as odemeVadesi
+      FROM Agirlikli a
+      OPTION (MAXDOP 2);
+    `;
+
+    const rowsUnknown = (await this.musteriRepository.query(query, temizKodlar)) as unknown;
+    const rows = rowsUnknown as Array<{ islemCrKod: string; odemeVadesi: string | null }>;
+    for (const row of rows) {
+      if (row?.islemCrKod) {
+        odemeVadesiMap.set(row.islemCrKod, row.odemeVadesi ?? null);
+      }
+    }
+
+    return odemeVadesiMap;
+  }
+
   // Borçlu müşteriler için ağırlıklı ortalama ödeme vadesi hesapla
   private async hesaplaOdemeVadesi(cariKod: string): Promise<string | null> {
     this.debugLog('🔍 Ödeme vadesi hesaplanıyor:', cariKod);
@@ -2665,15 +2817,24 @@ export class DashboardService {
     try {
       const tables = this.dbConfig.getTables();
 
-      // 🔥 Bakiyesiz Hesaplar - YENİ SORGU KODU (hem bakiye hem depozito 0 olan müşteriler)
-      // NOT: Depozito işlemleri (islemBilgi içinde DEPOZİTO geçenler) ana bakiyeden hariç tutulur
       const query = `
-        WITH MusteriBakiyeleri AS (SELECT islemCrKod,
-            SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-             WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) as MusteriBakiye
-            FROM ${tables.islem} WHERE islemCrKod LIKE 'M%' GROUP BY islemCrKod
-            HAVING SUM(CASE WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
-                    WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar ELSE 0 END) = 0
+        WITH MusteriBakiyeleri AS (
+          SELECT 
+            islemCrKod,
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) as MusteriBakiye
+          FROM ${tables.islem}
+          WHERE islemCrKod LIKE 'M%'
+          GROUP BY islemCrKod
+          HAVING 
+            SUM(CASE 
+              WHEN islemTip IN ('GELİR', 'Çıkan') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN islemTutar 
+              WHEN islemTip IN ('GİDER', 'Giren') AND (islemBilgi IS NULL OR (islemBilgi NOT LIKE '%=DEPOZİTO TAHSİLATI=%' AND islemBilgi NOT LIKE '%=DEPOZİTO İADESİ=%')) THEN -islemTutar 
+              ELSE 0 
+            END) = 0
         )
         SELECT COUNT(*) as BakiyesizHesaplarSayisi
         FROM MusteriBakiyeleri mb 

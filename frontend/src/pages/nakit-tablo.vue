@@ -215,7 +215,7 @@
           <div class="form-grid">
             <!-- İşlem Günü -->
             <div class="form-field">
-              <label class="form-label">İşlem Günü</label>
+              <label class="form-label">Ödeme Vadesi</label>
               <q-input
                 v-model="newRecord.OdmVade"
                 dense
@@ -483,7 +483,7 @@
           <div class="form-grid">
             <!-- İşlem Günü -->
             <div class="form-field">
-              <label class="form-label">İşlem Günü</label>
+              <label class="form-label">Ödeme Vadesi</label>
               <q-input
                 v-model="newRecord.OdmVade"
                 dense
@@ -1525,6 +1525,36 @@ const hesaplaTaksitTarihi = (baslangicTarihi: string, ayFarki: number): string =
   return `${yeniGun}.${yeniAy}.${yeniYil}`;
 };
 
+// Tarihin bugünden ileri olup olmadığını kontrol eden fonksiyon
+const isFutureDate = (dateStr: string): boolean => {
+  if (!dateStr) return false;
+  const [day, month, year] = dateStr.split('.').map(Number);
+  const date = new Date(year, month - 1, day);
+  
+  // Saat bilgisini sıfırla
+  date.setHours(0, 0, 0, 0);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  return date > today;
+};
+
+// Tarihin bugünden eski olup olmadığını kontrol eden fonksiyon
+const isPastDate = (dateStr: string): boolean => {
+  if (!dateStr) return false;
+  const [day, month, year] = dateStr.split('.').map(Number);
+  const date = new Date(year, month - 1, day);
+  
+  // Saat bilgisini sıfırla
+  date.setHours(0, 0, 0, 0);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  return date < today;
+};
+
 // Yeni kayıt ekleme fonksiyonu
 const addNewRecord = () => {
   showNewRecordModal.value = true;
@@ -1551,6 +1581,29 @@ const addNewRecord = () => {
 
 // Yeni kayıt kaydetme fonksiyonu
 async function saveNewRecord() {
+  // Geçmiş tarihli ödeme kontrolü
+  if (isPastDate(newRecord.value.OdmVade)) {
+    $q.notify({
+      type: 'warning',
+      message: 'Geçmiş tarihe ait kayıtlar girilemez!',
+      position: 'top',
+      timeout: 5000
+    });
+    newRecord.value.OdmVade = getBugunTarih();
+    return;
+  }
+
+  // İleri tarihli ödeme kontrolü
+  if (newRecord.value.OdmDrm && isFutureDate(newRecord.value.OdmVade)) {
+    $q.notify({
+      type: 'warning',
+      message: 'İleri tarihe girilen kaytılar ÖDENDİ olarak işaretlenemez!',
+      position: 'top',
+      timeout: 5000
+    });
+    return;
+  }
+
   if (!newRecord.value.islmArac || !newRecord.value.islmTip || !newRecord.value.islmAltG || 
       newRecord.value.islmTtr === 0 || !newRecord.value.islmTkst) {
     $q.notify({
@@ -1844,6 +1897,29 @@ function onRowDoubleClick(evt: Event, row: NakitAkisRecord) {
 
 async function saveEditRecord() {
   try {
+    // Geçmiş tarihli ödeme kontrolü
+    if (isPastDate(newRecord.value.OdmVade)) {
+      $q.notify({
+        type: 'warning',
+        message: 'Geçmiş tarihe ait kayıtlar girilemez!',
+        position: 'top',
+        timeout: 5000
+      });
+      newRecord.value.OdmVade = getBugunTarih();
+      return;
+    }
+
+    // İleri tarihli ödeme kontrolü
+    if (newRecord.value.OdmDrm && isFutureDate(newRecord.value.OdmVade)) {
+      $q.notify({
+        type: 'warning',
+        message: 'İleri tarihe girilen kaytılar ÖDENDİ olarak işaretlenemez!',
+        position: 'top',
+        timeout: 5000
+      });
+      return;
+    }
+
     console.log('🔥 Güncellenecek kayıt bilgileri:', newRecord.value);
     
     // Tutar değişikliği kontrolü

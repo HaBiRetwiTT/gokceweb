@@ -8,7 +8,11 @@ import { DatabaseConfigService } from '../database/database-config.service';
 @Module({
   imports: [TypeOrmModule.forFeature([Object])], // Personel entity'si yok, Object kullanıyoruz
   controllers: [PersonelController],
-  providers: [PersonelService, DatabaseTransactionService, DatabaseConfigService],
-  exports: [PersonelService]
+  providers: [
+    PersonelService,
+    DatabaseTransactionService,
+    DatabaseConfigService,
+  ],
+  exports: [PersonelService],
 })
 export class PersonelModule {}

@@ -36,13 +36,35 @@ export class HotelRunnerService {
     return `${dd}.${mm}.${yyyy}`;
   }
 
+  private toSafeString(value: unknown): string {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value;
+    if (
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    )
+      return String(value);
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value) ?? '';
+      } catch {
+        return '';
+      }
+    }
+    if (typeof value === 'symbol') return value.description ?? '';
+    if (typeof value === 'function') return value.name || '';
+    return '';
+  }
+
   private truncateValue(value: unknown, maxLen: number): string {
-    const s = (value ?? '').toString();
+    const s = this.toSafeString(value);
     return s.length > maxLen ? s.slice(0, maxLen) : s;
   }
 
   private normalizeCountry(input: unknown, maxLen = 3): string {
-    const raw = (input ?? '').toString().trim();
+    const raw = this.toSafeString(input).trim();
     if (!raw) return '';
     // Örnek: "Turkey (TR)" → TR
     const parenCode = /\(([A-Za-z]{2,3})\)/.exec(raw)?.[1];
@@ -72,6 +94,13 @@ export class HotelRunnerService {
     ];
     for (const cand of candidateValues) {
       if (cand === undefined || cand === null) continue;
+      if (
+        typeof cand !== 'string' &&
+        typeof cand !== 'number' &&
+        typeof cand !== 'boolean' &&
+        typeof cand !== 'bigint'
+      )
+        continue;
       const raw = String(cand).trim();
       if (!raw) continue;
       const digits = raw.replace(/\D/g, '');
@@ -110,10 +139,25 @@ export class HotelRunnerService {
       }
     }
     // Son çare: guest_national_id ham değer (maskesiz değilse)
-    const fallback = (it.guest_national_id ?? '').toString().trim();
-    if (fallback) return this.truncateValue(fallback, 20);
+    const guestNational = it.guest_national_id;
+    if (
+      typeof guestNational === 'string' ||
+      typeof guestNational === 'number' ||
+      typeof guestNational === 'boolean' ||
+      typeof guestNational === 'bigint'
+    ) {
+      const fallback = String(guestNational).trim();
+      if (fallback) return this.truncateValue(fallback, 20);
+    }
     // En son fallback: telefonu rakamlara çevirip 6+ hane ise kullan
-    const tel = (it.guest?.phone || it.address?.phone || '').toString();
+    const telValue = it.guest?.phone ?? it.address?.phone;
+    const tel =
+      typeof telValue === 'string' ||
+      typeof telValue === 'number' ||
+      typeof telValue === 'boolean' ||
+      typeof telValue === 'bigint'
+        ? String(telValue)
+        : '';
     const telDigits = tel.replace(/\D/g, '');
     if (telDigits.length >= 6) return this.truncateValue(telDigits, 20);
     return '';
@@ -407,6 +451,12 @@ export class HotelRunnerService {
   async getPendingReservations(): Promise<any[]> {
     const zvnTableName = this.dbConfig.getTableName('tblHRzvn');
     const rawTableName = this.dbConfig.getTableName('tblHRzvnRaw');
+    // View adını al (v_MusteriKonaklama) - DatabaseConfigService'de view listesi olmayabilir, doğrudan tablo adı isteyelim
+    // Ancak view adı genellikle v_MusteriKonaklama'dır.
+    // Dashboard service'de: const views = this.dbConfig.getViews(); -> views.musteriKonaklama
+    const konaklamaViewName =
+      this.dbConfig.getViews().musteriKonaklama || 'v_MusteriKonaklama';
+
     return await this.tx.executeInTransaction(async (qr) => {
       const sql = `
         SELECT 
@@ -427,7 +477,12 @@ export class HotelRunnerService {
           z.paidStatus,
           z.ucret,
           z.odemeDoviz,
-          z.durum
+          z.durum,
+          CASE 
+            WHEN active_stay.KnklmOdaNo IS NOT NULL AND (active_stay.KnklmCksTrh IS NULL OR active_stay.KnklmCksTrh = '') 
+            THEN RIGHT('000' + CAST(active_stay.KnklmOdaNo AS VARCHAR(10)), 3) + ' - ' + CAST(active_stay.KnklmYtkNo AS VARCHAR(10))
+            ELSE NULL 
+          END AS odaYatakNo
         FROM ${zvnTableName} z
         OUTER APPLY (
           SELECT TOP 1 rawJson
@@ -435,6 +490,15 @@ export class HotelRunnerService {
           WHERE r.hrResId = z.hrResId
           ORDER BY r.updatedAt DESC
         ) rw
+        OUTER APPLY (
+          SELECT TOP 1 
+            vk.KnklmOdaNo, 
+            vk.KnklmYtkNo,
+            vk.KnklmCksTrh
+          FROM ${konaklamaViewName} vk 
+          WHERE vk.MstrAdi = z.adSoyad 
+          ORDER BY vk.knklmNo DESC
+        ) active_stay
         WHERE z.durum = 'confirmed'
         ORDER BY TRY_CONVERT(date, z.grsTrh, 104) ASC, z.adSoyad ASC`;
       const rows = await this.tx.executeQuery(qr, sql, []);

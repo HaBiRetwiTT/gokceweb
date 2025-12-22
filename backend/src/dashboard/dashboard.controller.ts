@@ -490,7 +490,7 @@ async getPieChartData(
         total: result.total,
         page: result.page,
         limit: result.limit,
-        count: result.data.length
+        count: result.total
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';

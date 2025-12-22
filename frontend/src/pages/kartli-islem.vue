@@ -2458,7 +2458,7 @@ async function loadMusteriListesi() {
       musteriListesi.value = [...response.data.data]
       
       // Satış kanallarını yükle
-      await loadSatisKanaliMapping()
+      void loadSatisKanaliMapping()
     }
   } catch (error) {
     console.error('Müşteri listesi yüklenemedi:', error)
@@ -2472,6 +2472,7 @@ async function loadStats() {
     const response = await api.get('/dashboard/stats')
     if (response.data.success) {
       stats.value = response.data.data
+      window.dispatchEvent(new CustomEvent('dashboardStatsUpdated', { detail: response.data.data }))
     }
   } catch (error) {
     console.error('İstatistikler yüklenemedi:', error)
@@ -2789,8 +2790,49 @@ async function clearBackendStatsCache() {
   }
 }
 
+let statsUpdateDebounceTimer: number | null = null
+let statsUpdateInFlight = false
+let statsUpdateQueued = false
+let statsListenersRegistered = false
+
+function scheduleStatsUpdate() {
+  if (loading.value) return
+  if (statsUpdateDebounceTimer) {
+    window.clearTimeout(statsUpdateDebounceTimer)
+  }
+  statsUpdateDebounceTimer = window.setTimeout(() => {
+    statsUpdateDebounceTimer = null
+    void updateStatsOnly()
+  }, 250)
+}
+
+const handleStatsNeedsUpdate = () => {
+  void clearBackendStatsCache()
+  scheduleStatsUpdate()
+}
+
+const handleRefreshKartliIslemStats = () => {
+  void clearBackendStatsCache()
+  scheduleStatsUpdate()
+}
+
+const handleFocus = () => {
+  scheduleStatsUpdate()
+}
+
+const handleVisibilityChange = () => {
+  if (!document.hidden) {
+    scheduleStatsUpdate()
+  }
+}
+
 // 🔥 OTOMATİK STATS GÜNCELLEME FONKSİYONU
 async function updateStatsOnly() {
+  if (statsUpdateInFlight) {
+    statsUpdateQueued = true
+    return
+  }
+  statsUpdateInFlight = true
   try {
     await Promise.all([
       loadStats(),
@@ -2803,45 +2845,44 @@ async function updateStatsOnly() {
     }
   } catch (error) {
     console.error('❌ Stats güncelleme hatası:', error);
+  } finally {
+    statsUpdateInFlight = false
+    if (statsUpdateQueued) {
+      statsUpdateQueued = false
+      void updateStatsOnly()
+    }
   }
 }
 
 // 🔥 VERİ DEĞİŞİKLİK EVENT LISTENER'LARI
 function setupDataChangeListeners() {
+  if (statsListenersRegistered) return
   // Modal başarılı işlem sonrası stats güncelleme
-  window.addEventListener('statsNeedsUpdate', () => {
-    // 🔥 BACKEND CACHE'İ TEMİZLE VE STATS GÜNCELLE
-    void clearBackendStatsCache();
-    void updateStatsOnly();
-  });
+  window.addEventListener('statsNeedsUpdate', handleStatsNeedsUpdate);
 
   // Header'daki yenile butonundan gelen event
-  window.addEventListener('refreshKartliIslemStats', () => {
-    
-    void updateStatsOnly();
-  });
+  window.addEventListener('refreshKartliIslemStats', handleRefreshKartliIslemStats);
 
   // Sayfa görünür olduğunda stats güncelleme (focus/blur events)
-  window.addEventListener('focus', () => {
-    
-    void updateStatsOnly();
-  });
+  window.addEventListener('focus', handleFocus);
 
   // Tab değişikliği sonrası stats güncelleme
-  window.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      
-      void updateStatsOnly();
-    }
-  });
+  window.addEventListener('visibilitychange', handleVisibilityChange);
+  statsListenersRegistered = true
 }
 
 // 🔥 EVENT LISTENER'LARI TEMİZLEME
 function cleanupDataChangeListeners() {
-  window.removeEventListener('statsNeedsUpdate', () => void updateStatsOnly());
-  window.removeEventListener('refreshKartliIslemStats', () => void updateStatsOnly());
-  window.removeEventListener('focus', () => void updateStatsOnly());
-  window.removeEventListener('visibilitychange', () => void updateStatsOnly());
+  if (!statsListenersRegistered) return
+  window.removeEventListener('statsNeedsUpdate', handleStatsNeedsUpdate);
+  window.removeEventListener('refreshKartliIslemStats', handleRefreshKartliIslemStats);
+  window.removeEventListener('focus', handleFocus);
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
+  statsListenersRegistered = false
+  if (statsUpdateDebounceTimer) {
+    window.clearTimeout(statsUpdateDebounceTimer)
+    statsUpdateDebounceTimer = null
+  }
 }
 
 // 🔥 PERİYODİK STATS GÜNCELLEME (5 dakikada bir)
@@ -2890,11 +2931,19 @@ async function refreshData() {
   // 🔥 PERFORMANS İYİLEŞTİRMESİ: Tüm API çağrılarını paralel yap
   loading.value = true
   try {
+    const statsPromise = (async () => {
+      await clearBackendStatsCache()
+      await loadStats()
+    })()
+    
+    const lookupPromises: Array<Promise<unknown>> = []
+    if (tumKonaklamaTipleri.value.length <= 1) lookupPromises.push(loadKonaklamaTipleri())
+    if (tumOdaTipleri.value.length <= 1) lookupPromises.push(loadOdaTipleri())
+    
     await Promise.all([
-      loadStats(),
-      loadKonaklamaTipleri(),
-      loadOdaTipleri(),
-      loadCikisYapanlarSayisi()
+      statsPromise,
+      loadCikisYapanlarSayisi(),
+      ...lookupPromises
     ])
     
     // 🔥 DİNAMİK LİSTELERİ YÜKLE (eğer aktif filtre varsa)
@@ -2922,7 +2971,7 @@ function onModalSuccess() {
   
   // Modal kapatıldıktan sonra kısa bir gecikme ile stats'ı güncelle
   setTimeout(() => {
-    void updateStatsOnly();
+    scheduleStatsUpdate();
     
   }, 500);
 }
@@ -3930,8 +3979,7 @@ async function loadFilteredData(filter: string) {
   
   sortingInProgress = false  // Filtre değiştiğinde yeni veri çek
   
-  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
-  await Promise.all([
+  void Promise.all([
     loadDinamikKonaklamaTipleri(),
     loadDinamikOdaTipleri()
   ])
@@ -4066,7 +4114,7 @@ async function loadFilteredData(filter: string) {
     // Pagination değişikliğinin DOM'a yansıması için nextTick kullan
     await nextTick()
     
-    void refreshData()
+    await loadSelectedCardData(filter)
   }
   selectedNormalMusteri.value = null;
   window.kartliIslemSelectedNormalMusteri = null;
@@ -4080,12 +4128,6 @@ function clearFilters() {
   selectedTip.value = 'TÜMÜ'
   selectedOdaTip.value = 'TÜMÜ'
   ozelListeFiltresi.value = 'TÜMÜ'
-  
-  // Dinamik listeleri paralel yükle
-  void Promise.all([
-    loadDinamikKonaklamaTipleri(),
-    loadDinamikOdaTipleri()
-  ])
   
   // Süresi Dolan kartına geçiş yap
   void loadFilteredData('suresi-dolan')
@@ -4378,9 +4420,7 @@ function selectBestCard() {
   , cardPriorities[0]);
 
   if (bestCard.count > 0) {
-    currentFilter.value = bestCard.card;
-    sessionStorage.setItem('kartliIslemLastCard', bestCard.card);
-    void loadSelectedCardData(bestCard.card);
+    void loadFilteredData(bestCard.card);
   } else {
     // Varsayılan olarak toplam-aktif'i seç
     void loadFilteredData('toplam-aktif');
@@ -4393,12 +4433,6 @@ async function loadSelectedCardData(cardType: string) {
   
   // 🔥 Global değişkeni güncelle (MainLayout için)
   ;(window as { kartliIslemCurrentFilter?: string }).kartliIslemCurrentFilter = cardType
-  
-  // 🔥 PERFORMANS İYİLEŞTİRMESİ: Dinamik listeleri paralel yükle
-  await Promise.all([
-    loadDinamikKonaklamaTipleri(),
-    loadDinamikOdaTipleri()
-  ])
   
   if (cardType === 'borclu-musteriler') {
     // Borçlu müşteriler tablosunu göster
@@ -4475,6 +4509,7 @@ onMounted(() => {
   // 🔥 URL'den autoOpenModal parametresini kontrol et
   const urlParams = new URLSearchParams(window.location.search);
   const shouldAutoOpenModal = urlParams.get('autoOpenModal') === 'true';
+  let refreshSelectedMusteriBakiyeHandler: ((e: Event) => void) | null = null
   
   // 🔥 EĞER MUSTERI-ISLEM SAYFASINDAN GELİNİYORSA, SEÇİLİ MÜŞTERİYİ AYARLA
   if (window.kartliIslemSelectedNormalMusteri && shouldAutoOpenModal) {
@@ -4518,23 +4553,22 @@ onMounted(() => {
     void (async () => {
       await refreshData();
       selectBestCard();
+      setupDataChangeListeners();
     })();
 
-    // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI KUR
-    setupDataChangeListeners();
-    
     // 🔥 PERİYODİK STATS GÜNCELLEME DEVRE DIŞI
     // startPeriodicStatsRefresh();
 
     // Tahsilat sonrası bakiye güncelleme event listener
-    window.addEventListener('refreshSelectedMusteriBakiye', (e) => {
-      const customEvent = e as CustomEvent;
-      const musteri = customEvent.detail || selectedNormalMusteri.value;
-      console.log('EVENT YAKALANDI', musteri);
+    refreshSelectedMusteriBakiyeHandler = (e: Event) => {
+      const customEvent = e as CustomEvent
+      const musteri = customEvent.detail || selectedNormalMusteri.value
+      console.log('EVENT YAKALANDI', musteri)
       if (musteri) {
-        void hesaplaMusteriBakiye(musteri);
+        void hesaplaMusteriBakiye(musteri)
       }
-    });
+    }
+    window.addEventListener('refreshSelectedMusteriBakiye', refreshSelectedMusteriBakiyeHandler);
     
     // 🔥 CONTEXT MENU EVENT LISTENER'LARI
     document.addEventListener('click', onDocumentClick, true)
@@ -4566,6 +4600,9 @@ onMounted(() => {
   onBeforeUnmount(() => {
     window.removeEventListener('showEkHizmetlerModal', ekHizmetHandler);
     window.removeEventListener('showOdemeIslemModal', odemeHandler);
+    if (refreshSelectedMusteriBakiyeHandler) {
+      window.removeEventListener('refreshSelectedMusteriBakiye', refreshSelectedMusteriBakiyeHandler);
+    }
     
     // 🔥 OTOMATİK STATS GÜNCELLEME EVENT LISTENER'LARINI TEMİZLE
     cleanupDataChangeListeners();

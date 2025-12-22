@@ -92,18 +92,17 @@ export class IslemController {
       }
 
       const veriler = await this.islemService.getNakitAkisByDate(tarih);
-      
+
       return {
         success: true,
         data: veriler,
-        message: `${veriler.length} kayıt bulundu`
+        message: `${veriler.length} kayıt bulundu`,
       };
-      
     } catch (error) {
       return {
         success: false,
         data: [],
-        message: `Hata: ${error.message}`
+        message: `Hata: ${error.message}`,
       };
     }
   }
@@ -115,7 +114,7 @@ export class IslemController {
   async addNakitAkis(@Body() body: any) {
     try {
       console.log('🔥 Controller - Gelen ham veri:', body);
-      
+
       // 🔥 Sadece gerekli alanları al
       const cleanData = {
         OdmVade: body.OdmVade,
@@ -129,38 +128,44 @@ export class IslemController {
         OdmDrm: body.OdmDrm,
         ttrDrm: body.ttrDrm,
       };
-      
+
       console.log('🔥 Controller - Temizlenmiş veri:', cleanData);
-      
+
       // 🔥 Taksit formatını kontrol et
       console.log('🔥 Gelen taksit verisi:', cleanData.islmTkst);
-      console.log('🔥 Taksit formatı kontrolü:', typeof cleanData.islmTkst, cleanData.islmTkst);
-      
+      console.log(
+        '🔥 Taksit formatı kontrolü:',
+        typeof cleanData.islmTkst,
+        cleanData.islmTkst,
+      );
+
       // Taksit formatını kontrol et - string ise "/" içermeli, number ise geçerli
-      if (typeof cleanData.islmTkst === 'string' && !cleanData.islmTkst.includes('/')) {
+      if (
+        typeof cleanData.islmTkst === 'string' &&
+        !cleanData.islmTkst.includes('/')
+      ) {
         throw new Error('Taksit formatı hatalı. Beklenen format: "1 / 1"');
       }
-      
+
       const sonuc = await this.islemService.addNakitAkis(cleanData);
-      
+
       const response = {
         success: true,
         message: 'Nakit akış kaydı başarıyla eklendi',
-        data: sonuc
+        data: sonuc,
       };
-      
+
       console.log('🔥 Controller - Döndürülen response:', response);
       return response;
-      
     } catch (error) {
       console.error('🔥 Controller - Hata:', error);
-      
+
       const errorResponse = {
         success: false,
         message: `Hata: ${error.message}`,
-        data: null
+        data: null,
       };
-      
+
       console.log('🔥 Controller - Hata response:', errorResponse);
       return errorResponse;
     }
@@ -170,32 +175,43 @@ export class IslemController {
    * tblFonKasaY tablosundan nakit akış kaydını siler
    */
   @Delete('nakit-akis-sil')
-  async deleteNakitAkis(@Body() body: { fKasaNo: number; OdmVade: string; islmArac: string; islmTip: string; islmGrup: string; islmAltG: string; islmTtr: number; islmTkst: string }) {
+  async deleteNakitAkis(
+    @Body()
+    body: {
+      fKasaNo: number;
+      OdmVade: string;
+      islmArac: string;
+      islmTip: string;
+      islmGrup: string;
+      islmAltG: string;
+      islmTtr: number;
+      islmTkst: string;
+    },
+  ) {
     try {
       console.log('🔥 Controller - Silinecek kayıt bilgileri:', body);
-      
+
       const sonuc = await this.islemService.deleteNakitAkis(body);
-      
+
       console.log('🔥 Controller - Silme sonucu:', sonuc);
-      
+
       const response = {
         success: true,
         message: 'Nakit akış kaydı başarıyla silindi',
-        data: sonuc
+        data: sonuc,
       };
-      
+
       console.log('🔥 Controller - Silme response:', response);
       return response;
-      
     } catch (error) {
       console.error('🔥 Controller - Silme hatası:', error);
-      
+
       const errorResponse = {
         success: false,
         message: `Hata: ${error.message}`,
-        data: null
+        data: null,
       };
-      
+
       console.log('🔥 Controller - Silme hata response:', errorResponse);
       return errorResponse;
     }
@@ -205,48 +221,50 @@ export class IslemController {
    * Kısmi ödeme yapar - mevcut kaydı günceller ve yeni kayıt ekler
    */
   @Post('kismi-odeme-yap')
-  async kismiOdemeYap(@Body() body: { 
-    odenenTutar: number;
-    ertelemeTarihi: string;
-    mevcutKayit: {
-      OdmVade: string;
-      islmArac: string;
-      islmGrup: string;
-      islmAltG: string;
-      islmTip: string;
-      islmTtr: number;
-      islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
-      islmBilgi: string;
-      OdmDrm: boolean;
-      ttrDrm: boolean;
-      fKasaNo: number;
-    };
-  }) {
+  async kismiOdemeYap(
+    @Body()
+    body: {
+      odenenTutar: number;
+      ertelemeTarihi: string;
+      mevcutKayit: {
+        OdmVade: string;
+        islmArac: string;
+        islmGrup: string;
+        islmAltG: string;
+        islmTip: string;
+        islmTtr: number;
+        islmTkst: string | number; // String veya number olabilir (örn: "1 / 1" veya 1)
+        islmBilgi: string;
+        OdmDrm: boolean;
+        ttrDrm: boolean;
+        fKasaNo: number;
+      };
+    },
+  ) {
     try {
       console.log('🔥 Controller - Kısmi ödeme yapılacak:', body);
-      
+
       const sonuc = await this.islemService.kismiOdemeYap(body);
-      
+
       console.log('🔥 Controller - Kısmi ödeme sonucu:', sonuc);
-      
+
       const response = {
         success: true,
         message: 'Kısmi ödeme başarıyla yapıldı',
-        data: sonuc
+        data: sonuc,
       };
-      
+
       console.log('🔥 Controller - Kısmi ödeme response:', response);
       return response;
-      
     } catch (error) {
       console.error('🔥 Controller - Kısmi ödeme hatası:', error);
-      
+
       const errorResponse = {
         success: false,
         message: `Hata: ${error.message}`,
-        data: null
+        data: null,
       };
-      
+
       console.log('🔥 Controller - Kısmi ödeme hata response:', errorResponse);
       return errorResponse;
     }
@@ -256,50 +274,50 @@ export class IslemController {
    * tblFonKasaY tablosunda nakit akış kaydını günceller
    */
   @Put('nakit-akis-guncelle')
-  async updateNakitAkis(@Body() body: { 
-    OdmVade: string; 
-    islmArac: string; 
-    islmGrup: string; 
-    islmAltG: string; 
-    islmTip: string;
-    islmTtr: number; 
-    // islmTkst alanı güncelleme dışında bırakıldı
-    islmBilgi: string;
-    OdmDrm: boolean;
-    ttrDrm: boolean;
-    fKasaNo: number; // Güncelleme için gerekli (WHERE koşulu)
-  }) {
+  async updateNakitAkis(
+    @Body()
+    body: {
+      OdmVade: string;
+      islmArac: string;
+      islmGrup: string;
+      islmAltG: string;
+      islmTip: string;
+      islmTtr: number;
+      // islmTkst alanı güncelleme dışında bırakıldı
+      islmBilgi: string;
+      OdmDrm: boolean;
+      ttrDrm: boolean;
+      fKasaNo: number; // Güncelleme için gerekli (WHERE koşulu)
+    },
+  ) {
     try {
       console.log('🔥 Controller - Güncellenecek kayıt bilgileri:', body);
-      
+
       const sonuc = await this.islemService.updateNakitAkis(body);
-      
+
       console.log('🔥 Controller - Güncelleme sonucu:', sonuc);
-      
+
       const response = {
         success: true,
         message: 'Nakit akış kaydı başarıyla güncellendi',
-        data: sonuc
+        data: sonuc,
       };
-      
+
       console.log('🔥 Controller - Güncelleme response:', response);
       return response;
-      
     } catch (error) {
       console.error('🔥 Controller - Güncelleme hatası:', error);
-      
+
       const errorResponse = {
         success: false,
         message: `Hata: ${error.message}`,
-        data: null
+        data: null,
       };
-      
+
       console.log('🔥 Controller - Güncelleme hata response:', errorResponse);
       return errorResponse;
     }
   }
-
-
 
   /**
    * Fon devir bakiyesini sp_FonDevirY ile getirir
@@ -309,28 +327,29 @@ export class IslemController {
     try {
       // Tarih formatını kontrol et
       if (!/^\d{2}\.\d{2}\.\d{4}$/.test(tarih)) {
-        throw new Error('Geçersiz tarih formatı. DD.MM.YYYY formatında olmalıdır.');
+        throw new Error(
+          'Geçersiz tarih formatı. DD.MM.YYYY formatında olmalıdır.',
+        );
       }
 
       const devirBakiye = await this.islemService.getFonDevirY(tarih);
-      
+
       return {
         success: true,
         data: {
           devirBakiye: devirBakiye,
-          tarih: tarih
+          tarih: tarih,
         },
-        message: 'Fon devir bakiyesi başarıyla alındı'
+        message: 'Fon devir bakiyesi başarıyla alındı',
       };
-      
     } catch (error) {
       return {
         success: false,
         data: {
           devirBakiye: 0,
-          tarih: tarih
+          tarih: tarih,
         },
-        message: `Hata: ${error.message}`
+        message: `Hata: ${error.message}`,
       };
     }
   }
@@ -723,11 +742,11 @@ export class IslemController {
       }
 
       const altGruplar = await this.islemService.getIslmAltGruplar(islmGrup);
-      
+
       return {
         success: true,
         data: altGruplar,
-        message: `${altGruplar.length} alt grup bulundu`
+        message: `${altGruplar.length} alt grup bulundu`,
       };
     } catch (error: unknown) {
       console.error('İslm alt grupları alınırken hata:', error);
@@ -738,8 +757,6 @@ export class IslemController {
       );
     }
   }
-
-
 
   /**
    * tblCari tablosundan CariAdi listesi getirir
@@ -992,7 +1009,7 @@ export class IslemController {
   @Post('sil/:islemNo')
   async silIslem(
     @Param('islemNo') islemNo: string,
-    @Body() body: { username?: string }
+    @Body() body: { username?: string },
   ) {
     try {
       if (!islemNo) {
@@ -1158,12 +1175,12 @@ export class IslemController {
   async getAllRstRecords() {
     try {
       const rstRecords = await this.islemService.getAllRstRecords();
-      
+
       return {
         success: true,
         data: rstRecords,
         message: `${rstRecords.length} RST kaydı bulundu`,
-        count: rstRecords.length
+        count: rstRecords.length,
       };
     } catch (error: unknown) {
       console.error('Tüm RST kayıtları getirme hatası:', error);
@@ -1200,86 +1217,129 @@ export class IslemController {
   /** Onay güncelle: RST */
   @Post('rst-onay-guncelle')
   async setRstOnay(@Body() body: { islemNo: number; onay: number }) {
-    const { islemNo, onay } = body || ({} as any)
+    const { islemNo, onay } = body || ({} as any);
     if (!islemNo || (onay !== 0 && onay !== 1)) {
-      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST)
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST);
     }
-    const sonuc = await this.islemService.setIslemRSTOnay(islemNo, onay)
-    return { success: true, data: sonuc }
+    const sonuc = await this.islemService.setIslemRSTOnay(islemNo, onay);
+    return { success: true, data: sonuc };
   }
 
   /** Onay güncelle: ARV */
   @Post('arv-onay-guncelle')
   async setArvOnay(@Body() body: { islemNo: number; onay: number }) {
-    const { islemNo, onay } = body || ({} as any)
+    const { islemNo, onay } = body || ({} as any);
     if (!islemNo || (onay !== 0 && onay !== 1)) {
-      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST)
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST);
     }
-    const sonuc = await this.islemService.setIslemARVOnay(islemNo, onay)
-    return { success: true, data: sonuc }
+    const sonuc = await this.islemService.setIslemARVOnay(islemNo, onay);
+    return { success: true, data: sonuc };
   }
 
   /** Kar/Zarar özeti */
   @Get('kar-zarar-ozet')
   async getKarZararOzet(
-    @Query('start') start: string, 
+    @Query('start') start: string,
     @Query('end') end: string,
-    @Query('islemTipMode') islemTipMode?: string
+    @Query('islemTipMode') islemTipMode?: string,
   ) {
     if (!start || !end) {
-      throw new HttpException('start ve end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
+      throw new HttpException(
+        'start ve end zorunludur (DD.MM.YYYY)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const data = await this.islemService.getKarZararOzet(start, end, islemTipMode)
-    return { success: true, data }
+    const data = await this.islemService.getKarZararOzet(
+      start,
+      end,
+      islemTipMode,
+    );
+    return { success: true, data };
   }
 
   /** Kar/Zarar seri (12 dilim) */
   @Get('kar-zarar-seri')
   async getKarZararSeri(
-    @Query('period') period = 'gunler', 
+    @Query('period') period = 'gunler',
     @Query('end') end: string,
-    @Query('islemTipMode') islemTipMode?: string
+    @Query('islemTipMode') islemTipMode?: string,
   ) {
     if (!end) {
-      throw new HttpException('end zorunludur (DD.MM.YYYY)', HttpStatus.BAD_REQUEST)
+      throw new HttpException(
+        'end zorunludur (DD.MM.YYYY)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const data = await this.islemService.getKarZararSeri(period, end, islemTipMode)
-    return { success: true, data }
+    const data = await this.islemService.getKarZararSeri(
+      period,
+      end,
+      islemTipMode,
+    );
+    return { success: true, data };
   }
 
   /** Grup detay kayıtları */
   @Get('grup-detay')
-  async getGrupDetay(@Query('grup') grup: string, @Query('islemTip') islemTip: string, @Query('start') start: string, @Query('end') end: string) {
+  async getGrupDetay(
+    @Query('grup') grup: string,
+    @Query('islemTip') islemTip: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
     if (!grup || !islemTip || !start || !end) {
-      throw new HttpException('grup, islemTip, start ve end zorunludur', HttpStatus.BAD_REQUEST)
+      throw new HttpException(
+        'grup, islemTip, start ve end zorunludur',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const data = await this.islemService.getGrupDetay(grup, islemTip, start, end)
-    return { success: true, data }
+    const data = await this.islemService.getGrupDetay(
+      grup,
+      islemTip,
+      start,
+      end,
+    );
+    return { success: true, data };
   }
 
   /** Bar chart detay kayıtları */
   @Get('bar-chart-detay')
-  async getBarChartDetay(@Query('label') label: string, @Query('islemTip') islemTip: string, @Query('start') start: string, @Query('end') end: string) {
+  async getBarChartDetay(
+    @Query('label') label: string,
+    @Query('islemTip') islemTip: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
     if (!label || !islemTip || !start || !end) {
-      throw new HttpException('label, islemTip, start ve end zorunludur', HttpStatus.BAD_REQUEST)
+      throw new HttpException(
+        'label, islemTip, start ve end zorunludur',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const data = await this.islemService.getBarChartDetay(label, islemTip, start, end)
-    return { success: true, data }
+    const data = await this.islemService.getBarChartDetay(
+      label,
+      islemTip,
+      start,
+      end,
+    );
+    return { success: true, data };
   }
 
   /** Ödeme tipi özeti */
   @Get('odeme-tipi-ozet')
   async getOdemeTipiOzet(
-    @Query('tarih') tarih: string, 
-    @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa'
+    @Query('tarih') tarih: string,
+    @Query('islemTipMode') islemTipMode: 'kasa' | 'cari' = 'kasa',
   ) {
     if (!tarih) {
-      throw new HttpException('tarih parametresi zorunludur', HttpStatus.BAD_REQUEST)
+      throw new HttpException(
+        'tarih parametresi zorunludur',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     // 🔥 PÜF NOKTA: 'Kasadan Alınan' ve 'Kasaya Verilen' filtreleri her zaman uygulanır
     // excludeKasadanAlinan parametresi kaldırıldı çünkü artık gereksiz
-    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode)
-    return { success: true, data }
+    const data = await this.islemService.getOdemeTipiOzet(tarih, islemTipMode);
+    return { success: true, data };
   }
 
   /**
@@ -1295,13 +1355,16 @@ export class IslemController {
         );
       }
 
-      const rstRecords = await this.islemService.getRstRecordsForMultipleIslemNo(body.islemNoList);
-      
+      const rstRecords =
+        await this.islemService.getRstRecordsForMultipleIslemNo(
+          body.islemNoList,
+        );
+
       return {
         success: true,
         data: rstRecords,
         message: `${rstRecords.length} RST kaydı bulundu`,
-        count: rstRecords.length
+        count: rstRecords.length,
       };
     } catch (error: unknown) {
       console.error('RST kayıtları toplu getirme hatası:', error);

@@ -83,9 +83,10 @@
       </div>
     </div>
 
-    <!-- Butonlar -->
-    <div class="row q-mb-md">
-       <div class="col-6">
+    <!-- Butonlar ve Oda-Yatak Yönetimi -->
+    <div class="row q-mb-md justify-between items-center">
+       <!-- Sol Taraf: Gizle Butonu ve Oda-Yatak Kontrol Grubu -->
+       <div class="row items-center q-gutter-x-md">
          <q-btn
            color="secondary"
            icon="visibility"
@@ -95,8 +96,88 @@
          >
            <q-tooltip>Gizli kayıtları göster/gizle</q-tooltip>
          </q-btn>
+
+         <!-- Oda-Yatak Hızlı Yönetim Grubu -->
+         <div class="row items-center q-gutter-x-sm bg-blue-grey-9 q-pa-sm rounded-borders">
+            <div class="text-caption text-weight-bold text-blue-3 q-mr-xs" style="line-height: 1.1; text-align: center;">Hızlı Durum<br>Değişikliği:</div>
+            
+            <q-input
+              v-model="odaNo"
+              label="Oda No"
+              outlined
+              dense
+              dark
+              color="blue-3"
+              label-color="blue-1"
+              style="width: 90px"
+              maxlength="4"
+              @update:model-value="handleOdaNoInput"
+            />
+            
+            <q-input
+              v-model="yatakNo"
+              label="Yatak No"
+              outlined
+              dense
+              dark
+              color="blue-3"
+              label-color="blue-1"
+              style="width: 80px"
+              maxlength="2"
+              @update:model-value="handleYatakNoInput"
+            />
+            
+            <q-btn
+              icon="close"
+              flat
+              round
+              dense
+              size="sm"
+              color="red-4"
+              @click="temizleOdaYatakInput"
+            >
+               <q-tooltip>Temizle</q-tooltip>
+            </q-btn>
+            
+            <q-chip
+              :color="durumRengi"
+              text-color="white"
+              class="q-ma-none text-weight-bold"
+              :label="odaYatakDurum || 'DURUM'"
+              square
+              style="min-width: 90px; justify-content: center; height: 40px;"
+            />
+            
+            <q-select
+              v-model="yeniDurum"
+              :options="availableOptions"
+              label="Seçiniz"
+              outlined
+              dense
+              dark
+              options-dark
+              color="blue-3"
+              label-color="blue-1"
+              style="width: 130px"
+              :disable="!isDurumSelectEnabled"
+              options-dense
+            />
+            
+            <q-btn
+              label="GÜNCELLE"
+              color="blue-3"
+              text-color="blue-grey-9"
+              icon="save"
+              size="md"
+              :disable="!yeniDurum"
+              :loading="durumGuncelleLoading"
+              @click="guncelleOdaYatakDurum"
+            />
+         </div>
        </div>
-       <div class="col-6 text-right">
+
+       <!-- Sağ Taraf: Tablo Güncelleme Butonu -->
+       <div class="text-right">
          <q-btn
            color="primary"
            icon="save"
@@ -437,7 +518,139 @@ const odaTipLifyatRows = ref<OdaTipLifyatRow[]>([]);
 const gizliKayitlarGosteriliyor = ref(false);
 const tumKayitlar = ref<OdaTipLifyatRow[]>([]);
 
-// Geç Saat Konaklama değişkenleri
+// Oda-Yatak Hızlı Yönetim Değişkenleri
+const odaNo = ref('');
+const yatakNo = ref('');
+const odaYatakDurum = ref<string | null>(null);
+const odaYatakBulunamadi = ref(false);
+const yeniDurum = ref<string | null>(null);
+const durumGuncelleLoading = ref(false);
+const durumSecenekleri = ['BOŞ', 'DOLU', 'KİRLİ', 'ARIZALI'];
+
+// Oda-Yatak Durum Rengi
+const durumRengi = computed(() => {
+  if (odaYatakBulunamadi.value) return 'red';
+  if (!odaYatakDurum.value) return 'grey';
+  
+  const d = odaYatakDurum.value.toUpperCase().trim();
+  if (d === 'BOŞ') return 'green';
+  if (['KİRLİ', 'KIRLI', 'ARIZALI', 'ARIZA', 'DOLU'].includes(d)) return 'orange';
+  return 'grey';
+});
+
+// Yeni Durum Seçenekleri (Mevcut durum hariç)
+const availableOptions = computed(() => {
+  if (!odaYatakDurum.value) return [];
+  const current = odaYatakDurum.value.toUpperCase().trim();
+  // Veritabanındaki değeri UI seçeneklerine eşle
+  // Örn: ARIZA -> ARIZALI
+  return durumSecenekleri.filter(opt => {
+    // Eşleşme kontrolü (basit string match)
+    // Eğer mevcut durum 'ARIZA' ise 'ARIZALI' seçeneğini gösterme
+    if (current === 'ARIZA' && opt === 'ARIZALI') return false;
+    if (current === 'KIRLI' && opt === 'KİRLİ') return false;
+    return opt !== current;
+  });
+});
+
+const isDurumSelectEnabled = computed(() => {
+  // Checkbox (Select) kontrolü: Durum etiketi yeşil veya sarı olduğunda enabled
+  // Yani kayıt bulunduysa ve durum belirlendiyse
+  return !!odaYatakDurum.value && !odaYatakBulunamadi.value;
+});
+
+// Oda No Input Handler
+const handleOdaNoInput = (val: string | number | null) => {
+   if(val === null) return;
+   // Sadece rakam ve max 4 hane
+   odaNo.value = String(val).replace(/\D/g, '').slice(0, 4);
+   void checkOdaYatakDurum();
+}
+
+// Yatak No Input Handler
+const handleYatakNoInput = (val: string | number | null) => {
+   if(val === null) return;
+   // Sadece rakam ve max 2 hane
+   yatakNo.value = String(val).replace(/\D/g, '').slice(0, 2);
+   void checkOdaYatakDurum();
+}
+
+// Durum Sorgulama
+const checkOdaYatakDurum = async () => {
+   yeniDurum.value = null; // Seçimi sıfırla
+   
+   // Her iki input da doluysa sorgula
+   if (odaNo.value.length > 0 && yatakNo.value.length > 0) {
+      try {
+        const res = await api.get('/konaklama-takvim/oda-yatak-durum', { 
+          params: { 
+            odaNo: odaNo.value, 
+            yatakNo: yatakNo.value 
+          }
+        });
+        
+        if (res.data.success) {
+           if (res.data.exists) {
+             odaYatakDurum.value = res.data.odYatDurum;
+             odaYatakBulunamadi.value = false;
+           } else {
+             odaYatakDurum.value = 'KAYIT YOK';
+             odaYatakBulunamadi.value = true;
+           }
+        }
+      } catch (e) {
+        console.error('Oda durumu sorgulama hatası:', e);
+      }
+   } else {
+     odaYatakDurum.value = null;
+     odaYatakBulunamadi.value = false;
+   }
+}
+
+// Temizle Butonu
+const temizleOdaYatakInput = () => {
+  odaNo.value = '';
+  yatakNo.value = '';
+  yeniDurum.value = null;
+  odaYatakDurum.value = null;
+  odaYatakBulunamadi.value = false;
+}
+
+// Durum Güncelleme
+const guncelleOdaYatakDurum = async () => {
+  if (!yeniDurum.value || !odaNo.value || !yatakNo.value) return;
+  
+  durumGuncelleLoading.value = true;
+  try {
+     const res = await api.post('/konaklama-takvim/oda-yatak-durum', {
+        odaNo: odaNo.value,
+        yatakNo: yatakNo.value,
+        durum: yeniDurum.value
+     });
+     
+     if (res.data.success) {
+        $q.notify({ 
+          type: 'positive', 
+          message: 'İşlem Başarılı: Oda-Yatak durumu güncellendi.',
+          icon: 'check_circle'
+        });
+        // Durumu yenile
+        await checkOdaYatakDurum();
+     } else {
+        $q.notify({ 
+          type: 'negative', 
+          message: res.data.message || 'Güncelleme başarısız',
+          icon: 'error'
+        });
+     }
+  } catch (e) {
+     console.error('Güncelleme hatası:', e);
+     $q.notify({ type: 'negative', message: 'Hata oluştu' });
+  } finally {
+     durumGuncelleLoading.value = false;
+  }
+}
+
 const gecSaatNumara = ref(6);
 const gecSaatSonuLoading = ref(false);
 

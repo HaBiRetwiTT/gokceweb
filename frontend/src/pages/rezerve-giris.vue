@@ -112,13 +112,20 @@
               icon="login"
               color="primary"
               @click="emitCheckIn(props.row)"
-              :disable="isOnOrBeforeToday(props.row.cksTrh) || isAfterToday(props.row.grsTrh)"
+              :disable="(isOnOrBeforeToday(props.row.cksTrh) || isAfterToday(props.row.grsTrh) || !!props.row.odaYatakNo) && !isOdaYatakCikisGecmisException(props.row)"
             >
-              <q-tooltip v-if="isOnOrBeforeToday(props.row.cksTrh) || isAfterToday(props.row.grsTrh)" class="bg-orange text-white text-body2" :delay="300">
+              <q-tooltip v-if="(isOnOrBeforeToday(props.row.cksTrh) || isAfterToday(props.row.grsTrh)) && !isOdaYatakCikisGecmisException(props.row)" class="bg-orange text-white text-body2" :delay="300">
                 {{ getCheckInTooltip(props.row) }}
               </q-tooltip>
             </q-btn>
-            <q-btn size="sm" flat icon="block" color="negative" @click="emitNoShow(props.row)" />
+            <q-btn 
+              size="sm" 
+              flat 
+              icon="block" 
+              color="negative" 
+              @click="emitNoShow(props.row)" 
+              :disable="!!props.row.odaYatakNo && !isOdaYatakCikisGecmisException(props.row)"
+            />
           </q-td>
         </template>
       </q-table>
@@ -147,6 +154,7 @@ interface PendingRow {
   ucret?: number
   odemeDoviz?: string
   durum?: string
+  odaYatakNo?: string
 }
 
 const loading = ref(false)
@@ -179,6 +187,7 @@ const columns = [
   { name: 'hrNumber', label: 'HR No', field: 'hrNumber', align: 'left' as const, sortable: true },
   { name: 'adSoyad', label: 'Ad Soyad', field: 'adSoyad', align: 'left' as const, sortable: true },
   { name: 'odaTipiProj', label: 'Oda Tipi', field: 'odaTipiProj', align: 'left' as const, sortable: true },
+  { name: 'odaYatakNo', label: 'Oda-Yatak No', field: 'odaYatakNo', align: 'left' as const, sortable: true },
   { name: 'grsTrh', label: 'Giriş', field: 'grsTrh', align: 'left' as const, sortable: true, sort: (a: string, b: string, rowA: PendingRow, rowB: PendingRow) => (rowA.grsKey || '').localeCompare(rowB.grsKey || '') },
   { name: 'cksTrh', label: 'Çıkış', field: 'cksTrh', align: 'left' as const, sortable: true, sort: (a: string, b: string, rowA: PendingRow, rowB: PendingRow) => (rowA.cksKey || '').localeCompare(rowB.cksKey || '') },
   {
@@ -345,6 +354,10 @@ function isAfterToday(s?: string | null): boolean {
   return date.getTime() > today.getTime()
 }
 
+function isOdaYatakCikisGecmisException(row: PendingRow): boolean {
+  return !!row.odaYatakNo && isBeforeToday(row.cksTrh)
+}
+
 function getGirisTarihClass(girisTarihi?: string | null): string {
   if (!girisTarihi) return ''
   
@@ -491,6 +504,7 @@ function getRowClass(row: PendingRow): string {
 }
 
 function getCheckInTooltip(row: PendingRow): string {
+  if (isOdaYatakCikisGecmisException(row)) return ''
   if (isAfterToday(row.grsTrh)) return 'Giriş tarihi gelecekte: Günü gelince check-in yapılabilir'
   if (isOnOrBeforeToday(row.cksTrh)) return 'Çıkış tarihi bugün/öncesi: Check-in yerine No Show yapın'
   return ''
@@ -700,5 +714,4 @@ async function noShow(row: PendingRow) {
   background-color: #ffe0b2 !important; /* Quasar orange-2 */
 }
 </style>
-
 

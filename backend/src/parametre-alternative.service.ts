@@ -39,7 +39,7 @@ export class ParametreAlternativeService {
         })
         .orderBy('p.Prm01', 'ASC')
         .getMany();
-      
+
       return fallbackResult;
     }
   }

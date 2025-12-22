@@ -32,4 +32,18 @@ export class KonaklamaTakvimController {
     const { odaNo, kirli } = body || ({} as { odaNo: number; kirli: boolean });
     return this.konaklamaTakvimService.setOdaKirliDurum(odaNo, kirli);
   }
+
+  @Get('oda-yatak-durum')
+  async getOdaYatakDurum(
+    @Query('odaNo') odaNo: string,
+    @Query('yatakNo') yatakNo: string
+  ) {
+    return this.konaklamaTakvimService.getOdaYatakDurum(odaNo, yatakNo);
+  }
+
+  @Post('oda-yatak-durum')
+  async updateOdaYatakDurum(@Body() body: { odaNo: string; yatakNo: string; durum: string }) {
+    const { odaNo, yatakNo, durum } = body || ({} as { odaNo: string; yatakNo: string; durum: string });
+    return this.konaklamaTakvimService.updateOdaYatakDurum(odaNo, yatakNo, durum);
+  }
 }

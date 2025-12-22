@@ -28,6 +28,43 @@
           </div>
         </q-toolbar-title>
 
+        <!-- Toplam Konaklayan Paneli -->
+        <div v-if="stats" class="row items-center q-px-md bg-grey-2 rounded-borders q-mr-md gt-xs">
+           <span class="text-subtitle2 q-mr-sm text-grey-9" style="font-size: 0.9rem;">Toplam Konaklayan:</span>
+           <q-badge
+             :color="isCountMatching ? 'positive' : 'negative'"
+             text-color="white"
+             class="text-weight-bold shadow-2"
+             style="font-size: 1.1em; padding: 4px 8px; border-radius: 4px;"
+           >
+             {{ doluOdaSayisi }}
+             <q-tooltip anchor="bottom middle" self="top middle">
+               <div class="text-center">
+                 Dolu Oda (tblOdaYatak): {{ doluOdaSayisi }}<br>
+                 Kartlı İşlem Toplam: {{ kartliIslemTotal }}<br>
+                 (Yeni + Yeni Giriş + Devam + Süresi Dolan)
+               </div>
+             </q-tooltip>
+           </q-badge>
+
+           <q-separator vertical class="q-mx-md" color="grey-4" />
+
+           <span class="text-subtitle2 q-mr-sm text-grey-9" style="font-size: 0.9rem;">Kapasite:</span>
+           <q-badge
+             color="blue-7"
+             text-color="white"
+             class="text-weight-bold shadow-2"
+             style="font-size: 1.1em; padding: 4px 8px; border-radius: 4px;"
+           >
+             %{{ kapasiteOrani }}
+             <q-tooltip anchor="bottom middle" self="top middle">
+               <div class="text-center">
+                 Dolu: {{ doluOdaSayisi }} / Toplam: {{ stats.ToplamOdaSayisi }}
+               </div>
+             </q-tooltip>
+           </q-badge>
+        </div>
+
         <div class="row items-center q-gutter-sm">
           <!-- Hesap Makinesi İkonu -->
           <q-btn
@@ -569,6 +606,71 @@ const selectedEkHizmetlerMusteriAdi = computed(() => {
 
 const ekHizmetlerMusteriRefresh = ref(0);
 
+// Dashboard İstatistikleri için
+interface DashboardStats {
+  DoluOdaYatakSayisi: number | string | null;
+  ToplamOdaSayisi: number | string | null;
+  YeniMusteriKonaklama: number | string | null;
+  YeniGirisKonaklama: number | string | null;
+  DevamEdenKonaklama: number | string | null;
+  SuresiGecentKonaklama: number | string | null;
+}
+
+const stats = ref<DashboardStats | null>(null);
+
+const fetchStats = async () => {
+  try {
+    const response = await api.get('/dashboard/stats');
+    if (response.data.success) {
+      stats.value = response.data.data;
+    }
+  } catch (error) {
+    console.error('Stats fetch error:', error);
+  }
+};
+
+const doluOdaSayisi = computed(() => {
+  return stats.value?.DoluOdaYatakSayisi || 0;
+});
+
+const kartliIslemTotal = computed(() => {
+  if (!stats.value) return 0;
+  // Sayısal değerlere dönüştürerek topla (string gelme ihtimaline karşı)
+  const yeniMusteri = Number(stats.value.YeniMusteriKonaklama || 0);
+  const yeniGiris = Number(stats.value.YeniGirisKonaklama || 0);
+  const devamEden = Number(stats.value.DevamEdenKonaklama || 0);
+  const suresiGecen = Number(stats.value.SuresiGecentKonaklama || 0);
+  
+  return yeniMusteri + yeniGiris + devamEden + suresiGecen;
+});
+
+const isCountMatching = computed(() => {
+  return Number(doluOdaSayisi.value) === Number(kartliIslemTotal.value);
+});
+
+const kapasiteOrani = computed(() => {
+  const dolu = Number(doluOdaSayisi.value);
+  const toplam = Number(stats.value?.ToplamOdaSayisi || 0);
+  
+  if (toplam === 0) return 0;
+  
+  return Math.round((dolu / toplam) * 100);
+});
+
+const handleDashboardStatsUpdated = (event: Event) => {
+  const detail = (event as CustomEvent<unknown>).detail
+  if (!detail || typeof detail !== 'object') return
+  stats.value = detail as DashboardStats
+}
+
+const handleStatsNeedsUpdate = () => {
+  if (router.currentRoute.value.path === '/kartli-islem') return
+  void api.post('/dashboard/clear-stats-cache').catch((error) => {
+    void error
+  })
+  void fetchStats()
+}
+
 const ekHizmetlerModalRef = ref<HTMLElement|null>(null);
 const ekHizmetlerHeaderHover = ref(false);
 const ekHizmetlerModalPos = reactive({ x: 0, y: 0 });
@@ -650,12 +752,7 @@ async function fetchVersion() {
   }
 }
 
-onMounted(() => {
-  // ...
-  // Sürüm bilgisini sadece ilk yüklemede çek
-  void fetchVersion()
-  pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true';
-});
+ 
 
 async function loadEkHizmetler() {
   const data = await fetchEkHizmetler();
@@ -1325,6 +1422,13 @@ onMounted(() => {
   // Tarih/Saat başlangıç ve periyodik güncelleme
   updateDateTime();
   dateTimeIntervalId = window.setInterval(updateDateTime, 1000);
+
+  // İstatistikleri çek
+  void fetchStats();
+  void fetchVersion()
+  pendingUpdate.value = localStorage.getItem('pendingUpdate') === 'true'
+  window.addEventListener('statsNeedsUpdate', handleStatsNeedsUpdate)
+  window.addEventListener('dashboardStatsUpdated', handleDashboardStatsUpdated as EventListener)
 });
 
 onUnmounted(() => {
@@ -1333,6 +1437,8 @@ onUnmounted(() => {
     dateTimeIntervalId = null;
   }
   window.removeEventListener('openCalculator', openCalculator);
+  window.removeEventListener('statsNeedsUpdate', handleStatsNeedsUpdate)
+  window.removeEventListener('dashboardStatsUpdated', handleDashboardStatsUpdated as EventListener)
 });
 
 </script>

@@ -333,6 +333,83 @@ export class KonaklamaTakvimService {
   }
 
   /**
+   * Belirtilen oda ve yatak numarasına göre oda-yatak durumunu getirir.
+   */
+  async getOdaYatakDurum(odaNo: string, yatakNo: string) {
+    if (!odaNo || !yatakNo) {
+      return { success: false, message: 'Oda No ve Yatak No gereklidir.' };
+    }
+
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+
+    // Kayıt kontrolü
+    const query = `
+      SELECT OdYatDurum 
+      FROM ${odaYatakTableName}
+      WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+    `;
+
+    try {
+      const result = await this.musteriRepository.query(query, [odaNo, yatakNo]);
+
+      if (result && result.length > 0) {
+        return {
+          success: true,
+          exists: true,
+          odYatDurum: result[0].OdYatDurum
+        };
+      } else {
+        return {
+          success: true,
+          exists: false,
+          odYatDurum: null
+        };
+      }
+    } catch (error) {
+      console.error('getOdaYatakDurum hatası:', error);
+      return { success: false, message: 'Veritabanı hatası' };
+    }
+  }
+
+  /**
+   * Belirtilen oda ve yatak numarasına göre oda-yatak durumunu günceller.
+   */
+  async updateOdaYatakDurum(odaNo: string, yatakNo: string, durum: string) {
+    if (!odaNo || !yatakNo || !durum) {
+      return { success: false, message: 'Eksik parametreler.' };
+    }
+
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+
+    try {
+      // Önce kaydın varlığını kontrol et
+      const checkQuery = `
+        SELECT OdYatDurum 
+        FROM ${odaYatakTableName}
+        WHERE OdYatOdaNo = @0 AND OdYatYtkNo = @1
+      `;
+      const checkResult = await this.musteriRepository.query(checkQuery, [odaNo, yatakNo]);
+
+      if (!checkResult || checkResult.length === 0) {
+        return { success: false, message: 'Kayıt bulunamadı.' };
+      }
+
+      const updateQuery = `
+        UPDATE ${odaYatakTableName}
+        SET OdYatDurum = @0
+        WHERE OdYatOdaNo = @1 AND OdYatYtkNo = @2
+      `;
+
+      await this.musteriRepository.query(updateQuery, [durum, odaNo, yatakNo]);
+
+      return { success: true, message: 'Durum güncellendi.' };
+    } catch (error) {
+      console.error('updateOdaYatakDurum hatası:', error);
+      return { success: false, message: 'Güncelleme hatası' };
+    }
+  }
+
+  /**
    * Oda tipi isimlerini karşılaştırma için normalize eder:
    * - trim, fazla boşlukları tek boşluğa indirger
    * - TR yerelinde uppercase

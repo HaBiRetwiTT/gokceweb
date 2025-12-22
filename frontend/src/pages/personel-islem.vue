@@ -2029,6 +2029,9 @@ const onDuzenleClick = async () => {
       // Grid listeyi yenile
       await loadPersonel('PrsnYetki', 'ASC');
       
+      // 🔥 İstatistiklerin güncellenmesi için event fırlat
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
+      
     } else {
       throw new Error(response.data.message || 'Güncelleme başarısız');
     }
@@ -2152,6 +2155,9 @@ const onPersonelEkleClick = async () => {
       
       // Grid listeyi yenile
       await loadPersonel('PrsnYetki', 'ASC');
+      
+      // 🔥 İstatistiklerin güncellenmesi için event fırlat
+      window.dispatchEvent(new Event('statsNeedsUpdate'));
       
     } else {
       throw new Error(response.data.message || 'Ekleme başarısız');

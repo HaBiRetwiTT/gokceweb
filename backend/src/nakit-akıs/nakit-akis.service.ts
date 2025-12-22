@@ -28,40 +28,45 @@ export class NakitAkisService {
    */
   async getNakitAkisByDate(tarih: string): Promise<NakitAkisRecord[]> {
     try {
-      this.logger.log(`📊 ${tarih} tarihi için nakit akış verileri getiriliyor...`);
+      this.logger.log(
+        `📊 ${tarih} tarihi için nakit akış verileri getiriliyor...`,
+      );
 
       // Tarih formatını kontrol et (DD.MM.YYYY)
       if (!this.isValidDateFormat(tarih)) {
-        throw new Error(`Geçersiz tarih formatı: ${tarih}. Beklenen format: DD.MM.YYYY`);
+        throw new Error(
+          `Geçersiz tarih formatı: ${tarih}. Beklenen format: DD.MM.YYYY`,
+        );
       }
 
       const spName = this.dbConfig.getStoredProcedures().fonDokumY;
       const queryRunner = this.dataSource.createQueryRunner();
-      
+
       try {
         await queryRunner.connect();
-        
+
         // Stored procedure'ü çağır
         const execQuery = `EXEC ${spName} @Sectarih = @0`;
         const params = [tarih];
-        
+
         this.logger.debug(`🔍 SP çağrılıyor: ${execQuery}`, { params });
-        
+
         const result = await queryRunner.query(execQuery, params);
-        
+
         this.logger.log(`✅ ${result?.length || 0} kayıt bulundu`);
-        
+
         // Sonuçları dönüştür
         const records: NakitAkisRecord[] = this.transformSpResult(result);
-        
+
         return records;
-        
       } finally {
         await queryRunner.release();
       }
-      
     } catch (error) {
-      this.logger.error(`❌ Nakit akış verileri alınırken hata: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Nakit akış verileri alınırken hata: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Nakit akış verileri alınamadı: ${error.message}`);
     }
   }
@@ -88,17 +93,24 @@ export class NakitAkisService {
     if (!dateRegex.test(tarih)) {
       return false;
     }
-    
+
     const parts = tarih.split('.');
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
     const year = parseInt(parts[2], 10);
-    
+
     // Basit tarih validasyonu
-    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+    if (
+      day < 1 ||
+      day > 31 ||
+      month < 1 ||
+      month > 12 ||
+      year < 1900 ||
+      year > 2100
+    ) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -119,15 +131,36 @@ export class NakitAkisService {
       const record: NakitAkisRecord = {
         id: index + 1, // Geçici ID
         tarih: row.Tarih || row.tarih || row.TARIH || '',
-        aciklama: row.Aciklama || row.aciklama || row.ACIKLAMA || row.Acik || row.acik || '',
-        tip: row.Tip || row.tip || row.TIP || row.IslemTip || row.islemTip || '',
-        tutar: parseFloat(row.Tutar || row.tutar || row.TUTAR || row.Miktar || row.miktar || '0') || 0,
-        kategori: row.Kategori || row.kategori || row.KATEGORI || row.Grup || row.grup || '',
+        aciklama:
+          row.Aciklama ||
+          row.aciklama ||
+          row.ACIKLAMA ||
+          row.Acik ||
+          row.acik ||
+          '',
+        tip:
+          row.Tip || row.tip || row.TIP || row.IslemTip || row.islemTip || '',
+        tutar:
+          parseFloat(
+            row.Tutar ||
+              row.tutar ||
+              row.TUTAR ||
+              row.Miktar ||
+              row.miktar ||
+              '0',
+          ) || 0,
+        kategori:
+          row.Kategori ||
+          row.kategori ||
+          row.KATEGORI ||
+          row.Grup ||
+          row.grup ||
+          '',
         islemler: '', // Boş bırak, frontend'de doldurulacak
       };
 
       // Boş alanları temizle
-      Object.keys(record).forEach(key => {
+      Object.keys(record).forEach((key) => {
         if (typeof record[key] === 'string' && record[key].trim() === '') {
           record[key] = '-';
         }
@@ -148,28 +181,28 @@ export class NakitAkisService {
         tarih: this.getTodayFormatted(),
         aciklama: 'Oda kirası geliri',
         tip: 'GELİR',
-        tutar: 150.00,
+        tutar: 150.0,
         kategori: 'Konaklama',
-        islemler: 'Düzenle | Sil'
+        islemler: 'Düzenle | Sil',
       },
       {
         id: 2,
         tarih: this.getTodayFormatted(),
         aciklama: 'Market alışverişi',
         tip: 'GİDER',
-        tutar: 85.50,
+        tutar: 85.5,
         kategori: 'Gıda',
-        islemler: 'Düzenle | Sil'
+        islemler: 'Düzenle | Sil',
       },
       {
         id: 3,
         tarih: this.getTodayFormatted(),
         aciklama: 'Temizlik malzemeleri',
         tip: 'GİDER',
-        tutar: 45.00,
+        tutar: 45.0,
         kategori: 'Temizlik',
-        islemler: 'Düzenle | Sil'
-      }
+        islemler: 'Düzenle | Sil',
+      },
     ];
   }
 
@@ -178,18 +211,22 @@ export class NakitAkisService {
    * OdmVade bilgisini günün tarihi ile günceller
    * @returns Güncellenen kayıt sayısı
    */
-  async updateEskiOdmVadeKayitlari(): Promise<{ success: boolean; updatedCount: number; message: string }> {
+  async updateEskiOdmVadeKayitlari(): Promise<{
+    success: boolean;
+    updatedCount: number;
+    message: string;
+  }> {
     try {
       this.logger.log('🔄 Eski OdmVade kayıtları güncelleniyor...');
 
       const queryRunner = this.dataSource.createQueryRunner();
-      
+
       try {
         await queryRunner.connect();
-        
+
         // tblFonKasaY tablo adını al
         const fonKasaYTableName = this.dbConfig.getTableName('tblFonKasaY');
-        
+
         // Önce güncellenecek kayıt sayısını bul
         // CONVERT(DATE, OdmVade, 104) ile DD.MM.YYYY formatındaki tarihi DATE'e çeviriyoruz
         // GETDATE() ile SQL Server'ın bugünün tarihini alıyoruz
@@ -201,19 +238,19 @@ export class NakitAkisService {
             AND TRY_CONVERT(DATE, OdmVade, 104) < CAST(GETDATE() AS DATE)
             AND OdmDrm = 0
         `;
-        
+
         const countResult = await queryRunner.query(countQuery, [yearCutoff]);
         const count = countResult?.[0]?.count || 0;
-        
+
         if (count === 0) {
           this.logger.log('ℹ️ Güncellenecek kayıt bulunamadı');
           return {
             success: true,
             updatedCount: 0,
-            message: 'Güncellenecek kayıt bulunamadı'
+            message: 'Güncellenecek kayıt bulunamadı',
           };
         }
-        
+
         // OdmVade < bugünün tarihi ve OdmDrm = 0 olan kayıtları bul ve güncelle
         // CONVERT(nchar(10), GETDATE(), 104) ile bugünün tarihini DD.MM.YYYY formatında string olarak alıyoruz
         const updateQuery = `
@@ -223,29 +260,30 @@ export class NakitAkisService {
             AND TRY_CONVERT(DATE, OdmVade, 104) < CAST(GETDATE() AS DATE)
             AND OdmDrm = 0
         `;
-        
+
         this.logger.debug(`🔍 Update query: ${updateQuery}`);
-        
+
         await queryRunner.query(updateQuery, [yearCutoff]);
-        
+
         this.logger.log(`✅ ${count} kayıt güncellendi`);
-        
+
         return {
           success: true,
           updatedCount: count,
-          message: `${count} kayıt güncellendi`
+          message: `${count} kayıt güncellendi`,
         };
-        
       } finally {
         await queryRunner.release();
       }
-      
     } catch (error) {
-      this.logger.error(`❌ Eski OdmVade kayıtları güncellenirken hata: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Eski OdmVade kayıtları güncellenirken hata: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         updatedCount: 0,
-        message: `Hata: ${error.message}`
+        message: `Hata: ${error.message}`,
       };
     }
   }

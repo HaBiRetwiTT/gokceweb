@@ -1,4 +1,14 @@
-import { Controller, Get, Put, Body, Post, Delete, Param, Patch, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Post,
+  Delete,
+  Param,
+  Patch,
+  Req,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { AdminService } from './admin.service';
@@ -19,14 +29,14 @@ export class AdminController {
       return {
         success: true,
         data,
-        message: 'Oda tip lifyat verileri başarıyla getirildi'
+        message: 'Oda tip lifyat verileri başarıyla getirildi',
       };
     } catch (error) {
       console.error('Oda tip lifyat getirme hatası:', error);
       return {
         success: false,
         data: [],
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
@@ -38,20 +48,20 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: `${result.length} kayıt başarıyla güncellendi`
+        message: `${result.length} kayıt başarıyla güncellendi`,
       };
     } catch (error) {
       console.error('Oda tip lifyat güncelleme hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
 
   // IP Kısıtlama Endpoint'leri
-  
+
   /**
    * IP kısıtlama bilgilerini getirir (durum + IP listesi)
    */
@@ -62,14 +72,14 @@ export class AdminController {
       return {
         success: true,
         data,
-        message: 'IP kısıtlama bilgileri başarıyla getirildi'
+        message: 'IP kısıtlama bilgileri başarıyla getirildi',
       };
     } catch (error) {
       console.error('IP kısıtlama bilgileri getirme hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
@@ -78,24 +88,26 @@ export class AdminController {
    * Yeni IP adresi ekler
    */
   @Post('ip-restrictions')
-  async addIpRestriction(@Body() body: IPKisitlamaDto & { kullaniciAdi: string }) {
+  async addIpRestriction(
+    @Body() body: IPKisitlamaDto & { kullaniciAdi: string },
+  ) {
     try {
       const kullanici = body.kullaniciAdi || 'SYSTEM';
       const result = await this.ipRestrictionService.addIpRestriction(
         { ipAdres: body.ipAdres, aciklama: body.aciklama },
-        kullanici
+        kullanici,
       );
       return {
         success: true,
         data: result,
-        message: 'IP adresi başarıyla eklendi'
+        message: 'IP adresi başarıyla eklendi',
       };
     } catch (error) {
       console.error('IP ekleme hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
@@ -110,14 +122,14 @@ export class AdminController {
       return {
         success: true,
         data: null,
-        message: 'IP adresi başarıyla silindi'
+        message: 'IP adresi başarıyla silindi',
       };
     } catch (error) {
       console.error('IP silme hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
@@ -126,24 +138,26 @@ export class AdminController {
    * IP kısıtlama sistemini aktif/pasif yapar
    */
   @Patch('ip-restrictions/toggle')
-  async toggleIpRestriction(@Body() body: { aktif: boolean; kullaniciAdi: string }) {
+  async toggleIpRestriction(
+    @Body() body: { aktif: boolean; kullaniciAdi: string },
+  ) {
     try {
       const kullanici = body.kullaniciAdi || 'SYSTEM';
       const result = await this.ipRestrictionService.toggleIpRestriction(
         body.aktif,
-        kullanici
+        kullanici,
       );
       return {
         success: true,
         data: result,
-        message: `IP kısıtlama ${body.aktif ? 'aktif' : 'pasif'} edildi`
+        message: `IP kısıtlama ${body.aktif ? 'aktif' : 'pasif'} edildi`,
       };
     } catch (error) {
       console.error('IP kısıtlama toggle hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }
@@ -158,38 +172,41 @@ export class AdminController {
       // Client IP'yi al (local/internal IP)
       const forwardedFor = request.headers['x-forwarded-for'];
       const realIp = request.headers['x-real-ip'];
-      const localIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 
-                      realIp || request.ip || request.connection?.remoteAddress;
-      
+      const localIp = forwardedFor
+        ? forwardedFor.split(',')[0].trim()
+        : realIp || request.ip || request.connection?.remoteAddress;
+
       const normalizedLocalIp = localIp === '::1' ? '127.0.0.1' : localIp;
-      
+
       // External IP'yi al (third-party servisten)
       let externalIp = null;
       try {
         const response = await firstValueFrom(
-          this.httpService.get('https://api.ipify.org?format=json', { timeout: 3000 })
+          this.httpService.get('https://api.ipify.org?format=json', {
+            timeout: 3000,
+          }),
         );
         externalIp = response.data.ip;
       } catch (externalError) {
         console.warn('External IP alınamadı:', externalError);
       }
-      
+
       return {
         success: true,
-        data: { 
+        data: {
           localIp: normalizedLocalIp,
           externalIp: externalIp,
           // Backward compatibility için
-          ip: externalIp || normalizedLocalIp 
+          ip: externalIp || normalizedLocalIp,
         },
-        message: 'IP adresi başarıyla getirildi'
+        message: 'IP adresi başarıyla getirildi',
       };
     } catch (error) {
       console.error('IP getirme hatası:', error);
       return {
         success: false,
         data: null,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata'
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
       };
     }
   }

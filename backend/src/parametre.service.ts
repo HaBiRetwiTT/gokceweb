@@ -26,7 +26,14 @@ export class ParametreService {
     // this.debugLog('Table:', tables.parametreler, 'Query:', query);
 
     try {
-      const resultUnknown = await this.parametreRepository.query(query, ['1', '2', '3', '4', '5', '6']);
+      const resultUnknown = await this.parametreRepository.query(query, [
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+      ]);
       const result = resultUnknown as Array<{
         Prm01: string;
         PrmAdi: string;
@@ -68,7 +75,9 @@ export class ParametreService {
     `;
 
     try {
-      const resultUnknown = await this.parametreRepository.query(query, ['GecSaatSonu']);
+      const resultUnknown = await this.parametreRepository.query(query, [
+        'GecSaatSonu',
+      ]);
       const result = resultUnknown as Array<{ Prm04: number | null }>;
       return result[0]?.Prm04 ?? 6; // Default 6 (saat)
     } catch (error) {

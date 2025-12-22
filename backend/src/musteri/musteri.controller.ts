@@ -723,7 +723,9 @@ export class MusteriController {
             if (yeniKod !== eskiKod) {
               await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
             }
-          } catch {}
+          } catch (error) {
+            console.error('Eski oda-yatak boşaltma hatası:', error);
+          }
         }
 
         // 4. Yeni dönem konaklama kaydı yap (Transaction içinde)
@@ -749,7 +751,9 @@ export class MusteriController {
         try {
           const { odaNo: yeniOdaNo, yatakNo: yeniYatakNo } = this.musteriService['parseOdaYatak'](donemData.OdaYatak);
           await this.musteriService.doluYapOdaYatakWithTransaction(queryRunner, `${yeniOdaNo}-${yeniYatakNo}`, kullaniciAdi);
-        } catch {}
+        } catch (error) {
+          console.error('Yeni oda-yatak dolu yapma hatası:', error);
+        }
         
         // 🔥 Eğer eski oda-yatak bilgisi varsa, POST-SP: sadece eski ≠ yeni ise BOŞ yap (ek güvenlik)
         if (donemData.eskiOdaYatak) {
@@ -761,7 +765,9 @@ export class MusteriController {
             if (yeniKod !== eskiKod) {
               await this.musteriService.bosaltOdaYatakWithTransaction(queryRunner, donemData.eskiOdaYatak, kullaniciAdi);
             }
-          } catch {}
+          } catch (error) {
+            console.error('Eski oda-yatak boşaltma hatası:', error);
+          }
         }
         
         // 4. Yeni dönem işlem kaydı yap (Transaction içinde)
