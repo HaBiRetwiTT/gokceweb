@@ -22,6 +22,32 @@
             :pagination="{ rowsPerPage: 0 }"
 
           >
+            <template v-slot:header-cell-index="props">
+              <q-th :props="props">
+                <span class="bakiye-header-label">
+                  {{ props.col.label }}
+                  <q-tooltip
+                    class="bakiye-tooltip"
+                    anchor="bottom middle"
+                    self="top middle"
+                    :offset="[0, 10]"
+                    transition-show="scale"
+                    transition-hide="scale"
+                    @show="onBakiyeTooltipShow"
+                    @hide="onBakiyeTooltipHide"
+                  >
+                    <div v-if="bakiyeTooltipVisible" class="bakiye-tooltip-content">
+                      <div v-if="bakiyeDailyLastBalances.labels.length === 0" class="bakiye-tooltip-empty">
+                        Veri bulunamadı
+                      </div>
+                      <div v-else class="bakiye-chart-container">
+                        <canvas ref="bakiyeChartCanvas"></canvas>
+                      </div>
+                    </div>
+                  </q-tooltip>
+                </span>
+              </q-th>
+            </template>
             <template v-slot:top>
               <div class="table-actions left-table-actions">
                 <div class="devreden-bakiye-section" style="width: 100%;">
@@ -66,6 +92,32 @@
               >
                 {{ formatTutar(props.value) }}
               </q-td>
+            </template>
+            <template v-slot:header-cell-odmVade="props">
+              <q-th :props="props">
+                <span class="odm-vade-header-label">
+                  {{ props.col.label }}
+                  <q-tooltip
+                    class="odm-vade-tooltip"
+                    anchor="bottom middle"
+                    self="top middle"
+                    :offset="[0, 10]"
+                    transition-show="scale"
+                    transition-hide="scale"
+                    @show="onOdmVadeTooltipShow"
+                    @hide="onOdmVadeTooltipHide"
+                  >
+                    <div v-if="odmVadeTooltipVisible" class="odm-vade-tooltip-content">
+                      <div v-if="odmVadeMonthlyTotals.labels.length === 0" class="odm-vade-tooltip-empty">
+                        Veri bulunamadı
+                      </div>
+                      <div v-else class="odm-vade-chart-container">
+                        <canvas ref="odmVadeChartCanvas"></canvas>
+                      </div>
+                    </div>
+                  </q-tooltip>
+                </span>
+              </q-th>
             </template>
             <template v-slot:top>
               <div class="table-actions">
@@ -767,8 +819,58 @@ import { ref, onMounted, onUnmounted, nextTick, watch, computed, getCurrentInsta
 import { useQuasar } from 'quasar';
 import { api } from '../boot/axios';
 import { getNakitAkisVerileri, getBugunTarih, getFonDevirY, getIslmAltGruplar, type NakitAkisRecord } from '../services/nakit-akis.service';
+import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip as ChartJsTooltip, Legend, Title } from 'chart.js';
+import type { Plugin, TooltipItem, ChartType } from 'chart.js';
 
 const $q = useQuasar();
+
+declare module 'chart.js' {
+  interface PluginOptionsByType<TType extends ChartType> {
+    monthStartCircles?: {
+      indices?: number[];
+      fillColor?: string;
+      radius?: number;
+      yOffset?: number;
+      __chartType?: TType;
+    };
+  }
+}
+
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, ChartJsTooltip, Legend, Title);
+
+const monthStartCirclesPlugin: Plugin<'bar'> = {
+  id: 'monthStartCircles',
+  afterDraw: (chart, _args, options) => {
+    const opt = options as unknown as { indices?: number[]; fillColor?: string; radius?: number; yOffset?: number };
+    const indices = opt?.indices || [];
+    if (!indices.length) return;
+
+    const xScale = chart.scales.x;
+    if (!xScale) return;
+
+    const ctx = chart.ctx;
+    const fill = opt.fillColor || '#F2C037';
+    const r = typeof opt.radius === 'number' ? opt.radius : 12;
+    const yOffset = typeof opt.yOffset === 'number' ? opt.yOffset : 16;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = fill;
+
+    for (const i of indices) {
+      const x = xScale.getPixelForTick(i);
+      const y = xScale.bottom - yOffset;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+};
+
+Chart.register(monthStartCirclesPlugin);
 
 // Axios instance'ını al
 const instance = getCurrentInstance()
@@ -946,6 +1048,376 @@ const filteredData = computed(() => {
   }
   return tableData.value;
 });
+
+const odmVadeTooltipVisible = ref(false);
+const odmVadeChartCanvas = ref<HTMLCanvasElement | null>(null);
+let odmVadeChart: Chart<'bar', number[], string> | null = null;
+
+const trMonthShort = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+
+function parseTrDate(dateStr: string | null | undefined): Date | null {
+  const raw = String(dateStr || '').trim();
+  if (!raw) return null;
+  const parts = raw.split('.');
+  if (parts.length !== 3) return null;
+  const day = Number(parts[0]);
+  const month = Number(parts[1]);
+  const year = Number(parts[2]);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
+  return dt;
+}
+
+const odmVadeMonthlyTotals = computed(() => {
+  const map = new Map<string, number>();
+
+  for (const row of filteredData.value) {
+    const dt = parseTrDate(row.OdmVade);
+    if (!dt) continue;
+    const amount = Number((row as unknown as { islmTtr?: unknown }).islmTtr ?? 0) || 0;
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    map.set(key, (map.get(key) || 0) + amount);
+  }
+
+  const sortedKeys = Array.from(map.keys()).sort();
+  const labels: string[] = [];
+  const values: number[] = [];
+
+  for (const key of sortedKeys) {
+    const [yStr, mStr] = key.split('-');
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const label = `${trMonthShort[Math.max(0, Math.min(11, m - 1))]} ${y}`;
+    labels.push(label);
+    values.push(map.get(key) || 0);
+  }
+
+  return { labels, values };
+});
+
+function getCssVar(name: string, fallback: string): string {
+  try {
+    const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return val || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function destroyOdmVadeChart() {
+  if (odmVadeChart) {
+    odmVadeChart.destroy();
+    odmVadeChart = null;
+  }
+}
+
+function renderOdmVadeChart() {
+  if (!odmVadeChartCanvas.value) return;
+  if (odmVadeMonthlyTotals.value.labels.length === 0) return;
+
+  destroyOdmVadeChart();
+
+  const primary = getCssVar('--q-primary', '#1976D2');
+  const secondary = getCssVar('--q-secondary', '#26A69A');
+  const accent = getCssVar('--q-accent', '#9C27B0');
+
+  const isDark = $q.dark.isActive;
+  const textColor = isDark ? 'rgba(245, 245, 245, 0.92)' : 'rgba(255, 255, 255, 0.92)';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.14)';
+
+  const ctx = odmVadeChartCanvas.value;
+  odmVadeChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: odmVadeMonthlyTotals.value.labels,
+      datasets: [
+        {
+          label: 'Aylık Toplam',
+          data: odmVadeMonthlyTotals.value.values,
+          backgroundColor: secondary,
+          borderColor: accent,
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: 'Aylık Tutar Toplamları',
+          color: textColor,
+          padding: { bottom: 10 },
+          font: { size: 14, weight: 600 }
+        },
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(0, 0, 0, 0.88)',
+          borderColor: primary,
+          borderWidth: 1,
+          titleColor: textColor,
+          bodyColor: textColor,
+          callbacks: {
+            label: (ctx: TooltipItem<'bar'>) => {
+              const v = Number(ctx.parsed.y || 0);
+              return `₺ ${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            maxRotation: 0,
+            autoSkip: true,
+            font: { size: 12, weight: 500 }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { size: 12, weight: 500 },
+            callback: (val) => `₺ ${Number(val).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}`
+          }
+        }
+      }
+    }
+  });
+}
+
+async function onOdmVadeTooltipShow() {
+  odmVadeTooltipVisible.value = true;
+  await nextTick();
+  renderOdmVadeChart();
+}
+
+function onOdmVadeTooltipHide() {
+  destroyOdmVadeChart();
+  odmVadeTooltipVisible.value = false;
+}
+
+const bakiyeTooltipVisible = ref(false);
+const bakiyeChartCanvas = ref<HTMLCanvasElement | null>(null);
+let bakiyeChart: Chart<'bar', number[], string> | null = null;
+
+function formatTrDate(dt: Date): string {
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yy = String(dt.getFullYear());
+  return `${dd}.${mm}.${yy}`;
+}
+
+const bakiyeDailyLastBalances = computed(() => {
+  const map = new Map<string, { dt: Date; value: number }>();
+
+  let bakiye = getPageDevirBakiyesi();
+  for (const row of filteredData.value) {
+    const dt = parseTrDate(row.OdmVade);
+    if (!dt) continue;
+
+    const rawIslmTip = (row as unknown as { islmTip?: unknown }).islmTip;
+    const islmTip = typeof rawIslmTip === 'string' ? rawIslmTip : '';
+    const rawIslmTtr = (row as unknown as { islmTtr?: unknown }).islmTtr;
+    const islmTtr = typeof rawIslmTtr === 'number' ? rawIslmTtr : Number(rawIslmTtr ?? 0) || 0;
+
+    if (islmTip === 'Çıkan') bakiye -= islmTtr;
+    else if (islmTip === 'Giren') bakiye += islmTtr;
+
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    map.set(key, { dt, value: bakiye });
+  }
+
+  const entries = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  const labels: string[] = [];
+  const fullDates: string[] = [];
+  const values: number[] = [];
+  const monthStartIndices: number[] = [];
+
+  entries.forEach(([, v], idx) => {
+    labels.push(String(v.dt.getDate()));
+    fullDates.push(formatTrDate(v.dt));
+    values.push(v.value);
+    if (v.dt.getDate() === 1) monthStartIndices.push(idx);
+  });
+
+  return { labels, fullDates, values, monthStartIndices };
+});
+
+function destroyBakiyeChart() {
+  if (bakiyeChart) {
+    bakiyeChart.destroy();
+    bakiyeChart = null;
+  }
+}
+
+function renderBakiyeChart() {
+  if (!bakiyeChartCanvas.value) return;
+  if (bakiyeDailyLastBalances.value.labels.length === 0) return;
+
+  destroyBakiyeChart();
+
+  const isDark = $q.dark.isActive;
+
+  const positive = getCssVar('--q-positive', '#2e7d32');
+  const negative = getCssVar('--q-negative', '#c62828');
+  const warning = getCssVar('--q-warning', '#F2C037');
+  const primary = getCssVar('--q-primary', '#1976D2');
+
+  const textColor = isDark ? 'rgba(245, 245, 245, 0.92)' : 'rgba(255, 255, 255, 0.92)';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.14)';
+
+  const monthStarts = new Set(bakiyeDailyLastBalances.value.monthStartIndices);
+  const values = bakiyeDailyLastBalances.value.values;
+  const barColors = values.map(v => (v >= 0 ? positive : negative));
+  const min = values.reduce((a, b) => Math.min(a, b), 0);
+  const max = values.reduce((a, b) => Math.max(a, b), 0);
+
+  const ctx = bakiyeChartCanvas.value;
+  bakiyeChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: bakiyeDailyLastBalances.value.labels,
+      datasets: [
+        {
+          label: 'Gün Sonu Bakiye',
+          data: values,
+          backgroundColor: barColors,
+          borderColor: primary,
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: 'Gün Sonu Bakiye',
+          color: textColor,
+          padding: { bottom: 10 },
+          font: { size: 14, weight: 600 }
+        },
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(0, 0, 0, 0.88)',
+          borderColor: primary,
+          borderWidth: 1,
+          titleColor: textColor,
+          bodyColor: textColor,
+            callbacks: {
+            title: (items: TooltipItem<'bar'>[]) => {
+              const idx = items[0]?.dataIndex ?? 0;
+              return bakiyeDailyLastBalances.value.fullDates[idx] || '';
+            },
+            label: (ctx: TooltipItem<'bar'>) => {
+              const v = Number(ctx.parsed.y || 0);
+              return `₺ ${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+          }
+        },
+        monthStartCircles: {
+          indices: bakiyeDailyLastBalances.value.monthStartIndices,
+          fillColor: warning,
+          radius: 12,
+          yOffset: 16
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: (ctx) => (monthStarts.has(ctx.index) ? 'rgba(0, 0, 0, 0.92)' : textColor),
+            maxRotation: 0,
+            autoSkip: true,
+            font: { size: 12, weight: 600 }
+          }
+        },
+        y: {
+          suggestedMin: Math.min(0, min),
+          suggestedMax: Math.max(0, max),
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { size: 12, weight: 500 },
+            callback: (val) => `₺ ${Number(val).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}`
+          }
+        }
+      }
+    }
+  });
+}
+
+async function onBakiyeTooltipShow() {
+  bakiyeTooltipVisible.value = true;
+  await nextTick();
+  renderBakiyeChart();
+}
+
+function onBakiyeTooltipHide() {
+  destroyBakiyeChart();
+  bakiyeTooltipVisible.value = false;
+}
+
+watch(
+  () => bakiyeDailyLastBalances.value,
+  (nextVal) => {
+    if (!bakiyeTooltipVisible.value) return;
+    if (nextVal.labels.length === 0) {
+      destroyBakiyeChart();
+      return;
+    }
+    destroyBakiyeChart();
+    void nextTick().then(() => renderBakiyeChart());
+  },
+  { deep: true }
+);
+
+watch(
+  () => odmVadeMonthlyTotals.value,
+  (nextVal) => {
+    if (!odmVadeTooltipVisible.value) return;
+    if (nextVal.labels.length === 0) {
+      destroyOdmVadeChart();
+      return;
+    }
+    if (!odmVadeChart) {
+      void nextTick().then(() => renderOdmVadeChart());
+      return;
+    }
+    odmVadeChart.data.labels = nextVal.labels;
+    odmVadeChart.data.datasets[0].data = nextVal.values;
+    odmVadeChart.update();
+  },
+  { deep: true }
+);
+
+watch(
+  () => $q.dark.isActive,
+  () => {
+    if (odmVadeTooltipVisible.value) {
+      void nextTick().then(() => renderOdmVadeChart());
+    }
+    if (bakiyeTooltipVisible.value) {
+      void nextTick().then(() => renderBakiyeChart());
+    }
+  }
+);
 
 // Tablo sütunları
 const columns = [
@@ -1128,6 +1600,8 @@ onMounted(async () => {
 
 // Bileşen unmount olduğunda nakit-tablo özel stillerini temizle
 onUnmounted(() => {
+  destroyOdmVadeChart();
+  destroyBakiyeChart();
   const borderRemovalStyle = document.getElementById('nakit-tablo-border-removal');
   if (borderRemovalStyle) {
     borderRemovalStyle.remove();
@@ -2569,6 +3043,88 @@ th,
   color: #ffffff !important; /* Beyaz yazı rengi */
   font-weight: 600 !important; /* Kalın yazı */
   border-bottom: 1px solid #34495e !important; /* Kenar çizgisi */
+}
+
+.odm-vade-header-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.odm-vade-tooltip {
+  padding: 0 !important;
+  max-width: 1919px !important;
+  max-height: 500px !important;
+}
+
+.odm-vade-tooltip-content {
+  width: min(1919px, 99vw);
+  height: min(500px, 50vh);
+  max-width: 1919px;
+  max-height: 500px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(25, 118, 210, 0.35);
+  background: rgba(0, 0, 0, 0.92);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.bakiye-header-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.bakiye-tooltip {
+  padding: 0 !important;
+  max-width: 1900px !important;
+  max-height: 500px !important;
+}
+
+.bakiye-tooltip-content {
+  width: min(1900px, 99vw);
+  height: min(500px, 50vh);
+  max-width: 1900px;
+  max-height: 500px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(25, 118, 210, 0.35);
+  background: rgba(0, 0, 0, 0.92);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.bakiye-tooltip-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 600;
+}
+
+.bakiye-chart-container {
+  width: 100%;
+  height: 100%;
+}
+
+.odm-vade-tooltip-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 600;
+}
+
+.odm-vade-chart-container {
+  width: 100%;
+  height: 100%;
 }
 
 /* Quasar'ın tüm CSS'ini override et - daha güçlü */

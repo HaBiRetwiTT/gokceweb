@@ -39,8 +39,6 @@
                   input-debounce="300"
                   @filter="filterPersonel"
                   :loading="loadingPersonel"
-                  emit-value
-                  map-options
                 >
                   <template v-slot:no-option>
                     <q-item>
@@ -54,6 +52,14 @@
                     <q-item v-bind="scope.itemProps">
                       <q-item-section>
                         <q-item-label>{{ scope.opt.label }}</q-item-label>
+                      </q-item-section>
+                      <q-item-section side style="min-width: 140px;">
+                        <div class="text-right">
+                          <q-item-label class="text-weight-bold" :class="getBalanceClass(scope.opt.bakiye)">
+                            <q-spinner v-if="scope.opt.bakiye === null" size="12px" />
+                            <span v-else>{{ formatCurrency(scope.opt.bakiye) }}</span>
+                          </q-item-label>
+                        </div>
                       </q-item-section>
                     </q-item>
                   </template>
@@ -183,13 +189,15 @@ const $q = useQuasar()
 
 // Reactive data
 const loadingPersonel = ref(false)
-const selectedPersonel = ref<string | null>(null)
+type PersonelOption = { label: string; value: number; bakiye: number | null }
+const selectedPersonel = ref<PersonelOption | null>(null)
 const selectedPersonelNo = ref<number | null>(null)
 const selectedIslemTipi = ref<string | null>(null)
 const selectedOdemeYontemi = ref<string | null>(null)
 const islemTutar = ref<number>(0)
-const personelList = ref<Array<{ PrsnAdi: string, PrsnNo: number }>>([])
-const filteredPersonelList = ref<Array<{ PrsnAdi: string, PrsnNo: number }>>([])  
+type PersonelListItem = { PrsnAdi: string; PrsnNo: number; bakiye: number | null }
+const personelList = ref<PersonelListItem[]>([])
+const filteredPersonelList = ref<PersonelListItem[]>([])
 const modalCard = ref()
 const personelBakiye = ref<number | null>(null)
 const loadingBakiye = ref(false)
@@ -203,7 +211,8 @@ const show = computed({
 const personelOptions = computed(() => {
   return filteredPersonelList.value.map(personel => ({
     label: personel.PrsnAdi,
-    value: personel.PrsnAdi
+    value: personel.PrsnNo,
+    bakiye: personel.bakiye
   })).sort((a, b) => a.label.localeCompare(b.label, 'tr', { sensitivity: 'base' }))
 })
 
@@ -266,6 +275,14 @@ async function loadPersonelBakiye(personelNo: number) {
     
     if (response.data.success) {
       personelBakiye.value = response.data.bakiye
+      const foundPersonel = personelList.value.find(p => p.PrsnNo === personelNo)
+      if (foundPersonel) foundPersonel.bakiye = personelBakiye.value
+      if (selectedPersonel.value && selectedPersonel.value.value === personelNo) {
+        selectedPersonel.value = {
+          ...selectedPersonel.value,
+          bakiye: personelBakiye.value
+        }
+      }
       console.log('✨ Personel bakiyesi yüklendi:', personelBakiye.value)
     } else {
       throw new Error(response.data.message || 'Personel bakiyesi yüklenemedi')
@@ -285,6 +302,51 @@ async function loadPersonelBakiye(personelNo: number) {
   }
 }
 
+function toPersonelNo(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function getBalanceClass(balance: number | null | undefined): string {
+  if (balance === null || balance === undefined) return 'text-grey-6'
+  if (balance > 0) return 'text-positive'
+  if (balance < 0) return 'text-negative'
+  return 'text-grey-6'
+}
+
+function formatCurrency(amount: number | null | undefined): string {
+  const v = typeof amount === 'number' && isFinite(amount) ? amount : 0
+  return v.toLocaleString('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
+async function loadPersonelBakiyeleri() {
+  const items = personelList.value.filter(p => typeof p.PrsnNo === 'number' && p.PrsnNo > 0)
+  const concurrencyLimit = 8
+  let nextIndex = 0
+  const workers = Array.from({ length: Math.min(concurrencyLimit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++
+      const p = items[i]
+      try {
+        const response = await api.get(`/personel/bakiye/${p.PrsnNo}`)
+        p.bakiye = response.data?.success ? response.data.bakiye : 0
+      } catch {
+        p.bakiye = 0
+      }
+    }
+  })
+  await Promise.all(workers)
+}
+
 async function loadPersonelList() {
   try {
     loadingPersonel.value = true
@@ -293,8 +355,19 @@ async function loadPersonelList() {
     const response = await api.get('/personel/calisanlar')
     
     if (response.data.success) {
-      personelList.value = response.data.data
-      filteredPersonelList.value = response.data.data
+      const raw = response.data.data as Array<{ PrsnAdi: string; PrsnNo: unknown }>
+      personelList.value = raw
+        .map((p) => {
+          const no = toPersonelNo(p.PrsnNo)
+          return {
+            PrsnAdi: p.PrsnAdi,
+            PrsnNo: no ?? 0,
+            bakiye: null
+          }
+        })
+        .filter(p => p.PrsnNo > 0)
+      filteredPersonelList.value = personelList.value
+      loadPersonelBakiyeleri().catch(() => {})
       console.log('✅ Aktif personel listesi yüklendi:', personelList.value.length, 'kayıt')
     } else {
       throw new Error(response.data.message || 'Personel listesi yüklenemedi')
@@ -422,7 +495,7 @@ async function onKaydet() {
     
     // Backend'e gönderilecek veriyi hazırla
     const requestData = {
-      personel: selectedPersonel.value,
+      personel: selectedPersonel.value.label,
       islemTipi: finalIslemTipi,
       odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
       tutar: effectiveIslemTutar.value,
@@ -446,7 +519,7 @@ async function onKaydet() {
       
       // Parent component'e bildiri gönder
       emit('kaydet', {
-        personel: selectedPersonel.value,
+        personel: selectedPersonel.value.label,
         islemTipi: finalIslemTipi,
         odemeYontemi: selectedOdemeYontemi.value || 'tahakkuk',
         tutar: effectiveIslemTutar.value,
@@ -525,12 +598,11 @@ watch(() => props.modelValue, async (newValue) => {
 // Watch for personnel selection to update personnel number and load balance
 watch(() => selectedPersonel.value, async (newPersonel) => {
   if (newPersonel) {
-    const foundPersonel = personelList.value.find(p => p.PrsnAdi === newPersonel)
-    selectedPersonelNo.value = foundPersonel?.PrsnNo || null
-    
-    // Load personnel balance using personnel number
-    if (foundPersonel?.PrsnNo) {
-      await loadPersonelBakiye(foundPersonel.PrsnNo)
+    selectedPersonelNo.value = newPersonel.value
+    if (typeof newPersonel.bakiye === 'number') {
+      personelBakiye.value = newPersonel.bakiye
+    } else {
+      await loadPersonelBakiye(newPersonel.value)
     }
   } else {
     selectedPersonelNo.value = null

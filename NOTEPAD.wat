@@ -20,12 +20,13 @@ taskkill /f /im node.exe
   git add .; git commit -m "Sistem Sürüm Düzenlemeleri (auto)"; git push origin master
 --------------------------------------------------------------------------------------
 Özet: Güncelleme Akışı:
-Yerel: .\deploy.ps1 (gokceweb klasöründe)
-Frontend: manuel kopyala (C:\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> (C:\inetpub\wwwroot\gokce-frontend) 
+Yerel: cd C:\Users\habir\GOKCE\gokceweb; .\deploy.ps1
+Frontend: manuel kopyala (\\tsclient\C\Users\habir\GOKCE\gokceweb\frontend\dist\spa) -> 
+                         (C:\inetpub\wwwroot\gokce-frontend) 
                          (Restart-WebAppPool -Name "gokcepms.com" veya iisreset)
-VPS: .\deploy-vps.ps1 (C:\gokce-backend\backend klasöründe) 
+VPS: cd C:\gokce-backend\backend; .\deploy-vps.ps1 
                          (pm2 reload gokce-backend !!!)
-Bu adımları her güncellemede tekrarlayın.
+Bu adımları her güncellemede tekrarlayın. (inetmgr)
   =========================================================================
   YENİ VPS DEPLOYMENT WORKFLOW:
   =========================================================================

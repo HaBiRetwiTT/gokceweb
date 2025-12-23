@@ -504,15 +504,37 @@
                       :disable="guncellemeModuAktif"
               />
                   </div>
-                  <div class="col bedel-islemler-col">
+                  <div class="col-auto depozito-inline">
+                    <q-checkbox 
+                      v-model="depozito.dahil" 
+                      label="Depozito :" 
+                      color="orange"
+                      dense
+                      class="text-orange-7 text-weight-medium"
+                      :disable="isInputDisabled"
+                      @update:model-value="updateEkNotlar"
+                    />
+                    <q-input
+                      v-model.number="depozito.bedel"
+                      type="number"
+                      suffix="₺"
+                      dense
+                      outlined
+                      color="orange"
+                      :disable="!depozito.dahil || isInputDisabled"
+                      style="width: 120px;"
+                      class="depozito-input"
+                      @update:model-value="updateEkNotlar"
+                    />
+                  </div>
+                  <div class="col-auto bedel-islemler-col">
               <q-btn 
                 @click="() => executeOnce(submitForm)"
                 :label="rzvrytkModuAktif ? 'TC DEĞİŞTİR' : (guncellemeModuAktif ? 'GÜNCELLE' : 'KAYDET')" 
                 color="primary" 
                 :loading="loading || isSubmitting" 
                 :disable="loading || isSubmitting || isInputDisabled"
-                      class="kurumsal-responsive"
-                      size="md"
+                class="kaydet-btn"
               />
                   </div>
                   <div class="col-auto bedel-islemler-col">
@@ -662,8 +684,6 @@
           </div>
         </div>
         </div>
-
-
       </div>
     </div>
 
@@ -674,36 +694,6 @@
       no-backdrop-dismiss
     >
       <q-card class="ek-bilgiler-dialog" style="width: 350px; max-width: 350px;">
-        <!-- Depozito Bedeli Container (En Üstte) -->
-        <q-card-section class="q-pb-xs">
-          <div class="depozito-container">
-            <div class="row items-center justify-center q-gutter-sm">
-              <q-checkbox 
-                v-model="depozito.dahil" 
-                label="Depozito Bedeli:" 
-                color="orange"
-                dense
-                class="text-orange-7 text-weight-medium"
-                @update:model-value="updateEkNotlar"
-              />
-              <q-input
-                v-model.number="depozito.bedel"
-                type="number"
-                suffix="₺"
-                dense
-                outlined
-                color="orange"
-                :disable="!depozito.dahil || isInputDisabled"
-                style="width: 120px;"
-                class="depozito-input"
-                @update:model-value="updateEkNotlar"
-              />
-            </div>
-          </div>
-        </q-card-section>
-
-        <q-separator />
-
         <q-card-section class="q-pt-sm">
           <div class="ek-bilgiler-container">
             <div class="column q-gutter-sm">
@@ -831,7 +821,6 @@
     <OdemeIslemForm v-model:show="showOdemeIslemModal" :musteriAdi="odemeMusteriAdi" />
   </q-page>
 </template>
-
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
@@ -2130,9 +2119,28 @@ async function submitForm() {
         timeout: 2000
       })
 
-      await openOdemeIslemModal(savedMusteriData.MstrAdi || '')
-      
-      // Form temizle
+      ekNotlar.value = ''
+      ekBilgiler.value = {
+        kahvaltiDahil: false,
+        havluVerildi: false,
+        prizVerildi: false,
+        geceKonaklama: false
+      }
+      depozito.value = {
+        dahil: true,
+        bedel: 0
+      }
+      musteriDurumu.value = ''
+      guncellemeModuAktif.value = false
+      bosOdalarOptions.value = []
+      showExtraFields.value = false
+      satisKanali.value = 'KAPIDAN'
+      try {
+        localStorage.setItem('satisKanali', 'KAPIDAN')
+      } catch {
+        // ignore
+      }
+
       form.value = { MstrAdi: '', MstrHspTip: 'Bireysel', MstrTCN: '', MstrTelNo: '', OdaTipi: '', OdaYatak: '', KonaklamaSuresi: 1, KonaklamaTipi: 'GÜNLÜK', ToplamBedel: 0, HesaplananBedel: 0, OdemeVadesi: bugunTarihi.value, OdemeTakvimGunu: null, OtgCheckbox: false }
       extraForm.value = {
         MstrDgmTarihi: '',
@@ -2150,34 +2158,8 @@ async function submitForm() {
         MstrAdres: '',
         MstrNot: ''
       }
-  // Ek Bilgileri temizle
-  ekBilgiler.value = {
-    kahvaltiDahil: false,
-    havluVerildi: false,
-    prizVerildi: false,
-    geceKonaklama: false
-  }
-      // Depozito'yu temizle
-      depozito.value = {
-        dahil: true, // Default olarak işaretli
-        bedel: 0
-      }
-      // Ek notları temizle
-      ekNotlar.value = ''
-      // Müşteri durumunu temizle
-      musteriDurumu.value = ''
-      guncellemeModuAktif.value = false
-      // Dropdown'ları temizle
-      bosOdalarOptions.value = []
-      // Ek bilgiler alanını gizle
-      showExtraFields.value = false
-      // Satış kanalını sıfırla
-      satisKanali.value = 'KAPIDAN'
-      try { 
-        localStorage.setItem('satisKanali', 'KAPIDAN') 
-      } catch {
-        // ignore
-      }
+
+      await openOdemeIslemModal(savedMusteriData.MstrAdi || '')
     } else {
       const errorMsg = response.data?.message || response.data?.error || 'Kayıt sırasında hata oluştu!';
       notify.value = errorMsg;
@@ -4308,7 +4290,7 @@ function isAxiosError(error: unknown): error is AxiosError {
 
 /* Ek Bilgiler Container Stilleri */
 .ek-bilgiler-container {
-  width: 400px;
+  width: 300px;
   margin: 0;
   max-width: 400px;
   min-width: 300px;
@@ -4330,7 +4312,7 @@ function isAxiosError(error: unknown): error is AxiosError {
 .ek-bilgiler-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 /* Dark mode support for ek bilgiler */
@@ -4347,7 +4329,19 @@ function isAxiosError(error: unknown): error is AxiosError {
 /* Compact button styles */
 .compact-btn {
   min-width: 100px !important;
-  padding: 8px 12px !important;
+  padding: 10px 16px !important;
+}
+
+.kaydet-btn {
+  min-width: 252px !important;
+  width: 252px !important;
+  padding: 6px 12px !important;
+}
+
+.depozito-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* Ek Bilgiler Dialog Styles */
@@ -4356,36 +4350,21 @@ function isAxiosError(error: unknown): error is AxiosError {
   overflow: hidden;
 }
 
-/* Depozito Container Styles */
-.depozito-container {
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.08) 0%, rgba(245, 124, 0, 0.05) 100%);
-  border: 1px solid rgba(255, 152, 0, 0.3);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin: 8px 0;
-}
-
 .depozito-input {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(56, 39, 176, 0.12);
   border-radius: 8px;
 }
 
-/* Dark mode support for depozito container */
-.body--dark .depozito-container {
-  background: linear-gradient(135deg, rgba(255, 183, 77, 0.12) 0%, rgba(255, 152, 0, 0.08) 100%);
-  border-color: rgba(255, 183, 77, 0.4);
-}
-
 .body--dark .depozito-input {
-  background: rgba(30, 30, 30, 0.9);
+  background: rgba(56, 39, 176, 0.12);
 }
 
 .ek-bilgiler-container {
   background: linear-gradient(135deg, rgba(33, 150, 243, 0.08) 0%, rgba(25, 118, 210, 0.05) 100%);
   border: 1px solid rgba(33, 150, 243, 0.2);
   border-radius: 12px;
-  padding: 16px;
-  margin: 8px 0;
+  padding: 22px;
+  margin: 12px 0;
 }
 
 /* Dark mode support for Ek Bilgiler dialog */
@@ -4473,13 +4452,13 @@ function isAxiosError(error: unknown): error is AxiosError {
 .ek-notlar-fields :deep(.q-field__label) {
   font-size: 0.95rem !important;
   font-weight: 500 !important;
-  line-height: 1.2 !important;
+  line-height: 1.4 !important;
 }
 
 .ek-notlar-fields :deep(.q-field__native) {
   font-size: 0.9rem !important;
   font-weight: 500 !important;
-  padding-left: 8px !important;
+  padding-left: 12px !important;
 }
 
 /* 🔥 Ödeme vadesi alanı için özel stil */
