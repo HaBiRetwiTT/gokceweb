@@ -61,7 +61,8 @@ export class IslemService {
         FROM ${tables.konaklama} k 
         LEFT JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
         LEFT JOIN ${tblKonaklamaRST} r ON r.KnklmNo = k.KnklmNo
-        WHERE k.kKytTarihi = @0 AND k.KnklmCksTrh is NULL
+        WHERE TRY_CONVERT(DATE, k.kKytTarihi, 104) = TRY_CONVERT(DATE, @0, 104)
+          AND (k.KnklmCksTrh IS NULL OR LTRIM(RTRIM(k.KnklmCksTrh)) = '')
         ORDER BY k.KnklmNo DESC
       `;
 
