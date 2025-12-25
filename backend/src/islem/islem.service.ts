@@ -45,6 +45,7 @@ export class IslemService {
     const queryRunner = this.dataSource.createQueryRunner();
     try {
       await queryRunner.connect();
+      const normalizedTarih = String(tarih ?? '').trim();
       const tables = this.dbConfig.getTables();
       const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
 
@@ -61,12 +62,15 @@ export class IslemService {
         FROM ${tables.konaklama} k 
         LEFT JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
         LEFT JOIN ${tblKonaklamaRST} r ON r.KnklmNo = k.KnklmNo
-        WHERE TRY_CONVERT(DATE, k.kKytTarihi, 104) = TRY_CONVERT(DATE, @0, 104)
-          AND (k.KnklmCksTrh IS NULL OR LTRIM(RTRIM(k.KnklmCksTrh)) = '')
+        WHERE LTRIM(RTRIM(k.kKytTarihi)) = @0
+          AND (
+            k.KnklmCksTrh IS NULL
+            OR LTRIM(RTRIM(k.KnklmCksTrh)) = ''
+          )
         ORDER BY k.KnklmNo DESC
       `;
 
-      const result = await queryRunner.query(sql, [tarih]);
+      const result = await queryRunner.query(sql, [normalizedTarih]);
       return result;
     } catch (error) {
       console.error('Konaklama detay getirme hatası:', error);
