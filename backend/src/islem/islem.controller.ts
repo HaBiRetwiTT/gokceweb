@@ -77,6 +77,253 @@ export class IslemController {
   }
 
   /**
+   * Konaklama detaylarını getirir
+   */
+  @Get('konaklama-detay')
+  async getKonaklamaDetay(@Query('tarih') tarih?: string) {
+    try {
+      // Tarih belirtilmemişse bugünün tarihini kullan
+      if (!tarih) {
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        tarih = `${dd}.${mm}.${yyyy}`;
+      }
+
+      const veriler = await this.islemService.getKonaklamaDetayByDate(tarih);
+
+      return {
+        success: true,
+        data: veriler,
+        message: `${veriler.length} kayıt bulundu`,
+      };
+    } catch (error: unknown) {
+      console.error('Konaklama detay getirme hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Veriler getirilirken hata oluştu',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /*
+  @Get('konaklama/:id')
+  async getKonaklamaById(@Param('id') id: number) {
+    try {
+      const data = await this.islemService.getKonaklamaById(id);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+  */
+
+  @Put('konaklama/guncelle/:id')
+  async updateKonaklama(@Param('id') id: number, @Body() body: any) {
+    try {
+      await this.islemService.updateKonaklama(id, body);
+      return { success: true, message: 'Güncelleme başarılı' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Delete('konaklama/sil/:id')
+  async deleteKonaklama(@Param('id') id: number) {
+    try {
+      await this.islemService.deleteKonaklama(id);
+      return { success: true, message: 'Silme başarılı' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/rst-kontrol/:id')
+  async checkKonaklamaRST(@Param('id') id: number) {
+    try {
+      const exists = await this.islemService.checkKonaklamaRST(id);
+      return { success: true, exists };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('konaklama/rst-aktar')
+  async copyToKonaklamaRST(@Body() body: { id: number }) {
+    try {
+      await this.islemService.copyToKonaklamaRST(body.id);
+      return { success: true, message: 'RST aktarımı başarılı' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/rst-detay/:id')
+  async getKonaklamaRST(@Param('id') id: number) {
+    try {
+      const data = await this.islemService.getKonaklamaRST(id);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/rst-records-all')
+  async getAllKonaklamaRstRecords() {
+    try {
+      const data = await this.islemService.getAllKonaklamaRstRecords();
+      return { success: true, data, count: data.length };
+    } catch (error) {
+      console.error('getAllKonaklamaRstRecords error full:', error);
+      const err = error;
+      const driverError = err?.driverError ?? err?.originalError ?? err;
+      const errorResponse = {
+        success: false,
+        message: this.getErrorMessage(error),
+        details: {
+          name: err?.name || 'UnknownName',
+          query: err?.query || 'NoQuery',
+          parameters: err?.parameters || 'NoParams',
+          driverError: {
+            message: driverError?.message,
+            number: driverError?.number,
+            code: driverError?.code,
+            state: driverError?.state,
+            class: driverError?.class,
+            lineNumber: driverError?.lineNumber,
+            procName: driverError?.procName,
+            serverName: driverError?.serverName,
+          },
+        },
+      };
+      console.log(
+        'Returning error response:',
+        JSON.stringify(errorResponse, null, 2),
+      );
+      return errorResponse;
+    }
+  }
+
+  @Get('konaklama/arv-records-all')
+  async getAllKonaklamaArvRecords() {
+    try {
+      const data = await this.islemService.getAllKonaklamaArvRecords();
+      return { success: true, data, count: data.length };
+    } catch (error: unknown) {
+      console.error('getAllKonaklamaArvRecords error:', error);
+      const err = error as any;
+      const driverError = err?.driverError ?? err?.originalError ?? err;
+      return {
+        success: false,
+        message: this.getErrorMessage(error),
+        details: {
+          name: err?.name,
+          query: err?.query,
+          parameters: err?.parameters,
+          driverError: {
+            message: driverError?.message,
+            number: driverError?.number,
+            code: driverError?.code,
+            state: driverError?.state,
+            class: driverError?.class,
+            lineNumber: driverError?.lineNumber,
+            procName: driverError?.procName,
+            serverName: driverError?.serverName,
+          },
+        },
+      };
+    }
+  }
+
+  @Post('konaklama/rst-onay-guncelle')
+  async setKonaklamaRstOnay(@Body() body: { knklmNo: number; onay: number }) {
+    const { knklmNo, onay } = body || ({} as any);
+    if (!knklmNo || (onay !== 0 && onay !== 1)) {
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST);
+    }
+    const sonuc = await this.islemService.setKonaklamaRSTOnay(knklmNo, onay);
+    return { success: true, data: sonuc };
+  }
+
+  @Post('konaklama/arv-onay-guncelle')
+  async setKonaklamaArvOnay(@Body() body: { knklmNo: number; onay: number }) {
+    const { knklmNo, onay } = body || ({} as any);
+    if (!knklmNo || (onay !== 0 && onay !== 1)) {
+      throw new HttpException('Geçersiz parametreler', HttpStatus.BAD_REQUEST);
+    }
+    const sonuc = await this.islemService.setKonaklamaARVOnay(knklmNo, onay);
+    return { success: true, data: sonuc };
+  }
+
+  @Delete('konaklama/rst-sil/:id')
+  async deleteKonaklamaRST(@Param('id') id: number) {
+    try {
+      await this.islemService.deleteKonaklamaRST(id);
+      return { success: true, message: 'RST silme başarılı' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('konaklama/rst-reset')
+  async resetKonaklamaFromRST(@Body() body: { id: number }) {
+    try {
+      if (!body?.id) {
+        return { success: false, message: 'Konaklama numarası gerekli' };
+      }
+      await this.islemService.resetKonaklamaFromRST(body.id);
+      return {
+        success: true,
+        message: 'Konaklama başarıyla orijinal verilerle güncellendi',
+      };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/arv-en-buyuk')
+  async getKonaklamaArvMax() {
+    try {
+      const data = await this.islemService.getKonaklamaArvMax();
+      return { success: true, sonuc: data };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/arv-onceki/:id')
+  async getKonaklamaArvPrev(@Param('id') id: number) {
+    try {
+      const data = await this.islemService.getKonaklamaArvPrev(id);
+      return { success: true, sonuc: data };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Get('konaklama/arv-sonraki/:id')
+  async getKonaklamaArvNext(@Param('id') id: number) {
+    try {
+      const data = await this.islemService.getKonaklamaArvNext(id);
+      return { success: true, sonuc: data };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('konaklama/arv-geri-yukle')
+  async restoreKonaklamaArv(@Body() body: { id: number }) {
+    try {
+      await this.islemService.restoreKonaklamaArv(body.id);
+      return { success: true, message: 'Geri yükleme başarılı' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
    * Nakit akış verilerini sp_FonDokumY ile getirir
    */
   @Get('nakit-akis')
@@ -1373,6 +1620,16 @@ export class IslemController {
         msg || 'RST kayıtları alınırken hata oluştu',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  @Get('konaklama/:id')
+  async getKonaklamaById(@Param('id') id: number) {
+    try {
+      const data = await this.islemService.getKonaklamaById(id);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   }
 }

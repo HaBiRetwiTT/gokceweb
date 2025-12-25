@@ -13,14 +13,15 @@
                  <!-- Veriyi Yenile Butonu -->
                  <div class="text-center q-mb-md">
                    <q-btn 
-                     color="warning" 
-                     icon="refresh" 
-                     label="VERİYİ YENİLE" 
-                     size="md"
-                     class="refresh-btn"
-                     style="font-size: 12px !important;"
-                     @click="refreshData"
-                   />
+                    color="warning" 
+                    icon="refresh" 
+                    label="VERİYİ YENİLE" 
+                    size="md"
+                    class="refresh-btn"
+                    style="font-size: 12px !important;"
+                    @click="refreshData"
+                    :disable="isLeftPanelLocked"
+                  />
                  </div>
                  
                  <!-- Dış Container -->
@@ -31,37 +32,37 @@
                   <div class="radio-group">
                     <div class="radio-options">
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="cari" label="Cari" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="cari" label="Cari" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="indigo-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.cari) }}
                         </q-chip>
                       </div>
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="nakit" label="Nakit" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="nakit" label="Nakit" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="green-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.nakit) }}
                         </q-chip>
                       </div>
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="kart" label="Kart" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="kart" label="Kart" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="blue-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.kart) }}
                         </q-chip>
                       </div>
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="eft" label="EFT" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="eft" label="EFT" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="orange-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.eft) }}
                         </q-chip>
                       </div>
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="acenta" label="Acenta" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="acenta" label="Acenta" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="purple-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.acenta) }}
                         </q-chip>
                       </div>
                       <div class="radio-with-balance">
-                        <q-radio v-model="selectedislemArac" val="depozito" label="Depozito" @update:model-value="onislemAracChange" />
+                        <q-radio v-model="selectedislemArac" val="depozito" label="Depozito" @update:model-value="onislemAracChange" :disable="isLeftPanelLocked" />
                         <q-chip dense color="teal-7" text-color="white" class="balance-chip-radio">
                           {{ formatCurrency(tumKasaBakiyeleri.depozito) }}
                         </q-chip>
@@ -74,8 +75,8 @@
                 <div class="radio-group-container second-radio-group">
                   <div class="radio-group">
                     <div class="radio-options">
-                      <q-radio v-model="selectedislemTip" val="gelir" :label="firstOptionLabel" />
-                      <q-radio v-model="selectedislemTip" val="gider" :label="secondOptionLabel" />
+                      <q-radio v-model="selectedislemTip" val="gelir" :label="firstOptionLabel" :disable="isLeftPanelLocked" />
+                      <q-radio v-model="selectedislemTip" val="gider" :label="secondOptionLabel" :disable="isLeftPanelLocked" />
                     </div>
                   </div>
                 </div>
@@ -234,13 +235,13 @@
 
                   
                   <div class="table-container">
-                   <q-table
+                  <q-table
                       :rows="detailTableData"
                       :columns="detailColumns"
                       :loading="detailLoading"
                       :pagination="detailPagination"
                       :sort-method="customSort"
-                      row-key="id"
+                      :row-key="getDetailRowKey"
                       flat
                       bordered
                       class="kasa-table detail-table"
@@ -269,7 +270,7 @@
                         <q-th :props="props">
                           <div class="row items-center no-wrap" style="gap:8px;">
                             <span>Bilgi</span>
-                            <div class="report-icons">
+                            <div class="report-icons row items-center no-wrap">
                               <q-btn round dense class="pdf-btn" @click="downloadKasaDetayPDF" :loading="kasaPdfLoading">
                                 <img src="/icons/adobe-pdf.png" alt="PDF" class="report-icon" />
                               </q-btn>
@@ -287,6 +288,60 @@
                                 <q-tooltip>Değişenleri Göster</q-tooltip>
                                 <q-icon name="warning" size="16px" />
                               </q-btn>
+                              <q-btn-toggle
+                                v-model="detailMode"
+                                push
+                                glossy
+                                toggle-color="primary"
+                                size="14px"
+                                padding="xs sm"
+                                :options="[
+                                  {label: 'Cari', value: 'cari'},
+                                  {label: 'Konaklama', value: 'konaklama'}
+                                ]"
+                                class="q-ml-lg"
+                              />
+                            </div>
+                          </div>
+                        </q-th>
+                      </template>
+
+                      <!-- Konaklama Modu İçin Not Başlığı (Aynı İkonlar ve Switch) -->
+                      <template v-slot:header-cell-KnklmNot="props">
+                        <q-th :props="props">
+                          <div class="row items-center no-wrap" style="gap:8px;">
+                            <span>Not</span>
+                            <div class="report-icons row items-center no-wrap">
+                              <q-btn round dense class="pdf-btn" @click="downloadKasaDetayPDF" :loading="kasaPdfLoading">
+                                <img src="/icons/adobe-pdf.png" alt="PDF" class="report-icon" />
+                              </q-btn>
+                              <q-btn round dense class="excel-btn" @click="downloadKasaDetayExcel" :loading="kasaExcelLoading">
+                                <img src="/icons/excel-xlsx.png" alt="Excel" class="report-icon" />
+                              </q-btn>
+                              <q-btn 
+                                round 
+                                dense 
+                                class="rst-btn" 
+                                @click="showRstDifferences" 
+                                :loading="rstLoading"
+                                color="warning"
+                              >
+                                <q-tooltip>Değişenleri Göster</q-tooltip>
+                                <q-icon name="warning" size="16px" />
+                              </q-btn>
+                              <q-btn-toggle
+                                v-model="detailMode"
+                                push
+                                glossy
+                                toggle-color="primary"
+                                size="14px"
+                                padding="xs sm"
+                                :options="[
+                                  {label: 'Cari', value: 'cari'},
+                                  {label: 'Konaklama', value: 'konaklama'}
+                                ]"
+                                class="q-ml-lg"
+                              />
                             </div>
                           </div>
                         </q-th>
@@ -295,6 +350,49 @@
                      <template v-slot:body-cell-iKytTarihi="props">
                        <q-td :props="props">
                          {{ formatDate(props.value) }}
+                       </q-td>
+                     </template>
+
+                     <template v-slot:body-cell-diff="props">
+                       <q-td :props="props" class="text-weight-medium">
+                         <q-tooltip
+                           v-if="detailMode === 'konaklama' && rstKnklmNoList.includes(getKnklmNoFromRow(props.row))"
+                           class="rst-differences-tooltip"
+                           :delay="100"
+                           :offset="[0, 10]"
+                         >
+                           <div class="tooltip-content">
+                             <div class="tooltip-title">Değişiklik Detayları</div>
+                             <div v-if="rstKonaklamaDifferences[getKnklmNoFromRow(props.row)]" class="differences-table">
+                               <div class="differences-header">
+                                 <div class="differences-cell">Alan Adı</div>
+                                 <div class="differences-cell">Orijinal Değer</div>
+                                 <div class="differences-cell">Değiştirilen Değer</div>
+                               </div>
+                               <div
+                                 v-for="diff in rstKonaklamaDifferences[getKnklmNoFromRow(props.row)]"
+                                 :key="diff.fieldName"
+                                 class="differences-row"
+                               >
+                                 <div class="differences-cell">{{ diff.fieldName }}</div>
+                                 <div class="differences-cell">{{ diff.originalValue }}</div>
+                                 <div class="differences-cell">{{ diff.changedValue }}</div>
+                               </div>
+                             </div>
+                             <div v-else class="loading-differences">
+                               <q-spinner size="16px" color="warning" />
+                               <span>Farklar yükleniyor...</span>
+                             </div>
+                           </div>
+                         </q-tooltip>
+                         <span
+                           v-if="detailMode === 'konaklama' && rstKnklmNoList.includes(getKnklmNoFromRow(props.row))"
+                           class="rst-marker-icon"
+                           @mouseenter="loadKonaklamaDifferencesOnHover(getKnklmNoFromRow(props.row))"
+                           @dblclick.stop.prevent="onKonaklamaDiffIconDblClick(getKnklmNoFromRow(props.row))"
+                         >
+                           !
+                         </span>
                        </q-td>
                      </template>
 
@@ -888,7 +986,7 @@
               :icon="isArchiveMode ? 'restore' : 'archive'"
               @click="onArchiveForm"
               :disabled="showKaynakIslemContainer"
-              :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken arşiv işlemi yapılamaz' : 'İşlemi arşivle'"
+              :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken arşiv işlemi yapılamaz' : 'Arşiv Moduna Geç'"
             />
           </q-card-actions>
         </div>
@@ -920,6 +1018,314 @@
       </q-card-actions>
     </q-card>
   </q-dialog>
+
+  <!-- Konaklama Detay Dialog -->
+  <q-dialog v-model="showKonaklamaDetayDialog" persistent>
+    <div
+      ref="konaklamaDetayModalRef"
+      :style="konaklamaDetayModalStyle"
+      class="draggable-islem-detay-modal"
+    >
+      <q-card
+        class="full-width"
+        :style="`min-width: ${showKaynakIslemContainer ? 1100 : 600}px; max-width: ${showKaynakIslemContainer ? 1100 : 600}px; max-height: 90vh; overflow-y: auto;`"
+        :class="{ 'modal-dragging': konaklamaDetayModalDragging }"
+      >
+        <!-- Header -->
+        <q-card-section
+          :class="['row items-center q-pb-none draggable-header', $q.dark.isActive ? 'bg-grey-9 text-white' : 'bg-grey-2']"
+          @mousedown="onKonaklamaDetayDragStart"
+          @touchstart="onKonaklamaDetayDragStart"
+        >
+          <div class="col">
+            <div class="text-h6 text-weight-bold">Konaklama Detayı</div>
+            <!-- Arşiv navigasyon -->
+            <div v-if="isKonaklamaArchiveMode" class="row items-center q-gutter-xs q-mt-sm">
+               <q-btn 
+                 flat 
+                 round 
+                 dense 
+                 icon="navigate_before" 
+                 color="primary"
+                 @click="onKonaklamaPrevArchive" 
+                 title="Önceki arşiv kaydı"
+               />
+               <q-btn 
+                 flat 
+                 round 
+                 dense 
+                 icon="navigate_next" 
+                 color="primary"
+                 @click="onKonaklamaNextArchive" 
+                 title="Sonraki arşiv kaydı"
+               />
+               <div :class="['text-caption q-ml-sm', $q.dark.isActive ? 'text-grey-4' : 'text-grey-7']">
+                 (Arşiv Modu)
+               </div>
+            </div>
+          </div>
+          <div class="col-auto column items-end q-gutter-xs">
+            <div class="text-subtitle2">Kayıt No: <span class="text-weight-bold">{{ selectedKonaklamaDetay?.KnklmNo }}</span></div>
+            <div :class="['text-caption', $q.dark.isActive ? 'text-grey-4' : 'text-grey-8']">
+              {{ selectedKonaklamaDetay?.KnklmKllnc }}
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-separator />
+
+        <q-card-section class="q-pt-sm q-pb-sm">
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-sm-4">
+              <div class="text-caption text-grey-6">KnklmTip</div>
+              <div class="text-body2 text-weight-medium">{{ konaklamaHesap?.tip || '-' }}</div>
+            </div>
+            <div class="col-12 col-sm-4">
+              <div class="text-caption text-grey-6">KnklmLfyt</div>
+              <div class="text-body2 text-weight-medium">{{ konaklamaHesap ? formatCurrency(konaklamaHesap.lfyt) : '-' }}</div>
+            </div>
+            <div class="col-12 col-sm-4">
+              <div class="text-caption text-grey-6">Knklmisk</div>
+              <div class="text-body2 text-weight-medium">{{ konaklamaHesap ? `${Number(konaklamaHesap.isk || 0).toFixed(2)}%` : '-' }}</div>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-separator />
+
+        <!-- Body -->
+        <q-card-section class="q-pt-md">
+          <div class="row q-col-gutter-lg">
+            <div :class="showKaynakIslemContainer ? 'col-12 col-md-6' : 'col-12'">
+              <div class="row q-col-gutter-md">
+                <!-- Planlanan Çıkış Tarihi -->
+                <div class="col-12 col-sm-6">
+                  <q-input 
+                    v-if="selectedKonaklamaDetay"
+                    v-model="selectedKonaklamaDetay.KnklmPlnTrh" 
+                    label="Planlanan Çıkış Tarihi" 
+                    outlined 
+                    dense
+                    :readonly="isKonaklamaArchiveMode"
+                  >
+                    <template v-slot:append>
+                      <q-icon name="event" class="cursor-pointer" v-if="!isKonaklamaArchiveMode">
+                        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                          <q-date 
+                            v-if="selectedKonaklamaDetay"
+                            v-model="selectedKonaklamaDetay.KnklmPlnTrh" 
+                            mask="DD.MM.YYYY"
+                            :options="(date) => {
+                              const rawMin = selectedKonaklamaDetay?.KnklmGrsTrh || selectedKonaklamaDetay?.kKytTarihi
+                              if (!rawMin || typeof rawMin !== 'string') return true
+                              const rawDatePart = rawMin.trim().slice(0, 10)
+                              const parts = rawDatePart.split('.')
+                              if (parts.length !== 3) return true
+                              const dd = parts[0] || ''
+                              const mm = parts[1] || ''
+                              const yyyy = parts[2] || ''
+                              const minDate = `${yyyy}/${mm.padStart(2, '0')}/${dd.padStart(2, '0')}`
+                              return date >= minDate
+                            }"
+                            :dark="$q.dark.isActive"
+                          >
+                            <div class="row items-center justify-end">
+                              <q-btn v-close-popup label="Kapat" color="primary" flat />
+                            </div>
+                          </q-date>
+                        </q-popup-proxy>
+                      </q-icon>
+                    </template>
+                  </q-input>
+                </div>
+
+                <!-- Konaklama Net Fiyatı -->
+                <div class="col-12 col-sm-6">
+                  <q-input 
+                    v-if="selectedKonaklamaDetay"
+                    v-model="selectedKonaklamaDetay.KnklmNfyt" 
+                    label="Konaklama Net Fiyatı" 
+                    type="number"
+                    outlined 
+                    dense
+                    :readonly="isKonaklamaArchiveMode"
+                    step="0.01"
+                  />
+                </div>
+
+                <div class="col-12">
+                  <q-input
+                    v-if="selectedKonaklamaDetay"
+                    v-model="selectedKonaklamaDetay.KnklmNot"
+                    label="Not"
+                    type="textarea"
+                    rows="3"
+                    outlined
+                    dense
+                    :readonly="isKonaklamaArchiveMode"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="showKaynakIslemContainer" class="col-12 col-md-6">
+              <div class="header-container q-mb-md">
+                <div class="row items-center q-gutter-md justify-end">
+                  <div class="text-h8 text-weight-bold q-mb-mx" style="text-align: left;">Kaydın, Kaynak İşlem Bilgileri</div>
+                  <div class="row items-center q-gutter-xs">
+                    <div class="text-subtitle2 text-weight-medium" style="line-height: 1;">Kayıt No:</div>
+                    <q-input
+                      v-model="kaynakKonaklamaDetay.KnklmNo"
+                      outlined
+                      dense
+                      readonly
+                      class="form-input readonly-field"
+                      style="min-width: 90px; max-width: 90px;"
+                    />
+                  </div>
+                  <div class="row items-center q-gutter-xs">
+                    <q-input
+                      v-model="kaynakKonaklamaDetay.KnklmKllnc"
+                      outlined
+                      dense
+                      readonly
+                      class="form-input readonly-field"
+                      style="min-width: 100px; max-width: 140px;"
+                      :style="{
+                        ...getKonaklamaFieldStyle('KnklmKllnc').style
+                      }"
+                      :class="getKonaklamaFieldStyle('KnklmKllnc').class"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="row q-col-gutter-md">
+                <div class="col-12 col-sm-6">
+                  <q-input
+                    v-model="kaynakKonaklamaDetay.kKytTarihi"
+                    label="Kayıt Tarihi"
+                    outlined
+                    dense
+                    readonly
+                    class="readonly-field"
+                    :style="getKonaklamaFieldStyle('kKytTarihi').style"
+                    :class="getKonaklamaFieldStyle('kKytTarihi').class"
+                  />
+                </div>
+
+                <div class="col-12 col-sm-6">
+                  <q-input
+                    v-model="kaynakKonaklamaDetay.KnklmGrsTrh"
+                    label="Giriş Tarihi"
+                    outlined
+                    dense
+                    readonly
+                    class="readonly-field"
+                    :style="getKonaklamaFieldStyle('KnklmGrsTrh').style"
+                    :class="getKonaklamaFieldStyle('KnklmGrsTrh').class"
+                  />
+                </div>
+
+                <div class="col-12 col-sm-6">
+                  <q-input
+                    v-model="kaynakKonaklamaDetay.KnklmPlnTrh"
+                    label="Planlanan Çıkış Tarihi"
+                    outlined
+                    dense
+                    readonly
+                    class="readonly-field"
+                    :style="getKonaklamaFieldStyle('KnklmPlnTrh').style"
+                    :class="getKonaklamaFieldStyle('KnklmPlnTrh').class"
+                  />
+                </div>
+
+                <div class="col-12 col-sm-6">
+                  <q-input
+                    v-model="kaynakKonaklamaDetay.KnklmNfyt"
+                    label="Konaklama Net Fiyatı"
+                    outlined
+                    dense
+                    readonly
+                    class="readonly-field"
+                    :style="getKonaklamaFieldStyle('KnklmNfyt').style"
+                    :class="getKonaklamaFieldStyle('KnklmNfyt').class"
+                  />
+                </div>
+
+                <div class="col-12">
+                  <q-input
+                    v-model="kaynakKonaklamaDetay.KnklmNot"
+                    label="Not"
+                    type="textarea"
+                    rows="3"
+                    outlined
+                    dense
+                    readonly
+                    class="readonly-field"
+                    :style="getKonaklamaFieldStyle('KnklmNot').style"
+                    :class="getKonaklamaFieldStyle('KnklmNot').class"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-separator />
+
+        <!-- Footer -->
+        <div class="bottom-container">
+          <q-card-actions align="center">
+            <q-btn 
+              label="Kaydet" 
+              color="primary" 
+              icon="save"
+              @click="() => executeSave(saveKonaklama)"
+              :disabled="isKonaklamaArchiveMode || isSaving"
+              :loading="isSaving"
+              class="q-mr-sm"
+            />
+            <q-btn 
+              label="Sil" 
+              color="negative" 
+              icon="delete"
+              @click="deleteKonaklama"
+              :disabled="isKonaklamaArchiveMode || showKaynakIslemContainer"
+              :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken silme işlemi yapılamaz' : 'Konaklamayı sil'"
+              class="q-mr-sm delete-btn"
+            />
+            <q-btn 
+              label="Vazgeç" 
+              color="grey" 
+              icon="close"
+              @click="closeKonaklamaForm"
+            />
+          </q-card-actions>
+          <q-card-actions align="center">
+            <q-btn
+              label="RESET" 
+              color="warning" 
+              icon="restore"
+              @click="resetKonaklama"
+              :disabled="!showKaynakIslemContainer || isKonaklamaArchiveMode"
+              :title="!showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür olmalıdır' : 'Konaklamayı orijinal verilerle RESETle'"
+              class="q-mr-sm"
+            />
+            <q-btn 
+              :label="isKonaklamaArchiveMode ? 'GERİ AL' : 'ARŞİV'" 
+              :color="isKonaklamaArchiveMode ? 'positive' : 'info'"
+              :icon="isKonaklamaArchiveMode ? 'restore' : 'archive'"
+              @click="onKonaklamaArchiveForm"
+              :disabled="showKaynakIslemContainer"
+              :title="showKaynakIslemContainer ? 'Kaynak işlem bilgileri görünür iken arşiv işlemi yapılamaz' : (isKonaklamaArchiveMode ? 'Arşiv kaydını geri yükle' : 'Arşiv Moduna Geç')"
+            />
+          </q-card-actions>
+        </div>
+      </q-card>
+    </div>
+  </q-dialog>
+
   </q-page>
 </template>
 
@@ -985,9 +1391,239 @@ interface IslemDetay {
   islemAltG: string;
   islemMiktar: number;
   islemTutar: number;
+  // Konaklama modu için ek alanlar
+  MstrAdi?: string;
+  KnklmPlnTrh?: string;
+  KnklmNfyt?: number;
+  KnklmNot?: string;
+  KnklmNo?: number;
+  KnklmKllnc?: string;
+  HasRst?: number | boolean;
 }
 
-  // Detay tablo PDF indirme
+interface IslemKonaklamaDetay {
+  KnklmNo: number;
+  kKytTarihi: string;
+  KnklmGrsTrh?: string;
+  KnklmPlnTrh: string;
+  KnklmNfyt: number;
+  KnklmLfyt?: number;
+  Knklmisk?: number;
+  KnklmTip?: string;
+  KnklmOdaTip?: string;
+  KnklmNot?: string;
+  KnklmMstrNo?: number;
+  MstrAdi?: string;
+  KnklmKllnc?: string;
+  HasRst?: number | boolean;
+}
+
+// 🆕 Detay Modu State
+const detailMode = ref<'cari' | 'konaklama'>('cari')
+
+// 🆕 Sol panel kilitleme durumu
+const isLeftPanelLocked = computed(() => detailMode.value === 'konaklama')
+
+const getDetailRowKey = (row: IslemDetay) => {
+  if (detailMode.value === 'konaklama') {
+    const knklmNo = Number((row as unknown as { KnklmNo?: unknown }).KnklmNo)
+    if (Number.isFinite(knklmNo) && knklmNo > 0) return knklmNo
+    const iKytTarihiRaw = (row as unknown as { iKytTarihi?: unknown }).iKytTarihi
+    const mstrAdiRaw = (row as unknown as { MstrAdi?: unknown }).MstrAdi
+    const iKytTarihi = typeof iKytTarihiRaw === 'string' ? iKytTarihiRaw : ''
+    const mstrAdi = typeof mstrAdiRaw === 'string' ? mstrAdiRaw : ''
+    return `${iKytTarihi}-${mstrAdi}`
+  }
+
+  const islemNo = Number(row.islemNo)
+  if (Number.isFinite(islemNo) && islemNo > 0) return islemNo
+  return `${row.iKytTarihi}-${row.islemAltG}-${row.islemTutar}`
+}
+
+const getKnklmNoFromRow = (row: unknown): number => {
+  const obj = row as Record<string, unknown> | null
+  if (!obj) return 0
+
+  const direct = [obj.KnklmNo, obj.knklmNo]
+  for (const raw of direct) {
+    const num = Number(raw)
+    if (Number.isFinite(num) && num > 0) return num
+  }
+
+  const key = Object.keys(obj).find((k) => k.toLocaleLowerCase('tr-TR') === 'knklmno')
+  if (key) {
+    const num = Number(obj[key])
+    if (Number.isFinite(num) && num > 0) return num
+  }
+
+  return 0
+}
+
+// 🆕 Konaklama modu sütun tanımları
+const konaklamaColumns: QTableColumn[] = [
+  {
+    name: 'iKytTarihi',
+    label: 'Tarih',
+    field: 'iKytTarihi',
+    align: 'left',
+    sortable: true,
+    style: 'width: 100px'
+  },
+  {
+    name: 'diff',
+    label: 'D.',
+    field: 'KnklmNo',
+    align: 'center',
+    sortable: true,
+    style: 'max-width: 40px'
+  },
+  {
+    name: 'MstrAdi',
+    label: 'Müşteri',
+    field: 'MstrAdi',
+    align: 'left',
+    sortable: true,
+    style: 'min-width: 200px; max-width: 250px;'
+  },
+  {
+    name: 'KnklmPlnTrh',
+    label: 'Pln.Çkş.',
+    field: 'KnklmPlnTrh',
+    align: 'left',
+    sortable: true,
+    style: 'width: 100px'
+  },
+  {
+    name: 'KnklmNfyt',
+    label: 'Tutar',
+    field: 'KnklmNfyt',
+    align: 'right',
+    sortable: true,
+    format: (val: number) => formatCurrency(val),
+    style: 'width: 100px'
+  },
+  {
+    name: 'KnklmNot',
+    label: 'Not',
+    field: 'KnklmNot',
+    align: 'left',
+    sortable: false,
+    style: 'min-width: 300px;'
+  },
+  {
+    name: 'KnklmNo',
+    label: 'K.No',
+    field: 'KnklmNo',
+    align: 'left',
+    sortable: true,
+    classes: 'hidden',
+    headerClasses: 'hidden'
+  },
+  {
+    name: 'KnklmKllnc',
+    label: 'K.Kullanıcı',
+    field: 'KnklmKllnc',
+    align: 'left',
+    sortable: true,
+    classes: 'hidden',
+    headerClasses: 'hidden'
+  }
+]
+
+// Cari modu sütun tanımları (Mevcut)
+const cariColumns: QTableColumn[] = [
+  {
+    name: 'iKytTarihi',
+    label: 'Tarih',
+    field: 'iKytTarihi',
+    align: 'left',
+    sortable: true,
+    style: 'width: 100px'
+  },
+  {
+    name: 'islemNo',
+    label: 'D.',
+    field: 'islemNo',
+    align: 'center',
+    sortable: true,
+    style: 'max-width: 40px'
+  },
+  {
+    name: 'islemAltG',
+    label: 'Cari Adı',
+    field: 'islemAltG',
+    align: 'left',
+    sortable: true,
+    style: 'min-width: 200px; max-width: 250px; word- wrap: break-word; white-space: normal;'
+  },
+  {
+    name: 'islemGrup',
+    label: 'Grup',
+    field: 'islemGrup',
+    align: 'left',
+    sortable: false,
+    style: 'width: 100px'
+  },
+  {
+    name: 'islemTutar',
+    label: 'Tutar',
+    field: 'islemTutar',
+    align: 'right',
+    sortable: true,
+    style: 'width: 100px'
+  },
+  {
+    name: 'islemBilgi',
+    label: 'Bilgi',
+    field: 'islemBilgi',
+    align: 'left',
+    sortable: false,
+    style: 'min-width:440px; max-width: 510px; word-wrap: break-word; white-space: normal;'
+  }
+]
+
+// Detay tablo sütunları (Computed)
+const detailColumns = computed(() => {
+  return detailMode.value === 'konaklama' ? konaklamaColumns : cariColumns
+})
+
+// 🆕 Mod değişikliği izleyici
+watch(detailMode, async (newMode) => {
+  if (newMode === 'konaklama') {
+    // Kasa işlemlerini Cari'ye zorla
+    selectedislemArac.value = 'cari'
+    // İkinci radio grubunu (Gelir/Gider) resetle veya varsayılan yap
+    // selectedislemTip.value = 'gelir' // İsteğe bağlı
+    defaultDetailSort.sortBy = 'KnklmNo'
+    defaultDetailSort.descending = true
+    detailPagination.value.sortBy = defaultDetailSort.sortBy
+    detailPagination.value.descending = defaultDetailSort.descending
+    rstIslemNoList.value = []
+    rstDifferences.value = {}
+    rstKnklmNoList.value = []
+    rstKonaklamaDifferences.value = {}
+  } else {
+    defaultDetailSort.sortBy = 'islemNo'
+    defaultDetailSort.descending = true
+    detailPagination.value.sortBy = defaultDetailSort.sortBy
+    detailPagination.value.descending = defaultDetailSort.descending
+    rstIslemNoList.value = []
+    rstDifferences.value = {}
+    rstKnklmNoList.value = []
+    rstKonaklamaDifferences.value = {}
+  }
+  
+  // Eğer tarih seçiliyse veriyi yeniden yükle
+  if (selectedDate.value) {
+    detailLoading.value = true
+    await loadDetailTableData(selectedDate.value)
+    detailLoading.value = false
+  } else {
+    // Veriyi temizle
+    allDetailTableData.value = []
+    detailTableData.value = []
+  }
+})
   async function downloadKasaDetayPDF() {
     try {
       kasaPdfLoading.value = true
@@ -1065,6 +1701,8 @@ const showKasaDevretDialog = ref(false)
 
 // İşlem detay form modal için
 const showIslemDetayDialog = ref(false)
+const detailDblClickRowKey = ref<string | number | null>(null)
+const detailDblClickRowEl = ref<HTMLTableRowElement | null>(null)
 
 // Kaynak işlem container görünürlüğü için
 const showKaynakIslemContainer = ref(false)
@@ -1082,8 +1720,194 @@ const islemDetayModalPos = reactive({ x: 0, y: 0 })
 const islemDetayModalDragging = ref(false)
 const islemDetayModalOffset = reactive({ x: 0, y: 0 })
 
+// 🆕 Konaklama Detay Modal State
+const showKonaklamaDetayDialog = ref(false)
+const selectedKonaklamaDetay = ref<IslemKonaklamaDetay | null>(null)
+const kaynakKonaklamaDetay = ref<IslemKonaklamaDetay>({
+  KnklmNo: 0,
+  kKytTarihi: '',
+  KnklmPlnTrh: '',
+  KnklmNfyt: 0,
+}) // RST'den gelen orijinal veri
+const currentKonaklamaArchiveRecord = ref<IslemKonaklamaDetay | null>(null)
+const isKonaklamaArchiveMode = ref(false)
+const konaklamaDetayModalRef = ref<HTMLElement | null>(null)
+const konaklamaDetayModalPos = reactive({ x: 0, y: 0 })
+const konaklamaDetayModalDragging = ref(false)
+const konaklamaDetayModalOffset = reactive({ x: 0, y: 0 })
+
+const konaklamaOdaTipFiyatlari = ref<{ OdLfytGun?: number; OdLfytHft?: number; OdLfytAyl?: number } | null>(null)
+
+const parseDateDDMMYYYY = (value: unknown): Date | null => {
+  if (!value || typeof value !== 'string') return null
+  const raw = value.trim().slice(0, 10)
+  const parts = raw.split('.').map(v => Number(v) || 0)
+  if (parts.length !== 3) return null
+  const [dd, mm, yyyy] = parts
+  if (!dd || !mm || !yyyy) return null
+  const d = new Date(yyyy, mm - 1, dd)
+  d.setHours(0, 0, 0, 0)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+const diffDays = (start: Date, end: Date): number => {
+  const ms = end.getTime() - start.getTime()
+  return Math.round(ms / (24 * 60 * 60 * 1000))
+}
+
+const konaklamaSureGun = computed<number | null>(() => {
+  const d = selectedKonaklamaDetay.value
+  if (!d) return null
+  const giris = parseDateDDMMYYYY(d.KnklmGrsTrh || d.kKytTarihi)
+  const cikis = parseDateDDMMYYYY(d.KnklmPlnTrh)
+  if (!giris || !cikis) return null
+  const days = diffDays(giris, cikis)
+  return days < 0 ? 0 : days
+})
+
+const hesaplaKonaklamaTipVeLfyt = (
+  sure: number,
+  fiyatlar: { OdLfytGun?: number; OdLfytHft?: number; OdLfytAyl?: number },
+): { tip: string; lfyt: number } => {
+  const gunlukFiyat = Number(fiyatlar.OdLfytGun) || 0
+  const haftalikFiyat = Number(fiyatlar.OdLfytHft) || 0
+  const aylikFiyat = Number(fiyatlar.OdLfytAyl) || 0
+
+  const safeSure = Math.max(0, Number.isFinite(sure) ? sure : 0)
+
+  let hesaplananTip = 'GÜNLÜK'
+  let hesaplananTutar = 0
+
+  if (safeSure <= 7 && safeSure * gunlukFiyat <= haftalikFiyat) {
+    hesaplananTip = 'GÜNLÜK'
+    hesaplananTutar = safeSure * gunlukFiyat
+  } else if (
+    safeSure > 7 &&
+    safeSure <= 14 &&
+    (safeSure - 7) * gunlukFiyat + haftalikFiyat <= 2 * haftalikFiyat
+  ) {
+    hesaplananTip = '1 HAFTALIK'
+    hesaplananTutar = (safeSure - 7) * gunlukFiyat + haftalikFiyat
+  } else if (
+    safeSure > 14 &&
+    safeSure <= 21 &&
+    (safeSure - 14) * gunlukFiyat + 2 * haftalikFiyat <= 3 * haftalikFiyat
+  ) {
+    hesaplananTip = '2 HAFTALIK'
+    hesaplananTutar = (safeSure - 14) * gunlukFiyat + 2 * haftalikFiyat
+  } else if (
+    safeSure > 21 &&
+    (safeSure - 21) * gunlukFiyat + 3 * haftalikFiyat <= aylikFiyat
+  ) {
+    hesaplananTip = '3 HAFTALIK'
+    hesaplananTutar = (safeSure - 21) * gunlukFiyat + 3 * haftalikFiyat
+  } else if (safeSure <= 7) {
+    hesaplananTip = '1 HAFTALIK'
+    hesaplananTutar = haftalikFiyat
+  } else if (safeSure <= 14) {
+    hesaplananTip = '2 HAFTALIK'
+    hesaplananTutar = 2 * haftalikFiyat
+  } else if (safeSure <= 21) {
+    hesaplananTip = '3 HAFTALIK'
+    hesaplananTutar = 3 * haftalikFiyat
+  } else {
+    hesaplananTip = 'AYLIK'
+    hesaplananTutar = aylikFiyat
+  }
+
+  let hesaplananFiyat = 0
+  if (safeSure === 0) {
+    hesaplananFiyat = gunlukFiyat * 1
+  } else if (hesaplananTip === 'GÜNLÜK') {
+    hesaplananFiyat = gunlukFiyat * safeSure
+  } else if (hesaplananTip === '1 HAFTALIK') {
+    hesaplananFiyat = safeSure > 7 ? (safeSure - 7) * gunlukFiyat + haftalikFiyat : haftalikFiyat
+  } else if (hesaplananTip === '2 HAFTALIK') {
+    hesaplananFiyat = safeSure > 14 ? (safeSure - 14) * gunlukFiyat + 2 * haftalikFiyat : 2 * haftalikFiyat
+  } else if (hesaplananTip === '3 HAFTALIK') {
+    hesaplananFiyat = safeSure > 21 ? (safeSure - 21) * gunlukFiyat + 3 * haftalikFiyat : 3 * haftalikFiyat
+  } else if (hesaplananTip === 'AYLIK') {
+    hesaplananFiyat = aylikFiyat
+  }
+
+  if (aylikFiyat > 0 && hesaplananFiyat > aylikFiyat) {
+    hesaplananTip = 'AYLIK'
+    hesaplananFiyat = aylikFiyat
+  } else if (aylikFiyat > 0 && hesaplananTutar > aylikFiyat) {
+    hesaplananTip = 'AYLIK'
+    hesaplananFiyat = aylikFiyat
+  }
+
+  hesaplananFiyat = Math.floor(hesaplananFiyat / 10) * 10
+
+  return { tip: hesaplananTip, lfyt: hesaplananFiyat }
+}
+
+const konaklamaHesap = computed(() => {
+  const d = selectedKonaklamaDetay.value
+  const sure = konaklamaSureGun.value
+  const fiyatlar = konaklamaOdaTipFiyatlari.value
+  if (!d || sure === null || !fiyatlar) return null
+
+  const { tip, lfyt } = hesaplaKonaklamaTipVeLfyt(sure, fiyatlar)
+  const nfyt = Number(d.KnklmNfyt) || 0
+  const isk = lfyt > 0 ? (1 - nfyt / lfyt) * 100 : 0
+
+  return {
+    sure,
+    tip,
+    lfyt,
+    isk,
+  }
+})
+
+watch(
+  () => selectedKonaklamaDetay.value?.KnklmOdaTip,
+  async (odaTipi) => {
+    if (!odaTipi) {
+      konaklamaOdaTipFiyatlari.value = null
+      return
+    }
+    try {
+      const response = await api.get('/musteri/oda-tip-fiyatlari', {
+        params: { odaTipi },
+      })
+      if (response.data?.success) {
+        konaklamaOdaTipFiyatlari.value = response.data.data || null
+      } else {
+        konaklamaOdaTipFiyatlari.value = null
+      }
+    } catch {
+      konaklamaOdaTipFiyatlari.value = null
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  konaklamaHesap,
+  (calc) => {
+    if (!calc) return
+    if (isKonaklamaArchiveMode.value) return
+    if (!selectedKonaklamaDetay.value) return
+    selectedKonaklamaDetay.value.KnklmTip = calc.tip
+    selectedKonaklamaDetay.value.KnklmLfyt = calc.lfyt
+    selectedKonaklamaDetay.value.Knklmisk = calc.isk
+  },
+  { immediate: true },
+)
+
 // Modal açıldığında otomatik olarak merkeze konumlandır
 watch(showIslemDetayDialog, (newValue) => {
+  if (!newValue) {
+    detailDblClickRowKey.value = null
+    if (detailDblClickRowEl.value) {
+      const tds = detailDblClickRowEl.value.querySelectorAll<HTMLElement>('td')
+      for (const td of tds) td.style.backgroundColor = ''
+      detailDblClickRowEl.value.classList.remove('detail-dblclick-selected-row')
+      detailDblClickRowEl.value = null
+    }
+  }
   if (newValue) {
     // Modal'ı ekranın merkezine konumlandır - dinamik genişlik kullan
     const currentWidth = modalWidth.value;
@@ -1237,6 +2061,18 @@ watch(showIslemDetayDialog, (newValue) => {
   }
 })
 
+watch(showKonaklamaDetayDialog, (newValue) => {
+  if (!newValue) {
+    detailDblClickRowKey.value = null
+    if (detailDblClickRowEl.value) {
+      const tds = detailDblClickRowEl.value.querySelectorAll<HTMLElement>('td')
+      for (const td of tds) td.style.backgroundColor = ''
+      detailDblClickRowEl.value.classList.remove('detail-dblclick-selected-row')
+      detailDblClickRowEl.value = null
+    }
+  }
+})
+
 // showKaynakIslemContainer değiştiğinde modal genişliğini güncelle ve yeniden konumlandır
 watch(showKaynakIslemContainer, () => {
   if (showIslemDetayDialog.value) {
@@ -1325,6 +2161,13 @@ const islemDetayModalStyle = computed(() => {
   // Modal açıkken her zaman pozisyonu uygula
   if (showIslemDetayDialog.value) {
     return `position: fixed; left: ${islemDetayModalPos.x}px; top: ${islemDetayModalPos.y}px; z-index: 9999;`;
+  }
+  return '';
+})
+
+const konaklamaDetayModalStyle = computed(() => {
+  if (showKonaklamaDetayDialog.value) {
+    return `position: fixed; left: ${konaklamaDetayModalPos.x}px; top: ${konaklamaDetayModalPos.y}px; z-index: 9999;`;
   }
   return '';
 })
@@ -1427,6 +2270,84 @@ function onIslemDetayDragMove(e: MouseEvent | TouchEvent) {
   
   islemDetayModalPos.x = Math.max(0, Math.min(newX, maxX));
   islemDetayModalPos.y = Math.max(0, Math.min(newY, maxY));
+}
+
+watch(showKonaklamaDetayDialog, async (newValue) => {
+  if (!newValue) return
+  await nextTick()
+  const w = 600
+  const h = konaklamaDetayModalRef.value?.offsetHeight || 600
+  konaklamaDetayModalPos.x = Math.max(0, (window.innerWidth - w) / 2)
+  konaklamaDetayModalPos.y = Math.max(0, (window.innerHeight - h) / 2)
+})
+
+function onKonaklamaDetayDragStart(e: MouseEvent | TouchEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  konaklamaDetayModalDragging.value = true
+
+  let clientX = 0
+  let clientY = 0
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+    document.addEventListener('mousemove', onKonaklamaDetayDragMove)
+    document.addEventListener('mouseup', onKonaklamaDetayDragEnd)
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    }
+    document.addEventListener('touchmove', onKonaklamaDetayDragMove, { passive: false } as AddEventListenerOptions)
+    document.addEventListener('touchend', onKonaklamaDetayDragEnd)
+  }
+
+  const modalElement = konaklamaDetayModalRef.value
+  if (modalElement) {
+    const rect = modalElement.getBoundingClientRect()
+    konaklamaDetayModalOffset.x = clientX - rect.left
+    konaklamaDetayModalOffset.y = clientY - rect.top
+  } else {
+    konaklamaDetayModalOffset.x = clientX - konaklamaDetayModalPos.x
+    konaklamaDetayModalOffset.y = clientY - konaklamaDetayModalPos.y
+  }
+}
+
+function onKonaklamaDetayDragMove(e: MouseEvent | TouchEvent) {
+  if (!konaklamaDetayModalDragging.value) return
+  e.preventDefault()
+  e.stopPropagation()
+
+  let clientX = 0
+  let clientY = 0
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    }
+  }
+
+  const modalEl = konaklamaDetayModalRef.value
+  const modalW = modalEl?.offsetWidth || 600
+  const modalH = modalEl?.offsetHeight || 600
+  const maxX = Math.max(0, window.innerWidth - modalW)
+  const maxY = Math.max(0, window.innerHeight - modalH)
+
+  konaklamaDetayModalPos.x = Math.min(maxX, Math.max(0, clientX - konaklamaDetayModalOffset.x))
+  konaklamaDetayModalPos.y = Math.min(maxY, Math.max(0, clientY - konaklamaDetayModalOffset.y))
+}
+
+function onKonaklamaDetayDragEnd(e: MouseEvent | TouchEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  konaklamaDetayModalDragging.value = false
+  document.removeEventListener('mousemove', onKonaklamaDetayDragMove)
+  document.removeEventListener('mouseup', onKonaklamaDetayDragEnd)
+  document.removeEventListener('touchmove', onKonaklamaDetayDragMove)
+  document.removeEventListener('touchend', onKonaklamaDetayDragEnd)
 }
 
 function onIslemDetayDragEnd() {
@@ -1758,7 +2679,24 @@ const customSort = (rows: readonly IslemDetay[], sortBy: string, descending: boo
   const data = [...rows]
   
   // Eğer RST kayıtları varsa, özel sıralama uygula
-  if (rstIslemNoList.value.length > 0) {
+  if (detailMode.value === 'konaklama' && rstKnklmNoList.value.length > 0) {
+    data.sort((a, b) => {
+      const aNo = getKnklmNoFromRow(a)
+      const bNo = getKnklmNoFromRow(b)
+
+      const aIsRst = rstKnklmNoList.value.includes(aNo)
+      const bIsRst = rstKnklmNoList.value.includes(bNo)
+
+      if (aIsRst !== bIsRst) {
+        return aIsRst ? -1 : 1
+      }
+
+      return bNo - aNo
+    })
+    return data
+  }
+
+  if (detailMode.value !== 'konaklama' && rstIslemNoList.value.length > 0) {
     data.sort((a, b) => {
       const aIsRst = rstIslemNoList.value.includes(a.islemNo);
       const bIsRst = rstIslemNoList.value.includes(b.islemNo);
@@ -1919,6 +2857,41 @@ const onDetailRowDblClick = async (evt: Event, row: IslemDetay) => {
     });
     return;
   }
+
+  if (detailDblClickRowEl.value) {
+    const tds = detailDblClickRowEl.value.querySelectorAll<HTMLElement>('td')
+    for (const td of tds) td.style.backgroundColor = ''
+    detailDblClickRowEl.value.classList.remove('detail-dblclick-selected-row')
+    detailDblClickRowEl.value = null
+  }
+  const tr = (evt.target as HTMLElement | null)?.closest('tr') as HTMLTableRowElement | null
+  if (tr) {
+    const isDark = document.body.classList.contains('body--dark')
+    const bg = isDark ? 'rgba(66, 165, 245, 0.3)' : 'rgba(25, 118, 210, 0.18)'
+    tr.classList.add('detail-dblclick-selected-row')
+    const tds = tr.querySelectorAll<HTMLElement>('td')
+    for (const td of tds) td.style.backgroundColor = bg
+    detailDblClickRowEl.value = tr
+  }
+
+  detailDblClickRowKey.value = getDetailRowKey(row)
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 80))
+
+  if (detailMode.value === 'konaklama') {
+    const knklmNo = getKnklmNoFromRow(row)
+    if (!Number.isFinite(knklmNo) || knklmNo <= 0) {
+      Notify.create({ type: 'negative', message: 'Konaklama kaydı bulunamadı', position: 'top' })
+      return
+    }
+    const obj = row as unknown as Record<string, unknown>
+    const hasRstRaw = obj?.HasRst
+    const hasRst =
+      rstKnklmNoList.value.includes(knklmNo) || hasRstRaw === true || hasRstRaw === 1 || hasRstRaw === '1'
+    showKaynakIslemContainer.value = hasRst
+    await loadKonaklamaDetay(knklmNo)
+    return
+  }
   
   try {
     // Önce tblislemRST tablosunda islemNo kontrolü yap
@@ -2043,6 +3016,12 @@ const onDetailRowDblClick = async (evt: Event, row: IslemDetay) => {
       position: 'top'
     })
   }
+}
+
+const onKonaklamaDiffIconDblClick = async (knklmNo: number) => {
+  if (!Number.isFinite(knklmNo) || knklmNo <= 0) return
+  showKaynakIslemContainer.value = true
+  await loadKonaklamaDetay(knklmNo)
 }
 
 // Kaydet butonu event handler
@@ -2185,6 +3164,266 @@ const onKaydet = async () => {
       message: `Kaydetme hatası: ${errorMessage}`,
       position: 'top'
     })
+  }
+}
+
+// 🆕 Konaklama Detay Yükleme Fonksiyonu
+const loadKonaklamaDetay = async (id: number) => {
+  const fallbackCopy = (data: unknown) => {
+    if (data && typeof data === 'object') return { ...(data as Record<string, unknown>) }
+    return null
+  }
+
+  try {
+    const response = await $api.get(`/islem/konaklama/${id}`)
+    if (!response.data.success || !response.data.data) {
+      Notify.create({ type: 'negative', message: 'Konaklama detayı getirilemedi', position: 'top' })
+      return
+    }
+
+    selectedKonaklamaDetay.value = response.data.data
+    const fallback = fallbackCopy(response.data.data) as IslemKonaklamaDetay | null
+    if (fallback) {
+      kaynakKonaklamaDetay.value = fallback
+    } else {
+      kaynakKonaklamaDetay.value = {
+        KnklmNo: 0,
+        kKytTarihi: '',
+        KnklmPlnTrh: '',
+        KnklmNfyt: 0,
+      }
+    }
+
+    try {
+      const rstCheckResponse = await $api.get(`/islem/konaklama/rst-kontrol/${id}`)
+      const existsInRST = Boolean(rstCheckResponse.data?.success && rstCheckResponse.data?.exists)
+
+      if (!existsInRST) {
+        await $api.post('/islem/konaklama/rst-aktar', { id })
+      }
+
+      const rstResponse = await $api.get(`/islem/konaklama/rst-detay/${id}`)
+      if (rstResponse.data?.success && rstResponse.data?.data) {
+        kaynakKonaklamaDetay.value = rstResponse.data.data
+      }
+    } catch (rstError) {
+      console.error('Konaklama RST akışı hatası:', rstError)
+      Notify.create({ type: 'warning', message: 'Konaklama RST yedeği oluşturulamadı', position: 'top' })
+    }
+
+    showKonaklamaDetayDialog.value = true
+  } catch (error) {
+    console.error('Konaklama detay yükleme hatası:', error)
+    Notify.create({ type: 'negative', message: 'Detay yüklenirken hata oluştu' })
+  }
+}
+
+// 🆕 Konaklama Kaydetme Fonksiyonu
+const saveKonaklama = async () => {
+  if (!selectedKonaklamaDetay.value) return
+  
+  try {
+    const username = localStorage.getItem('username') || 'Bilinmeyen Kullanıcı'
+    const updateData = {
+      KnklmPlnTrh: selectedKonaklamaDetay.value.KnklmPlnTrh,
+      KnklmNfyt: Number(selectedKonaklamaDetay.value.KnklmNfyt),
+      KnklmLfyt: Number(selectedKonaklamaDetay.value.KnklmLfyt ?? 0),
+      KnklmTip: selectedKonaklamaDetay.value.KnklmTip || 'GÜNLÜK',
+      KnklmNot: selectedKonaklamaDetay.value.KnklmNot ?? '',
+      KnklmKllnc: username,
+    }
+    
+    const response = await api.put(`/islem/konaklama/guncelle/${selectedKonaklamaDetay.value.KnklmNo}`, updateData)
+    
+    if (response.data.success) {
+      Notify.create({ type: 'positive', message: 'Konaklama güncellendi' })
+      showKaynakIslemContainer.value = false
+      showKonaklamaDetayDialog.value = false
+      // Tabloyu yenile
+      if (selectedDate.value) await loadDetailTableData(selectedDate.value)
+    } else {
+      Notify.create({ type: 'negative', message: 'Güncelleme başarısız: ' + response.data.message })
+    }
+  } catch (error) {
+    console.error('Konaklama kaydetme hatası:', error)
+    Notify.create({ type: 'negative', message: 'Kaydetme sırasında hata oluştu' })
+  }
+}
+
+// 🆕 Konaklama Silme Fonksiyonu
+const deleteKonaklama = async () => {
+  if (!selectedKonaklamaDetay.value) return
+  
+  try {
+    const response = await api.delete(`/islem/konaklama/sil/${selectedKonaklamaDetay.value.KnklmNo}`)
+    
+    if (response.data.success) {
+      Notify.create({ type: 'positive', message: 'Konaklama silindi' })
+      showKaynakIslemContainer.value = false
+      showKonaklamaDetayDialog.value = false
+      if (selectedDate.value) await loadDetailTableData(selectedDate.value)
+    } else {
+      Notify.create({ type: 'negative', message: 'Silme başarısız' })
+    }
+  } catch {
+    Notify.create({ type: 'negative', message: 'Silme sırasında hata oluştu' })
+  }
+}
+
+const resetKonaklama = async () => {
+  if (isKonaklamaArchiveMode.value) return
+  if (!showKaynakIslemContainer.value) return
+  if (!selectedKonaklamaDetay.value?.KnklmNo) return
+
+  try {
+    const response = await api.post('/islem/konaklama/rst-reset', {
+      id: selectedKonaklamaDetay.value.KnklmNo,
+    })
+
+    if (response.data.success) {
+      try {
+        await api.delete(
+          `/islem/konaklama/rst-sil/${selectedKonaklamaDetay.value.KnklmNo}`,
+        )
+      } catch (rstDeleteError) {
+        void rstDeleteError
+      }
+
+      Notify.create({ type: 'positive', message: 'Konaklama başarıyla reset edildi' })
+      showKonaklamaDetayDialog.value = false
+      showKaynakIslemContainer.value = false
+      if (selectedDate.value) await loadDetailTableData(selectedDate.value)
+    } else {
+      Notify.create({
+        type: 'negative',
+        message: 'Reset başarısız: ' + (response.data.message || ''),
+      })
+    }
+  } catch (error) {
+    console.error('Konaklama reset hatası:', error)
+    Notify.create({ type: 'negative', message: 'Reset sırasında hata oluştu' })
+  }
+}
+
+// 🆕 Konaklama Arşiv Modu
+const onKonaklamaArchiveForm = async () => {
+  try {
+    // Mevcut kaydı RST'den sil (Vazgeç mantığı gibi veya temizlik)
+    if (selectedKonaklamaDetay.value?.KnklmNo) {
+       await api.delete(`/islem/konaklama/rst-sil/${selectedKonaklamaDetay.value.KnklmNo}`)
+    }
+
+    if (!isKonaklamaArchiveMode.value) {
+      // Arşiv moduna geç
+      const response = await api.get('/islem/konaklama/arv-en-buyuk')
+      if (response.data.success && response.data.sonuc) {
+        isKonaklamaArchiveMode.value = true
+        currentKonaklamaArchiveRecord.value = response.data.sonuc
+        selectedKonaklamaDetay.value = response.data.sonuc // Formu doldur
+      } else {
+        Notify.create({ type: 'warning', message: 'Arşiv kaydı bulunamadı' })
+      }
+    } else {
+      // Arşivden çık (Geri Yükle)
+      if (currentKonaklamaArchiveRecord.value) {
+        const response = await api.post('/islem/konaklama/arv-geri-yukle', { id: currentKonaklamaArchiveRecord.value.KnklmNo })
+        if (response.data.success) {
+           Notify.create({ type: 'positive', message: 'Arşiv kaydı geri yüklendi' })
+           showKonaklamaDetayDialog.value = false
+           if (selectedDate.value) await loadDetailTableData(selectedDate.value)
+        }
+      }
+      isKonaklamaArchiveMode.value = false
+    }
+  } catch {
+    Notify.create({ type: 'negative', message: 'Arşiv işlemi hatası' })
+  }
+}
+
+// 🆕 Konaklama Önceki Arşiv Kaydı
+const onKonaklamaPrevArchive = async () => {
+  if (!currentKonaklamaArchiveRecord.value) return
+  try {
+    const response = await api.get(`/islem/konaklama/arv-onceki/${currentKonaklamaArchiveRecord.value.KnklmNo}`)
+    if (response.data.success && response.data.sonuc) {
+      currentKonaklamaArchiveRecord.value = response.data.sonuc
+      selectedKonaklamaDetay.value = response.data.sonuc
+      Notify.create({ type: 'positive', message: `Önceki kayıt: ${response.data.sonuc.KnklmNo}` })
+    } else {
+      Notify.create({ type: 'info', message: 'Daha önceki kayıt yok' })
+    }
+  } catch {
+     Notify.create({ type: 'negative', message: 'Hata oluştu' })
+  }
+}
+
+const onKonaklamaNextArchive = async () => {
+  if (!currentKonaklamaArchiveRecord.value) return
+  try {
+    const response = await api.get(
+      `/islem/konaklama/arv-sonraki/${currentKonaklamaArchiveRecord.value.KnklmNo}`,
+    )
+    if (response.data.success && response.data.sonuc) {
+      currentKonaklamaArchiveRecord.value = response.data.sonuc
+      selectedKonaklamaDetay.value = response.data.sonuc
+      Notify.create({
+        type: 'positive',
+        message: `Sonraki kayıt: ${response.data.sonuc.KnklmNo}`,
+      })
+    } else {
+      Notify.create({ type: 'info', message: 'Daha sonraki kayıt yok' })
+    }
+  } catch {
+    Notify.create({ type: 'negative', message: 'Hata oluştu' })
+  }
+}
+
+const checkForKonaklamaChanges = (): boolean => {
+  if (!selectedKonaklamaDetay.value) return false
+
+  const current = selectedKonaklamaDetay.value as unknown as Record<string, unknown>
+  const original = kaynakKonaklamaDetay.value as unknown as Record<string, unknown>
+
+  const fieldsToCompare = [
+    'kKytTarihi',
+    'KnklmKllnc',
+    'KnklmMstrNo',
+    'KnklmGrsTrh',
+    'KnklmPlnTrh',
+    'KnklmNfyt',
+    'KnklmLfyt',
+    'Knklmisk',
+    'KnklmTip',
+    'KnklmNot'
+  ]
+
+  const toNormalized = (v: unknown): string => normalizeValue(v)
+
+  for (const field of fieldsToCompare) {
+    const normalizedCurrent = toNormalized(current[field])
+    const normalizedOriginal = toNormalized(original[field])
+    if (normalizedCurrent !== normalizedOriginal) return true
+  }
+
+  return false
+}
+
+// 🆕 Konaklama Form Kapatma
+const closeKonaklamaForm = async () => {
+  try {
+    if (selectedKonaklamaDetay.value?.KnklmNo && !isKonaklamaArchiveMode.value) {
+      const hasChanges = checkForKonaklamaChanges()
+      if (!hasChanges) {
+        await api.delete(`/islem/konaklama/rst-sil/${selectedKonaklamaDetay.value.KnklmNo}`)
+        await loadKonaklamaRstKnklmNoList()
+        updateDetailTableData()
+      }
+    }
+  } finally {
+    showKonaklamaDetayDialog.value = false
+    isKonaklamaArchiveMode.value = false
+    currentKonaklamaArchiveRecord.value = null
+    showKaynakIslemContainer.value = false
   }
 }
 
@@ -2431,12 +3670,21 @@ const onArchiveForm = async () => {
   }
 }
 
-// Değerleri normalize eden yardımcı fonksiyon
-const normalizeValue = (value: string | number | null | undefined) => {
+const normalizeValue = (value: unknown) => {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value.trim()
-  if (typeof value === 'number') return value.toString()
-  return String(value)
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toString() : ''
+  if (typeof value === 'boolean') return value ? '1' : '0'
+  if (typeof value === 'bigint') return value.toString()
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return ''
+    }
+  }
+  return ''
 }
 
 // Değişiklik kontrolü yapan fonksiyon
@@ -2700,57 +3948,7 @@ const closeBothForms = async () => {
   }
 }
 
-// Detay tablo sütunları
-const detailColumns: QTableColumn[] = [
-  {
-    name: 'iKytTarihi',
-    label: 'Tarih',
-    field: 'iKytTarihi',
-    align: 'left',
-    sortable: true,
-    style: 'width: 100px'
-  },
-          {
-          name: 'islemNo',
-          label: 'D.',
-          field: 'islemNo',
-          align: 'center',
-          sortable: true,
-          style: 'max-width: 40px'
-  },
-  {
-    name: 'islemAltG',
-    label: 'Cari Adı',
-    field: 'islemAltG',
-    align: 'left',
-    sortable: true,
-    style: 'min-width: 200px; max-width: 250px; word- wrap: break-word; white-space: normal;'
-  },
-  {
-    name: 'islemGrup',
-    label: 'Grup',
-    field: 'islemGrup',
-    align: 'left',
-    sortable: false,
-    style: 'width: 100px'
-  },
-  {
-    name: 'islemTutar',
-    label: 'Tutar',
-    field: 'islemTutar',
-    align: 'right',
-    sortable: true,
-    style: 'width: 100px'
-  },
-  {
-    name: 'islemBilgi',
-    label: 'Bilgi',
-    field: 'islemBilgi',
-    align: 'left',
-    sortable: false,
-    style: 'min-width:440px; max-width: 510px; word-wrap: break-word; white-space: normal;'
-  }
-]
+
 
 // Computed properties for dynamic labels
 const firstOptionLabel = computed(() => {
@@ -2841,6 +4039,26 @@ const loadDetailTableData = async (tarih: string) => {
   try {
     debugLog('🔍 Detay tablo verisi yükleniyor...')
     debugLog('🔍 Seçilen tarih:', tarih)
+    
+    // 🆕 KONAKLAMA MODU KONTROLÜ
+    if (detailMode.value === 'konaklama') {
+       debugLog('🔍 Konaklama detay verisi yükleniyor...')
+       const response = await $api.get('/islem/konaklama-detay', {
+         params: { tarih: tarih }
+       })
+       
+       const result = response.data
+       if (result.success) {
+         allDetailTableData.value = result.data || []
+         await loadKonaklamaRstKnklmNoList()
+         updateDetailTableData()
+       } else {
+         allDetailTableData.value = []
+         detailTableData.value = []
+       }
+       return
+    }
+
     debugLog('🔍 Seçilen işlem türü:', selectedislemArac.value)
     debugLog('🔍 Seçilen işlem yönü:', islemTipForApi.value)
     debugLog('🔍 API URL:', '/islem/detay-islemler')
@@ -3494,6 +4712,32 @@ const getFieldStyle = (fieldName: string) => {
   return { style: {}, class: '' }
 }
 
+const getKonaklamaFieldStyle = (fieldName: string): { style: Record<string, string>; class: string } => {
+  if (!showKaynakIslemContainer.value || isKonaklamaArchiveMode.value) {
+    return { style: {}, class: '' }
+  }
+
+  const leftRaw = (selectedKonaklamaDetay.value as unknown as Record<string, unknown> | null)?.[fieldName]
+  const rightRaw = (kaynakKonaklamaDetay.value as unknown as Record<string, unknown> | null)?.[fieldName]
+
+  const toNormalized = (v: unknown): string => normalizeValue(v)
+
+  const normalizedLeft = toNormalized(leftRaw)
+  const normalizedRight = toNormalized(rightRaw)
+
+  if (normalizedLeft !== normalizedRight) {
+    return {
+      style: {
+        'background-color': '#fff3cd',
+        'color': '#000000',
+        'font-weight': '500'
+      },
+      class: 'yellow-background-field'
+    }
+  }
+  return { style: {}, class: '' }
+}
+
 // Date picker'dan tarih seçildiğinde popup'ı otomatik kapat
 const onDateSelected = (date: string) => {
   console.log('🔍 Tarih seçildi:', date);
@@ -3515,6 +4759,14 @@ const rstLoading = ref(false)
 
 // RST farkları için ref
 const rstDifferences = ref<Record<number, Array<{
+  fieldName: string
+  originalValue: string
+  changedValue: string
+}>>>({})
+
+const rstKnklmNoList = ref<number[]>([])
+
+const rstKonaklamaDifferences = ref<Record<number, Array<{
   fieldName: string
   originalValue: string
   changedValue: string
@@ -3735,6 +4987,149 @@ const fallbackRstCheck = async (): Promise<number[]> => {
   return rstList
 }
 
+const loadKonaklamaRstKnklmNoList = async () => {
+  try {
+    console.log('🔍 Konaklama RST kayıtları kontrol ediliyor...')
+
+    if (allDetailTableData.value.length === 0) {
+      rstKnklmNoList.value = []
+      return
+    }
+
+    const hasHasRstFlag = allDetailTableData.value.some((row) => {
+      if (!row || typeof row !== 'object') return false
+      return 'HasRst' in (row as Record<string, unknown>)
+    })
+
+    if (hasHasRstFlag) {
+      const fromRows = allDetailTableData.value
+        .filter((row) => {
+          const obj = row as Record<string, unknown>
+          const v = obj?.HasRst
+          return v === true || v === 1 || v === '1'
+        })
+        .map((row) => getKnklmNoFromRow(row))
+        .filter((no) => no > 0)
+
+      rstKnklmNoList.value = Array.from(new Set(fromRows)).sort((a, b) => a - b)
+      return
+    }
+
+    const detailKnklmNoList = allDetailTableData.value
+      .map(row => getKnklmNoFromRow(row))
+      .filter(no => no > 0)
+
+    if (detailKnklmNoList.length === 0) {
+      rstKnklmNoList.value = []
+      return
+    }
+
+    const response = await $api.get('/islem/konaklama/rst-records-all')
+    if (!response.data?.success) {
+      rstKnklmNoList.value = []
+      return
+    }
+
+    const allRst = response.data.data as Array<{ KnklmNo?: unknown; Onay?: unknown }>
+    const matched = (allRst || [])
+      .map(r => Number(r?.KnklmNo))
+      .filter(no => Number.isFinite(no) && detailKnklmNoList.includes(no))
+
+    const unique = Array.from(new Set(matched))
+    let newList = unique.sort((a, b) => a - b)
+
+    if (newList.length === 0) {
+      const found: number[] = []
+      const concurrency = 10
+      for (let i = 0; i < detailKnklmNoList.length; i += concurrency) {
+        const chunk = detailKnklmNoList.slice(i, i + concurrency)
+        const results = await Promise.all(
+          chunk.map(async (id) => {
+            try {
+              const r = await $api.get(`/islem/konaklama/rst-kontrol/${id}`)
+              return r?.data?.success && r?.data?.exists ? id : 0
+            } catch {
+              return 0
+            }
+          }),
+        )
+        for (const id of results) {
+          if (id > 0) found.push(id)
+        }
+      }
+      newList = Array.from(new Set(found)).sort((a, b) => a - b)
+    }
+
+    const currentList = [...rstKnklmNoList.value].sort((a, b) => a - b)
+
+    if (JSON.stringify(newList) !== JSON.stringify(currentList)) {
+      rstKnklmNoList.value = newList
+      await nextTick()
+    }
+  } catch (error) {
+    console.error('❌ Konaklama RST kontrol hatası:', error)
+    rstKnklmNoList.value = []
+  }
+}
+
+const getKonaklamaRstDifferences = async (knklmNo: number) => {
+  try {
+    const rstCheckResponse = await $api.get(`/islem/konaklama/rst-kontrol/${knklmNo}`)
+    if (!rstCheckResponse.data?.success || !rstCheckResponse.data?.exists) return null
+
+    const rstResponse = await $api.get(`/islem/konaklama/rst-detay/${knklmNo}`)
+    if (!rstResponse.data?.success) return null
+    const originalRecord = rstResponse.data.data
+
+    const currentResponse = await $api.get(`/islem/konaklama/${knklmNo}`)
+    if (!currentResponse.data?.success) return null
+    const currentRecord = currentResponse.data.data
+
+    const differences: Array<{ fieldName: string; originalValue: string; changedValue: string }> = []
+
+    const fieldsToCompare: Array<{ key: string; displayName: string }> = [
+      { key: 'kKytTarihi', displayName: 'Kayıt Tarihi' },
+      { key: 'KnklmKllnc', displayName: 'Kullanıcı' },
+      { key: 'KnklmMstrNo', displayName: 'Müşteri No' },
+      { key: 'KnklmGrsTrh', displayName: 'Giriş Tarihi' },
+      { key: 'KnklmPlnTrh', displayName: 'Planlanan Çıkış' },
+      { key: 'KnklmNfyt', displayName: 'Net Fiyat' },
+      { key: 'KnklmLfyt', displayName: 'Liste Fiyat' },
+      { key: 'Knklmisk', displayName: 'İskonto' },
+      { key: 'KnklmNot', displayName: 'Not' }
+    ]
+
+    fieldsToCompare.forEach(field => {
+      const originalValue = originalRecord?.[field.key]
+      const currentValue = currentRecord?.[field.key]
+
+      const normalizedOriginal = normalizeValue(originalValue)
+      const normalizedCurrent = normalizeValue(currentValue)
+
+      if (normalizedOriginal !== normalizedCurrent) {
+        differences.push({
+          fieldName: field.displayName,
+          originalValue: normalizeValue(originalValue),
+          changedValue: normalizeValue(currentValue)
+        })
+      }
+    })
+
+    return differences
+  } catch (error) {
+    console.error('❌ Konaklama fark bilgileri alınırken hata:', error)
+    return null
+  }
+}
+
+const loadKonaklamaDifferencesOnHover = async (knklmNo: number) => {
+  if (rstKonaklamaDifferences.value[knklmNo]) return
+  const differences = await getKonaklamaRstDifferences(knklmNo)
+  if (differences) {
+    rstKonaklamaDifferences.value[knklmNo] = differences
+  }
+}
+
 // tblislemRST ve tblislem arasındaki farkları getir
 const getRstDifferences = async (islemNo: number) => {
   try {
@@ -3805,8 +5200,8 @@ const getRstDifferences = async (islemNo: number) => {
       if (normalizedOriginal !== normalizedCurrent) {
         differences.push({
           fieldName: field.displayName,
-          originalValue: String(originalValue || ''),
-          changedValue: String(currentValue || '')
+          originalValue: normalizeValue(originalValue),
+          changedValue: normalizeValue(currentValue)
         })
       }
     })
@@ -3832,30 +5227,45 @@ const showRstDifferences = async () => {
     rstLoading.value = true
     console.log('🔍 Manuel RST tarama başlatılıyor...')
     
-    // Mevcut detay tablo verilerini kullanarak RST taraması yap
-    await loadRstIslemNoList()
+    if (detailMode.value === 'konaklama') {
+      if (selectedDate.value && allDetailTableData.value.length === 0) {
+        await loadDetailTableData(selectedDate.value)
+      }
+      await loadKonaklamaRstKnklmNoList()
+    } else {
+      await loadRstIslemNoList()
+    }
     
-    if (allDetailTableData.value.length > 0 && rstIslemNoList.value.length > 0) {
+    const hasAny =
+      detailMode.value === 'konaklama'
+        ? rstKnklmNoList.value.length > 0
+        : rstIslemNoList.value.length > 0
+
+    if (allDetailTableData.value.length > 0 && hasAny) {
       // Tablo verilerini güncelle (customSort otomatik olarak RST-first sıralama yapacak)
       updateDetailTableData()
       
       // Highlighting uygula
       await nextTick()
-      applyDirectHighlighting()
+      if (detailMode.value !== 'konaklama') {
+        applyDirectHighlighting()
+      }
       
       console.log('✅ RST tarama tamamlandı ve veriler sıralandı')
       
       // Kullanıcıya bilgi ver
         Notify.create({ 
           type: 'positive', 
-          message: `${rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
+          message: `${detailMode.value === 'konaklama' ? rstKnklmNoList.value.length : rstIslemNoList.value.length} adet değişen kayıt bulundu ve liste güncellendi.` 
         })
       } else {
         Notify.create({ 
           type: 'info', 
-          message: 'Değişen kayıt bulunamadı.' 
+          message: allDetailTableData.value.length === 0
+            ? 'Detay listesinde kayıt bulunamadı.'
+            : 'Değişen kayıt bulunamadı.' 
         })
-    }
+      }
   } catch (error) {
     console.error('❌ RST tarama hatası:', error)
     Notify.create({ 
@@ -3946,14 +5356,25 @@ const applyDirectHighlighting = () => {
 
 
 // Highlighting için daha stabil row class fonksiyonu
-const getStableRowClass = (props: { row: IslemDetay }) => {
-  // Artık sadece sol kenar çizgisi için kullanılıyor
-  const isHighlighted = rstIslemNoList.value.includes(props.row.islemNo)
-  if (isHighlighted) {
-    console.log(`🎨 Row class applied for islemNo ${props.row.islemNo}: rst-row-with-marker`)
-    return 'rst-row-with-marker'
+const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
+  const row = (rowOrProps as { row?: IslemDetay })?.row ?? (rowOrProps as IslemDetay)
+  const classes: string[] = []
+
+  const rowKey = getDetailRowKey(row)
+  if (detailDblClickRowKey.value != null && rowKey === detailDblClickRowKey.value) {
+    classes.push('detail-dblclick-selected-row')
   }
-  return ''
+
+  const isHighlighted =
+    detailMode.value === 'konaklama'
+      ? rstKnklmNoList.value.includes(getKnklmNoFromRow(row))
+      : rstIslemNoList.value.includes(row.islemNo)
+  if (isHighlighted) {
+    console.log(`🎨 Row class applied: rst-row-with-marker`)
+    classes.push('rst-row-with-marker')
+  }
+
+  return classes.join(' ')
 }
 
 
@@ -4124,6 +5545,22 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
 
 .selected-row:hover {
   background-color: #bbdefb !important;
+}
+
+:deep(.detail-dblclick-selected-row) > td {
+  background-color: rgba(25, 118, 210, 0.12) !important;
+}
+
+:deep(.detail-dblclick-selected-row:hover) > td {
+  background-color: rgba(25, 118, 210, 0.18) !important;
+}
+
+:deep(.body--dark .detail-dblclick-selected-row) > td {
+  background-color: rgba(66, 165, 245, 0.22) !important;
+}
+
+:deep(.body--dark .detail-dblclick-selected-row:hover) > td {
+  background-color: rgba(66, 165, 245, 0.3) !important;
 }
 
 .q-tr {
@@ -5142,7 +6579,7 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
   /* Full row background/font coloring removed as per user request */
 
   /* Alternative visual marker for highlighted rows */
-  .rst-row-with-marker {
+:deep(.rst-row-with-marker) {
     position: relative;
     border-left: 4px solid #ffc107 !important;
   }
@@ -5163,7 +6600,7 @@ const getStableRowClass = (props: { row: IslemDetay }) => {
   }
 
   /* Dark mode marker */
-  .body--dark .rst-row-with-marker {
+:deep(.body--dark .rst-row-with-marker) {
     border-left: 4px solid #ffc107 !important;
   }
 

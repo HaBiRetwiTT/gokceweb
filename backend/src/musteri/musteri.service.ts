@@ -3119,7 +3119,7 @@ export class MusteriService {
           k.KnklmNot,
           k.KnklmKrLst
         FROM ${tables.konaklama} k
-        INNER JOIN ${tables.musteri} m ON k.KnklmMstrNo = m.MstrNo
+        INNER JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
         WHERE m.MstrTCN = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;
@@ -3149,7 +3149,7 @@ export class MusteriService {
           k.KnklmKrLst,
           m.MstrAdi
         FROM ${tables.konaklama} k
-        INNER JOIN ${tables.musteri} m ON k.KnklmMstrNo = m.MstrNo
+        INNER JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
         WHERE m.MstrFirma = @0
         ORDER BY CONVERT(Date, k.kKytTarihi, 104) DESC
       `;

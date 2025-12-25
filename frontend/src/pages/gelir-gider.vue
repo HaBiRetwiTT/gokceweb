@@ -1808,8 +1808,7 @@ async function loadMusteriListesi() {
   try {
     debugLog('Müşteri listesi yükleniyor...')
 
-    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
-    const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
+    const baseUrl = api.defaults.baseURL ?? ''
     const response = await fetch(`${baseUrl}/cari/musteri`)
     debugLog('Müşteri response status:', response.status)
     debugLog('Müşteri response headers:', response.headers)
@@ -1867,8 +1866,7 @@ async function testApiConnection() {
   try {
     debugLog('API bağlantısı test ediliyor...')
     
-    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
-    const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
+    const baseUrl = api.defaults.baseURL ?? ''
     
     // Health check endpoint'ini test et
     const healthResponse = await fetch(`${baseUrl}/cari/health`)

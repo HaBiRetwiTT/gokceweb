@@ -226,7 +226,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import type { QPopupProxy } from 'quasar'
-import axios from 'axios'
+import { api } from '../boot/axios'
 import Chart from 'chart.js/auto'
 import type { LegendItem, Chart as ChartType, TooltipItem } from 'chart.js'
 
@@ -362,9 +362,7 @@ const loadChartData = async () => {
       timePeriod: currentTimePeriod
     })
     
-    // IIS reverse proxy üzerinden /api kullanarak backend'e bağlan
-    const apiBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000'
-    const response = await axios.get(`${apiBaseUrl}/dashboard/chart`, {
+    const response = await api.get('/dashboard/chart', {
       params: {
         timePeriod: currentTimePeriod,
         accommodationTypes: selectedAccommodationTypes.join(','),
@@ -1013,16 +1011,13 @@ const loadPieChartData = async () => {
       startDate: startDate.value
     })
     
-    // Domain adresi üzerinden backend'e bağlan
-    const apiBaseUrl = import.meta.env.PROD ? 'http://gokcepms.com:3000' : 'http://localhost:3000'
     let sqlStartDateForPie = ''
     if (startDate.value) {
       const [day, month, year] = startDate.value.split('.')
       sqlStartDateForPie = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
     }
 
-    console.log('🥧 API URL:', `${apiBaseUrl}/dashboard/pie-data`)
-    const response = await axios.get(`${apiBaseUrl}/dashboard/pie-data`, {
+    const response = await api.get('/dashboard/pie-data', {
       params: {
         timePeriod: currentTimePeriod,
         accommodationTypes: selectedAccommodationTypes.join(','),

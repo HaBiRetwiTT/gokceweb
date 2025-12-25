@@ -38,6 +38,667 @@ export class IslemService {
   ) {}
 
   /**
+   * Konaklama detaylarını getirir (tblKonaklama + tblMusteri join)
+   * @param tarih DD.MM.YYYY formatında tarih
+   */
+  async getKonaklamaDetayByDate(tarih: string): Promise<any[]> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tables = this.dbConfig.getTables();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+
+      const sql = `
+        SELECT 
+          k.kKytTarihi AS iKytTarihi, 
+          m.MstrAdi, 
+          k.KnklmPlnTrh, 
+          k.KnklmNfyt, 
+          k.KnklmNot,
+          k.KnklmNo,
+          k.KnklmKllnc,
+          CASE WHEN r.KnklmNo IS NULL THEN 0 ELSE 1 END AS HasRst
+        FROM ${tables.konaklama} k 
+        LEFT JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
+        LEFT JOIN ${tblKonaklamaRST} r ON r.KnklmNo = k.KnklmNo
+        WHERE k.kKytTarihi = @0 AND k.KnklmCksTrh is NULL
+        ORDER BY k.KnklmNo DESC
+      `;
+
+      const result = await queryRunner.query(sql, [tarih]);
+      return result;
+    } catch (error) {
+      console.error('Konaklama detay getirme hatası:', error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama detayını ID'ye göre getirir (tek kayıt)
+   */
+  async getKonaklamaById(id: number): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tables = this.dbConfig.getTables();
+      const sql = `
+        SELECT k.*, m.MstrAdi 
+        FROM ${tables.konaklama} k 
+        LEFT JOIN ${tables.musteri} m ON CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)
+        WHERE k.KnklmNo = @0
+      `;
+      const result = await queryRunner.query(sql, [id]);
+      return result[0];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama kaydını günceller
+   */
+  async updateKonaklama(id: number, data: any): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tables = this.dbConfig.getTables();
+
+      // Önce mevcut kaydı al (Lfyt için)
+      const currentRecord = await this.getKonaklamaById(id);
+      if (!currentRecord) throw new Error('Kayıt bulunamadı');
+
+      const plnTrh = data?.KnklmPlnTrh ?? currentRecord.KnklmPlnTrh;
+      const nfyt = Number(data?.KnklmNfyt ?? currentRecord.KnklmNfyt ?? 0);
+      const lfyt = Number(data?.KnklmLfyt ?? currentRecord.KnklmLfyt ?? 0);
+      const tip = data?.KnklmTip ?? currentRecord.KnklmTip;
+      const not = data?.KnklmNot ?? currentRecord.KnklmNot ?? '';
+      const kllnc = data?.KnklmKllnc ?? currentRecord.KnklmKllnc ?? '';
+      let isk = 0;
+
+      // İskonto oranı hesapla: (Lfyt - Nfyt) / Lfyt * 100 ?
+      // Prompt: "KnklmNfyt / KnklmLfyt oranı yeniden hesaplanarak 'Knklmisk' alanı da güncellenecek"
+      // Genellikle İskonto Oranı = (1 - (Net / Liste)) * 100 olur.
+      // Eğer Liste Fiyatı 0 ise, hesaplama yapılamaz, iskonto 0 kalır.
+      if (lfyt > 0) {
+        isk = (1 - nfyt / lfyt) * 100;
+      }
+
+      const sql = `
+        UPDATE ${tables.konaklama} 
+        SET KnklmPlnTrh = @0, KnklmNfyt = @1, KnklmLfyt = @2, Knklmisk = @3, KnklmTip = @4, KnklmNot = @5, KnklmKllnc = @6
+        WHERE KnklmNo = @7
+      `;
+
+      await queryRunner.query(sql, [
+        plnTrh,
+        nfyt,
+        lfyt,
+        isk,
+        tip,
+        not,
+        kllnc,
+        id,
+      ]);
+      return { success: true };
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama RST tablosunda kayıt var mı kontrol eder
+   */
+  async checkKonaklamaRST(id: number): Promise<boolean> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      const sql = `SELECT COUNT(*) as count FROM ${tblKonaklamaRST} WHERE KnklmNo = @0`;
+      const result = await queryRunner.query(sql, [id]);
+      return Number(result?.[0]?.count ?? 0) > 0;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama kaydını RST tablosuna kopyalar
+   */
+  async copyToKonaklamaRST(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklama = this.dbConfig.getTableName('tblKonaklama');
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      // Önce var mı kontrol et
+      const checkSql = `SELECT COUNT(*) as count FROM ${tblKonaklamaRST} WHERE KnklmNo = @0`;
+      const checkResult = await queryRunner.query(checkSql, [id]);
+
+      const count = Number(checkResult?.[0]?.count ?? 0);
+      if (count <= 0) {
+        const colsSql = `
+          SELECT c.name, c.is_identity, c.is_computed
+          FROM sys.columns c
+          INNER JOIN sys.tables t ON t.object_id = c.object_id
+          WHERE t.name = @0
+        `;
+        const konCols = (await queryRunner.query(colsSql, [
+          'tblKonaklama',
+        ])) as Array<{
+          name: string;
+          is_identity: boolean | number;
+          is_computed: boolean | number;
+        }>;
+        const rstCols = (await queryRunner.query(colsSql, [
+          'tblKonaklamaRST',
+        ])) as Array<{
+          name: string;
+          is_identity: boolean | number;
+          is_computed: boolean | number;
+        }>;
+
+        const konSet = new Set(
+          (konCols || [])
+            .filter((c) => Number(c.is_computed) !== 1)
+            .map((c) => String(c.name)),
+        );
+
+        const insertCols = (rstCols || [])
+          .filter((c) => Number(c.is_computed) !== 1)
+          .map((c) => String(c.name))
+          .filter((name) => konSet.has(name));
+
+        const hasOnayCol =
+          (rstCols || []).some(
+            (c) => String(c.name) === 'Onay' && Number(c.is_computed) !== 1,
+          ) || false;
+        if (hasOnayCol && !insertCols.includes('Onay')) {
+          insertCols.push('Onay');
+        }
+
+        if (insertCols.length === 0) {
+          throw new Error(
+            'tblKonaklamaRST kopyalama için ortak kolon bulunamadı',
+          );
+        }
+
+        const hasIdentity = (rstCols || []).some((c) => {
+          const name = String(c.name);
+          const isId = Number(c.is_identity) === 1;
+          return isId && insertCols.includes(name);
+        });
+
+        const colList = insertCols.map((c) => `[${c}]`).join(', ');
+        const selectList = insertCols
+          .map((c) => (c === 'Onay' ? '0' : `[${c}]`))
+          .join(', ');
+
+        if (hasIdentity) {
+          await queryRunner.query(`SET IDENTITY_INSERT ${tblKonaklamaRST} ON`);
+        }
+        try {
+          const copySql = `
+            INSERT INTO ${tblKonaklamaRST} (${colList})
+            SELECT ${selectList}
+            FROM ${tblKonaklama}
+            WHERE KnklmNo = @0
+          `;
+          await queryRunner.query(copySql, [id]);
+        } finally {
+          if (hasIdentity) {
+            await queryRunner.query(
+              `SET IDENTITY_INSERT ${tblKonaklamaRST} OFF`,
+            );
+          }
+        }
+
+        const verifyResult = await queryRunner.query(checkSql, [id]);
+        const verifyCount = Number(verifyResult?.[0]?.count ?? 0);
+        if (verifyCount <= 0) {
+          throw new Error(
+            `tblKonaklamaRST kopyalama başarısız (KnklmNo=${id})`,
+          );
+        }
+      }
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama RST detayını getirir
+   */
+  async getKonaklamaRST(id: number): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      const sql = `SELECT * FROM ${tblKonaklamaRST} WHERE KnklmNo = @0`;
+      const result = await queryRunner.query(sql, [id]);
+      return result[0];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getAllKonaklamaRstRecords(): Promise<any[]> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tables = this.dbConfig.getTables();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      const schemaName =
+        tblKonaklamaRST.match(/^\[([^\]]+)\]/)?.[1] ??
+        process.env.DB_TABLE_SCHEMA ??
+        'dbo';
+
+      const colCheckSql = `
+        SELECT COUNT(*) as count
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON t.object_id = c.object_id
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = @0 AND t.name = @1 AND c.name = @2
+      `;
+      const hasMusteriNo =
+        Number(
+          (
+            await queryRunner.query(colCheckSql, [
+              schemaName,
+              'tblKonaklamaRST',
+              'KnklmMstrNo',
+            ])
+          )?.[0]?.count ?? 0,
+        ) > 0;
+
+      const colsSql = `
+        SELECT c.name, c.is_computed
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON t.object_id = c.object_id
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = @0 AND t.name = @1
+      `;
+      const allCols = (await queryRunner.query(colsSql, [
+        schemaName,
+        'tblKonaklamaRST',
+      ])) as Array<{ name: string; is_computed: boolean | number }>;
+      const isComputed = (v: unknown): boolean =>
+        v === 1 || v === true || v === '1' || v === 'true';
+      const selectCols = (allCols || [])
+        .filter((c) => !isComputed((c as any).is_computed))
+        .map((c) => `k.[${String(c.name)}]`)
+        .join(', ');
+
+      const sql = `
+        SELECT TOP 50 ${selectCols}${selectCols ? ',' : ''} m.MstrAdi
+        FROM ${tblKonaklamaRST} k
+        LEFT JOIN ${tables.musteri} m ON ${hasMusteriNo ? 'CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)' : '1=0'}
+        ORDER BY k.KnklmNo DESC
+      `;
+      const result = await queryRunner.query(sql);
+      return result || [];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getAllKonaklamaArvRecords(): Promise<any[]> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tables = this.dbConfig.getTables();
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      const schemaName =
+        tblKonaklamaARV.match(/^\[([^\]]+)\]/)?.[1] ??
+        process.env.DB_TABLE_SCHEMA ??
+        'dbo';
+
+      const colCheckSql = `
+        SELECT COUNT(*) as count
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON t.object_id = c.object_id
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = @0 AND t.name = @1 AND c.name = @2
+      `;
+      const hasMusteriNo =
+        Number(
+          (
+            await queryRunner.query(colCheckSql, [
+              schemaName,
+              'tblKonaklamaARV',
+              'KnklmMstrNo',
+            ])
+          )?.[0]?.count ?? 0,
+        ) > 0;
+
+      const colsSql = `
+        SELECT c.name, c.is_computed
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON t.object_id = c.object_id
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = @0 AND t.name = @1
+      `;
+      const allCols = (await queryRunner.query(colsSql, [
+        schemaName,
+        'tblKonaklamaARV',
+      ])) as Array<{ name: string; is_computed: boolean | number }>;
+      const isComputed = (v: unknown): boolean =>
+        v === 1 || v === true || v === '1' || v === 'true';
+      const selectCols = (allCols || [])
+        .filter((c) => !isComputed((c as any).is_computed))
+        .map((c) => `k.[${String(c.name)}]`)
+        .join(', ');
+
+      const sql = `
+        SELECT TOP 50 ${selectCols}${selectCols ? ',' : ''} m.MstrAdi
+        FROM ${tblKonaklamaARV} k
+        LEFT JOIN ${tables.musteri} m ON ${hasMusteriNo ? 'CONVERT(NVARCHAR(50), k.KnklmMstrNo) = CONVERT(NVARCHAR(50), m.MstrNo)' : '1=0'}
+        ORDER BY k.KnklmNo DESC
+      `;
+      const result = await queryRunner.query(sql);
+      return result || [];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async setKonaklamaRSTOnay(
+    knklmNo: number,
+    onay: number,
+  ): Promise<{ success: boolean }> {
+    const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+    const query = `UPDATE ${tblKonaklamaRST} SET Onay = @1 WHERE KnklmNo = @0`;
+    await this.dataSource.query(query, [knklmNo, onay]);
+    return { success: true };
+  }
+
+  async setKonaklamaARVOnay(
+    knklmNo: number,
+    onay: number,
+  ): Promise<{ success: boolean }> {
+    const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+    const query = `UPDATE ${tblKonaklamaARV} SET Onay = @1 WHERE KnklmNo = @0`;
+    await this.dataSource.query(query, [knklmNo, onay]);
+    return { success: true };
+  }
+
+  /**
+   * Konaklama RST kaydını siler
+   */
+  async deleteKonaklamaRST(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      const sql = `DELETE FROM ${tblKonaklamaRST} WHERE KnklmNo = @0`;
+      await queryRunner.query(sql, [id]);
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async resetKonaklamaFromRST(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      const tblKonaklamaRST = this.dbConfig.getTableName('tblKonaklamaRST');
+      const tblKonaklama = this.dbConfig.getTableName('tblKonaklama');
+
+      const rstCountSql = `SELECT COUNT(*) as count FROM ${tblKonaklamaRST} WHERE KnklmNo = @0`;
+      const rstCountResult = await queryRunner.query(rstCountSql, [id]);
+      const rstCount = Number(rstCountResult?.[0]?.count ?? 0);
+      if (rstCount <= 0) {
+        throw new Error(`tblKonaklamaRST tablosunda KnklmNo ${id} bulunamadı.`);
+      }
+
+      const colsSql = `
+          SELECT c.name, c.is_identity, c.is_computed
+          FROM sys.columns c
+          INNER JOIN sys.tables t ON t.object_id = c.object_id
+          WHERE t.name = @0
+        `;
+      const konCols = (await queryRunner.query(colsSql, [
+        'tblKonaklama',
+      ])) as Array<{
+        name: string;
+        is_identity: boolean | number;
+        is_computed: boolean | number;
+      }>;
+      const rstCols = (await queryRunner.query(colsSql, [
+        'tblKonaklamaRST',
+      ])) as Array<{
+        name: string;
+        is_identity: boolean | number;
+        is_computed: boolean | number;
+      }>;
+
+      const rstSet = new Set(
+        (rstCols || [])
+          .filter((c) => Number(c.is_computed) !== 1)
+          .map((c) => String(c.name)),
+      );
+
+      const konNonComputed = (konCols || []).filter(
+        (c) => Number(c.is_computed) !== 1,
+      );
+      const identitySet = new Set(
+        konNonComputed
+          .filter((c) => Number(c.is_identity) === 1)
+          .map((c) => String(c.name)),
+      );
+
+      const commonCols = konNonComputed
+        .map((c) => String(c.name))
+        .filter((name) => rstSet.has(name));
+
+      if (commonCols.length === 0) {
+        throw new Error(
+          'tblKonaklama ve tblKonaklamaRST arasında ortak sütun bulunamadı.',
+        );
+      }
+
+      const existsSql = `SELECT COUNT(*) as count FROM ${tblKonaklama} WHERE KnklmNo = @0`;
+      const existsResult = await queryRunner.query(existsSql, [id]);
+      const exists = Number(existsResult?.[0]?.count ?? 0) > 0;
+
+      if (exists) {
+        const updatableCols = commonCols.filter((c) => !identitySet.has(c));
+        if (updatableCols.length === 0) {
+          throw new Error('Güncellenecek sütun bulunamadı.');
+        }
+
+        const setClause = updatableCols
+          .map((c) => `k.[${c}] = r.[${c}]`)
+          .join(', ');
+
+        await queryRunner.query(
+          `
+            UPDATE k
+            SET ${setClause}
+            FROM ${tblKonaklama} k
+            INNER JOIN ${tblKonaklamaRST} r ON r.KnklmNo = k.KnklmNo
+            WHERE k.KnklmNo = @0
+          `,
+          [id],
+        );
+      } else {
+        const colList = commonCols.map((c) => `[${c}]`).join(', ');
+        const selectList = commonCols.map((c) => `r.[${c}]`).join(', ');
+
+        const needsIdentityInsert = commonCols.some((c) => identitySet.has(c));
+        if (needsIdentityInsert) {
+          await queryRunner.query(`SET IDENTITY_INSERT ${tblKonaklama} ON`);
+        }
+        try {
+          await queryRunner.query(
+            `
+              INSERT INTO ${tblKonaklama} (${colList})
+              SELECT ${selectList}
+              FROM ${tblKonaklamaRST} r
+              WHERE r.KnklmNo = @0
+            `,
+            [id],
+          );
+        } finally {
+          if (needsIdentityInsert) {
+            await queryRunner.query(`SET IDENTITY_INSERT ${tblKonaklama} OFF`);
+          }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      try {
+        await queryRunner.rollbackTransaction();
+      } catch (rollbackError) {
+        void rollbackError;
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Konaklama kaydını siler (ARV tablosuna taşıyarak veya direkt silerek - Prompt Cari mantığı diyor)
+   * Cari mantığı: Delete butonuna basınca siliniyor mu?
+   * "switch Cari iken olanla aynı olacak... Cari iken tblislemARV... Konaklama iken tblKonaklamaARV"
+   * Genellikle silme işlemi öncesi yedeği alınır veya direkt silinir.
+   * Cari silme mantığını kontrol edemiyorum ama standart CRUD uygulayacağım.
+   */
+  async deleteKonaklama(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklama = this.dbConfig.getTableName('tblKonaklama');
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      await queryRunner.query(
+        `
+          IF NOT EXISTS (SELECT 1 FROM ${tblKonaklamaARV} WHERE KnklmNo = @0)
+          BEGIN
+            INSERT INTO ${tblKonaklamaARV}
+            SELECT *
+            FROM ${tblKonaklama}
+            WHERE KnklmNo = @0
+          END
+        `,
+        [id],
+      );
+
+      await queryRunner.query(
+        `DELETE FROM ${tblKonaklama} WHERE KnklmNo = @0`,
+        [id],
+      );
+
+      // RST kaydını da temizle
+      await this.deleteKonaklamaRST(id);
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * En büyük ARV kaydını getirir (tblKonaklamaARV)
+   */
+  async getKonaklamaArvMax(): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      const sql = `SELECT TOP 1 * FROM ${tblKonaklamaARV} WHERE ISNULL(Onay, 0) = 0 ORDER BY KnklmNo DESC`;
+      const result = await queryRunner.query(sql);
+      return result[0];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Önceki ARV kaydını getirir
+   */
+  async getKonaklamaArvPrev(currentId: number): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      const sql = `SELECT TOP 1 * FROM ${tblKonaklamaARV} WHERE KnklmNo < @0 AND ISNULL(Onay, 0) = 0 ORDER BY KnklmNo DESC`;
+      const result = await queryRunner.query(sql, [currentId]);
+      return result[0];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Sonraki ARV kaydını getirir
+   */
+  async getKonaklamaArvNext(currentId: number): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      const sql = `SELECT TOP 1 * FROM ${tblKonaklamaARV} WHERE KnklmNo > @0 AND ISNULL(Onay, 0) = 0 ORDER BY KnklmNo ASC`;
+      const result = await queryRunner.query(sql, [currentId]);
+      return result[0];
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * ARV kaydını geri yükler (tblKonaklamaARV -> tblKonaklama)
+   */
+  async restoreKonaklamaArv(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      const tblKonaklama = this.dbConfig.getTableName('tblKonaklama');
+      const tblKonaklamaARV = this.dbConfig.getTableName('tblKonaklamaARV');
+      // 1. Kaydı ARV'den al
+      const arvSql = `SELECT * FROM ${tblKonaklamaARV} WHERE KnklmNo = @0`;
+      const arvResult = await queryRunner.query(arvSql, [id]);
+
+      if (arvResult.length > 0) {
+        // 2. tblKonaklama'ya ekle (Identity Insert gerekebilir ama basit insert deniyoruz)
+        // Not: Identity Insert sorunu olabilir, genellikle SET IDENTITY_INSERT ON gerekir.
+        // Basitleştirilmiş yaklaşım: INSERT INTO tblKonaklama (...) VALUES (...)
+        // Ancak sütun sayısı çoksa SELECT INTO veya INSERT INTO SELECT daha iyidir.
+
+        // Önce tblKonaklama'da var mı bak, varsa sil
+        await queryRunner.query(
+          `DELETE FROM ${tblKonaklama} WHERE KnklmNo = @0`,
+          [id],
+        );
+
+        // Identity Insert ON
+        await queryRunner.query(`SET IDENTITY_INSERT ${tblKonaklama} ON`);
+        const restoreSql = `INSERT INTO ${tblKonaklama} (KnklmNo, kKytTarihi, KnklmPlnTrh, KnklmNfyt, KnklmNot, KnklmLfyt, Knklmisk, KnklmMstrNo) 
+                            SELECT KnklmNo, kKytTarihi, KnklmPlnTrh, KnklmNfyt, KnklmNot, KnklmLfyt, Knklmisk, KnklmMstrNo 
+                            FROM ${tblKonaklamaARV} WHERE KnklmNo = @0`;
+        // Not: Sütun isimleri tam bilinmiyor, * kullanmak daha güvenli olabilir eğer şemalar aynıysa
+        const simpleRestoreSql = `INSERT INTO ${tblKonaklama} (KnklmNo, kKytTarihi, KnklmPlnTrh, KnklmNfyt, KnklmNot, KnklmLfyt, Knklmisk, KnklmMstrNo) 
+                                  SELECT KnklmNo, kKytTarihi, KnklmPlnTrh, KnklmNfyt, KnklmNot, KnklmLfyt, Knklmisk, KnklmMstrNo 
+                                  FROM ${tblKonaklamaARV} WHERE KnklmNo = @0`;
+        // Risk almamak için * kullanıp identity insert ile deneyeceğim
+        const wildcardRestore = `INSERT INTO ${tblKonaklama} SELECT * FROM ${tblKonaklamaARV} WHERE KnklmNo = @0`;
+
+        await queryRunner.query(wildcardRestore, [id]);
+        await queryRunner.query(`SET IDENTITY_INSERT ${tblKonaklama} OFF`);
+
+        // 3. ARV'den sil
+        await queryRunner.query(
+          `DELETE FROM ${tblKonaklamaARV} WHERE KnklmNo = @0`,
+          [id],
+        );
+      }
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
    * Nakit akış verilerini sp_FonDokumY stored procedure ile getirir
    * @param tarih DD.MM.YYYY formatında tarih
    * @returns Nakit akış kayıtları
@@ -2402,6 +3063,7 @@ export class IslemService {
 
       const query = `
         SELECT TOP 1 * FROM ${tblIslemARV}
+        WHERE ISNULL(Onay, 0) = 0
         ORDER BY islemNo DESC
       `;
 
@@ -2430,7 +3092,7 @@ export class IslemService {
       const nextRecordQuery = `
         SELECT TOP 1 *
         FROM ${tblIslemARV}
-        WHERE islemNo > @0
+        WHERE islemNo > @0 AND ISNULL(Onay, 0) = 0
         ORDER BY islemNo ASC
       `;
 
@@ -2461,7 +3123,7 @@ export class IslemService {
       const previousRecordQuery = `
         SELECT TOP 1 *
         FROM ${tblIslemARV}
-        WHERE islemNo < @0
+        WHERE islemNo < @0 AND ISNULL(Onay, 0) = 0
         ORDER BY islemNo DESC
       `;
 
@@ -3796,7 +4458,7 @@ export class IslemService {
   async getAllRstRecords(): Promise<any[]> {
     try {
       const query = `
-        SELECT 
+        SELECT TOP 50 
           i.islemNo, 
           i.iKytTarihi, 
           i.islemKllnc, 
@@ -3849,7 +4511,7 @@ export class IslemService {
   async getAllArvRecords(): Promise<any[]> {
     try {
       const query = `
-        SELECT 
+        SELECT TOP 50 
           i.islemNo, 
           i.iKytTarihi, 
           i.islemKllnc, 

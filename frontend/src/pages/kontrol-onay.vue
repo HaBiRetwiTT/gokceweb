@@ -3,7 +3,20 @@
     <!-- Üst Grid: tblislemRST -->
     <q-card class="q-mb-sm">
       <q-card-section class="row items-center no-wrap admin-compact-header">
-        <div class="text-subtitle1 text-weight-bold">İşlem Kayıt Değişiklikleri (Orjinal Kayıt)</div>
+        <q-btn-toggle
+          v-model="kontrolMode"
+          push
+          glossy
+          toggle-color="primary"
+          size="14px"
+          padding="xs sm"
+          :options="[
+            { label: 'Cari', value: 'cari' },
+            { label: 'Konaklama', value: 'konaklama' }
+          ]"
+          class="q-mr-md"
+        />
+        <div class="text-subtitle1 text-weight-bold">{{ rstTitle }}</div>
         <q-space />
         <div class="row items-center q-gutter-sm">
           <q-btn
@@ -29,7 +42,7 @@
         :rows="rowsRSTDisplay"
         :columns="columnsRST"
         :visible-columns="visibleColumnsRST"
-        row-key="islemNo"
+        :row-key="rowKey"
         :loading="loadingRST"
         dense
         flat
@@ -42,7 +55,7 @@
       >
         <template v-slot:body-cell-diff="props">
           <q-td :props="props" class="text-center" :class="{ 'onayli-cell': normalizeOnay(props.row?.Onay) === 1 }">
-            <q-tooltip v-if="rstDiffs[props.row.islemNo] && rstDiffs[props.row.islemNo].length > 0" class="rst-differences-tooltip" :delay="100" :offset="[0,10]">
+            <q-tooltip v-if="rstDiffs[getRowId(props.row)] && rstDiffs[getRowId(props.row)].length > 0" class="rst-differences-tooltip" :delay="100" :offset="[0,10]">
               <div class="tooltip-content">
                 <div class="tooltip-title">Değişiklik Detayları</div>
                 <div class="differences-table">
@@ -51,7 +64,7 @@
                     <div class="differences-cell">Orijinal Değer</div>
                     <div class="differences-cell">Değiştirilen Değer</div>
                   </div>
-                  <div v-for="diff in rstDiffs[props.row.islemNo]" :key="diff.fieldName" class="differences-row">
+                  <div v-for="diff in rstDiffs[getRowId(props.row)]" :key="diff.fieldName" class="differences-row">
                     <div class="differences-cell">{{ diff.fieldName }}</div>
                     <div class="differences-cell">{{ diff.originalValue }}</div>
                     <div class="differences-cell">{{ diff.changedValue }}</div>
@@ -59,7 +72,7 @@
                 </div>
               </div>
             </q-tooltip>
-            <span v-if="rstDiffs[props.row.islemNo] && rstDiffs[props.row.islemNo].length > 0">⚠️</span>
+            <span v-if="rstDiffs[getRowId(props.row)] && rstDiffs[getRowId(props.row)].length > 0">⚠️</span>
           </q-td>
         </template>
       </q-table>
@@ -67,12 +80,12 @@
 
     <!-- Alt Grid: tblislemARV -->
     <q-card>
-      <q-card-section class="text-subtitle1 text-weight-bold admin-compact-header">Silinen İşlem Kayıtları</q-card-section>
+      <q-card-section class="text-subtitle1 text-weight-bold admin-compact-header">{{ arvTitle }}</q-card-section>
       <q-table
         :rows="rowsARVDisplay"
         :columns="columnsARV"
         :visible-columns="visibleColumnsARV"
-        row-key="islemNo"
+        :row-key="rowKey"
         :loading="loadingARV"
         dense
         flat
@@ -119,11 +132,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { api } from '../boot/axios'
+import { useQuasar } from 'quasar'
 import type { QTableColumn } from 'quasar'
 
 type AnyRow = Record<string, unknown>
+
+const $q = useQuasar()
+
+const kontrolMode = ref<'cari' | 'konaklama'>('cari')
 
 const rowsRST = ref<AnyRow[]>([])
 const rowsARV = ref<AnyRow[]>([])
@@ -133,17 +151,44 @@ const rstDiffs = ref<Record<number, Array<{ fieldName: string; originalValue: st
 // Varsayılan: Onay=1 olanlar gizlenecek (yalnızca onaysız kayıtlar gösterilecek)
 const showHidden = ref(false)
 
-// Görünür sütunlar (Onay sütunu hariç)
-const visibleColumnsRST = ref<string[]>([
+const visibleColumnsRstCari: string[] = [
   'diff','iKytTarihi','islemKllnc','islemOzel1','islemOzel2','islemOzel3','islemOzel4',
   'islemArac','islemTip','islemGrup','islemAltG','islemBilgi','islemMiktar','islemTutar'
-])
-const visibleColumnsARV = ref<string[]>([
+]
+const visibleColumnsArvCari: string[] = [
   'iKytTarihi','islemKllnc','islemOzel1','islemOzel2','islemOzel3','islemOzel4',
   'islemArac','islemTip','islemGrup','islemAltG','islemBilgi','islemMiktar','islemTutar'
-])
+]
 
-const columnsRST: QTableColumn<AnyRow>[] = [
+const visibleColumnsRstKonaklama: string[] = [
+  'diff',
+  'kKytTarihi',
+  'KnklmKllnc',
+  'KnklmMstrNo',
+  'MstrAdi',
+  'KnklmGrsTrh',
+  'KnklmPlnTrh',
+  'KnklmTip',
+  'KnklmNfyt',
+  'KnklmLfyt',
+  'Knklmisk',
+  'KnklmNot'
+]
+const visibleColumnsArvKonaklama: string[] = [
+  'kKytTarihi',
+  'KnklmKllnc',
+  'KnklmMstrNo',
+  'MstrAdi',
+  'KnklmGrsTrh',
+  'KnklmPlnTrh',
+  'KnklmTip',
+  'KnklmNfyt',
+  'KnklmLfyt',
+  'Knklmisk',
+  'KnklmNot'
+]
+
+const columnsRstCari: QTableColumn<AnyRow>[] = [
   { name: 'diff', label: 'D.', field: 'islemNo', align: 'center' },
   { name: 'iKytTarihi', label: 'Tarihi', field: 'iKytTarihi', align: 'left', sortable: true },
   { name: 'islemKllnc', label: 'Kullanıcı', field: 'islemKllnc', align: 'left', sortable: true },
@@ -163,7 +208,7 @@ const columnsRST: QTableColumn<AnyRow>[] = [
   { name: 'islemTutar', label: 'İşlem Tutarı', field: 'islemTutar', align: 'right', sortable: true }
 ]
 
-const columnsARV: QTableColumn<AnyRow>[] = [
+const columnsArvCari: QTableColumn<AnyRow>[] = [
   { name: 'iKytTarihi', label: 'Tarihi', field: 'iKytTarihi', align: 'left', sortable: true },
   { name: 'islemKllnc', label: 'Kullanıcı', field: 'islemKllnc', align: 'left', sortable: true },
   { name: 'Onay', label: 'Onay', field: 'Onay', align: 'center', sortable: true },
@@ -182,8 +227,81 @@ const columnsARV: QTableColumn<AnyRow>[] = [
   { name: 'islemTutar', label: 'İşlem Tutarı', field: 'islemTutar', align: 'right', sortable: true }
 ]
 
+const columnsRstKonaklama: QTableColumn<AnyRow>[] = [
+  { name: 'diff', label: 'D.', field: 'KnklmNo', align: 'center' },
+  { name: 'kKytTarihi', label: 'Tarihi', field: 'kKytTarihi', align: 'left', sortable: true },
+  { name: 'KnklmKllnc', label: 'Kullanıcı', field: 'KnklmKllnc', align: 'left', sortable: true },
+  { name: 'Onay', label: 'Onay', field: 'Onay', align: 'center', sortable: true },
+  { name: 'KnklmMstrNo', label: 'Müşteri No', field: 'KnklmMstrNo', align: 'right', sortable: true },
+  { name: 'MstrAdi', label: 'Müşteri', field: 'MstrAdi', align: 'left', sortable: true },
+  { name: 'KnklmGrsTrh', label: 'Giriş', field: 'KnklmGrsTrh', align: 'left', sortable: true },
+  { name: 'KnklmPlnTrh', label: 'Planlanan Çıkış', field: 'KnklmPlnTrh', align: 'left', sortable: true },
+  { name: 'KnklmTip', label: 'Tip', field: 'KnklmTip', align: 'left', sortable: true },
+  { name: 'KnklmNfyt', label: 'Net', field: 'KnklmNfyt', align: 'right', sortable: true },
+  { name: 'KnklmLfyt', label: 'Liste', field: 'KnklmLfyt', align: 'right', sortable: true },
+  { name: 'Knklmisk', label: 'İskonto', field: 'Knklmisk', align: 'right', sortable: true },
+  { name: 'KnklmNot', label: 'Not', field: 'KnklmNot', align: 'left', style: 'max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' }
+]
+
+const columnsArvKonaklama: QTableColumn<AnyRow>[] = [
+  { name: 'kKytTarihi', label: 'Tarihi', field: 'kKytTarihi', align: 'left', sortable: true },
+  { name: 'KnklmKllnc', label: 'Kullanıcı', field: 'KnklmKllnc', align: 'left', sortable: true },
+  { name: 'Onay', label: 'Onay', field: 'Onay', align: 'center', sortable: true },
+  { name: 'KnklmMstrNo', label: 'Müşteri No', field: 'KnklmMstrNo', align: 'right', sortable: true },
+  { name: 'MstrAdi', label: 'Müşteri', field: 'MstrAdi', align: 'left', sortable: true },
+  { name: 'KnklmGrsTrh', label: 'Giriş', field: 'KnklmGrsTrh', align: 'left', sortable: true },
+  { name: 'KnklmPlnTrh', label: 'Planlanan Çıkış', field: 'KnklmPlnTrh', align: 'left', sortable: true },
+  { name: 'KnklmTip', label: 'Tip', field: 'KnklmTip', align: 'left', sortable: true },
+  { name: 'KnklmNfyt', label: 'Net', field: 'KnklmNfyt', align: 'right', sortable: true },
+  { name: 'KnklmLfyt', label: 'Liste', field: 'KnklmLfyt', align: 'right', sortable: true },
+  { name: 'Knklmisk', label: 'İskonto', field: 'Knklmisk', align: 'right', sortable: true },
+  { name: 'KnklmNot', label: 'Not', field: 'KnklmNot', align: 'left', style: 'max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' }
+]
+
+const columnsRST = computed<QTableColumn<AnyRow>[]>(() => {
+  return kontrolMode.value === 'konaklama' ? columnsRstKonaklama : columnsRstCari
+})
+
+const columnsARV = computed<QTableColumn<AnyRow>[]>(() => {
+  return kontrolMode.value === 'konaklama' ? columnsArvKonaklama : columnsArvCari
+})
+
+const visibleColumnsRST = computed<string[]>(() => {
+  return kontrolMode.value === 'konaklama' ? visibleColumnsRstKonaklama : visibleColumnsRstCari
+})
+
+const visibleColumnsARV = computed<string[]>(() => {
+  return kontrolMode.value === 'konaklama' ? visibleColumnsArvKonaklama : visibleColumnsArvCari
+})
+
+const rowKey = computed(() => (kontrolMode.value === 'konaklama' ? 'KnklmNo' : 'islemNo'))
+
 const paginationRST = ref({ page: 1, rowsPerPage: 10 })
 const paginationARV = ref({ page: 1, rowsPerPage: 10 })
+
+const rstTitle = computed(() => {
+  return kontrolMode.value === 'konaklama'
+    ? 'Konaklama Kayıt Değişiklikleri (Orjinal Kayıt)'
+    : 'İşlem Kayıt Değişiklikleri (Orjinal Kayıt)'
+})
+
+const arvTitle = computed(() => {
+  return kontrolMode.value === 'konaklama'
+    ? 'Silinen Konaklama Kayıtları'
+    : 'Silinen İşlem Kayıtları'
+})
+
+function getRowId(row: AnyRow | null | undefined): number {
+  if (!row) return 0
+  if (kontrolMode.value === 'konaklama') {
+    const raw = row.KnklmNo ?? row.knklmNo ?? row.KNKLMNO
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : 0
+  }
+  const raw = row.islemNo ?? row.IslemNo ?? row.ISLEMNO
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
 
 // Görüntülenecek satırlar (Onay filtresi uygulanmış)
 const rowsRSTDisplay = computed(() => {
@@ -222,14 +340,23 @@ function onArvContextMenu(evt: Event, row: AnyRow) {
 
 async function toggleOnay() {
   if (!ctxMenu.value.row || !ctxMenu.value.type) return
-  const islemNo = Number(ctxMenu.value.row.islemNo)
+  const id = getRowId(ctxMenu.value.row)
+  if (!Number.isFinite(id) || id <= 0) return
   const current = normalizeOnay(ctxMenu.value.row?.Onay)
   const next = current === 1 ? 0 : 1
   try {
-    if (ctxMenu.value.type === 'RST') {
-      await api.post('/islem/rst-onay-guncelle', { islemNo, onay: next })
+    if (kontrolMode.value === 'konaklama') {
+      if (ctxMenu.value.type === 'RST') {
+        await api.post('/islem/konaklama/rst-onay-guncelle', { knklmNo: id, onay: next })
+      } else {
+        await api.post('/islem/konaklama/arv-onay-guncelle', { knklmNo: id, onay: next })
+      }
     } else {
-      await api.post('/islem/arv-onay-guncelle', { islemNo, onay: next })
+      if (ctxMenu.value.type === 'RST') {
+        await api.post('/islem/rst-onay-guncelle', { islemNo: id, onay: next })
+      } else {
+        await api.post('/islem/arv-onay-guncelle', { islemNo: id, onay: next })
+      }
     }
     // Sağ tık işlemi sonrası her iki tabloyu da DEFAULT moda (Onay=0) getirip yenile
     showHidden.value = false
@@ -255,15 +382,24 @@ function onKeyDown(e: KeyboardEvent) {
 async function fetchRST() {
   loadingRST.value = true
   try {
-    const { data } = await api.get('/islem/rst-records-all')
+    rstDiffs.value = {}
+    const resp = await api.get(kontrolMode.value === 'konaklama' ? '/islem/konaklama/rst-records-all' : '/islem/rst-records-all')
+    if (resp?.data?.success === false) {
+      rowsRST.value = []
+      $q.notify({ type: 'negative', message: resp.data?.message || 'RST kayıtları alınamadı', position: 'top', timeout: 5000 })
+      return
+    }
+    const data = resp?.data
     rowsRST.value = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-    // Yeniden -> eskiye sırala (islemNo desc)
-    rowsRST.value.sort((a: AnyRow, b: AnyRow) => Number(b.islemNo ?? 0) - Number(a.islemNo ?? 0))
+    rowsRST.value.sort((a: AnyRow, b: AnyRow) => getRowId(b) - getRowId(a))
     // RST farklarını sırayla hesapla
-    for (const row of rowsRST.value) {
-      const islemNo = Number(row.islemNo)
-      if (!isNaN(islemNo)) {
-        rstDiffs.value[islemNo] = await getRstDifferences(islemNo)
+    const ids = rowsRST.value.map(r => getRowId(r)).filter(id => Number.isFinite(id) && id > 0)
+    const concurrency = 6
+    for (let i = 0; i < ids.length; i += concurrency) {
+      const chunk = ids.slice(i, i + concurrency)
+      const results = await Promise.all(chunk.map(async id => ({ id, diffs: await getDifferences(id) })))
+      for (const r of results) {
+        rstDiffs.value[r.id] = r.diffs
       }
     }
   } finally {
@@ -274,10 +410,15 @@ async function fetchRST() {
 async function fetchARV() {
   loadingARV.value = true
   try {
-    const { data } = await api.get('/islem/arv-records-all')
+    const resp = await api.get(kontrolMode.value === 'konaklama' ? '/islem/konaklama/arv-records-all' : '/islem/arv-records-all')
+    if (resp?.data?.success === false) {
+      rowsARV.value = []
+      $q.notify({ type: 'negative', message: resp.data?.message || 'ARV kayıtları alınamadı', position: 'top', timeout: 5000 })
+      return
+    }
+    const data = resp?.data
     rowsARV.value = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-    // Yeniden -> eskiye sırala (islemNo desc)
-    rowsARV.value.sort((a: AnyRow, b: AnyRow) => Number(b.islemNo ?? 0) - Number(a.islemNo ?? 0))
+    rowsARV.value.sort((a: AnyRow, b: AnyRow) => getRowId(b) - getRowId(a))
   } finally {
     loadingARV.value = false
   }
@@ -307,13 +448,53 @@ async function onRefresh() {
   await Promise.all([fetchRST(), fetchARV()])
 }
 
-// RST fark hesaplama - kasa-islem sayfasındaki mantığın sadeleştirilmiş hali
-async function getRstDifferences(islemNo: number): Promise<Array<{ fieldName: string; originalValue: string; changedValue: string }>> {
+watch(kontrolMode, async () => {
+  showHidden.value = false
+  rowsRST.value = []
+  rowsARV.value = []
+  rstDiffs.value = {}
+  await Promise.all([fetchRST(), fetchARV()])
+})
+
+async function getDifferences(id: number): Promise<Array<{ fieldName: string; originalValue: string; changedValue: string }>> {
   try {
-    const originalResp = await api.get(`/islem/islem-rst-detay/${islemNo}`)
+    if (kontrolMode.value === 'konaklama') {
+      const originalResp = await api.get(`/islem/konaklama/rst-detay/${id}`)
+      if (!originalResp.data?.success || !originalResp.data?.data) return []
+      const originalRecord = originalResp.data.data as AnyRow
+      const currentResp = await api.get(`/islem/konaklama/${id}`)
+      if (!currentResp.data?.success || !currentResp.data?.data) return []
+      const currentRecord = currentResp.data.data as AnyRow
+
+      const fields: Array<{ key: string; displayName: string }> = [
+        { key: 'kKytTarihi', displayName: 'Kayıt Tarihi' },
+        { key: 'KnklmKllnc', displayName: 'Kullanıcı' },
+        { key: 'KnklmMstrNo', displayName: 'Müşteri No' },
+        { key: 'KnklmGrsTrh', displayName: 'Giriş Tarihi' },
+        { key: 'KnklmPlnTrh', displayName: 'Planlanan Çıkış' },
+        { key: 'KnklmNfyt', displayName: 'Net Fiyat' },
+        { key: 'KnklmLfyt', displayName: 'Liste Fiyat' },
+        { key: 'Knklmisk', displayName: 'İskonto' },
+        { key: 'KnklmNot', displayName: 'Not' }
+      ]
+
+      const diffs: Array<{ fieldName: string; originalValue: string; changedValue: string }> = []
+      fields.forEach(f => {
+        const ov = originalRecord[f.key]
+        const cv = currentRecord[f.key]
+        const nOv = safeToString(ov).trim()
+        const nCv = safeToString(cv).trim()
+        if (nOv !== nCv) {
+          diffs.push({ fieldName: f.displayName, originalValue: nOv, changedValue: nCv })
+        }
+      })
+      return diffs
+    }
+
+    const originalResp = await api.get(`/islem/islem-rst-detay/${id}`)
     if (!originalResp.data?.success || !originalResp.data?.data) return []
     const originalRecord = originalResp.data.data as AnyRow
-    const currentResp = await api.get(`/islem/detay/${islemNo}`)
+    const currentResp = await api.get(`/islem/detay/${id}`)
     if (!currentResp.data?.success || !currentResp.data?.data) return []
     const currentRecord = currentResp.data.data as AnyRow
 
@@ -470,4 +651,3 @@ function normalizeOnay(value: unknown): 0 | 1 {
   font-size: 13px !important;
 }
 </style>
-
