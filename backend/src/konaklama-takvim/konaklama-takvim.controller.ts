@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req } from '@nestjs/common';
 import { KonaklamaTakvimService } from './konaklama-takvim.service';
 
 @Controller('konaklama-takvim')
@@ -39,6 +39,32 @@ export class KonaklamaTakvimController {
     @Query('yatakNo') yatakNo: string
   ) {
     return this.konaklamaTakvimService.getOdaYatakDurum(odaNo, yatakNo);
+  }
+
+  @Get('oda-yatak-list')
+  async getOdaYatakList(@Query('odaNo') odaNo: string) {
+    return this.konaklamaTakvimService.getOdaYatakList(odaNo);
+  }
+
+  @Get('oda-tip')
+  async getOdaTip(@Query('odaNo') odaNo: string) {
+    return this.konaklamaTakvimService.getOdaTipByOdaNo(odaNo);
+  }
+
+  @Post('oda-tipi-degistir')
+  async odaTipiDegistir(@Body() body: any, @Req() req: any) {
+    const kullaniciAdi = req?.user?.username || body?.kullaniciAdi || 'SYSTEM';
+    return this.konaklamaTakvimService.odaTipDegistir(body, kullaniciAdi);
+  }
+
+  @Post('oda-ekle')
+  async odaEkle(
+    @Body()
+    body: { odaNo: string; odaTipAdi: string; odaYatakSayisi: number | string },
+    @Req() req: any,
+  ) {
+    const kullaniciAdi = req?.user?.username || (body as any)?.kullaniciAdi || 'SYSTEM';
+    return this.konaklamaTakvimService.odaEkle(body, kullaniciAdi);
   }
 
   @Post('oda-yatak-durum')

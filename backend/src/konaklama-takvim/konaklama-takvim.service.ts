@@ -1,9 +1,10 @@
 /* eslint-disable prettier/prettier */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryRunner, Repository } from 'typeorm';
 import { Musteri } from '../entities/musteri.entity';
 import { DatabaseConfigService } from '../database/database-config.service';
+import { DatabaseTransactionService } from '../database/database-transaction.service';
 
 export interface KonaklamaDetay {
   musteriAdi: string;
@@ -48,6 +49,7 @@ export class KonaklamaTakvimService {
     @InjectRepository(Musteri)
     private musteriRepository: Repository<Musteri>,
     private dbConfig: DatabaseConfigService,
+    private readonly transactionService: DatabaseTransactionService,
   ) {}
 
   // Kat / Oda planı: Katlara göre oda numaralarını döndür
@@ -371,6 +373,315 @@ export class KonaklamaTakvimService {
     }
   }
 
+  async getOdaYatakList(odaNo: string) {
+    if (!/^\d{3}$/.test(String(odaNo || '').trim())) {
+      return { success: false, message: 'Geçersiz odaNo' };
+    }
+
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+    const query = `
+      SELECT OdYatKod, OdYatYtkNo, OdYatDurum
+      FROM ${odaYatakTableName}
+      WHERE OdYatOdaNo = @0
+      ORDER BY TRY_CONVERT(int, OdYatYtkNo) ASC, OdYatYtkNo ASC
+    `;
+
+    try {
+      const data = await this.musteriRepository.query(query, [odaNo]);
+      return { success: true, data };
+    } catch (error) {
+      console.error('getOdaYatakList hatası:', error);
+      return { success: false, message: 'Veritabanı hatası' };
+    }
+  }
+
+  async getOdaTipByOdaNo(odaNo: string) {
+    if (!/^\d{3}$/.test(String(odaNo || '').trim())) {
+      return { success: false, message: 'Geçersiz odaNo' };
+    }
+
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+    const query = `
+      SELECT TOP 1
+        LTRIM(RTRIM(OdYatOdaTip)) AS OdaTip
+      FROM ${odaYatakTableName}
+      WHERE OdYatOdaNo = @0
+        AND OdYatOdaTip IS NOT NULL
+        AND LTRIM(RTRIM(OdYatOdaTip)) <> ''
+      GROUP BY LTRIM(RTRIM(OdYatOdaTip))
+      ORDER BY COUNT(*) DESC, LTRIM(RTRIM(OdYatOdaTip)) ASC
+    `;
+
+    try {
+      const rows: Array<{ OdaTip: string | null }> = await this.musteriRepository.query(query, [odaNo]);
+      const tip = rows?.[0]?.OdaTip ? String(rows[0].OdaTip).trim() : '';
+      return { success: true, odaTip: tip || null };
+    } catch (error) {
+      console.error('getOdaTipByOdaNo hatası:', error);
+      return { success: false, message: 'Veritabanı hatası' };
+    }
+  }
+
+  async odaTipDegistir(
+    body: {
+      odaNo: string;
+      yeniOdaTipAdi: string;
+      silinecekOdYatKodlar?: string[];
+      eklenecekSatirlar?: Array<{ OdYatKod: string; OdYatYtkNo: string }>;
+    },
+    kullaniciAdi: string,
+  ) {
+    const odaNo = String(body?.odaNo ?? '').trim();
+    if (!/^\d{3}$/.test(odaNo)) {
+      return { success: false, message: 'Geçersiz odaNo' };
+    }
+
+    const yeniOdaTipAdi = String(body?.yeniOdaTipAdi ?? '').trim();
+    if (!yeniOdaTipAdi) {
+      return { success: false, message: 'Yeni oda tipi boş olamaz' };
+    }
+
+    const kllncInput = String(kullaniciAdi ?? '').trim() || 'SYSTEM';
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+
+    const silinecek = Array.isArray(body?.silinecekOdYatKodlar)
+      ? body.silinecekOdYatKodlar
+          .map((x) => String(x ?? '').trim())
+          .filter((x) => !!x)
+      : [];
+    const silinecekUniq = Array.from(new Set(silinecek));
+
+    const eklenecek = Array.isArray(body?.eklenecekSatirlar)
+      ? body.eklenecekSatirlar
+          .map((x) => ({
+            OdYatKod: String(x?.OdYatKod ?? '').trim(),
+            OdYatYtkNo: String(x?.OdYatYtkNo ?? '').trim(),
+          }))
+          .filter((x) => !!x.OdYatKod && !!x.OdYatYtkNo)
+      : [];
+
+    const eklenecekUniqMap = new Map<string, { OdYatKod: string; OdYatYtkNo: string }>();
+    for (const r of eklenecek) {
+      if (!eklenecekUniqMap.has(r.OdYatKod)) {
+        eklenecekUniqMap.set(r.OdYatKod, r);
+      }
+    }
+    const eklenecekUniq = Array.from(eklenecekUniqMap.values());
+
+    if (silinecekUniq.length > 0 && eklenecekUniq.length > 0) {
+      return {
+        success: false,
+        message:
+          'Aynı işlemde hem silme hem ekleme yapılamaz. (Eski>Yeni ise silme, Yeni>Eski ise ekleme yapılır.)',
+      };
+    }
+
+    try {
+      const result = await this.transactionService.executeInTransaction(async (queryRunner: QueryRunner) => {
+        await queryRunner.query('SET LOCK_TIMEOUT 60000');
+
+        let kllnc = kllncInput;
+        try {
+          const personelTableName = this.dbConfig.getTableName('tblPersonel');
+          const prsnQuery = `
+            SELECT TOP 1 PrsnUsrNm
+            FROM ${personelTableName}
+            WHERE LOWER(LTRIM(RTRIM(PrsnUsrNm))) = LOWER(@0)
+          `;
+          const prsnRows = (await queryRunner.query(prsnQuery, [kllncInput])) as Array<{ PrsnUsrNm?: string }>;
+          const found = prsnRows?.[0]?.PrsnUsrNm ? String(prsnRows[0].PrsnUsrNm).trim() : '';
+          if (found) kllnc = found;
+        } catch (e) {
+          void e;
+        }
+
+        const doluCheckQuery = `
+          SELECT TOP 1 OdYatKod
+          FROM ${odaYatakTableName} WITH (UPDLOCK, ROWLOCK)
+          WHERE OdYatOdaNo = @0
+            AND UPPER(LTRIM(RTRIM(OdYatDurum))) = 'DOLU'
+        `;
+        const doluRows = (await queryRunner.query(doluCheckQuery, [odaNo])) as Array<{ OdYatKod?: string }>;
+        if (doluRows?.length) {
+          throw new Error('Odada DOLU yatak varken oda tipi değiştirilemez.');
+        }
+
+        let deletedCount = 0;
+        for (const kod of silinecekUniq) {
+          const delQuery = `
+            DELETE FROM ${odaYatakTableName}
+            WHERE OdYatOdaNo = @0 AND OdYatKod = @1
+          `;
+          const delRes = await this.transactionService.executeQuery(queryRunner, delQuery, [odaNo, kod]);
+          if (typeof delRes?.affectedRows === 'number') {
+            deletedCount += delRes.affectedRows;
+          } else {
+            deletedCount += 1;
+          }
+        }
+
+        const bugun = this.formatDate(new Date());
+
+        let insertedCount = 0;
+        for (const r of eklenecekUniq) {
+          const { blok, kat } = this.extractBlokKat(r.OdYatKod, odaNo);
+          const insQuery = `
+            INSERT INTO ${odaYatakTableName} (
+              oKytTarihi,
+              OdYatKllnc,
+              OdYatKod,
+              OdYatSube,
+              OdYatBlok,
+              OdYatKat,
+              OdYatOdaNo,
+              OdYatYtkNo,
+              OdYatOdaTip,
+              OdYatDurum
+            ) VALUES (
+              @0, @1, @2, @3, @4, @5, @6, @7, @8, @9
+            )
+          `;
+          await this.transactionService.executeQuery(queryRunner, insQuery, [
+            bugun,
+            kllnc,
+            r.OdYatKod,
+            'MERKEZ',
+            blok,
+            kat,
+            odaNo,
+            r.OdYatYtkNo,
+            yeniOdaTipAdi,
+            'BOŞ',
+          ]);
+          insertedCount += 1;
+        }
+
+        const updQuery = `
+          UPDATE ${odaYatakTableName}
+          SET OdYatOdaTip = @0
+          WHERE OdYatOdaNo = @1
+        `;
+        await this.transactionService.executeQuery(queryRunner, updQuery, [yeniOdaTipAdi, odaNo]);
+
+        return { deletedCount, insertedCount };
+      });
+
+      return {
+        success: true,
+        message: 'Oda tipi değiştirildi.',
+        ...result,
+      };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: msg };
+    }
+  }
+
+  async odaEkle(
+    body: { odaNo: string; odaTipAdi: string; odaYatakSayisi: number | string },
+    kullaniciAdi: string,
+  ) {
+    const odaNo = String(body?.odaNo ?? '').trim();
+    if (!/^\d{3}$/.test(odaNo)) {
+      return { success: false, message: 'Yeni Oda No 3 haneli sayı olmalıdır.' };
+    }
+
+    const odaTipAdi = String(body?.odaTipAdi ?? '').trim();
+    if (!odaTipAdi) {
+      return { success: false, message: 'Oda tipi seçiniz.' };
+    }
+
+    const odaYatakSayisiNum = Number(String(body?.odaYatakSayisi ?? '').replace(/\D/g, ''));
+    if (!Number.isFinite(odaYatakSayisiNum) || odaYatakSayisiNum < 1 || odaYatakSayisiNum > 99) {
+      return { success: false, message: 'Oda Yatak Sayısı 1-99 aralığında olmalıdır.' };
+    }
+
+    const kllncInput = String(kullaniciAdi ?? '').trim() || 'SYSTEM';
+    const odaYatakTableName = this.dbConfig.getTableName('tblOdaYatak');
+
+    const buildOdYatKod = (odaNoStr: string, yatakNo: number) => {
+      const firstDigit = Number.parseInt(odaNoStr.charAt(0), 10);
+      const blok = Number.isFinite(firstDigit) && firstDigit < 5 ? 'A' : 'B';
+      const katPart = `0${odaNoStr.charAt(0)}`;
+      const odaPart = `0${odaNoStr}`;
+      const ytkPart = String(yatakNo).padStart(2, '0');
+      return `MER${blok}${katPart}${odaPart}${ytkPart}`;
+    };
+
+    try {
+      const result = await this.transactionService.executeInTransaction(async (queryRunner: QueryRunner) => {
+        await queryRunner.query('SET LOCK_TIMEOUT 60000');
+
+        const existsQuery = `
+          SELECT TOP 1 OdYatKod
+          FROM ${odaYatakTableName} WITH (UPDLOCK, HOLDLOCK)
+          WHERE OdYatOdaNo = @0
+        `;
+        const existsRows = (await queryRunner.query(existsQuery, [odaNo])) as Array<{ OdYatKod?: unknown }>;
+        if (existsRows?.length) {
+          throw new Error('Bu oda numarası zaten mevcut.');
+        }
+
+        let kllnc = kllncInput;
+        try {
+          const personelTableName = this.dbConfig.getTableName('tblPersonel');
+          const prsnQuery = `
+            SELECT TOP 1 PrsnUsrNm
+            FROM ${personelTableName}
+            WHERE LOWER(LTRIM(RTRIM(PrsnUsrNm))) = LOWER(@0)
+          `;
+          const prsnRows = (await queryRunner.query(prsnQuery, [kllncInput])) as Array<{ PrsnUsrNm?: string }>;
+          const found = prsnRows?.[0]?.PrsnUsrNm ? String(prsnRows[0].PrsnUsrNm).trim() : '';
+          if (found) kllnc = found;
+        } catch (e) {
+          void e;
+        }
+
+        const bugun = this.formatDate(new Date());
+
+        for (let i = 1; i <= odaYatakSayisiNum; i += 1) {
+          const odYatKod = buildOdYatKod(odaNo, i);
+          const { blok, kat } = this.extractBlokKat(odYatKod, odaNo);
+          const insQuery = `
+            INSERT INTO ${odaYatakTableName} (
+              oKytTarihi,
+              OdYatKllnc,
+              OdYatKod,
+              OdYatSube,
+              OdYatBlok,
+              OdYatKat,
+              OdYatOdaNo,
+              OdYatYtkNo,
+              OdYatOdaTip,
+              OdYatDurum
+            ) VALUES (
+              @0, @1, @2, @3, @4, @5, @6, @7, @8, @9
+            )
+          `;
+          await this.transactionService.executeQuery(queryRunner, insQuery, [
+            bugun,
+            kllnc,
+            odYatKod,
+            'MERKEZ',
+            blok,
+            kat,
+            odaNo,
+            String(i),
+            odaTipAdi,
+            'BOŞ',
+          ]);
+        }
+
+        return { insertedCount: odaYatakSayisiNum };
+      });
+
+      return { success: true, message: 'Oda başarıyla eklendi.', ...result };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: msg };
+    }
+  }
+
   /**
    * Belirtilen oda ve yatak numarasına göre oda-yatak durumunu günceller.
    */
@@ -407,6 +718,26 @@ export class KonaklamaTakvimService {
       console.error('updateOdaYatakDurum hatası:', error);
       return { success: false, message: 'Güncelleme hatası' };
     }
+  }
+
+  private extractBlokKat(odYatKodRaw: string, odaNo: string): { blok: string; kat: string } {
+    const odYatKod = String(odYatKodRaw ?? '').trim();
+    const odaNoStr = String(odaNo ?? '').trim();
+
+    const fallbackBlok = (() => {
+      const firstDigit = Number.parseInt(odaNoStr.charAt(0), 10);
+      if (!Number.isFinite(firstDigit)) return '';
+      return firstDigit < 6 ? 'A' : 'B';
+    })();
+
+    const blokChar = (odYatKod.charAt(3) || '').toLocaleUpperCase('tr-TR');
+    const blok = blokChar === 'A' || blokChar === 'B' ? blokChar : fallbackBlok;
+
+    const katStrRaw = odYatKod.slice(4, 6);
+    const katNum = Number.parseInt(katStrRaw, 10);
+    const kat = Number.isFinite(katNum) ? String(katNum) : (odaNoStr.charAt(0) || '');
+
+    return { blok, kat };
   }
 
   /**

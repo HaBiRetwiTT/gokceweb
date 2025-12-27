@@ -3,20 +3,19 @@
     <!-- Geç Saat Konaklama Ayarı -->
     <div class="row q-mb-md q-px-sm q-py-sm bg-blue-grey-9 rounded-borders">
       <div class="col-12 row items-center no-wrap" style="gap: 12px;">
-        <!-- Sol Taraf: Başlık ve Bilgi Metni (Alt Alta) -->
-        <div class="column">
-          <div class="row items-center no-wrap">
-            <q-icon name="schedule" size="sm" color="blue-3" class="q-mr-xs" />
-            <span class="text-h6 text-blue-3">Geç Saat Konaklama Sonu:</span>
+        <div class="row items-center no-wrap admin-header-group admin-header-group--gec" style="gap: 6px;">
+          <div class="column">
+            <div class="row items-center no-wrap">
+              <q-icon name="schedule" size="sm" color="blue-3" class="q-mr-xs" />
+              <span class="text-h6 text-blue-3">Geç Saat Konaklama Sonu:</span>
+            </div>
+            <div class="text-caption text-blue-grey-3" style="font-size: 0.7rem;">
+              <q-icon name="info" size="16px" class="q-mr-xs" />
+              00:00 - {{ gecSaatSonu }} arası 0 gün konaklama geçerlidir
+            </div>
           </div>
-          <div class="text-caption text-blue-grey-3" style="font-size: 0.7rem;">
-            <q-icon name="info" size="16px" class="q-mr-xs" />
-            00:00 - {{ gecSaatSonu }} arası 0 gün konaklama geçerlidir
-          </div>
-        </div>
-        
-        <!-- Orta: Saat Kontrolleri -->
-        <div class="row no-wrap items-center" style="gap: 4px;">
+          
+          <div class="row no-wrap items-center" style="gap: 4px;">
             <q-btn
               round
               dense
@@ -53,18 +52,95 @@
               @click="artirSaat"
             />
           </div>
-        
-        <!-- Kaydet Butonu -->
-            <q-btn
-              color="blue-3"
-              text-color="blue-grey-9"
-              icon="save"
-              label="KAYDET"
-              size="xs"
-              @click="kaydetGecSaatSonu"
-              :loading="gecSaatSonuLoading"
-              :disable="gecSaatSonuLoading"
-            />
+
+          <q-btn
+            color="blue-3"
+            text-color="blue-grey-9"
+            icon="save"
+            label="KAYDET"
+            size="xs"
+            @click="kaydetGecSaatSonu"
+            :loading="gecSaatSonuLoading"
+            :disable="gecSaatSonuLoading"
+          />
+        </div>
+
+        <div class="row items-center no-wrap q-gutter-x-sm admin-header-group admin-header-group--hizli">
+          <div class="text-caption text-weight-bold text-blue-3 q-mr-xs" style="line-height: 1.5; text-align: center;">Hızlı Durum<br>Değişikliği:</div>
+          
+          <q-input
+            v-model="odaNo"
+            label="Oda No"
+            outlined
+            dense
+            dark
+            color="blue-3"
+            label-color="blue-1"
+            style="width: 90px"
+            maxlength="4"
+            @update:model-value="handleOdaNoInput"
+          />
+          
+          <q-input
+            v-model="yatakNo"
+            label="Yatak No"
+            outlined
+            dense
+            dark
+            color="blue-3"
+            label-color="blue-1"
+            style="width: 80px"
+            maxlength="2"
+            @update:model-value="handleYatakNoInput"
+          />
+          
+          <q-btn
+            icon="close"
+            flat
+            round
+            dense
+            size="sm"
+            color="red-4"
+            @click="temizleOdaYatakInput"
+          >
+            <q-tooltip>Temizle</q-tooltip>
+          </q-btn>
+          
+          <q-chip
+            :color="durumRengi"
+            text-color="white"
+            class="q-ma-none text-weight-bold"
+            :label="odaYatakDurum || 'DURUM'"
+            square
+            style="min-width: 90px; justify-content: center; height: 40px;"
+          />
+          
+          <q-select
+            v-model="yeniDurum"
+            :options="availableOptions"
+            label="Seçiniz"
+            outlined
+            dense
+            dark
+            options-dark
+            color="blue-3"
+            label-color="blue-1"
+            style="width: 130px"
+            :disable="!isDurumSelectEnabled"
+            options-dense
+          />
+          
+          <q-btn
+            label="GÜNCELLE"
+            color="blue-3"
+            text-color="blue-grey-9"
+            icon="save"
+            size="md"
+            :disable="!yeniDurum"
+            :loading="durumGuncelleLoading"
+            @click="guncelleOdaYatakDurum"
+          />
+        </div>
         
         <q-space />
         
@@ -97,83 +173,38 @@
            <q-tooltip>Gizli kayıtları göster/gizle</q-tooltip>
          </q-btn>
 
-         <!-- Oda-Yatak Hızlı Yönetim Grubu -->
-         <div class="row items-center q-gutter-x-sm bg-blue-grey-9 q-pa-sm rounded-borders">
-            <div class="text-caption text-weight-bold text-blue-3 q-mr-xs" style="line-height: 1.1; text-align: center;">Hızlı Durum<br>Değişikliği:</div>
-            
-            <q-input
-              v-model="odaNo"
-              label="Oda No"
-              outlined
-              dense
-              dark
-              color="blue-3"
-              label-color="blue-1"
-              style="width: 90px"
-              maxlength="4"
-              @update:model-value="handleOdaNoInput"
-            />
-            
-            <q-input
-              v-model="yatakNo"
-              label="Yatak No"
-              outlined
-              dense
-              dark
-              color="blue-3"
-              label-color="blue-1"
-              style="width: 80px"
-              maxlength="2"
-              @update:model-value="handleYatakNoInput"
-            />
-            
-            <q-btn
-              icon="close"
-              flat
-              round
-              dense
-              size="sm"
-              color="red-4"
-              @click="temizleOdaYatakInput"
-            >
-               <q-tooltip>Temizle</q-tooltip>
-            </q-btn>
-            
-            <q-chip
-              :color="durumRengi"
-              text-color="white"
-              class="q-ma-none text-weight-bold"
-              :label="odaYatakDurum || 'DURUM'"
-              square
-              style="min-width: 90px; justify-content: center; height: 40px;"
-            />
-            
-            <q-select
-              v-model="yeniDurum"
-              :options="availableOptions"
-              label="Seçiniz"
-              outlined
-              dense
-              dark
-              options-dark
-              color="blue-3"
-              label-color="blue-1"
-              style="width: 130px"
-              :disable="!isDurumSelectEnabled"
-              options-dense
-            />
-            
-            <q-btn
-              label="GÜNCELLE"
-              color="blue-3"
-              text-color="blue-grey-9"
-              icon="save"
-              size="md"
-              :disable="!yeniDurum"
-              :loading="durumGuncelleLoading"
-              @click="guncelleOdaYatakDurum"
-            />
-         </div>
+         <q-btn
+           color="green-7"
+           text-color="white"
+           icon="add"
+           label="YENİ ODA TİPİ TANIMLA"
+           size="md"
+           class="q-ml-md"
+           @click="openYeniOdaTipModal"
+           unelevated
+         />
+
+         <q-btn
+           color="blue-7"
+           text-color="white"
+           icon="swap_horiz"
+           label="ODA TİPİ DEĞİŞTİR"
+           size="md"
+           class="q-ml-md"
+           @click="openOdaTipDegistirModal"
+           unelevated
+         />
+
+         <q-btn
+           color="deep-purple-7"
+           text-color="white"
+           icon="meeting_room"
+           label="YENİ ODA EKLE"
+           size="md"
+           class="q-ml-md"
+           @click="openYeniOdaEkleModal"
+           unelevated
+         />
        </div>
 
        <!-- Sağ Taraf: Tablo Güncelleme Butonu -->
@@ -484,6 +515,314 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <q-dialog v-model="showYeniOdaTipModal" persistent>
+      <q-card
+        ref="yeniOdaTipModalCard"
+        style="min-width: 400px; max-width: 400px;"
+        class="yeni-oda-tip-modal-card draggable-modal"
+      >
+        <q-card-section class="row items-center bg-green-8 text-white q-pa-sm modal-header" style="cursor: move;">
+          <q-icon name="add" size="sm" class="q-mr-xs" />
+          <div class="text-subtitle1 text-weight-bold">Yeni Oda Tipi Tanımla</div>
+          <q-space />
+          <q-btn icon="close" flat round dense size="sm" color="white" @click="closeYeniOdaTipModal" />
+        </q-card-section>
+
+        <q-card-section class="q-pa-sm">
+          <div class="row items-center q-col-gutter-sm q-mb-sm">
+            <div class="col-auto text-body2 text-weight-medium">OdaTipi Adı:</div>
+            <div class="col">
+              <q-input v-model="yeniOdaTipAdi" outlined dense />
+            </div>
+          </div>
+
+          <div class="row items-center q-col-gutter-sm q-mb-sm">
+            <div class="col-auto text-body2 text-weight-medium">Oda GÜNLÜK Fiyatı (TL):</div>
+            <div class="col">
+              <q-input
+                v-model="yeniOdaTipGunluk"
+                outlined
+                dense
+                inputmode="numeric"
+                maxlength="12"
+                :rules="[tamsayiRule]"
+                @update:model-value="handleYeniOdaTipGunlukInput"
+              />
+            </div>
+          </div>
+
+          <div class="row items-center q-col-gutter-sm q-mb-sm">
+            <div class="col-auto text-body2 text-weight-medium">Oda HAFTALIK Fiyatı (TL):</div>
+            <div class="col">
+              <q-input
+                v-model="yeniOdaTipHaftalik"
+                outlined
+                dense
+                inputmode="numeric"
+                maxlength="12"
+                :rules="[tamsayiRule]"
+                @update:model-value="handleYeniOdaTipHaftalikInput"
+              />
+            </div>
+          </div>
+
+          <div class="row items-center q-col-gutter-sm q-mb-sm">
+            <div class="col-auto text-body2 text-weight-medium">Oda AYLIK Fiyatı (TL):</div>
+            <div class="col">
+              <q-input
+                v-model="yeniOdaTipAylik"
+                outlined
+                dense
+                inputmode="numeric"
+                maxlength="12"
+                :rules="[tamsayiRule]"
+                @update:model-value="handleYeniOdaTipAylikInput"
+              />
+            </div>
+          </div>
+
+          <div class="row items-center q-col-gutter-sm">
+            <div class="col-auto text-body2 text-weight-medium">Oda Depozito Bedeli (GÜNLÜK):</div>
+            <div class="col">
+              <q-input
+                v-model="yeniOdaTipDepozito"
+                outlined
+                dense
+                inputmode="numeric"
+                maxlength="12"
+                :rules="[tamsayiRule]"
+                @update:model-value="handleYeniOdaTipDepozitoInput"
+              />
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-xs">
+          <q-btn label="VAZGEÇ" color="grey" flat size="sm" @click="closeYeniOdaTipModal" />
+          <q-btn
+            label="KAYDET"
+            color="primary"
+            unelevated
+            size="sm"
+            :loading="yeniOdaTipKaydetLoading"
+            :disable="yeniOdaTipKaydetLoading"
+            @click="yeniOdaTipKaydet"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="showOdaTipDegistirModal" persistent>
+      <q-card
+        ref="odaTipDegistirModalCard"
+        style="min-width: 520px; max-width: 650px;"
+        class="oda-tip-modal-card draggable-modal"
+      >
+        <q-card-section class="row items-center bg-blue-8 text-white q-pa-sm modal-header" style="cursor: move;">
+          <q-icon name="swap_horiz" size="sm" class="q-mr-xs" />
+          <div class="text-subtitle1 text-weight-bold">Oda Tipi Değiştir</div>
+          <q-space />
+          <q-btn icon="close" flat round dense size="sm" color="white" @click="closeOdaTipDegistirModal" />
+        </q-card-section>
+
+        <q-card-section class="q-pa-sm">
+          <div class="row items-center q-col-gutter-sm q-mb-sm">
+            <div class="col-auto text-body2 text-weight-medium">
+              Tip değişikliği yapılacak Oda No
+            </div>
+            <div class="col-auto">
+              <q-input
+                v-model="odaTipDegistirOdaNo"
+                outlined
+                dense
+                style="width: 80px"
+                maxlength="3"
+                inputmode="numeric"
+                @update:model-value="handleOdaTipDegistirOdaNoInput"
+                @blur="yukleOdaTipDegistirMevcutTip"
+              />
+            </div>
+            <div class="col">
+              <q-input
+                outlined
+                dense
+                readonly
+                label="Mevcut Oda Tipi"
+                :model-value="odaTipDegistirMevcutTipDisplay"
+              />
+            </div>
+          </div>
+
+          <q-select
+            v-model="odaTipDegistirSecilenTip"
+            :options="odaTipDegistirOptions"
+            label="Yeni Oda Tipi"
+            outlined
+            dense
+            emit-value
+            map-options
+            use-input
+            input-debounce="0"
+            clearable
+            class="q-mb-sm"
+            :disable="!odaTipDegistirYeniTipEnabled"
+          />
+
+          <div v-if="odaTipDegistirOdaNo.length === 3" class="row q-col-gutter-sm">
+            <div class="col-6">
+              <div class="oda-tip-table-title">ESKİ ODA TİPİ BİLGİLERİ</div>
+              <q-table
+                :rows="odaTipDegistirOdaYatakRows"
+                :columns="odaTipDegistirOdaYatakColumns"
+                row-key="OdYatKod"
+                dense
+                flat
+                bordered
+                separator="cell"
+                hide-pagination
+                :rows-per-page-options="[0]"
+                :loading="odaTipDegistirOdaYatakLoading"
+                no-data-label="Kayıt bulunamadı"
+                class="oda-tip-mini-table"
+              >
+                <template v-slot:body-cell-OdYatDurum="props">
+                  <q-td :props="props" :class="{ 'cell-dolu': odaTipDegistirDurumIsDolu(props.value) }">
+                    {{ props.value }}
+                  </q-td>
+                </template>
+              </q-table>
+            </div>
+            <div class="col-6">
+              <div class="oda-tip-table-title">YENİ ODA TİPİ BİLGİLERİ</div>
+              <q-table
+                :rows="odaTipDegistirYeniOdaYatakRows"
+                :columns="odaTipDegistirOdaYatakColumns"
+                row-key="RowId"
+                dense
+                flat
+                bordered
+                separator="cell"
+                hide-pagination
+                :rows-per-page-options="[0]"
+                :loading="odaTipDegistirOdaYatakLoading"
+                no-data-label="Kayıt bulunamadı"
+                class="oda-tip-mini-table"
+              >
+                <template v-slot:body="props">
+                  <q-tr :props="props">
+                    <q-td
+                      v-if="props.row?._deleteMarker"
+                      :colspan="odaTipDegistirOdaYatakColumns.length"
+                      class="cell-silinecek"
+                    >
+                      Bu kayıt silinecek!
+                    </q-td>
+                    <template v-else>
+                      <q-td key="OdYatKod" :props="props">
+                        {{ props.row.OdYatKod }}
+                      </q-td>
+                      <q-td key="OdYatYtkNo" :props="props">
+                        {{ props.row.OdYatYtkNo }}
+                      </q-td>
+                      <q-td key="OdYatDurum" :props="props">
+                        {{ props.row.OdYatDurum }}
+                      </q-td>
+                    </template>
+                  </q-tr>
+                </template>
+              </q-table>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-xs">
+          <q-btn label="VAZGEÇ" color="grey" flat size="sm" @click="closeOdaTipDegistirModal" />
+          <q-btn label="DEĞİŞTİR" color="primary" unelevated size="sm" :disable="!odaTipDegistirDegistirEnabled" @click="odaTipDegistirOnayla" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="showYeniOdaEkleModal" persistent>
+      <q-card
+        ref="yeniOdaEkleModalCard"
+        style="min-width: 520px; max-width: 650px;"
+        class="yeni-oda-ekle-modal-card draggable-modal"
+      >
+        <q-card-section class="row items-center bg-deep-purple-8 text-white q-pa-sm modal-header" style="cursor: move;">
+          <q-icon name="meeting_room" size="sm" class="q-mr-xs" />
+          <div class="text-subtitle1 text-weight-bold">Yeni Oda Ekle</div>
+          <q-space />
+          <q-btn icon="close" flat round dense size="sm" color="white" @click="closeYeniOdaEkleModal" />
+        </q-card-section>
+
+        <q-card-section class="q-pa-sm">
+          <q-select
+            v-model="yeniOdaEkleOdaTip"
+            :options="odaTipDegistirOptions"
+            label="Oda Tipi Seçimi"
+            outlined
+            dense
+            emit-value
+            map-options
+            clearable
+            class="q-mb-sm"
+            :rules="[(v) => !!v || 'Zorunlu alan']"
+          />
+
+          <q-input
+            v-model="yeniOdaEkleOdaNo"
+            label="Yeni Oda No"
+            outlined
+            dense
+            inputmode="numeric"
+            maxlength="3"
+            class="q-mb-sm"
+            :rules="[yeniOdaNoRule]"
+            @update:model-value="handleYeniOdaEkleOdaNoInput"
+          />
+
+          <q-input
+            v-model="yeniOdaEkleYatakSayisi"
+            label="Oda Yatak Sayısı"
+            outlined
+            dense
+            inputmode="numeric"
+            maxlength="2"
+            class="q-mb-sm"
+            :rules="[yeniOdaYatakSayisiRule]"
+            @update:model-value="handleYeniOdaEkleYatakSayisiInput"
+          />
+
+          <q-table
+            :rows="yeniOdaEkleRows"
+            :columns="yeniOdaEkleColumns"
+            row-key="OdYatKod"
+            dense
+            flat
+            bordered
+            separator="cell"
+            hide-pagination
+            :rows-per-page-options="[0]"
+            no-data-label="Bilgileri giriniz"
+            class="oda-tip-mini-table"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-xs">
+          <q-btn label="VAZGEÇ" color="grey" flat size="sm" @click="closeYeniOdaEkleModal" />
+          <q-btn
+            label="KAYDET"
+            color="primary"
+            unelevated
+            size="sm"
+            :loading="yeniOdaEkleLoading"
+            :disable="yeniOdaEkleLoading"
+            @click="yeniOdaEkleKaydet"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -518,6 +857,858 @@ const odaTipLifyatRows = ref<OdaTipLifyatRow[]>([]);
 const gizliKayitlarGosteriliyor = ref(false);
 const tumKayitlar = ref<OdaTipLifyatRow[]>([]);
 
+const showYeniOdaTipModal = ref(false);
+const yeniOdaTipModalCard = ref<{ $el: HTMLElement } | null>(null);
+const yeniOdaTipAdi = ref('');
+const yeniOdaTipGunluk = ref('');
+const yeniOdaTipHaftalik = ref('');
+const yeniOdaTipAylik = ref('');
+const yeniOdaTipDepozito = ref('');
+const yeniOdaTipKaydetLoading = ref(false);
+
+const showOdaTipDegistirModal = ref(false);
+const odaTipDegistirModalCard = ref<{ $el: HTMLElement } | null>(null);
+const odaTipDegistirOdaNo = ref('');
+const odaTipDegistirMevcutTip = ref<string | null>(null);
+const odaTipDegistirLoading = ref(false);
+const odaTipDegistirSecilenTip = ref<string | null>(null);
+const odaTipDegistirOdaNoToTip = ref<Record<string, string>>({});
+const odaTipDegistirKatPlanTipleri = ref<string[]>([]);
+const odaTipDegistirOdaYatakLoading = ref(false);
+const odaTipDegistirOdaYatakRows = ref<Array<{ OdYatKod: string; OdYatYtkNo: string; OdYatDurum: string }>>([]);
+
+const showYeniOdaEkleModal = ref(false);
+const yeniOdaEkleModalCard = ref<{ $el: HTMLElement } | null>(null);
+const yeniOdaEkleOdaTip = ref<string | null>(null);
+const yeniOdaEkleOdaNo = ref('');
+const yeniOdaEkleYatakSayisi = ref('');
+const yeniOdaEkleLoading = ref(false);
+
+const odaTipDegistirOdaYatakColumns = [
+  {
+    name: 'OdYatKod',
+    label: 'OdYatKod',
+    field: 'OdYatKod',
+    align: 'center' as const,
+    headerStyle: 'width: 120px; text-align: center;',
+    style: 'width: 120px; max-width: 120px; white-space: nowrap; text-align: center;'
+  },
+  {
+    name: 'OdYatYtkNo',
+    label: 'OdYatYtkNo',
+    field: 'OdYatYtkNo',
+    align: 'center' as const,
+    headerStyle: 'width: 85px; text-align: center;',
+    style: 'width: 85px; max-width: 85px; white-space: nowrap; text-align: center;'
+  },
+  {
+    name: 'OdYatDurum',
+    label: 'OdYatDurum',
+    field: 'OdYatDurum',
+    align: 'center' as const,
+    headerStyle: 'width: 95px; text-align: center;',
+    style: 'width: 95px; max-width: 95px; white-space: nowrap; text-align: center;'
+  }
+];
+
+const yeniOdaEkleColumns = odaTipDegistirOdaYatakColumns;
+
+const normalizeOdaTipAdiForParse = (v: unknown) => {
+  if (typeof v !== 'string') return '';
+  let s = v.trim().toLocaleUpperCase('tr-TR');
+  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return s;
+};
+
+const parseYatakSayisiFromOdaTipAdi = (odaTipAdi: unknown): number | null => {
+  const s = normalizeOdaTipAdiForParse(odaTipAdi);
+  if (!s) return null;
+  if (s.includes('TEK')) return 1;
+  const m = s.match(/(\d+)\s*KISILIK/);
+  const n = m?.[1] ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const odaTipDegistirYeniYatakSayisi = computed(() => {
+  const base = odaTipDegistirOdaYatakRows.value.length;
+  if (!odaTipDegistirSecilenTip.value) return base;
+  const parsed = parseYatakSayisiFromOdaTipAdi(odaTipDegistirSecilenTip.value);
+  return parsed ?? base;
+});
+
+const odaTipDegistirYeniTabloSatirSayisi = computed(() => {
+  const base = odaTipDegistirOdaYatakRows.value.length;
+  const yeni = odaTipDegistirYeniYatakSayisi.value;
+  return Math.max(base, yeni);
+});
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const first10Digits = (v: unknown) => {
+  if (typeof v !== 'string') return '';
+  const d = v.replace(/\D/g, '');
+  if (d.length >= 10) return d.slice(0, 10);
+  const s = v.trim();
+  return s.length >= 10 ? s.slice(0, 10) : s;
+};
+
+const odaTipDegistirYeniOdaYatakRows = computed(() => {
+  const oldRows = odaTipDegistirOdaYatakRows.value;
+  const oldCount = oldRows.length;
+  const yeniCount = odaTipDegistirYeniYatakSayisi.value;
+  const displayCount = odaTipDegistirYeniTabloSatirSayisi.value;
+  const prefix = first10Digits(oldRows[0]?.OdYatKod);
+
+  return Array.from({ length: displayCount }, (_, idx) => {
+    const rowNo = idx + 1;
+
+    if (rowNo <= oldCount && rowNo <= yeniCount) {
+      const src = oldRows[idx] || { OdYatKod: '', OdYatYtkNo: '', OdYatDurum: '' };
+      return {
+        RowId: String(idx),
+        _deleteMarker: false,
+        OdYatKod: src.OdYatKod,
+        OdYatYtkNo: src.OdYatYtkNo,
+        OdYatDurum: src.OdYatDurum
+      };
+    }
+
+    if (rowNo > yeniCount) {
+      return {
+        RowId: String(idx),
+        _deleteMarker: true,
+        OdYatKod: '',
+        OdYatYtkNo: '',
+        OdYatDurum: ''
+      };
+    }
+
+    const kod = prefix ? `${prefix}${pad2(rowNo)}` : pad2(rowNo);
+    return {
+      RowId: String(idx),
+      _deleteMarker: false,
+      OdYatKod: kod,
+      OdYatYtkNo: String(rowNo),
+      OdYatDurum: 'BOŞ'
+    };
+  });
+});
+
+const normalizeOdaYatakDurum = (v: unknown) => {
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'bigint' || typeof v === 'boolean') {
+    return String(v).trim().toLocaleUpperCase('tr-TR');
+  }
+  return '';
+};
+
+const odaTipDegistirDurumIsDolu = (v: unknown) => normalizeOdaYatakDurum(v) === 'DOLU';
+
+const odaTipDegistirEskiTablodaDoluVar = computed(() => {
+  return odaTipDegistirOdaYatakRows.value.some((r) => odaTipDegistirDurumIsDolu(r.OdYatDurum));
+});
+
+const odaTipDegistirYeniTipEnabled = computed(() => {
+  if (odaTipDegistirOdaNo.value.length !== 3) return false;
+  if (odaTipDegistirOdaYatakLoading.value) return false;
+  return !odaTipDegistirEskiTablodaDoluVar.value;
+});
+
+const odaTipDegistirDegistirEnabled = computed(() => {
+  return odaTipDegistirYeniTipEnabled.value && !!odaTipDegistirSecilenTip.value;
+});
+
+const odaTipDegistirOptions = computed(() => {
+  const tipSet = new Set<string>();
+  for (const row of tumKayitlar.value) {
+    const t = String(row?.OdTipAdi ?? '').trim();
+    if (t) tipSet.add(t);
+  }
+  for (const t of odaTipDegistirKatPlanTipleri.value) {
+    const tt = String(t ?? '').trim();
+    if (tt) tipSet.add(tt);
+  }
+  return Array.from(tipSet)
+    .sort((a, b) => a.localeCompare(b, 'tr'))
+    .map((t) => ({ label: t, value: t }));
+});
+
+const odaTipDegistirMevcutTipDisplay = computed(() => {
+  if (!odaTipDegistirOdaNo.value || odaTipDegistirOdaNo.value.length < 1) return '';
+  if (odaTipDegistirLoading.value) return 'Yükleniyor...';
+  return odaTipDegistirMevcutTip.value?.trim() ? odaTipDegistirMevcutTip.value : 'Bulunamadı';
+});
+
+type KatPlanRoomMinimal = { odaNo: number; odaTip: string }
+type KatPlanResponseMinimal = { floorToRooms?: Record<string, unknown[]> }
+
+let yeniOdaTipDraggableAttached = false;
+const yeniOdaTipDragState = {
+  isDragging: false,
+  currentX: 0,
+  currentY: 0,
+  initialX: 0,
+  initialY: 0,
+  xOffset: 0,
+  yOffset: 0
+};
+
+const digitsOnly = (val: string | number | null) => {
+  if (val === null) return '';
+  return String(val).replace(/\D/g, '').slice(0, 12);
+};
+
+const tamsayiRule = (val: unknown) => {
+  if (val === null || val === undefined) return true;
+  if (val === '') return true;
+  if (typeof val === 'number') return (Number.isInteger(val) && val >= 0) || 'Sadece tamsayı giriniz';
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return true;
+    return /^\d+$/.test(s) || 'Sadece tamsayı giriniz';
+  }
+  return 'Sadece tamsayı giriniz';
+};
+
+const handleYeniOdaTipGunlukInput = (val: string | number | null) => {
+  yeniOdaTipGunluk.value = digitsOnly(val);
+};
+
+const handleYeniOdaTipHaftalikInput = (val: string | number | null) => {
+  yeniOdaTipHaftalik.value = digitsOnly(val);
+};
+
+const handleYeniOdaTipAylikInput = (val: string | number | null) => {
+  yeniOdaTipAylik.value = digitsOnly(val);
+};
+
+const handleYeniOdaTipDepozitoInput = (val: string | number | null) => {
+  yeniOdaTipDepozito.value = digitsOnly(val);
+};
+
+function setupYeniOdaTipModalDraggable() {
+  if (yeniOdaTipDraggableAttached) return
+  yeniOdaTipDraggableAttached = true
+
+  function dragStart(e: MouseEvent | TouchEvent) {
+    if (!showYeniOdaTipModal.value) return
+    if (!e.target || !(e.target as HTMLElement).closest('.yeni-oda-tip-modal-card .modal-header')) return
+
+    yeniOdaTipDragState.isDragging = true
+    if (e instanceof MouseEvent) {
+      yeniOdaTipDragState.initialX = e.clientX - yeniOdaTipDragState.xOffset
+      yeniOdaTipDragState.initialY = e.clientY - yeniOdaTipDragState.yOffset
+    } else if (e instanceof TouchEvent) {
+      yeniOdaTipDragState.initialX = e.touches[0].clientX - yeniOdaTipDragState.xOffset
+      yeniOdaTipDragState.initialY = e.touches[0].clientY - yeniOdaTipDragState.yOffset
+    }
+  }
+
+  function drag(e: MouseEvent | TouchEvent) {
+    if (!yeniOdaTipDragState.isDragging) return
+    e.preventDefault()
+
+    if (e instanceof MouseEvent) {
+      yeniOdaTipDragState.currentX = e.clientX - yeniOdaTipDragState.initialX
+      yeniOdaTipDragState.currentY = e.clientY - yeniOdaTipDragState.initialY
+    } else if (e instanceof TouchEvent) {
+      yeniOdaTipDragState.currentX = e.touches[0].clientX - yeniOdaTipDragState.initialX
+      yeniOdaTipDragState.currentY = e.touches[0].clientY - yeniOdaTipDragState.initialY
+    }
+
+    yeniOdaTipDragState.xOffset = yeniOdaTipDragState.currentX
+    yeniOdaTipDragState.yOffset = yeniOdaTipDragState.currentY
+
+    if (yeniOdaTipModalCard.value?.$el) {
+      yeniOdaTipModalCard.value.$el.style.transform = `translate(${yeniOdaTipDragState.currentX}px, ${yeniOdaTipDragState.currentY}px)`
+    }
+  }
+
+  function dragEnd() {
+    yeniOdaTipDragState.isDragging = false
+  }
+
+  document.addEventListener('mousedown', dragStart)
+  document.addEventListener('mousemove', drag)
+  document.addEventListener('mouseup', dragEnd)
+  document.addEventListener('touchstart', dragStart)
+  document.addEventListener('touchmove', drag)
+  document.addEventListener('touchend', dragEnd)
+}
+
+function openYeniOdaTipModal() {
+  showYeniOdaTipModal.value = true
+  yeniOdaTipAdi.value = ''
+  yeniOdaTipGunluk.value = ''
+  yeniOdaTipHaftalik.value = ''
+  yeniOdaTipAylik.value = ''
+  yeniOdaTipDepozito.value = ''
+  yeniOdaTipKaydetLoading.value = false
+
+  yeniOdaTipDragState.isDragging = false
+  yeniOdaTipDragState.currentX = 0
+  yeniOdaTipDragState.currentY = 0
+  yeniOdaTipDragState.initialX = 0
+  yeniOdaTipDragState.initialY = 0
+  yeniOdaTipDragState.xOffset = 0
+  yeniOdaTipDragState.yOffset = 0
+  if (yeniOdaTipModalCard.value?.$el) yeniOdaTipModalCard.value.$el.style.transform = ''
+
+  setTimeout(() => {
+    setupYeniOdaTipModalDraggable()
+  }, 100)
+}
+
+function closeYeniOdaTipModal() {
+  showYeniOdaTipModal.value = false
+  yeniOdaTipAdi.value = ''
+  yeniOdaTipGunluk.value = ''
+  yeniOdaTipHaftalik.value = ''
+  yeniOdaTipAylik.value = ''
+  yeniOdaTipDepozito.value = ''
+  yeniOdaTipKaydetLoading.value = false
+  yeniOdaTipDragState.isDragging = false
+}
+
+async function yeniOdaTipKaydet() {
+  const odaTipAdi = yeniOdaTipAdi.value.trim()
+  if (!odaTipAdi) {
+    $q.notify({ type: 'negative', message: 'OdaTipi Adı boş olamaz', icon: 'error' })
+    return
+  }
+
+  const checkInt = (label: string, val: string) => {
+    const s = String(val ?? '').trim()
+    if (!s) return true
+    if (/^\d+$/.test(s)) return true
+    $q.notify({ type: 'negative', message: `${label} sadece tamsayı olmalı`, icon: 'error' })
+    return false
+  }
+
+  if (
+    !checkInt('Oda GÜNLÜK Fiyatı (TL)', yeniOdaTipGunluk.value) ||
+    !checkInt('Oda HAFTALIK Fiyatı (TL)', yeniOdaTipHaftalik.value) ||
+    !checkInt('Oda AYLIK Fiyatı (TL)', yeniOdaTipAylik.value) ||
+    !checkInt('Oda Depozito Bedeli (GÜNLÜK)', yeniOdaTipDepozito.value)
+  ) {
+    return
+  }
+
+  const toNumber = (s: string) => {
+    const n = Number(String(s || '').replace(/\D/g, ''))
+    return Number.isFinite(n) ? n : 0
+  }
+
+  yeniOdaTipKaydetLoading.value = true
+  try {
+    const res = await api.post('/admin/oda-tip-lifyat-ekle', {
+      OdTipAdi: odaTipAdi,
+      OdLfytGun: toNumber(yeniOdaTipGunluk.value),
+      OdLfytHft: toNumber(yeniOdaTipHaftalik.value),
+      OdLfytAyl: toNumber(yeniOdaTipAylik.value),
+      OdDpzt: toNumber(yeniOdaTipDepozito.value)
+    })
+
+    if (res.data?.success) {
+      $q.notify({ type: 'positive', message: res.data?.message || 'Oda tipi başarıyla eklendi', icon: 'check_circle' })
+      closeYeniOdaTipModal()
+      await getOdaTipLifyatData()
+      if (gizliKayitlarGosteriliyor.value) {
+        odaTipLifyatRows.value = [...tumKayitlar.value]
+      }
+      return
+    }
+
+    $q.notify({ type: 'negative', message: res.data?.message || 'Kayıt eklenemedi', icon: 'error' })
+  } catch (e) {
+    console.error('Oda tipi eklenemedi:', e)
+    $q.notify({ type: 'negative', message: 'Kayıt eklenemedi', icon: 'error' })
+  } finally {
+    yeniOdaTipKaydetLoading.value = false
+  }
+}
+
+let yeniOdaEkleDraggableAttached = false;
+const yeniOdaEkleDragState = {
+  isDragging: false,
+  currentX: 0,
+  currentY: 0,
+  initialX: 0,
+  initialY: 0,
+  xOffset: 0,
+  yOffset: 0
+};
+
+function setupYeniOdaEkleModalDraggable() {
+  if (yeniOdaEkleDraggableAttached) return
+  yeniOdaEkleDraggableAttached = true
+
+  function dragStart(e: MouseEvent | TouchEvent) {
+    if (!showYeniOdaEkleModal.value) return
+    if (!e.target || !(e.target as HTMLElement).closest('.yeni-oda-ekle-modal-card .modal-header')) return
+
+    yeniOdaEkleDragState.isDragging = true
+    if (e instanceof MouseEvent) {
+      yeniOdaEkleDragState.initialX = e.clientX - yeniOdaEkleDragState.xOffset
+      yeniOdaEkleDragState.initialY = e.clientY - yeniOdaEkleDragState.yOffset
+    } else if (e instanceof TouchEvent) {
+      yeniOdaEkleDragState.initialX = e.touches[0].clientX - yeniOdaEkleDragState.xOffset
+      yeniOdaEkleDragState.initialY = e.touches[0].clientY - yeniOdaEkleDragState.yOffset
+    }
+  }
+
+  function drag(e: MouseEvent | TouchEvent) {
+    if (!yeniOdaEkleDragState.isDragging) return
+    e.preventDefault()
+
+    if (e instanceof MouseEvent) {
+      yeniOdaEkleDragState.currentX = e.clientX - yeniOdaEkleDragState.initialX
+      yeniOdaEkleDragState.currentY = e.clientY - yeniOdaEkleDragState.initialY
+    } else if (e instanceof TouchEvent) {
+      yeniOdaEkleDragState.currentX = e.touches[0].clientX - yeniOdaEkleDragState.initialX
+      yeniOdaEkleDragState.currentY = e.touches[0].clientY - yeniOdaEkleDragState.initialY
+    }
+
+    yeniOdaEkleDragState.xOffset = yeniOdaEkleDragState.currentX
+    yeniOdaEkleDragState.yOffset = yeniOdaEkleDragState.currentY
+
+    if (yeniOdaEkleModalCard.value?.$el) {
+      yeniOdaEkleModalCard.value.$el.style.transform = `translate(${yeniOdaEkleDragState.currentX}px, ${yeniOdaEkleDragState.currentY}px)`
+    }
+  }
+
+  function dragEnd() {
+    yeniOdaEkleDragState.isDragging = false
+  }
+
+  document.addEventListener('mousedown', dragStart)
+  document.addEventListener('mousemove', drag)
+  document.addEventListener('mouseup', dragEnd)
+  document.addEventListener('touchstart', dragStart)
+  document.addEventListener('touchmove', drag)
+  document.addEventListener('touchend', dragEnd)
+}
+
+const yeniOdaNoRule = (val: unknown) => {
+  const raw = typeof val === 'string' || typeof val === 'number' ? String(val) : ''
+  const s = raw.replace(/\D/g, '').slice(0, 3)
+  if (!s) return 'Zorunlu alan'
+  if (s.length !== 3) return '3 haneli oda no giriniz'
+  return true
+}
+
+const yeniOdaYatakSayisiRule = (val: unknown) => {
+  const raw = typeof val === 'string' || typeof val === 'number' ? String(val) : ''
+  const s = raw.replace(/\D/g, '').slice(0, 2)
+  if (!s) return 'Zorunlu alan'
+  const n = Number(s)
+  if (!Number.isFinite(n) || n < 1 || n > 99) return '1-99 aralığında olmalı'
+  return true
+}
+
+const handleYeniOdaEkleOdaNoInput = (val: string | number | null) => {
+  yeniOdaEkleOdaNo.value = String(val ?? '').replace(/\D/g, '').slice(0, 3)
+}
+
+const handleYeniOdaEkleYatakSayisiInput = (val: string | number | null) => {
+  yeniOdaEkleYatakSayisi.value = String(val ?? '').replace(/\D/g, '').slice(0, 2)
+}
+
+const buildYeniOdaEkleOdYatKod = (odaNoStr: string, yatakNo: number) => {
+  const firstDigit = Number.parseInt(odaNoStr.charAt(0), 10)
+  const blok = Number.isFinite(firstDigit) && firstDigit < 5 ? 'A' : 'B'
+  const katPart = `0${odaNoStr.charAt(0)}`
+  const odaPart = `0${odaNoStr}`
+  const ytkPart = String(yatakNo).padStart(2, '0')
+  return `MER${blok}${katPart}${odaPart}${ytkPart}`
+}
+
+const yeniOdaEkleRows = computed(() => {
+  const odaNoStr = String(yeniOdaEkleOdaNo.value || '').replace(/\D/g, '').slice(0, 3)
+  const yatakSayisi = Number(String(yeniOdaEkleYatakSayisi.value || '').replace(/\D/g, '').slice(0, 2))
+  if (odaNoStr.length !== 3) return []
+  if (!Number.isFinite(yatakSayisi) || yatakSayisi < 1 || yatakSayisi > 99) return []
+  if (!yeniOdaEkleOdaTip.value) return []
+
+  return Array.from({ length: yatakSayisi }, (_, idx) => {
+    const ytkNo = idx + 1
+    return {
+      OdYatKod: buildYeniOdaEkleOdYatKod(odaNoStr, ytkNo),
+      OdYatYtkNo: String(ytkNo),
+      OdYatDurum: 'BOŞ'
+    }
+  })
+})
+
+function openYeniOdaEkleModal() {
+  showYeniOdaEkleModal.value = true
+  yeniOdaEkleOdaTip.value = null
+  yeniOdaEkleOdaNo.value = ''
+  yeniOdaEkleYatakSayisi.value = ''
+  yeniOdaEkleLoading.value = false
+
+  yeniOdaEkleDragState.isDragging = false
+  yeniOdaEkleDragState.currentX = 0
+  yeniOdaEkleDragState.currentY = 0
+  yeniOdaEkleDragState.initialX = 0
+  yeniOdaEkleDragState.initialY = 0
+  yeniOdaEkleDragState.xOffset = 0
+  yeniOdaEkleDragState.yOffset = 0
+  if (yeniOdaEkleModalCard.value?.$el) yeniOdaEkleModalCard.value.$el.style.transform = ''
+
+  setTimeout(() => {
+    setupYeniOdaEkleModalDraggable()
+  }, 100)
+}
+
+function closeYeniOdaEkleModal() {
+  showYeniOdaEkleModal.value = false
+  yeniOdaEkleOdaTip.value = null
+  yeniOdaEkleOdaNo.value = ''
+  yeniOdaEkleYatakSayisi.value = ''
+  yeniOdaEkleLoading.value = false
+  yeniOdaEkleDragState.isDragging = false
+}
+
+async function yeniOdaEkleKaydet() {
+  const odaTipAdi = String(yeniOdaEkleOdaTip.value ?? '').trim()
+  const odaNoStr = String(yeniOdaEkleOdaNo.value ?? '').replace(/\D/g, '').slice(0, 3)
+  const yatakSayisiNum = Number(String(yeniOdaEkleYatakSayisi.value ?? '').replace(/\D/g, '').slice(0, 2))
+
+  if (!odaTipAdi) {
+    $q.notify({ type: 'negative', message: 'Oda tipi seçiniz', icon: 'error' })
+    return
+  }
+  if (odaNoStr.length !== 3) {
+    $q.notify({ type: 'negative', message: 'Yeni Oda No 3 haneli olmalıdır', icon: 'error' })
+    return
+  }
+  if (!Number.isFinite(yatakSayisiNum) || yatakSayisiNum < 1 || yatakSayisiNum > 99) {
+    $q.notify({ type: 'negative', message: 'Oda Yatak Sayısı 1-99 aralığında olmalıdır', icon: 'error' })
+    return
+  }
+
+  yeniOdaEkleLoading.value = true
+  try {
+    const res = await api.post('/konaklama-takvim/oda-ekle', {
+      odaNo: odaNoStr,
+      odaTipAdi,
+      odaYatakSayisi: yatakSayisiNum
+    })
+
+    if (res.data?.success) {
+      $q.notify({ type: 'positive', message: res.data?.message || 'Oda başarıyla eklendi', icon: 'check_circle' })
+      closeYeniOdaEkleModal()
+      void yukleOdaTipDegistirKatPlan()
+      return
+    }
+
+    $q.notify({ type: 'negative', message: res.data?.message || 'Oda eklenemedi', icon: 'error' })
+  } catch (e) {
+    console.error('Oda eklenemedi:', e)
+    $q.notify({ type: 'negative', message: 'Oda eklenemedi', icon: 'error' })
+  } finally {
+    yeniOdaEkleLoading.value = false
+  }
+}
+
+let odaTipDegistirDraggableAttached = false;
+const odaTipDegistirDragState = {
+  isDragging: false,
+  currentX: 0,
+  currentY: 0,
+  initialX: 0,
+  initialY: 0,
+  xOffset: 0,
+  yOffset: 0
+};
+
+function normalizeKatPlanRoom(it: unknown): KatPlanRoomMinimal | null {
+  if (typeof it === 'object' && it !== null) {
+    const obj = it as Record<string, unknown>
+    const noRaw = obj.odaNo ?? obj.OdaNo
+    const tipRaw = obj.odaTip ?? obj.OdaTip ?? ''
+    const no = Number(typeof noRaw === 'string' || typeof noRaw === 'number' ? noRaw : '')
+    const tip = typeof tipRaw === 'string' ? tipRaw : (typeof tipRaw === 'number' ? String(tipRaw) : '')
+    if (isFinite(no) && no > 0) return { odaNo: no, odaTip: tip }
+  }
+  return null
+}
+
+async function yukleOdaTipDegistirKatPlan() {
+  try {
+    const { data } = await api.get('/konaklama-takvim/kat-oda-plan')
+    const payload = data as KatPlanResponseMinimal
+
+    const odaNoToTip: Record<string, string> = {}
+    const tipSet = new Set<string>()
+
+    for (const key of Object.keys(payload.floorToRooms || {})) {
+      const arr = payload.floorToRooms?.[key] || []
+      for (const it of arr) {
+        const r = normalizeKatPlanRoom(it)
+        if (!r) continue
+        const tip = String(r.odaTip ?? '').trim()
+        if (tip) {
+          odaNoToTip[String(r.odaNo)] = tip
+          tipSet.add(tip)
+        }
+      }
+    }
+
+    odaTipDegistirOdaNoToTip.value = odaNoToTip
+    odaTipDegistirKatPlanTipleri.value = Array.from(tipSet).sort((a, b) => a.localeCompare(b, 'tr'))
+  } catch (e) {
+    console.error('Kat oda planı yüklenemedi:', e)
+    odaTipDegistirOdaNoToTip.value = {}
+    odaTipDegistirKatPlanTipleri.value = []
+  }
+}
+
+function setupOdaTipDegistirModalDraggable() {
+  if (odaTipDegistirDraggableAttached) return
+  odaTipDegistirDraggableAttached = true
+
+  function dragStart(e: MouseEvent | TouchEvent) {
+    if (!showOdaTipDegistirModal.value) return
+    if (!e.target || !(e.target as HTMLElement).closest('.oda-tip-modal-card .modal-header')) return
+
+    odaTipDegistirDragState.isDragging = true
+    if (e instanceof MouseEvent) {
+      odaTipDegistirDragState.initialX = e.clientX - odaTipDegistirDragState.xOffset
+      odaTipDegistirDragState.initialY = e.clientY - odaTipDegistirDragState.yOffset
+    } else if (e instanceof TouchEvent) {
+      odaTipDegistirDragState.initialX = e.touches[0].clientX - odaTipDegistirDragState.xOffset
+      odaTipDegistirDragState.initialY = e.touches[0].clientY - odaTipDegistirDragState.yOffset
+    }
+  }
+
+  function drag(e: MouseEvent | TouchEvent) {
+    if (!odaTipDegistirDragState.isDragging) return
+    e.preventDefault()
+
+    if (e instanceof MouseEvent) {
+      odaTipDegistirDragState.currentX = e.clientX - odaTipDegistirDragState.initialX
+      odaTipDegistirDragState.currentY = e.clientY - odaTipDegistirDragState.initialY
+    } else if (e instanceof TouchEvent) {
+      odaTipDegistirDragState.currentX = e.touches[0].clientX - odaTipDegistirDragState.initialX
+      odaTipDegistirDragState.currentY = e.touches[0].clientY - odaTipDegistirDragState.initialY
+    }
+
+    odaTipDegistirDragState.xOffset = odaTipDegistirDragState.currentX
+    odaTipDegistirDragState.yOffset = odaTipDegistirDragState.currentY
+
+    if (odaTipDegistirModalCard.value?.$el) {
+      odaTipDegistirModalCard.value.$el.style.transform = `translate(${odaTipDegistirDragState.currentX}px, ${odaTipDegistirDragState.currentY}px)`
+    }
+  }
+
+  function dragEnd() {
+    odaTipDegistirDragState.isDragging = false
+  }
+
+  document.addEventListener('mousedown', dragStart)
+  document.addEventListener('mousemove', drag)
+  document.addEventListener('mouseup', dragEnd)
+  document.addEventListener('touchstart', dragStart)
+  document.addEventListener('touchmove', drag)
+  document.addEventListener('touchend', dragEnd)
+}
+
+function openOdaTipDegistirModal() {
+  showOdaTipDegistirModal.value = true
+  odaTipDegistirOdaNo.value = ''
+  odaTipDegistirMevcutTip.value = null
+  odaTipDegistirSecilenTip.value = null
+  odaTipDegistirLoading.value = false
+  odaTipDegistirOdaYatakLoading.value = false
+  odaTipDegistirOdaYatakRows.value = []
+
+  odaTipDegistirDragState.isDragging = false
+  odaTipDegistirDragState.currentX = 0
+  odaTipDegistirDragState.currentY = 0
+  odaTipDegistirDragState.initialX = 0
+  odaTipDegistirDragState.initialY = 0
+  odaTipDegistirDragState.xOffset = 0
+  odaTipDegistirDragState.yOffset = 0
+  if (odaTipDegistirModalCard.value?.$el) odaTipDegistirModalCard.value.$el.style.transform = ''
+
+  void yukleOdaTipDegistirKatPlan()
+  setTimeout(() => {
+    setupOdaTipDegistirModalDraggable()
+  }, 100)
+}
+
+function closeOdaTipDegistirModal() {
+  showOdaTipDegistirModal.value = false
+  odaTipDegistirOdaNo.value = ''
+  odaTipDegistirMevcutTip.value = null
+  odaTipDegistirSecilenTip.value = null
+  odaTipDegistirLoading.value = false
+  odaTipDegistirOdaYatakLoading.value = false
+  odaTipDegistirOdaYatakRows.value = []
+  odaTipDegistirDragState.isDragging = false
+}
+
+const handleOdaTipDegistirOdaNoInput = (val: string | number | null) => {
+  if (val === null) return
+  odaTipDegistirOdaNo.value = String(val).replace(/\D/g, '').slice(0, 3)
+  odaTipDegistirSecilenTip.value = null
+  if (odaTipDegistirOdaNo.value.length === 3) {
+    void yukleOdaTipDegistirMevcutTip()
+    void yukleOdaTipDegistirOdaYatakList()
+  } else {
+    odaTipDegistirMevcutTip.value = null
+    odaTipDegistirOdaYatakRows.value = []
+  }
+}
+
+async function yukleOdaTipDegistirMevcutTip() {
+  if (odaTipDegistirOdaNo.value.length !== 3) {
+    odaTipDegistirMevcutTip.value = null
+    return
+  }
+
+  odaTipDegistirLoading.value = true
+  try {
+    const res = await api.get('/konaklama-takvim/oda-tip', {
+      params: { odaNo: odaTipDegistirOdaNo.value }
+    })
+
+    if (res.data?.success) {
+      const tip = typeof res.data?.odaTip === 'string' ? res.data.odaTip.trim() : ''
+      odaTipDegistirMevcutTip.value = tip ? tip : null
+      return
+    }
+
+    if (!Object.keys(odaTipDegistirOdaNoToTip.value).length) {
+      await yukleOdaTipDegistirKatPlan()
+    }
+    const tip = odaTipDegistirOdaNoToTip.value[odaTipDegistirOdaNo.value]
+    odaTipDegistirMevcutTip.value = tip?.trim() ? tip : null
+  } catch (e) {
+    console.error('Oda tipi yüklenemedi:', e)
+    odaTipDegistirMevcutTip.value = null
+  } finally {
+    odaTipDegistirLoading.value = false
+  }
+}
+
+async function yukleOdaTipDegistirOdaYatakList() {
+  if (odaTipDegistirOdaNo.value.length !== 3) {
+    odaTipDegistirOdaYatakRows.value = []
+    return
+  }
+
+  odaTipDegistirOdaYatakLoading.value = true
+  try {
+    const res = await api.get('/konaklama-takvim/oda-yatak-list', {
+      params: { odaNo: odaTipDegistirOdaNo.value }
+    })
+    if (res.data?.success && Array.isArray(res.data?.data)) {
+      const safeCell = (v: unknown) => {
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'bigint' || typeof v === 'boolean') {
+          return String(v)
+        }
+        return ''
+      }
+      odaTipDegistirOdaYatakRows.value = res.data.data.map((r: unknown) => {
+        const obj = (r && typeof r === 'object') ? (r as Record<string, unknown>) : {}
+        return {
+          OdYatKod: safeCell(obj.OdYatKod),
+          OdYatYtkNo: safeCell(obj.OdYatYtkNo),
+          OdYatDurum: safeCell(obj.OdYatDurum)
+        }
+      })
+    } else {
+      odaTipDegistirOdaYatakRows.value = []
+    }
+  } catch (e) {
+    console.error('Oda-yatak listesi yüklenemedi:', e)
+    odaTipDegistirOdaYatakRows.value = []
+  } finally {
+    odaTipDegistirOdaYatakLoading.value = false
+  }
+}
+
+async function odaTipDegistirOnayla() {
+  if (odaTipDegistirOdaNo.value.length !== 3) return
+  if (!odaTipDegistirSecilenTip.value) return
+
+  if (odaTipDegistirEskiTablodaDoluVar.value) {
+    $q.notify({
+      type: 'negative',
+      message: 'Odada DOLU yatak varken oda tipi değiştirilemez.',
+      icon: 'error'
+    })
+    return
+  }
+
+  const odaNoLocal = odaTipDegistirOdaNo.value
+  const yeniOdaTipAdi = odaTipDegistirSecilenTip.value
+  const oldRows = odaTipDegistirOdaYatakRows.value
+  const oldCount = oldRows.length
+
+  if (!oldCount) {
+    $q.notify({
+      type: 'negative',
+      message: 'Oda için mevcut oda-yatak kaydı bulunamadı.',
+      icon: 'error'
+    })
+    return
+  }
+
+  const yeniCount = odaTipDegistirYeniYatakSayisi.value
+  const silinecekOdYatKodlar =
+    yeniCount < oldCount ? oldRows.slice(yeniCount).map((r) => String(r?.OdYatKod ?? '').trim()).filter((x) => !!x) : []
+
+  const eklenecekSatirlar =
+    yeniCount > oldCount
+      ? odaTipDegistirYeniOdaYatakRows.value
+          .slice(oldCount, yeniCount)
+          .filter((r) => !r?._deleteMarker)
+          .map((r) => ({
+            OdYatKod: String(r?.OdYatKod ?? '').trim(),
+            OdYatYtkNo: String(r?.OdYatYtkNo ?? '').trim()
+          }))
+          .filter((r) => !!r.OdYatKod && !!r.OdYatYtkNo)
+      : []
+
+  odaTipDegistirOdaYatakLoading.value = true
+  try {
+    const res = await api.post('/konaklama-takvim/oda-tipi-degistir', {
+      odaNo: odaNoLocal,
+      yeniOdaTipAdi,
+      silinecekOdYatKodlar,
+      eklenecekSatirlar
+    })
+
+    if (res.data?.success) {
+      $q.notify({
+        type: 'positive',
+        message: res.data?.message || 'Oda tipi başarıyla değiştirildi.',
+        icon: 'check_circle'
+      })
+      closeOdaTipDegistirModal()
+      return
+    }
+
+    $q.notify({
+      type: 'negative',
+      message: res.data?.message || 'Oda tipi değiştirilemedi.',
+      icon: 'error'
+    })
+  } catch (e) {
+    console.error('Oda tipi değiştirilemedi:', e)
+    $q.notify({
+      type: 'negative',
+      message: 'Oda tipi değiştirilemedi.',
+      icon: 'error'
+    })
+  } finally {
+    odaTipDegistirOdaYatakLoading.value = false
+  }
+}
+
 // Oda-Yatak Hızlı Yönetim Değişkenleri
 const odaNo = ref('');
 const yatakNo = ref('');
@@ -525,7 +1716,7 @@ const odaYatakDurum = ref<string | null>(null);
 const odaYatakBulunamadi = ref(false);
 const yeniDurum = ref<string | null>(null);
 const durumGuncelleLoading = ref(false);
-const durumSecenekleri = ['BOŞ', 'DOLU', 'KİRLİ', 'ARIZALI'];
+const durumSecenekleri = ['BOŞ', 'DOLU', 'KİRLİ', 'ARIZA'];
 
 // Oda-Yatak Durum Rengi
 const durumRengi = computed(() => {
@@ -1359,7 +2550,8 @@ function setupIpModalDraggable() {
   let yOffset = 0;
 
   function dragStart(e: MouseEvent | TouchEvent) {
-    if (e.target && (e.target as HTMLElement).closest('.modal-header')) {
+    if (!showIpKisitlamaModal.value) return;
+    if (e.target && (e.target as HTMLElement).closest('.ip-modal-card .modal-header')) {
       isDragging = true;
       
       if (e instanceof MouseEvent) {
@@ -1411,6 +2603,38 @@ function setupIpModalDraggable() {
 <style scoped>
 .admin-panel-table {
   font-size: 0.8rem;
+}
+
+.admin-header-group {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.admin-header-group--gec {
+  border-color: rgba(33, 150, 243, 0.5);
+  background-color: rgba(33, 150, 243, 0.08);
+}
+
+.admin-header-group--hizli {
+  border-color: rgba(0, 150, 136, 0.5);
+  background-color: rgba(0, 150, 136, 0.08);
+}
+
+.body--dark .admin-header-group {
+  border-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.body--dark .admin-header-group--gec {
+  border-color: rgba(33, 150, 243, 0.5);
+  background-color: rgba(33, 150, 243, 0.07);
+}
+
+.body--dark .admin-header-group--hizli {
+  border-color: rgba(0, 150, 136, 0.5);
+  background-color: rgba(0, 150, 136, 0.07);
 }
 
 .readonly-input .q-field__control {
@@ -1775,12 +2999,48 @@ function setupIpModalDraggable() {
 }
 
 /* Dark mode draggable header */
-.body--dark .draggable-modal .modal-header {
+.body--dark .ip-modal-card .modal-header {
   background-color: #b71c1c !important;
+}
+
+.body--dark .oda-tip-modal-card .modal-header {
+  background-color: #1565c0 !important;
 }
 
 /* Modal sürükleme efekti */
 .draggable-modal:active {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.oda-tip-table-title {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+
+.body--dark .oda-tip-table-title {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.oda-tip-mini-table .q-td,
+.oda-tip-mini-table .q-th {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.oda-tip-mini-table .cell-dolu {
+  background-color: #c62828;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.oda-tip-mini-table .cell-silinecek {
+  color: #c62828;
+  font-weight: 700;
+  text-align: center;
 }
 </style>

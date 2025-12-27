@@ -219,19 +219,19 @@ export class DashboardService {
         r.knklmNo,
         r.KnklmCksTrh,
         CASE 
-          WHEN TRY_CONVERT(date, r.KnklmCksTrh, 104) = CONVERT(date, GETDATE(), 104) THEN 'bugun-cikan'
-          WHEN r.KnklmCksTrh IS NULL AND TRY_CONVERT(date, r.KnklmPlnTrh, 104) <= CONVERT(date, GETDATE(), 104) THEN 'suresi-dolan'
-          WHEN r.KnklmCksTrh IS NULL THEN 'toplam-aktif'
-          WHEN r.KnklmNot LIKE 'Yeni Müşteri%' THEN 'yeni-musteri'
-          WHEN r.KnklmNot LIKE 'Yeni Giriş%' THEN 'yeni-giris'
+          WHEN TRY_CONVERT(date, LEFT(LTRIM(RTRIM(r.KnklmCksTrh)), 10), 104) = CONVERT(date, GETDATE(), 104) THEN 'bugun-cikan'
+          WHEN (r.KnklmCksTrh IS NULL OR LTRIM(RTRIM(r.KnklmCksTrh)) = '') AND TRY_CONVERT(date, LEFT(LTRIM(RTRIM(r.KnklmPlnTrh)), 10), 104) <= CONVERT(date, GETDATE(), 104) THEN 'suresi-dolan'
+          WHEN (r.KnklmCksTrh IS NULL OR LTRIM(RTRIM(r.KnklmCksTrh)) = '') AND TRY_CONVERT(date, LEFT(LTRIM(RTRIM(r.KnklmPlnTrh)), 10), 104) > CONVERT(date, GETDATE(), 104) THEN 'toplam-aktif'
+          WHEN r.KnklmNot LIKE '%- Yeni Müşteri:%' THEN 'yeni-musteri'
+          WHEN r.KnklmNot LIKE '%- Yeni Giriş:%' THEN 'yeni-giris'
           ELSE 'toplam-aktif'
         END AS targetKart
       FROM ranked r
       WHERE r.rn = 1
       ORDER BY 
-        TRY_CONVERT(date, r.KnklmPlnTrh, 104) ASC,
+        TRY_CONVERT(date, LEFT(LTRIM(RTRIM(r.KnklmPlnTrh)), 10), 104) ASC,
         r.KnklmTip DESC,
-        TRY_CONVERT(date, r.KnklmGrsTrh, 104) DESC
+        TRY_CONVERT(date, LEFT(LTRIM(RTRIM(r.KnklmGrsTrh)), 10), 104) DESC
       OFFSET @1 ROWS FETCH NEXT @2 ROWS ONLY
     `;
 
@@ -697,8 +697,21 @@ export class DashboardService {
 
       // 🔥 TEK SORGU OPTİMİZASYONU: Tüm istatistikleri tek CTE ile hesapla
       const unifiedStatsQuery = `
-        WITH AktifKonaklamalar AS (
-          -- Ana aktif konaklama verileri
+        WITH LastStay AS (
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ),
+        AktifKonaklamalar AS (
+          -- Ana aktif konaklama verileri (tblKonaklama son kayıt çıkış tarihi baz alınır)
           SELECT 
             v.MstrTCN,
             v.MstrAdi,
@@ -708,10 +721,19 @@ export class DashboardService {
             v.KnklmPlnTrh,
             v.KnklmNot,
             v.knklmNo,
+            d.GrsDate,
+            d.PlnDate,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
+          LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
+          LEFT JOIN LastStay ls ON m.MstrNo = ls.knklmMstrNo
+          CROSS APPLY (
+            SELECT
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmGrsTrh)), 10), 104) as GrsDate,
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmPlnTrh)), 10), 104) as PlnDate
+          ) d
           WHERE v.MstrDurum = @0 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+            AND (ls.KnklmCksTrh IS NULL OR LTRIM(RTRIM(ls.KnklmCksTrh)) = '')
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
         ),
         ToplamAktifStats AS (
@@ -724,7 +746,7 @@ export class DashboardService {
             SUM(KnklmNfyt) as ToplamGelir,
             AVG(KnklmNfyt) as OrtalamaGelir
           FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
+          WHERE PlnDate > CONVERT(date, GETDATE())
             AND KnklmNot NOT LIKE @4
             AND KnklmNot NOT LIKE @5
             AND rn = 1
@@ -733,7 +755,7 @@ export class DashboardService {
           -- Yeni müşteri istatistikleri
           SELECT COUNT(*) as YeniMusteriKonaklama
           FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
+          WHERE GrsDate = CONVERT(date, GETDATE())
             AND KnklmNot LIKE @4
             AND rn = 1
         ),
@@ -741,7 +763,7 @@ export class DashboardService {
           -- Yeni giriş istatistikleri
           SELECT COUNT(*) as YeniGirisKonaklama
           FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104)
+          WHERE GrsDate = CONVERT(date, GETDATE())
             AND KnklmNot LIKE @5
             AND rn = 1
         ),
@@ -749,22 +771,14 @@ export class DashboardService {
           -- Devam eden konaklama istatistikleri
           SELECT COUNT(*) as DevamEdenKonaklama
           FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmPlnTrh, 104) > CONVERT(Date, GETDATE(), 104)
-            AND NOT (
-              CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) 
-              AND (KnklmNot LIKE @4 OR KnklmNot LIKE @5)
-            )
+          WHERE PlnDate > CONVERT(date, GETDATE())
             AND rn = 1
         ),
         SuresiDolanStats AS (
           -- Süresi dolan konaklama istatistikleri (AktifKonaklamalar CTE üzerinden)
           SELECT COUNT(*) as SuresiGecentKonaklama
           FROM AktifKonaklamalar
-          WHERE CONVERT(Date, KnklmPlnTrh, 104) <= CONVERT(Date, GETDATE(), 104)
-            AND NOT (
-              CONVERT(Date, KnklmGrsTrh, 104) = CONVERT(Date, GETDATE(), 104) 
-              AND (KnklmNot LIKE @4 OR KnklmNot LIKE @5)
-            )
+          WHERE PlnDate <= CONVERT(date, GETDATE())
             AND rn = 1
         ),
         DoluOdaYatakStats AS (
@@ -916,7 +930,20 @@ export class DashboardService {
 
       // 🔥 DEBUG: Stats sorgusu ile aynı mantığı kullan
       let query = `
-        WITH AktifKonaklamalar AS (
+        WITH LastStay AS (
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ),
+        AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
             v.MstrTCN,
@@ -934,24 +961,20 @@ export class DashboardService {
             v.KnklmYtkNo,
             d.PlnDate,
             d.GrsDate,
+            ls.KnklmCksTrh as LastKnklmCksTrh,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
+          LEFT JOIN ${tables.musteri} m ON v.MstrTCN = m.MstrTCN
+          LEFT JOIN LastStay ls ON m.MstrNo = ls.knklmMstrNo
           CROSS APPLY (
             SELECT
-              TRY_CONVERT(date, v.KnklmPlnTrh, 104) as PlnDate,
-              TRY_CONVERT(date, v.KnklmGrsTrh, 104) as GrsDate
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmPlnTrh)), 10), 104) as PlnDate,
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmGrsTrh)), 10), 104) as GrsDate
           ) d
           WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+            AND (ls.KnklmCksTrh IS NULL OR LTRIM(RTRIM(ls.KnklmCksTrh)) = '')
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
             AND d.PlnDate > CONVERT(date, GETDATE())
-            AND NOT (
-              d.GrsDate = CONVERT(date, GETDATE())
-              AND (
-                ISNULL(v.KnklmNot, '') LIKE '%- Yeni Müşteri:%'
-                OR ISNULL(v.KnklmNot, '') LIKE '%- Yeni Giriş:%'
-              )
-            )
         )
         SELECT 
           ak.MstrTCN, 
@@ -967,7 +990,7 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          '' as KnklmCksTrh,
+          ISNULL(ak.LastKnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
@@ -1008,7 +1031,20 @@ export class DashboardService {
       const views = this.dbConfig.getViews();
       const tables = this.dbConfig.getTables();
       let query = `
-        WITH AktifKonaklamalar AS (
+        WITH LastStay AS (
+          SELECT 
+            k2.knklmMstrNo,
+            k2.KnklmCksTrh
+          FROM ${tables.konaklama} k2
+          INNER JOIN (
+            SELECT 
+              knklmMstrNo,
+              MAX(knklmNo) as maxKnklmNo
+            FROM ${tables.konaklama}
+            GROUP BY knklmMstrNo
+          ) lastStayMax ON k2.knklmNo = lastStayMax.maxKnklmNo
+        ),
+        AktifKonaklamalar AS (
           -- Ana aktif konaklama verileri (stats ile uyumlu)
           SELECT 
             v.MstrTCN,
@@ -1024,10 +1060,20 @@ export class DashboardService {
             v.KnklmOdaTip,
             v.KnklmOdaNo,
             v.KnklmYtkNo,
+            d.PlnDate,
+            d.GrsDate,
+            ls.KnklmCksTrh as LastKnklmCksTrh,
             ROW_NUMBER() OVER (PARTITION BY v.MstrTCN ORDER BY v.knklmNo DESC) as rn
           FROM ${views.musteriKonaklama} v
+          LEFT JOIN ${tables.musteri} m2 ON v.MstrTCN = m2.MstrTCN
+          LEFT JOIN LastStay ls ON m2.MstrNo = ls.knklmMstrNo
+          CROSS APPLY (
+            SELECT
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmPlnTrh)), 10), 104) as PlnDate,
+              TRY_CONVERT(date, LEFT(LTRIM(RTRIM(v.KnklmGrsTrh)), 10), 104) as GrsDate
+          ) d
           WHERE v.MstrDurum = 'KALIYOR' 
-            AND (v.KnklmCksTrh = '' OR v.KnklmCksTrh IS NULL)
+            AND (ls.KnklmCksTrh IS NULL OR LTRIM(RTRIM(ls.KnklmCksTrh)) = '')
             AND LEFT(v.MstrAdi, 9) <> 'PERSONEL '
         )
         SELECT 
@@ -1044,25 +1090,13 @@ export class DashboardService {
           ak.KnklmGrsTrh, 
           ak.KnklmPlnTrh, 
           ak.KnklmNot,
-          '' as KnklmCksTrh,
+          ISNULL(ak.LastKnklmCksTrh, '') as KnklmCksTrh,
           ISNULL(k.KnklmKrLst, '') as KnklmKrLst
         FROM AktifKonaklamalar ak
         LEFT JOIN ${tables.musteri} m ON ak.MstrTCN = m.MstrTCN
         LEFT JOIN ${tables.konaklama} k ON ak.knklmNo = k.knklmNo
-        CROSS APPLY (
-          SELECT
-            TRY_CONVERT(date, ak.KnklmPlnTrh, 104) as PlnDate,
-            TRY_CONVERT(date, ak.KnklmGrsTrh, 104) as GrsDate
-        ) d
         WHERE ak.rn = 1
-          AND d.PlnDate <= CONVERT(date, GETDATE())
-          AND NOT (
-            d.GrsDate = CONVERT(date, GETDATE())
-            AND (
-              ISNULL(ak.KnklmNot, '') LIKE '%- Yeni Müşteri:%'
-              OR ISNULL(ak.KnklmNot, '') LIKE '%- Yeni Giriş:%'
-            )
-          )
+          AND ak.PlnDate <= CONVERT(date, GETDATE())
       `;
 
       const parameters: string[] = [];
@@ -1072,7 +1106,7 @@ export class DashboardService {
         parameters.push(knklmTipi);
       }
 
-      query += ` ORDER BY d.PlnDate, ak.KnklmTip DESC, d.GrsDate DESC OPTION (MAXDOP 2);`;
+      query += ` ORDER BY ak.PlnDate, ak.KnklmTip DESC, ak.GrsDate DESC OPTION (MAXDOP 2);`;
 
       const result: MusteriKonaklamaData[] = await this.musteriRepository.query(query, parameters);
 

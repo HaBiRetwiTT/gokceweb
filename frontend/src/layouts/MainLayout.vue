@@ -39,10 +39,10 @@
            >
              {{ doluOdaSayisi }}
              <q-tooltip anchor="bottom middle" self="top middle">
-               <div class="text-center">
+                 <div class="text-center">
                  Dolu Oda (tblOdaYatak): {{ doluOdaSayisi }}<br>
                  Kartlı İşlem Toplam: {{ kartliIslemTotal }}<br>
-                 (Yeni + Yeni Giriş + Devam + Süresi Dolan)
+                 (Devam Eden + Süresi Dolan)
                </div>
              </q-tooltip>
            </q-badge>
@@ -636,12 +636,10 @@ const doluOdaSayisi = computed(() => {
 const kartliIslemTotal = computed(() => {
   if (!stats.value) return 0;
   // Sayısal değerlere dönüştürerek topla (string gelme ihtimaline karşı)
-  const yeniMusteri = Number(stats.value.YeniMusteriKonaklama || 0);
-  const yeniGiris = Number(stats.value.YeniGirisKonaklama || 0);
   const devamEden = Number(stats.value.DevamEdenKonaklama || 0);
   const suresiGecen = Number(stats.value.SuresiGecentKonaklama || 0);
   
-  return yeniMusteri + yeniGiris + devamEden + suresiGecen;
+  return devamEden + suresiGecen;
 });
 
 const isCountMatching = computed(() => {

@@ -60,6 +60,32 @@ export class AdminController {
     }
   }
 
+  @Post('oda-tip-lifyat-ekle')
+  async createOdaTipLifyat(
+    @Body()
+    body: {
+      OdTipAdi: string;
+      OdLfytGun: number;
+      OdLfytHft: number;
+      OdLfytAyl: number;
+      OdDpzt: number;
+    },
+  ) {
+    try {
+      await this.adminService.createOdaTipLifyat(body);
+      return {
+        success: true,
+        message: 'Oda tipi başarıyla eklendi',
+      };
+    } catch (error) {
+      console.error('Oda tip lifyat ekleme hatası:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
+      };
+    }
+  }
+
   // IP Kısıtlama Endpoint'leri
 
   /**

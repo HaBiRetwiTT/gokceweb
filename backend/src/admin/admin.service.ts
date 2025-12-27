@@ -127,4 +127,71 @@ export class AdminService {
       await queryRunner.release();
     }
   }
+
+  async createOdaTipLifyat(body: {
+    OdTipAdi: string;
+    OdLfytGun: number;
+    OdLfytHft: number;
+    OdLfytAyl: number;
+    OdDpzt: number;
+  }): Promise<void> {
+    const odaTipAdi = String(body?.OdTipAdi ?? '').trim();
+    if (!odaTipAdi) {
+      throw new Error('OdaTipi Adı boş olamaz');
+    }
+
+    const toBigint = (v: unknown) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.trunc(n));
+    };
+
+    const gun = toBigint(body?.OdLfytGun);
+    const hft = toBigint(body?.OdLfytHft);
+    const ayl = toBigint(body?.OdLfytAyl);
+    const dpzt = toBigint(body?.OdDpzt);
+
+    const odaTipLifyatTableName = this.dbConfig.getTableName('tblOdaTipLfyt');
+    const queryRunner = this.dataSource.createQueryRunner();
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      await queryRunner.manager.query('SET LOCK_TIMEOUT 60000');
+
+      const existsQuery = `
+        SELECT TOP 1 OdTipNo
+        FROM ${odaTipLifyatTableName} WITH (UPDLOCK, HOLDLOCK)
+        WHERE LOWER(LTRIM(RTRIM(OdTipAdi))) = LOWER(@0)
+      `;
+      const existing = await queryRunner.manager.query(existsQuery, [
+        odaTipAdi,
+      ]);
+      if (existing?.length) {
+        throw new Error('Bu oda tipi adı zaten mevcut.');
+      }
+
+      const insertQuery = `
+        INSERT INTO ${odaTipLifyatTableName} (OdTipAdi, OdLfytGun, OdLfytHft, OdLfytAyl, OdDpzt)
+        VALUES (@0, @1, @2, @3, @4)
+      `;
+      await queryRunner.manager.query(insertQuery, [
+        odaTipAdi,
+        gun,
+        hft,
+        ayl,
+        dpzt,
+      ]);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      try {
+        await queryRunner.rollbackTransaction();
+      } catch {
+        // ignore
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
 }
