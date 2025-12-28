@@ -22,9 +22,12 @@ type DetayIslem = {
   islemBilgi: string;
 };
 type KasaDevirKaydi = {
+  nKasaNo?: number;
   DevirTarihi: string;
   DevirEden: string;
-  KasaYekun: number;
+  OnKasa: number;
+  ArkaKasa: number;
+  KasaYekun?: number;
 };
 
 @Injectable()
@@ -1423,57 +1426,256 @@ export class IslemService {
         // ignore
       }
 
-      // nKasaNo sütunu bazı ortamlarda IDENTITY, bazı ortamlarda manuel olabilir.
-      // Dinamik tespit et ve uygun INSERT stratejisini uygula.
-      const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
-      const tableFullName = kasaDevirTableName;
-      const identityCheckQuery = `SELECT COLUMNPROPERTY(OBJECT_ID('${tableFullName}'),'nKasaNo','IsIdentity') as isIdentity`;
-      const idChkUnknown = (await this.dataSource.query(
-        identityCheckQuery,
-      )) as unknown;
-      const idChk = idChkUnknown as Array<{
-        isIdentity: number | string | null;
-      }>;
-      const isIdentity = Number(idChk?.[0]?.isIdentity ?? 0) === 1;
-
-      if (isIdentity) {
-        const insertQuery = `
-          INSERT INTO ${tableFullName} (nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (@0, @1, TRY_CONVERT(DECIMAL(18,2), CAST(@2 AS NVARCHAR(50))))
-        `;
-        const params = [nKytTarihi, aktifKullanici, String(kasaYekunFixed)];
-        await this.dataSource.query(insertQuery, params);
-      } else {
-        const nextIdQuery = `
-          SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
-          FROM ${tableFullName} WITH (TABLOCKX)
-        `;
-        const nextIdResUnknown = (await this.dataSource.query(
-          nextIdQuery,
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      try {
+        // nKasaNo sütunu bazı ortamlarda IDENTITY, bazı ortamlarda manuel olabilir.
+        // Dinamik tespit et ve uygun INSERT stratejisini uygula.
+        const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
+        const tableFullName = kasaDevirTableName;
+        const identityCheckQuery = `SELECT COLUMNPROPERTY(OBJECT_ID('${tableFullName}'),'nKasaNo','IsIdentity') as isIdentity`;
+        const idChkUnknown = (await queryRunner.query(
+          identityCheckQuery,
         )) as unknown;
-        const nextIdRes = nextIdResUnknown as Array<{
-          nextId: number | string;
+        const idChk = idChkUnknown as Array<{
+          isIdentity: number | string | null;
         }>;
-        const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
+        const isIdentity = Number(idChk?.[0]?.isIdentity ?? 0) === 1;
 
-        const insertQuery = `
-          INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun)
-          VALUES (CAST(@0 AS BIGINT), @1, @2, TRY_CONVERT(DECIMAL(18,2), CAST(@3 AS NVARCHAR(50))))
+        const latestArkaKasaQuery = `
+          SELECT TOP 1 kd.ArkaKasa as ArkaKasa
+          FROM ${tableFullName} kd WITH (UPDLOCK, HOLDLOCK)
+          ORDER BY kd.nKasaNo DESC
         `;
-        const params = [
-          String(nextId),
-          nKytTarihi,
-          aktifKullanici,
-          String(kasaYekunFixed),
-        ];
-        await this.dataSource.query(insertQuery, params);
-      }
+        const latestUnknown = (await queryRunner.query(
+          latestArkaKasaQuery,
+        )) as unknown;
+        const latest = latestUnknown as Array<{
+          ArkaKasa?: number | string | null;
+        }>;
+        const latestArkaKasa = Number(latest?.[0]?.ArkaKasa) || 0;
+        const arkaKasa = Number(latestArkaKasa.toFixed(2));
+        const yekunNum = Number(kasaYekunFixed) || 0;
+        const onKasa = Number((yekunNum - arkaKasa).toFixed(2));
 
-      return { success: true };
+        if (isIdentity) {
+          const insertQuery = `
+            INSERT INTO ${tableFullName} (nKytTarihi, nKasaDvrAln, nKasaYekun, OnKasa, ArkaKasa)
+            VALUES (
+              @0,
+              @1,
+              TRY_CONVERT(DECIMAL(18,2), CAST(@2 AS NVARCHAR(50))),
+              TRY_CONVERT(DECIMAL(18,2), CAST(@3 AS NVARCHAR(50))),
+              TRY_CONVERT(DECIMAL(18,2), CAST(@4 AS NVARCHAR(50)))
+            )
+          `;
+          const params = [
+            nKytTarihi,
+            aktifKullanici,
+            String(kasaYekunFixed),
+            String(onKasa.toFixed(2)),
+            String(arkaKasa.toFixed(2)),
+          ];
+          await queryRunner.query(insertQuery, params);
+        } else {
+          const nextIdQuery = `
+            SELECT ISNULL(MAX(nKasaNo), 0) + 1 AS nextId
+            FROM ${tableFullName} WITH (TABLOCKX)
+          `;
+          const nextIdResUnknown = (await queryRunner.query(
+            nextIdQuery,
+          )) as unknown;
+          const nextIdRes = nextIdResUnknown as Array<{
+            nextId: number | string;
+          }>;
+          const nextId = parseInt(String(nextIdRes?.[0]?.nextId ?? 1), 10);
+
+          const insertQuery = `
+            INSERT INTO ${tableFullName} (nKasaNo, nKytTarihi, nKasaDvrAln, nKasaYekun, OnKasa, ArkaKasa)
+            VALUES (
+              CAST(@0 AS BIGINT),
+              @1,
+              @2,
+              TRY_CONVERT(DECIMAL(18,2), CAST(@3 AS NVARCHAR(50))),
+              TRY_CONVERT(DECIMAL(18,2), CAST(@4 AS NVARCHAR(50))),
+              TRY_CONVERT(DECIMAL(18,2), CAST(@5 AS NVARCHAR(50)))
+            )
+          `;
+          const params = [
+            String(nextId),
+            nKytTarihi,
+            aktifKullanici,
+            String(kasaYekunFixed),
+            String(onKasa.toFixed(2)),
+            String(arkaKasa.toFixed(2)),
+          ];
+          await queryRunner.query(insertQuery, params);
+        }
+
+        await queryRunner.commitTransaction();
+        return { success: true };
+      } catch (error: unknown) {
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        await queryRunner.release();
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('❌ Kasa devir kaydı ekleme hatası:', message);
       throw new Error(`Kasa devir kaydı eklenemedi: ${message}`);
+    }
+  }
+
+  async updateLatestKasaDevirArkaKasa(params: {
+    nakitBakiye: number;
+    arkaKasaTutar: number;
+  }): Promise<{ success: boolean; nKasaNo: number }> {
+    const nakitBakiye = Number(params?.nakitBakiye);
+    const arkaKasaTutar = Number(params?.arkaKasaTutar);
+    if (!Number.isFinite(nakitBakiye) || nakitBakiye < 0) {
+      throw new Error('Geçersiz Nakit kasa bakiyesi');
+    }
+    if (!Number.isFinite(arkaKasaTutar) || arkaKasaTutar <= 0) {
+      throw new Error('Geçersiz aktarım tutarı');
+    }
+    if (arkaKasaTutar > nakitBakiye) {
+      throw new Error('Aktarım tutarı Nakit kasa bakiyesinden büyük olamaz');
+    }
+
+    const aktarimRounded = Number(arkaKasaTutar.toFixed(2));
+    const nakitRounded = Number(nakitBakiye.toFixed(2));
+
+    const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const latestQuery = `
+        SELECT TOP 1
+          kd.nKasaNo as nKasaNo,
+          kd.ArkaKasa as ArkaKasa
+        FROM ${kasaDevirTableName} kd WITH (UPDLOCK, HOLDLOCK)
+        ORDER BY kd.nKasaNo DESC
+      `;
+      const latestUnknown = (await queryRunner.query(latestQuery)) as unknown;
+      const latest = latestUnknown as Array<{
+        nKasaNo: number | string;
+        ArkaKasa?: number | string | null;
+      }>;
+      const nKasaNo = Number(latest?.[0]?.nKasaNo);
+      if (!Number.isFinite(nKasaNo) || nKasaNo <= 0) {
+        throw new Error('Güncellenecek kasa devir kaydı bulunamadı');
+      }
+
+      const mevcutArkaKasa = Number(latest?.[0]?.ArkaKasa) || 0;
+      const yeniArkaKasa = Number((mevcutArkaKasa + aktarimRounded).toFixed(2));
+      if (yeniArkaKasa > nakitRounded) {
+        throw new Error('Aktarım tutarı Nakit kasa bakiyesinden büyük olamaz');
+      }
+
+      const onKasa = Number((nakitRounded - yeniArkaKasa).toFixed(2));
+
+      const updateQuery = `
+        UPDATE ${kasaDevirTableName}
+        SET
+          ArkaKasa = TRY_CONVERT(DECIMAL(18,2), CAST(@0 AS NVARCHAR(50))),
+          OnKasa = TRY_CONVERT(DECIMAL(18,2), CAST(@1 AS NVARCHAR(50))),
+          nKasaYekun = TRY_CONVERT(DECIMAL(18,2), CAST(@2 AS NVARCHAR(50)))
+        WHERE nKasaNo = CAST(@3 AS BIGINT)
+      `;
+      await queryRunner.query(updateQuery, [
+        String(yeniArkaKasa),
+        String(onKasa),
+        String(nakitRounded),
+        String(nKasaNo),
+      ]);
+
+      await queryRunner.commitTransaction();
+      return { success: true, nKasaNo };
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(message || 'Arka Kasa aktarımı güncellenemedi');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async updateLatestKasaDevirArkaKasaGeriAktar(params: {
+    nakitBakiye: number;
+    tutar: number;
+  }): Promise<{ success: boolean; nKasaNo: number }> {
+    const nakitBakiye = Number(params?.nakitBakiye);
+    const tutar = Number(params?.tutar);
+    if (!Number.isFinite(nakitBakiye) || nakitBakiye < 0) {
+      throw new Error('Geçersiz Nakit kasa bakiyesi');
+    }
+    if (!Number.isFinite(tutar) || tutar <= 0) {
+      throw new Error('Geçersiz aktarım tutarı');
+    }
+
+    const aktarimRounded = Number(tutar.toFixed(2));
+    const nakitRounded = Number(nakitBakiye.toFixed(2));
+
+    const kasaDevirTableName = this.dbConfig.getTableName('tblKasaDevir');
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const latestQuery = `
+        SELECT TOP 1
+          kd.nKasaNo as nKasaNo,
+          kd.ArkaKasa as ArkaKasa
+        FROM ${kasaDevirTableName} kd WITH (UPDLOCK, HOLDLOCK)
+        ORDER BY kd.nKasaNo DESC
+      `;
+      const latestUnknown = (await queryRunner.query(latestQuery)) as unknown;
+      const latest = latestUnknown as Array<{
+        nKasaNo: number | string;
+        ArkaKasa?: number | string | null;
+      }>;
+      const nKasaNo = Number(latest?.[0]?.nKasaNo);
+      if (!Number.isFinite(nKasaNo) || nKasaNo <= 0) {
+        throw new Error('Güncellenecek kasa devir kaydı bulunamadı');
+      }
+
+      const mevcutArkaKasa = Number(latest?.[0]?.ArkaKasa) || 0;
+      if (aktarimRounded > Number(mevcutArkaKasa.toFixed(2))) {
+        throw new Error('Aktarım tutarı Arka Kasa bakiyesinden büyük olamaz');
+      }
+
+      const yeniArkaKasa = Number((mevcutArkaKasa - aktarimRounded).toFixed(2));
+      if (yeniArkaKasa < 0) {
+        throw new Error('Aktarım tutarı Arka Kasa bakiyesinden büyük olamaz');
+      }
+
+      const onKasa = Number((nakitRounded - yeniArkaKasa).toFixed(2));
+
+      const updateQuery = `
+        UPDATE ${kasaDevirTableName}
+        SET
+          ArkaKasa = TRY_CONVERT(DECIMAL(18,2), CAST(@0 AS NVARCHAR(50))),
+          OnKasa = TRY_CONVERT(DECIMAL(18,2), CAST(@1 AS NVARCHAR(50))),
+          nKasaYekun = TRY_CONVERT(DECIMAL(18,2), CAST(@2 AS NVARCHAR(50)))
+        WHERE nKasaNo = CAST(@3 AS BIGINT)
+      `;
+      await queryRunner.query(updateQuery, [
+        String(yeniArkaKasa),
+        String(onKasa),
+        String(nakitRounded),
+        String(nKasaNo),
+      ]);
+
+      await queryRunner.commitTransaction();
+      return { success: true, nKasaNo };
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(message || 'Arka Kasa geri aktarımı güncellenemedi');
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -2451,8 +2653,11 @@ export class IslemService {
       // Sayfalanmış verileri al
       const query = `
         SELECT 
+          kd.nKasaNo as nKasaNo,
           kd.nKytTarihi as DevirTarihi,
           kd.nKasaDvrAln as DevirEden,
+          kd.OnKasa as OnKasa,
+          kd.ArkaKasa as ArkaKasa,
           kd.nKasaYekun as KasaYekun
         FROM ${kasaDevirTableName} kd
         ORDER BY kd.nKasaNo DESC
@@ -2466,21 +2671,36 @@ export class IslemService {
         rowsPerPage,
       ])) as unknown;
       const result = devirUnknown as Array<{
+        nKasaNo?: number | string;
         DevirTarihi: string;
         DevirEden: string;
-        KasaYekun: number | string;
+        OnKasa?: number | string | null;
+        ArkaKasa?: number | string | null;
+        KasaYekun?: number | string | null;
       }>;
 
       const typed: KasaDevirKaydi[] = (
         result as Array<{
+          nKasaNo?: number | string;
           DevirTarihi: string;
           DevirEden: string;
-          KasaYekun: number | string;
+          OnKasa?: number | string | null;
+          ArkaKasa?: number | string | null;
+          KasaYekun?: number | string | null;
         }>
       ).map((row) => ({
+        nKasaNo:
+          row.nKasaNo === undefined || row.nKasaNo === null
+            ? undefined
+            : Number(row.nKasaNo) || undefined,
         DevirTarihi: row.DevirTarihi,
         DevirEden: row.DevirEden,
-        KasaYekun: Number(row.KasaYekun) || 0,
+        OnKasa: Number(row.OnKasa) || 0,
+        ArkaKasa: Number(row.ArkaKasa) || 0,
+        KasaYekun:
+          row.KasaYekun === undefined || row.KasaYekun === null
+            ? undefined
+            : Number(row.KasaYekun) || 0,
       }));
 
       return {

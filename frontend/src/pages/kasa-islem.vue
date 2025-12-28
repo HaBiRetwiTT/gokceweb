@@ -156,14 +156,25 @@
                    
                    <!-- Kasa Devir Tablo Container -->
                    <div class="kasa-devir-container">
-                     <div class="kasa-devir-header">
+                     <div class="kasa-devir-header row items-center no-wrap q-gutter-sm">
                        <q-btn 
-                         color="primary" 
+                         color="green-7" 
+                         text-color="white"
                          icon="account_balance_wallet" 
                          label="KASA DEVRET" 
                          size="md"
                          class="kasa-devir-btn"
                           @click="onKasaDevretClick"
+                       />
+                       <q-space />
+                       <q-btn
+                         color="green-10"
+                         text-color="white"
+                         icon="account_balance"
+                         label="ARKA KASA"
+                         size="sm"
+                         unelevated
+                         @click="onArkaKasaClick"
                        />
                      </div>
                      
@@ -188,12 +199,20 @@
                          <template v-slot:body-cell-DevirTarihi="props">
                            <q-td :props="props">
                              <span class="text-weight-medium">
-                               {{ formatDate(props.value) }}
+                               {{ formatDateShortYear(props.value) }}
                              </span>
                            </q-td>
                          </template>
                          
-                         <template v-slot:body-cell-KasaYekun="props">
+                         <template v-slot:body-cell-OnKasa="props">
+                           <q-td :props="props">
+                             <span class="text-weight-medium">
+                               {{ formatCurrency(props.value) }}
+                             </span>
+                           </q-td>
+                         </template>
+
+                         <template v-slot:body-cell-ArkaKasa="props">
                            <q-td :props="props">
                              <span class="text-weight-medium">
                                {{ formatCurrency(props.value) }}
@@ -1019,6 +1038,74 @@
     </q-card>
   </q-dialog>
 
+  <q-dialog v-model="showArkaKasaDialog" persistent>
+    <div
+      ref="arkaKasaModalRef"
+      :style="arkaKasaModalStyle"
+      class="draggable-arka-kasa-modal"
+    >
+      <q-card
+        :style="`min-width: ${arkaKasaModalWidth}px; max-width: ${arkaKasaModalWidth}px; max-height: 90vh; overflow-y: auto;`"
+        :class="{ 'modal-dragging': arkaKasaModalDragging }"
+      >
+        <q-card-section
+          :class="['row items-center q-pb-none draggable-header', $q.dark.isActive ? 'bg-grey-9 text-white' : 'bg-grey-2']"
+          @mousedown="onArkaKasaDragStart"
+          @touchstart="onArkaKasaDragStart"
+        >
+          <div class="text-subtitle1 text-weight-bold">Arka Kasa Aktarımları</div>
+          <q-space />
+          <q-btn icon="close" flat round dense @click="() => closeArkaKasaDialog()" />
+        </q-card-section>
+        <q-card-section>
+          <div class="row items-center q-gutter-sm q-mb-md">
+            <div class="text-body2">Mevcut Ön Kasa Bakiyesi:</div>
+            <q-chip dense color="green-7" text-color="white" class="text-weight-bold">
+              {{ formatCurrency(mevcutOnKasaBakiye) }}
+            </q-chip>
+          </div>
+          <div class="text-body2 q-mb-sm">
+            Ön Kasadan Arka Kasa'ya Aktarıcalcak Miktar:
+          </div>
+          <q-input
+            v-model="arkaKasaAktarTutarInput"
+            dense
+            outlined
+            type="number"
+            inputmode="decimal"
+            label="Aktarılacak Tutar"
+            :disable="arkaKasaAktarSaving || isArkaKasaGeriAktarActive"
+            :input-attrs="{ min: 0, max: arkaKasaAktarMax, step: '0.01' }"
+          />
+          <div class="text-body2 q-mt-md q-mb-sm">
+            Arka Kasadan Ön Kasaya Aktarılacak Miktar:
+          </div>
+          <q-input
+            v-model="arkaKasaGeriAktarTutarInput"
+            dense
+            outlined
+            type="number"
+            inputmode="decimal"
+            label="Aktarılacak Tutar"
+            :disable="arkaKasaAktarSaving || isArkaKasaAktarActive"
+            :input-attrs="{ min: 0, max: arkaKasaGeriAktarMax, step: '0.01' }"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="VAZGEÇ" color="grey" :disable="arkaKasaAktarSaving" @click="() => closeArkaKasaDialog()" />
+          <q-btn
+            unelevated
+            label="KAYDET"
+            color="primary"
+            :loading="arkaKasaAktarSaving"
+            :disable="!isArkaKasaTransferValid || arkaKasaAktarSaving"
+            @click="onArkaKasaAktarKaydet"
+          />
+        </q-card-actions>
+      </q-card>
+    </div>
+  </q-dialog>
+
   <!-- Konaklama Detay Dialog -->
   <q-dialog v-model="showKonaklamaDetayDialog" persistent>
     <div
@@ -1679,7 +1766,9 @@ interface KasaDevirRow {
   nKasaNo?: number
   DevirTarihi: string
   DevirEden: string
-  KasaYekun: number
+  OnKasa?: number
+  ArkaKasa?: number
+  KasaYekun?: number
   rowKey?: string
 }
 
@@ -1698,6 +1787,15 @@ const allDetailTableData = ref<IslemDetay[]>([])
 const kasaDevirData = ref<KasaDevirRow[]>([])
 const kasaDevirLoading = ref(false)
 const showKasaDevretDialog = ref(false)
+const showArkaKasaDialog = ref(false)
+const arkaKasaAktarTutarInput = ref('')
+const arkaKasaGeriAktarTutarInput = ref('')
+const arkaKasaAktarSaving = ref(false)
+const arkaKasaModalRef = ref<HTMLElement | null>(null)
+const arkaKasaModalPos = reactive({ x: 0, y: 0 })
+const arkaKasaModalDragging = ref(false)
+const arkaKasaModalOffset = reactive({ x: 0, y: 0 })
+const arkaKasaModalWidth = 380
 
 // İşlem detay form modal için
 const showIslemDetayDialog = ref(false)
@@ -2172,6 +2270,13 @@ const konaklamaDetayModalStyle = computed(() => {
   return '';
 })
 
+const arkaKasaModalStyle = computed(() => {
+  if (showArkaKasaDialog.value) {
+    return `position: fixed; left: ${arkaKasaModalPos.x}px; top: ${arkaKasaModalPos.y}px; z-index: 9999;`;
+  }
+  return ''
+})
+
 // Dinamik modal genişliği hesaplama
 const modalWidth = computed(() => {
   if (!showKaynakIslemContainer.value) {
@@ -2280,6 +2385,85 @@ watch(showKonaklamaDetayDialog, async (newValue) => {
   konaklamaDetayModalPos.x = Math.max(0, (window.innerWidth - w) / 2)
   konaklamaDetayModalPos.y = Math.max(0, (window.innerHeight - h) / 2)
 })
+
+watch(showArkaKasaDialog, async (newValue) => {
+  if (!newValue) return
+  await nextTick()
+  const modalEl = arkaKasaModalRef.value
+  const w = modalEl?.offsetWidth || arkaKasaModalWidth
+  const h = modalEl?.offsetHeight || 260
+  arkaKasaModalPos.x = Math.max(0, (window.innerWidth - w) / 2)
+  arkaKasaModalPos.y = Math.max(0, (window.innerHeight - h) / 2)
+})
+
+function onArkaKasaDragStart(e: MouseEvent | TouchEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  arkaKasaModalDragging.value = true
+
+  let clientX = 0
+  let clientY = 0
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+    document.addEventListener('mousemove', onArkaKasaDragMove)
+    document.addEventListener('mouseup', onArkaKasaDragEnd)
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    }
+    document.addEventListener('touchmove', onArkaKasaDragMove, { passive: false } as AddEventListenerOptions)
+    document.addEventListener('touchend', onArkaKasaDragEnd)
+  }
+
+  const modalElement = arkaKasaModalRef.value
+  if (modalElement) {
+    const rect = modalElement.getBoundingClientRect()
+    arkaKasaModalOffset.x = clientX - rect.left
+    arkaKasaModalOffset.y = clientY - rect.top
+  } else {
+    arkaKasaModalOffset.x = clientX - arkaKasaModalPos.x
+    arkaKasaModalOffset.y = clientY - arkaKasaModalPos.y
+  }
+}
+
+function onArkaKasaDragMove(e: MouseEvent | TouchEvent) {
+  if (!arkaKasaModalDragging.value) return
+  e.preventDefault()
+  e.stopPropagation()
+
+  let clientX = 0
+  let clientY = 0
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+  } else if (e instanceof TouchEvent) {
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    }
+  }
+
+  const modalEl = arkaKasaModalRef.value
+  const modalW = modalEl?.offsetWidth || arkaKasaModalWidth
+  const modalH = modalEl?.offsetHeight || 260
+  const maxX = Math.max(0, window.innerWidth - modalW)
+  const maxY = Math.max(0, window.innerHeight - modalH)
+
+  arkaKasaModalPos.x = Math.min(maxX, Math.max(0, clientX - arkaKasaModalOffset.x))
+  arkaKasaModalPos.y = Math.min(maxY, Math.max(0, clientY - arkaKasaModalOffset.y))
+}
+
+function onArkaKasaDragEnd(e: MouseEvent | TouchEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  arkaKasaModalDragging.value = false
+  document.removeEventListener('mousemove', onArkaKasaDragMove)
+  document.removeEventListener('mouseup', onArkaKasaDragEnd)
+  document.removeEventListener('touchmove', onArkaKasaDragMove)
+  document.removeEventListener('touchend', onArkaKasaDragEnd)
+}
 
 function onKonaklamaDetayDragStart(e: MouseEvent | TouchEvent) {
   e.preventDefault()
@@ -2608,31 +2792,43 @@ const columns = computed((): QTableColumn[] => [
 
 ])
 
-// Kasa devir tablo sütunları (3 sütun)
+// Kasa devir tablo sütunları
 const kasaDevirColumns = computed((): QTableColumn[] => [
   {
     name: 'DevirTarihi',
     label: 'Tarih',
     field: 'DevirTarihi',
-    align: 'left',
-    sortable: true,
-    style: 'width: 120px'
+    align: 'center',
+    sortable: false,
+    style: 'width: 80px; min-width: 80px; max-width: 80px',
+    headerStyle: 'width: 80px; min-width: 80px; max-width: 80px'
   },
   {
     name: 'DevirEden',
     label: 'Devir E.',
     field: 'DevirEden',
     align: 'left',
-    sortable: true,
-    style: 'width: 150px'
+    sortable: false,
+    style: 'width: 70px; min-width: 70px; max-width: 70px',
+    headerStyle: 'width: 70px; min-width: 70px; max-width: 70px'
   },
   {
-    name: 'KasaYekun',
-    label: 'Kasa Yekün',
-    field: 'KasaYekun',
+    name: 'OnKasa',
+    label: 'Ön Kasa',
+    field: 'OnKasa',
     align: 'right',
-    sortable: true,
-    style: 'width: 150px'
+    sortable: false,
+    style: 'width: 80px; min-width: 80px; max-width: 80px',
+    headerStyle: 'width: 80px; min-width: 80px; max-width: 80px'
+  },
+  {
+    name: 'ArkaKasa',
+    label: 'Arka Kasa',
+    field: 'ArkaKasa',
+    align: 'right',
+    sortable: false,
+    style: 'width: 80px; min-width: 80px; max-width: 80px',
+    headerStyle: 'width: 80px; min-width: 80px; max-width: 80px'
   }
 ])
 
@@ -4205,7 +4401,7 @@ const loadKasaDevirVerileri = async () => {
       // Güvenli dilimleme ve benzersiz satır anahtarı üretimi
       kasaDevirData.value = rawRows.slice(0, limit).map((row, idx) => ({
         ...row,
-        rowKey: `${row.nKasaNo ?? ''}|${row.DevirTarihi}|${row.DevirEden}|${row.KasaYekun}|p${page}-i${idx}`
+        rowKey: `${row.nKasaNo ?? ''}|${row.DevirTarihi}|${row.DevirEden}|${row.OnKasa ?? 0}|${row.ArkaKasa ?? 0}|p${page}-i${idx}`
       }))
       kasaDevirPagination.value.rowsNumber = response.data.totalRecords
       debugLog('✅ Kasa devir verileri yüklendi:', kasaDevirData.value.length, 'kayıt')
@@ -4233,18 +4429,150 @@ const loadKasaDevirVerileri = async () => {
 
 // Kasa devret tıklama
 const onKasaDevretClick = async () => {
-  // Sadece Nakit seçiliyken izin ver
   if (selectedislemArac.value !== 'nakit') {
-    $q.notify({
-      type: 'warning',
-      message: 'Kasa devri için önce 6\'lı seçimden Nakit kasayı seçiniz.',
-      position: 'top'
-    })
-    return
+    selectedislemArac.value = 'nakit'
+    await onislemAracChange('nakit')
   }
   // Bakiye tazele ve popup aç
   await loadGuncelBakiye()
   showKasaDevretDialog.value = true
+}
+
+const parseMoneyInput = (val: unknown): number => {
+  if (typeof val === 'number' && Number.isFinite(val)) return Number(val.toFixed(2))
+  const raw = typeof val === 'string' ? val.trim() : ''
+  if (!raw) return 0
+  const cleaned = raw.replace(/[₺\s]/g, '')
+  let parsed = 0
+  if (cleaned.includes(',') && cleaned.match(/,\d{1,2}$/)) {
+    parsed = Number(cleaned.replace(/\./g, '').replace(',', '.'))
+  } else {
+    const noThousands = cleaned.replace(/,(?=\d{3}(?:\D|$))/g, '')
+    parsed = Number(noThousands)
+  }
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : 0
+}
+
+const arkaKasaMevcut = computed(() => {
+  const first = (kasaDevirData.value?.[0] as unknown as { ArkaKasa?: number | string | null } | undefined)
+  const val = Number(first?.ArkaKasa)
+  return Number.isFinite(val) ? Number(val.toFixed(2)) : 0
+})
+
+const mevcutOnKasaBakiye = computed(() => {
+  const v = Number((Number(currentBakiye.value || 0) - Number(arkaKasaMevcut.value || 0)).toFixed(2))
+  return v > 0 ? v : 0
+})
+
+const arkaKasaAktarMax = computed(() => {
+  const max = Number((Number(currentBakiye.value || 0) - Number(arkaKasaMevcut.value || 0)).toFixed(2))
+  return max > 0 ? max : 0
+})
+
+const arkaKasaAktarTutar = computed(() => parseMoneyInput(arkaKasaAktarTutarInput.value))
+const arkaKasaGeriAktarMax = computed(() => Number(arkaKasaMevcut.value || 0))
+const arkaKasaGeriAktarTutar = computed(() => parseMoneyInput(arkaKasaGeriAktarTutarInput.value))
+
+const isArkaKasaAktarActive = computed(() => arkaKasaAktarTutar.value > 0)
+const isArkaKasaGeriAktarActive = computed(() => arkaKasaGeriAktarTutar.value > 0)
+
+const isArkaKasaAktarValid = computed(() => {
+  const tutar = arkaKasaAktarTutar.value
+  return Number.isFinite(tutar) && tutar > 0 && tutar <= arkaKasaAktarMax.value
+})
+
+const isArkaKasaGeriAktarValid = computed(() => {
+  const tutar = arkaKasaGeriAktarTutar.value
+  return Number.isFinite(tutar) && tutar > 0 && tutar <= arkaKasaGeriAktarMax.value
+})
+
+const isArkaKasaTransferValid = computed(() => {
+  const forwardValid = isArkaKasaAktarValid.value
+  const reverseValid = isArkaKasaGeriAktarValid.value
+  return (forwardValid && !reverseValid) || (!forwardValid && reverseValid)
+})
+
+const closeArkaKasaDialog = (force: boolean = false) => {
+  if (arkaKasaAktarSaving.value && !force) return
+  arkaKasaModalDragging.value = false
+  document.removeEventListener('mousemove', onArkaKasaDragMove)
+  document.removeEventListener('mouseup', onArkaKasaDragEnd)
+  document.removeEventListener('touchmove', onArkaKasaDragMove)
+  document.removeEventListener('touchend', onArkaKasaDragEnd)
+  showArkaKasaDialog.value = false
+  arkaKasaAktarTutarInput.value = ''
+  arkaKasaGeriAktarTutarInput.value = ''
+}
+
+const onArkaKasaClick = async () => {
+  if (selectedislemArac.value !== 'nakit') {
+    selectedislemArac.value = 'nakit'
+    await onislemAracChange('nakit')
+  }
+  await loadGuncelBakiye()
+  arkaKasaAktarTutarInput.value = ''
+  arkaKasaGeriAktarTutarInput.value = ''
+  showArkaKasaDialog.value = true
+}
+
+const onArkaKasaAktarKaydet = async () => {
+  const forward = arkaKasaAktarTutar.value
+  const reverse = arkaKasaGeriAktarTutar.value
+  const nakitBakiye = Number(Number(currentBakiye.value || 0).toFixed(2))
+
+  if (forward > 0 && reverse > 0) {
+    $q.notify({ type: 'warning', message: 'Lütfen yalnızca tek bir aktarım alanı doldurun', position: 'top' })
+    return
+  }
+
+  arkaKasaAktarSaving.value = true
+  try {
+    if (forward > 0) {
+      if (!isArkaKasaAktarValid.value) {
+        $q.notify({ type: 'warning', message: 'Lütfen geçerli bir tutar girin', position: 'top' })
+        return
+      }
+      const response = await $api.post('/islem/arka-kasa-aktar', {
+        arkaKasaTutar: Number(forward.toFixed(2)),
+        nakitBakiye
+      })
+      if (response.data?.success) {
+        closeArkaKasaDialog(true)
+        $q.notify({ type: 'positive', message: response.data?.message || 'Arka Kasa aktarımı kaydedildi', position: 'top' })
+        await loadKasaDevirVerileri()
+      } else {
+        $q.notify({ type: 'negative', message: response.data?.message || 'Arka Kasa aktarımı kaydedilemedi', position: 'top' })
+      }
+      return
+    }
+
+    if (reverse > 0) {
+      if (!isArkaKasaGeriAktarValid.value) {
+        $q.notify({ type: 'warning', message: 'Lütfen geçerli bir tutar girin', position: 'top' })
+        return
+      }
+      const response = await $api.post('/islem/arka-kasa-geri-aktar', {
+        tutar: Number(reverse.toFixed(2)),
+        nakitBakiye
+      })
+      if (response.data?.success) {
+        closeArkaKasaDialog(true)
+        $q.notify({ type: 'positive', message: response.data?.message || 'Arka Kasa geri aktarımı kaydedildi', position: 'top' })
+        await loadKasaDevirVerileri()
+      } else {
+        $q.notify({ type: 'negative', message: response.data?.message || 'Arka Kasa geri aktarımı kaydedilemedi', position: 'top' })
+      }
+      return
+    }
+
+    $q.notify({ type: 'warning', message: 'Lütfen aktarım için bir tutar girin', position: 'top' })
+    return
+  } catch (error: unknown) {
+    console.error('Arka Kasa aktarım hatası:', error)
+    $q.notify({ type: 'negative', message: 'Arka Kasa aktarımı sırasında hata oluştu', position: 'top', timeout: 7000 })
+  } finally {
+    arkaKasaAktarSaving.value = false
+  }
 }
 
 // Kasa devret onayla -> tblKasaDevir'e kaydet ve grid'i yenile
@@ -4477,6 +4805,40 @@ const formatDate = (date: string) => {
   // ISO format için
   const d = new Date(date)
   return d.toLocaleDateString('tr-TR')
+}
+
+const formatDateShortYear = (date: string) => {
+  if (!date) return ''
+
+  if (date.includes('.')) {
+    const parts = date.split('.')
+    if (parts.length === 3) {
+      const day = String(parts[0] || '').padStart(2, '0')
+      const month = String(parts[1] || '').padStart(2, '0')
+      const yearRaw = String(parts[2] || '')
+
+      const digits = yearRaw.replace(/\D/g, '')
+      let yy = ''
+      if (digits.length >= 4) {
+        yy = digits.slice(0, 4).slice(-2)
+      } else if (digits.length === 2) {
+        yy = digits
+      } else {
+        const now = new Date()
+        const nowMonth = now.getMonth() + 1
+        const parsedMonth = Number(month) || 0
+        const inferredYear =
+          parsedMonth > nowMonth ? now.getFullYear() - 1 : now.getFullYear()
+        yy = String(inferredYear).slice(-2)
+      }
+
+      return `${day}.${month}.${yy}`
+    }
+  }
+
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
 // Para formatı
@@ -5439,9 +5801,12 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
 .kasa-devir-container {
   background: linear-gradient(180deg, rgba(242, 248, 240, 0.96), rgba(235, 246, 235, 0.96));
   border-radius: 12px;
-  padding: 20px;
+  padding: 14px;
   border: 1px solid rgba(76, 175, 80, 0.25);
   box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
+  max-width: 400px important;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Dark mode için kasa devir container */
@@ -5453,7 +5818,7 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
 
 .kasa-devir-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .kasa-devir-btn {
@@ -5472,6 +5837,17 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
   background: transparent;
 }
 
+.kasa-devir-table :deep(.q-table__middle table) {
+  table-layout: fixed;
+}
+
+.kasa-devir-table :deep(.q-table__middle thead th),
+.kasa-devir-table :deep(.q-table__middle tbody td) {
+  padding: 0px 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .kasa-devir-table .q-table__top {
   background: rgba(0, 0, 0, 0.02);
 }
@@ -5487,29 +5863,33 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
 }
 
 .kasa-devir-table .q-table__tbody td {
-  padding: 2px 4px;
+  padding: 0px 1px;
+  white-space: nowrap;
 }
 
 .kasa-devir-table .q-table__thead th {
-  padding: 3px 4px;
+  padding: 0px 1px;
   height: 24px;
+  white-space: nowrap;
 }
 
 .ana-container {
-  max-width: 1000px;
-  margin: 0;
+  width: 100%;
+  max-width: 1900px;
+  margin: 0 auto;
   padding: 0 20px 20px 0;
 }
 
 /* Detay tablo için maksimum genişlik */
 .detail-table {
-  max-width: 1900px;
+  min-width: 1000px;
+  max-width: 1000px;
 }
 
 .layout-grid {
   display: grid;
   grid-template-columns: 180px 1fr;
-  gap: 20px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -5524,8 +5904,8 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
 
 .tables-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(400px, 400px) 1fr;
+  gap: 10px;
   align-items: start;
 }
 
@@ -6296,6 +6676,10 @@ const getStableRowClass = (rowOrProps: IslemDetay | { row: IslemDetay }) => {
   .layout-grid {
     grid-template-columns: 1fr;
     gap: 15px;
+  }
+
+  .tables-grid {
+    grid-template-columns: 1fr;
   }
   
   .left-column {

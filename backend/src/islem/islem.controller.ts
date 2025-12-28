@@ -920,6 +920,113 @@ export class IslemController {
     }
   }
 
+  @Post('arka-kasa-aktar')
+  async arkaKasaAktar(
+    @Body()
+    body: {
+      nakitBakiye: number;
+      arkaKasaTutar: number;
+    },
+  ) {
+    try {
+      if (
+        typeof body?.nakitBakiye !== 'number' ||
+        isNaN(body.nakitBakiye) ||
+        body.nakitBakiye < 0
+      ) {
+        throw new HttpException(
+          'Geçersiz Nakit kasa bakiyesi',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        typeof body?.arkaKasaTutar !== 'number' ||
+        isNaN(body.arkaKasaTutar) ||
+        body.arkaKasaTutar <= 0
+      ) {
+        throw new HttpException(
+          'Geçersiz aktarım tutarı',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (body.arkaKasaTutar > body.nakitBakiye) {
+        throw new HttpException(
+          'Aktarım tutarı Nakit kasa bakiyesinden büyük olamaz',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc = await this.islemService.updateLatestKasaDevirArkaKasa({
+        nakitBakiye: body.nakitBakiye,
+        arkaKasaTutar: body.arkaKasaTutar,
+      });
+
+      return {
+        success: true,
+        message: 'Arka Kasa aktarımı kaydedildi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/arka-kasa-aktar hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Arka Kasa aktarımı kaydedilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('arka-kasa-geri-aktar')
+  async arkaKasaGeriAktar(
+    @Body()
+    body: {
+      nakitBakiye: number;
+      tutar: number;
+    },
+  ) {
+    try {
+      if (
+        typeof body?.nakitBakiye !== 'number' ||
+        isNaN(body.nakitBakiye) ||
+        body.nakitBakiye < 0
+      ) {
+        throw new HttpException(
+          'Geçersiz Nakit kasa bakiyesi',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        typeof body?.tutar !== 'number' ||
+        isNaN(body.tutar) ||
+        body.tutar <= 0
+      ) {
+        throw new HttpException(
+          'Geçersiz aktarım tutarı',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sonuc =
+        await this.islemService.updateLatestKasaDevirArkaKasaGeriAktar({
+          nakitBakiye: body.nakitBakiye,
+          tutar: body.tutar,
+        });
+
+      return {
+        success: true,
+        message: 'Arka Kasa geri aktarımı kaydedildi',
+        sonuc,
+      };
+    } catch (error: unknown) {
+      console.error('❌ /islem/arka-kasa-geri-aktar hatası:', error);
+      const msg = this.getErrorMessage(error);
+      throw new HttpException(
+        msg || 'Arka Kasa geri aktarımı kaydedilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /**
    * tblislem tablosundan belirli kaydı getirir
    */
