@@ -23,7 +23,7 @@
                   color="primary"
                   inline
                   dense
-                  :disable="isInputDisabled"
+                  :disable="isInputDisabled || rzvrytkModuAktif"
                 />
               </div>
                 </div>
@@ -42,6 +42,7 @@
                       options-dense
                       class="q-ml-sm"
                       style="min-width: 175px;"
+                      :disable="isInputDisabled || rzvrytkModuAktif"
                     />
                   </div>
                 </div>
@@ -100,6 +101,7 @@
                       map-options
                       options-dense
                       popup-content-class="firma-dropdown-options"
+                      :disable="isInputDisabled || rzvrytkModuAktif"
                     >
                       <template v-slot:no-option>
                         <q-item dense>
@@ -129,6 +131,7 @@
                     dense
                     class="kurumsal-responsive"
                     @update:model-value="onCorporateFieldChanged"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                   />
                   <q-input 
                     v-model="extraForm.MstrFrmMdr" 
@@ -139,6 +142,7 @@
                     dense
                     class="kurumsal-responsive"
                     @update:model-value="onCorporateFieldChanged"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                   />
                 </div>
                 
@@ -153,6 +157,7 @@
                     dense
                     class="kurumsal-responsive"
                     @update:model-value="onCorporateFieldChanged"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                   />
                   <q-input 
                     v-model="extraForm.MstrVno" 
@@ -163,6 +168,7 @@
                     dense
                     class="kurumsal-responsive"
                     @update:model-value="onCorporateFieldChanged"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                   />
                   <q-input 
                     v-model="extraForm.MstrMdrTel" 
@@ -173,6 +179,7 @@
                     dense
                     class="kurumsal-responsive"
                     @update:model-value="onCorporateFieldChanged"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                   />
                 </div>
               </div>
@@ -211,7 +218,7 @@
                     outlined
                     required
                     class="kurumsal-responsive"
-                    :disable="isInputDisabled"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                     @update:model-value="updateEkNotlar"
                   />
                 </div>
@@ -228,7 +235,7 @@
                     color="primary"
                     label-color="primary"
                     class="kurumsal-responsive"
-                    :disable="isInputDisabled"
+                    :disable="isInputDisabled || rzvrytkModuAktif"
                     @update:model-value="updateEkNotlar"
                   />
                 </div>
@@ -254,8 +261,8 @@
                       label-color="green-6"
                       @update:model-value="onOdaTipiChanged"
                       required
-                      :readonly="guncellemeModuAktif"
-                      :disable="guncellemeModuAktif || isInputDisabled"
+                      :readonly="guncellemeModuAktif || rzvrytkModuAktif"
+                      :disable="guncellemeModuAktif || isInputDisabled || rzvrytkModuAktif"
                       class="kurumsal-responsive oda-select-field"
                       style="font-size: 0.75rem;"
                     >
@@ -303,8 +310,8 @@
                       dense
                       color="green-6"
                       label-color="green-6"
-                      :disable="!form.OdaTipi || guncellemeModuAktif || isInputDisabled"
-                      :readonly="guncellemeModuAktif"
+                      :disable="!form.OdaTipi || guncellemeModuAktif || isInputDisabled || rzvrytkModuAktif"
+                      :readonly="guncellemeModuAktif || rzvrytkModuAktif"
                       required
                       :display-value="selectedOdaYatakDisplay"
                       class="kurumsal-responsive oda-select-field"
@@ -356,8 +363,8 @@
                       :max="30"
                       @update:model-value="onKonaklamaSuresiChanged"
                       required
-                      :readonly="guncellemeModuAktif || !form.OdaTipi"
-                      :disable="guncellemeModuAktif || !form.OdaTipi || isInputDisabled"
+                      :readonly="guncellemeModuAktif || !form.OdaTipi || rzvrytkModuAktif"
+                      :disable="guncellemeModuAktif || !form.OdaTipi || isInputDisabled || rzvrytkModuAktif"
                       class="kurumsal-responsive konaklama-field"
                     />
                   </div>
@@ -437,8 +444,8 @@
                       :min="0"
                       @update:model-value="onToplamBedelChanged"
                       required
-                      :readonly="guncellemeModuAktif"
-                      :disable="guncellemeModuAktif || isInputDisabled"
+                      :readonly="guncellemeModuAktif || rzvrytkModuAktif"
+                      :disable="guncellemeModuAktif || isInputDisabled || rzvrytkModuAktif"
                       class="kurumsal-responsive bedel-field"
                     />
                   </div>
@@ -449,7 +456,7 @@
                       label="Ö.T.G."
                       color="green-6"
                       dense
-                      :disable="!isOtgCheckboxEnabled || guncellemeModuAktif || isInputDisabled"
+                      :disable="!isOtgCheckboxEnabled || guncellemeModuAktif || isInputDisabled || rzvrytkModuAktif"
                       class="otg-checkbox"
                       @update:model-value="onOtgCheckboxChanged"
                     />
@@ -464,12 +471,12 @@
                       dense
                       readonly
                       required
-                      :disable="guncellemeModuAktif"
+                      :disable="guncellemeModuAktif || rzvrytkModuAktif"
                       class="kurumsal-responsive odeme-vadesi-field"
                     >
                       <template v-slot:append>
                         <q-icon name="event" class="cursor-pointer">
-                          <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="odemeVadesiPopup">
+                          <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="odemeVadesiPopup" :disable="guncellemeModuAktif || rzvrytkModuAktif">
                             <q-date 
                               v-model="form.OdemeVadesi" 
                               mask="DD.MM.YYYY"
@@ -492,16 +499,16 @@
                 <!-- Alt Satır: Butonlar -->
                 <div class="row no-wrap bedel-islemler-row">
                   <div class="col-auto bedel-islemler-col">
-              <q-btn 
-                @click="showEkBilgilerDialog = true" 
-                label="Ek Bilgiler" 
-                color="orange" 
-                outline
-                icon="room_service"
+                  <q-btn 
+                    @click="showEkBilgilerDialog = true" 
+                    label="Ek Bilgiler" 
+                    color="orange" 
+                    outline
+                    icon="room_service"
                       class="compact-btn"
                       size="sm"
                       dense
-                      :disable="guncellemeModuAktif"
+                      :disable="guncellemeModuAktif || rzvrytkModuAktif"
               />
                   </div>
                   <div class="col-auto depozito-inline">
@@ -511,7 +518,7 @@
                       color="orange"
                       dense
                       class="text-orange-7 text-weight-medium"
-                      :disable="isInputDisabled"
+                      :disable="isInputDisabled || rzvrytkModuAktif"
                       @update:model-value="updateEkNotlar"
                     />
                     <q-input
@@ -521,7 +528,7 @@
                       dense
                       outlined
                       color="orange"
-                      :disable="!depozito.dahil || isInputDisabled"
+                      :disable="!depozito.dahil || isInputDisabled || rzvrytkModuAktif"
                       style="width: 120px;"
                       class="depozito-input"
                       @update:model-value="updateEkNotlar"
@@ -561,9 +568,9 @@
                   label-color="indigo-6"
                   dense
                   class="kurumsal-responsive"
-                  :class="{ 'konaklama-readonly': guncellemeModuAktif }"
-                  :readonly="guncellemeModuAktif"
-                  :disable="guncellemeModuAktif"
+                  :class="{ 'konaklama-readonly': guncellemeModuAktif || rzvrytkModuAktif }"
+                  :readonly="guncellemeModuAktif || rzvrytkModuAktif"
+                  :disable="guncellemeModuAktif || rzvrytkModuAktif"
                 />
               </div>
             </div> <!-- Ana Container Kapanış -->
@@ -584,15 +591,15 @@
               label-color="teal-7"
               class="text-caption full-width-input"
               readonly
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             >
               <template v-slot:append>
                 <q-icon name="event" class="cursor-pointer" :class="{ 'disabled-icon': isInputDisabled }">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup" :disable="isInputDisabled">
+                  <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup" :disable="isInputDisabled || rzvrytkModuAktif">
                     <q-date 
                       v-model="extraForm.MstrDgmTarihi" 
                       mask="DD.MM.YYYY"
-                      :disable="isInputDisabled"
+                      :disable="isInputDisabled || rzvrytkModuAktif"
                       :locale="{
                         days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
                         daysShort: ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'],
@@ -614,7 +621,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrEposta" 
@@ -625,7 +632,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrMeslek" 
@@ -635,7 +642,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrYakini" 
@@ -645,7 +652,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrYknTel" 
@@ -655,7 +662,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrAdres" 
@@ -667,7 +674,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
             <q-input 
               v-model="extraForm.MstrNot" 
@@ -679,7 +686,7 @@
               color="teal-6"
               label-color="teal-7"
               class="text-caption full-width-input"
-              :disable="isInputDisabled"
+              :disable="isInputDisabled || rzvrytkModuAktif"
             />
           </div>
         </div>
@@ -701,19 +708,21 @@
                 v-model="ekBilgiler.kahvaltiDahil" 
                 label="Kahvaltı Dahil" 
                 color="primary"
-                :disable="form.KonaklamaTipi !== 'GÜNLÜK' || isInputDisabled"
+                :disable="form.KonaklamaTipi !== 'GÜNLÜK' || isInputDisabled || rzvrytkModuAktif"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
                 v-model="ekBilgiler.havluVerildi" 
                 label="Havlu Verildi" 
                 color="primary"
+                :disable="isInputDisabled || rzvrytkModuAktif"
                 @update:model-value="updateEkNotlar"
               />
               <q-checkbox 
                 v-model="ekBilgiler.prizVerildi" 
                 label="Priz Verildi" 
                 color="primary"
+                :disable="isInputDisabled || rzvrytkModuAktif"
                 @update:model-value="updateEkNotlar"
               />
               <!-- 🔥 Geç Saat Konaklama checkbox'ı kaldırıldı - artık konaklama süresi 0 seçildiğinde otomatik kontrol yapılıyor -->
@@ -2625,6 +2634,7 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
       
       if (allowedFilters.includes(musteriData.currentFilter)) {
         debugLog('🔥 kartli-islem sayfasından seçili müşteri bulundu:', musteriData)
+        veriYukleniyor.value = true
         
         // Sadece müşteri bilgilerini doldur (tblMusteri tablosundaki bilgiler)
         form.value.MstrTCN = musteriData.MstrTCN || ''
@@ -2635,7 +2645,7 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
         
         // Konaklama bilgilerini readonly olarak göster (değiştirilemez)
         form.value.OdaTipi = musteriData.KnklmOdaTip || ''
-        form.value.OdaYatak = musteriData.OdaYatak || ''
+        form.value.OdaYatak = getOdaYatakValue(musteriData.OdaYatak) || ''
         form.value.KonaklamaTipi = musteriData.KonaklamaTipi || 'GÜNLÜK'
         form.value.ToplamBedel = parseFloat(musteriData.KnklmNfyt) || 0
         form.value.HesaplananBedel = parseFloat(musteriData.KnklmLfyt) || 0
@@ -2705,6 +2715,13 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
         } catch (error) {
           console.error('Ödeme vadesi yüklenirken hata:', error)
         }
+
+        const odaTipiToLoad = form.value.OdaTipi || ''
+        await nextTick()
+        veriYukleniyor.value = false
+        if (odaTipiToLoad) {
+          await loadBosOdalar(odaTipiToLoad)
+        }
         
         notify.value = 'Kartlı İşlem sayfasından seçili müşteri bilgileri yüklendi - Yeni Giriş için hazır'
         
@@ -2719,6 +2736,8 @@ async function checkAndApplySelectedMusteriFromKartliIslem() {
     }
   } catch (error) {
     console.error('Kartlı işlem sayfasından müşteri bilgileri yüklenirken hata:', error)
+  } finally {
+    veriYukleniyor.value = false
   }
 }
 
@@ -2729,8 +2748,31 @@ async function onTCNBlur() {
     form.value.MstrTCN = normalized
   }
 
-  // 🔥 RZVRYTK modu aktifken (TC DEĞİŞTİR butonu görünürken) blur eventi çalışmasın
   if (rzvrytkModuAktif.value) {
+    const yeniTCN = form.value.MstrTCN || ''
+    if (!cachedTCN.value && originalTCN.value) {
+      cachedTCN.value = originalTCN.value
+    }
+    if (cachedTCN.value && yeniTCN && yeniTCN !== cachedTCN.value) {
+      tcKimlikProcessing.value = true
+      try {
+        const mevcutMusteriResponse = await api.get(`/musteri/musteri-bilgi/${yeniTCN}`)
+        if (mevcutMusteriResponse.data.success && mevcutMusteriResponse.data.data) {
+          const mevcutMusteri = mevcutMusteriResponse.data.data
+          mergeOnayData.value = {
+            eskiTCN: cachedTCN.value,
+            yeniTCN,
+            eskiMusteriAdi: form.value.MstrAdi,
+            yeniMusteriAdi: mevcutMusteri.MstrAdi
+          }
+          showMergeOnayDialog.value = true
+        }
+      } catch {
+        // ignore
+      } finally {
+        tcKimlikProcessing.value = false
+      }
+    }
     return
   }
   
@@ -2805,6 +2847,7 @@ async function onTCNBlur() {
       if (response.data.success && response.data.data && response.data.data.exists) {
         // Kayıt bulundu - özel güncelleme modunu aktif et
         rzvrytkModuAktif.value = true
+        cachedTCN.value = currentTCN
         guncellemeModuAktif.value = false // Normal güncelleme modunu kapat
         musteriDurumu.value = 'RZVRYTK_UPDATE'
         
@@ -3607,19 +3650,20 @@ function onOtgCheckboxChanged(isChecked: boolean) {
 // Seçilen oda-yatak kombinasyonu için tooltip metni oluşturucu
 function getSelectedOdaYatakTooltip(): string {
   if (!form.value.OdaYatak) return ''
-  
-  const selected = bosOdalarOptions.value.find(
-    option => option.value === form.value.OdaYatak
-  )
-  
-  return selected ? `Seçilen: ${selected.label}` : ''
+
+  const odaYatakValue = getOdaYatakValue(form.value.OdaYatak)
+  if (!odaYatakValue) return ''
+
+  const selected = bosOdalarOptions.value.find(option => option.value === odaYatakValue)
+  return selected ? `Seçilen: ${selected.label}` : `Seçilen: ${odaYatakValue}`
 }
 
 // Combobox inputunda Kirli ve Arızalı metnini gizleyerek görüntülenecek değer
   const selectedOdaYatakDisplay = computed(() => {
-    if (!form.value.OdaYatak) return ''
-    const selected = bosOdalarOptions.value.find(o => o.value === form.value.OdaYatak)
-    const label = selected?.label || String(form.value.OdaYatak)
+    const odaYatakValue = getOdaYatakValue(form.value.OdaYatak)
+    if (!odaYatakValue) return ''
+    const selected = bosOdalarOptions.value.find(o => o.value === odaYatakValue)
+    const label = selected?.label || odaYatakValue
     return label.replace(/\s*\(Kirli\)|\s*\[Kirli\]|\s*\(Arızalı?\)|\s*\[Arızalı?\]/gi, '')
   })
 

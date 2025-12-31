@@ -682,21 +682,19 @@
                        <!-- Cari Hesap Adı -->
                        <div class="col-12 col-sm-6">
                          <div class="text-subtitle2 text-weight-medium q-mb-xs form-label">Cari Hesap Adı:</div>
-                         <q-select
-                           v-model="selectedIslemDetay.islemAltG"
-                           :options="cariHesaplar"
-                           outlined
-                           dense
-                           class="form-input cari-hesap-combo"
-                           :readonly="isArchiveMode"
-                           use-input
-                           input-debounce="300"
-                           hide-selected
-                           fill-input
-                           required
-                           :rules="[val => !!val || 'Cari hesap adı zorunludur']"
-                           @filter="onCariHesapFilter"
-                           @update:model-value="onCariHesapChange"
+                       <q-select
+                          v-model="selectedIslemDetay.islemAltG"
+                          :options="cariHesaplar"
+                          outlined
+                          dense
+                          class="form-input cari-hesap-combo"
+                          :readonly="isArchiveMode"
+                          use-input
+                          input-debounce="300"
+                          hide-selected
+                          fill-input
+                          @filter="onCariHesapFilter"
+                          @update:model-value="onCariHesapChange"
                />
              </div>
              
@@ -2682,15 +2680,15 @@ const onIslemGrupFilter = (val: string, update: (callback: () => void) => void) 
 const onCariHesapFilter = (val: string, update: (callback: () => void) => void) => {
   if (val === '') {
     update(() => {
-      // Boş değer için orijinal listeyi geri yükle
       cariHesaplar.value = [...originalCariHesaplar.value]
     })
     return
   }
+
   update(() => {
-    // Filtrelenmiş sonuçları göster
-    cariHesaplar.value = originalCariHesaplar.value.filter(
-      cari => cari.toLowerCase().includes(val.toLowerCase())
+    const needle = val.toLocaleLowerCase('tr-TR')
+    cariHesaplar.value = originalCariHesaplar.value.filter(cari =>
+      (cari || '').toLocaleLowerCase('tr-TR').includes(needle)
     )
   })
 }
@@ -2706,7 +2704,7 @@ const onIslemGrupChange = (val: string) => {
 // Cari hesap değişiklik kontrolü
 const onCariHesapChange = (val: string) => {
   // Seçilen değer geçerli listede yoksa temizle
-  if (val && !cariHesaplar.value.includes(val)) {
+  if (val && !originalCariHesaplar.value.includes(val)) {
     selectedIslemDetay.value.islemAltG = ''
   }
 }

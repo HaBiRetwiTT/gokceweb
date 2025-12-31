@@ -3423,6 +3423,22 @@ export class MusteriService {
       // Kullanıcı adını belirle
       const kullaniciAdi = username || 'admin';
 
+      const isTempTc =
+        eskiTCN?.startsWith('RZVRYTK_') || eskiTCN?.startsWith('RZVNYTK_');
+      if (!isTempTc) {
+        throw new Error(
+          'Bu işlem sadece geçici TC (RZVRYTK_ / RZVNYTK_) için kullanılabilir.',
+        );
+      }
+
+      const isNewTempTc =
+        yeniTCN?.startsWith('RZVRYTK_') || yeniTCN?.startsWith('RZVNYTK_');
+      if (isNewTempTc) {
+        throw new Error(
+          'Yeni TC geçici formatta olamaz (RZVRYTK_ / RZVNYTK_).',
+        );
+      }
+
       // 1. Eski TC ile müşteri kaydını bul (tempMusteri - RZVRYTK)
       const tempMusteri = await musteriRepo.findOne({ where: { MstrTCN: eskiTCN } });
       if (!tempMusteri) {
@@ -3437,39 +3453,79 @@ export class MusteriService {
         // MERGE SENARYOSU: Yeni TC zaten mevcut, kayıtları birleştir
         // ═══════════════════════════════════════════════════════════
         
-        // 2.1. CariKod'ları hesapla
-        const tempCariKod = `${tempMusteri.MstrHspTip === 'Kurumsal' ? 'MK' : 'MB'}${tempMusteri.MstrNo}`;
-        const realCariKod = `${realMusteri.MstrHspTip === 'Kurumsal' ? 'MK' : 'MB'}${realMusteri.MstrNo}`;
-        
-        // 2.2. Konaklamaları transfer et
+        const cariKodByVtcnQuery = `
+          SELECT TOP 1 CariKod
+          FROM ${tables.cari}
+          WHERE CariVTCN = @0
+        `;
+
+        const eskiCariKodResult = (await queryRunner.query(cariKodByVtcnQuery, [
+          eskiTCN,
+        ])) as Array<{ CariKod?: string; carikod?: string; CARIKOD?: string }>;
+        const yeniCariKodResult = (await queryRunner.query(cariKodByVtcnQuery, [
+          yeniTCN,
+        ])) as Array<{ CariKod?: string; carikod?: string; CARIKOD?: string }>;
+
+        const eskiCariKod = String(
+          eskiCariKodResult?.[0]?.CariKod ??
+            eskiCariKodResult?.[0]?.carikod ??
+            eskiCariKodResult?.[0]?.CARIKOD ??
+            '',
+        ).trim();
+        const yeniCariKod = String(
+          yeniCariKodResult?.[0]?.CariKod ??
+            yeniCariKodResult?.[0]?.carikod ??
+            yeniCariKodResult?.[0]?.CARIKOD ??
+            '',
+        ).trim();
+
+        if (!eskiCariKod) {
+          throw new NotFoundException(
+            `Eski TC No'su ${eskiTCN} olan tblCari kaydı bulunamadı.`,
+          );
+        }
+
+        if (!yeniCariKod) {
+          throw new NotFoundException(
+            `Yeni TC No'su ${yeniTCN} olan tblCari kaydı bulunamadı.`,
+          );
+        }
+
+        if (eskiCariKod === yeniCariKod) {
+          throw new Error(
+            `CariKod çakışması: Eski ve yeni müşteri aynı CariKod'a bağlı (${eskiCariKod}).`,
+          );
+        }
+
+        if (tempMusteri.MstrNo === realMusteri.MstrNo) {
+          throw new Error(
+            `MstrNo çakışması: Eski ve yeni müşteri aynı MstrNo'a sahip (${tempMusteri.MstrNo}).`,
+          );
+        }
+
+        const islemUpdateQuery = `
+          UPDATE ${tables.islem}
+          SET islemCrKod = @1
+          WHERE islemCrKod = @0
+        `;
+        await queryRunner.query(islemUpdateQuery, [eskiCariKod, yeniCariKod]);
+
         const konaklamaUpdateQuery = `
           UPDATE ${tables.konaklama}
           SET KnklmMstrNo = @1
           WHERE KnklmMstrNo = @0
         `;
-        await queryRunner.query(konaklamaUpdateQuery, [tempMusteri.MstrNo, realMusteri.MstrNo]);
-        
-        // 2.3. İşlemleri transfer et (islemCrKod + islemAltG)
-        const islemUpdateQuery = `
-          UPDATE ${tables.islem}
-          SET islemCrKod = @1,
-              islemAltG = @2
-          WHERE islemCrKod = @0
-        `;
-        await queryRunner.query(islemUpdateQuery, [
-          tempCariKod, 
-          realCariKod, 
-          realMusteri.MstrAdi  // Müşteri adını güncelle
+        await queryRunner.query(konaklamaUpdateQuery, [
+          tempMusteri.MstrNo,
+          realMusteri.MstrNo,
         ]);
-        
-        // 2.4. Geçici Cari kaydını sil
+
         const cariDeleteQuery = `
           DELETE FROM ${tables.cari}
           WHERE CariKod = @0
         `;
-        await queryRunner.query(cariDeleteQuery, [tempCariKod]);
-        
-        // 2.5. Geçici Müşteri kaydını sil
+        await queryRunner.query(cariDeleteQuery, [eskiCariKod]);
+
         const musteriDeleteQuery = `
           DELETE FROM ${tables.musteri}
           WHERE MstrNo = @0

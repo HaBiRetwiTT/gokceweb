@@ -2617,7 +2617,7 @@ export class IslemService {
     const tableName = this.dbConfig.getTableName('tblCari');
 
     const query = `
-        SELECT CariAdi
+        SELECT DISTINCT CariAdi
         FROM ${tableName}
         WHERE CariAdi IS NOT NULL AND CariAdi <> @0
         ORDER BY CariAdi
